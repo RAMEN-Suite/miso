@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouteLocationNormalized, useRoute } from "vue-router";
 import { CollectionNode, NodeAncestry, NodeDto } from "../models/types";
-import CollectionBreadcrumbs from "../components/CollectionBreadcrumbs.vue";
+import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import Card from "primevue/card";
 
 const route: RouteLocationNormalized = useRoute();
@@ -30,7 +30,7 @@ const ancestryPaths: NodeAncestry[] = route.meta.ancestryPaths ?? [];
         >
           <template #content>
             <div class="flex justify-content-center">
-              <CollectionBreadcrumbs :path="path" />
+              <HierarchyBreadcrumbs :path="path" />
             </div>
           </template>
         </Card>

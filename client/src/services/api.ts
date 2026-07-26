@@ -17,6 +17,9 @@ import {
   TextUpdateDto,
   AnnotationNode,
   NodeStatusObject,
+  HierarchyNode,
+  HierarchyFilters,
+  HierarchySort,
 } from "../models/types";
 import DatabaseConnectionError from "../utils/errors/databaseConnection.error";
 import ApiError from "../utils/errors/api.error";
@@ -114,9 +117,9 @@ export default class ApiService {
     }
   }
 
-  public async deleteCollection(uuid: string): Promise<NodeDto<CollectionNode>> {
+  public async deleteHierarchyNode(uuid: string): Promise<NodeDto<HierarchyNode>> {
     try {
-      const url: string = `${this.baseUrl}/collections/${uuid}`;
+      const url: string = `${this.baseUrl}/hierarchy/nodes/${uuid}`;
 
       const response: Response = await fetch(url, {
         method: "DELETE",
@@ -258,6 +261,102 @@ export default class ApiService {
 
     try {
       const response: Response = await fetch(fetchUrl);
+
+      await this.assertResponseOk(response);
+
+      return await response.json();
+    } catch (error: unknown) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Fetches one page of a parent's hierarchy children (Collections + Contents), or the top-level
+   * nodes when `parentUuid` is null.
+   *
+   * @param {string | null} parentUuid - The parent Collection UUID, or `null` for top-level nodes.
+   * @param {Object} params - Filters, sort and the opaque cursor string.
+   * @returns {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of children plus pagination.
+   */
+  public async getHierarchyChildren(
+    parentUuid: string | null,
+    params: {
+      filters: DeepReadonly<HierarchyFilters> | HierarchyFilters;
+      sort: DeepReadonly<HierarchySort> | HierarchySort;
+      cursor: string | null;
+    },
+  ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
+    const { filters, sort, cursor } = params;
+
+    const urlParams: URLSearchParams = new URLSearchParams();
+
+    if (parentUuid) {
+      urlParams.set("parent", parentUuid);
+    }
+
+    urlParams.set("search", filters.search);
+    urlParams.set("nodeLabels", filters.nodeLabels.join(","));
+    urlParams.set("sort", sort.field);
+    urlParams.set("dir", sort.direction);
+
+    if (cursor) {
+      urlParams.set("cursor", cursor);
+    }
+
+    const fetchUrl: string = `${this.baseUrl}/hierarchy/children?${urlParams.toString()}`;
+
+    try {
+      const response: Response = await fetch(fetchUrl);
+
+      await this.assertResponseOk(response);
+
+      return await response.json();
+    } catch (error: unknown) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Validates an ordered hierarchy path (root first, focused node last).
+   *
+   * @param {string} uuidString - Comma-separated UUIDs of the path.
+   * @returns {Promise<NodeDto<HierarchyNode>[]>} The validated path with full node labels.
+   */
+  public async validateHierarchyPath(uuidString: string): Promise<NodeDto<HierarchyNode>[]> {
+    try {
+      const url: string = `${this.baseUrl}/hierarchy/path?path=${uuidString}`;
+
+      const response: Response = await fetch(url);
+
+      await this.assertResponseOk(response);
+
+      return await response.json();
+    } catch (error: unknown) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Creates a new hierarchy node (Collection or Content) or attaches an existing one.
+   *
+   * @param {string} uuid - UUID of the created/added node (the operative node in the tree).
+   * @param {NodeStatusObject} data - The ownership tree to persist.
+   * @returns {Promise<NodeDto<HierarchyNode>>} The created/added node.
+   */
+  public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
+    try {
+      const url: string = `${this.baseUrl}/hierarchy/nodes`;
+
+      const response: Response = await fetch(url, {
+        method: "POST",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({ uuid, data }),
+      });
 
       await this.assertResponseOk(response);
 

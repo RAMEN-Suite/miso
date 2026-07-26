@@ -4,12 +4,12 @@ import CollectionTopMenu from "../components/CollectionTopMenu.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Splitter from "primevue/splitter";
 import SplitterPanel from "primevue/splitterpanel";
-import { useCollectionManagerStore } from "../store/collectionManager";
-import CollectionBreadcrumbs from "../components/CollectionBreadcrumbs.vue";
-import CollectionsColumn from "../components/CollectionsColumn.vue";
-import CollectionEditPane from "../components/CollectionEditPane.vue";
+import { useHierarchyStore } from "../store/hierarchy";
+import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
+import HierarchyColumn from "../components/HierarchyColumn.vue";
+import FocusPane from "../components/FocusPane.vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { CollectionNode, NodeDto } from "../models/types";
+import { HierarchyPath } from "../models/types";
 import CollectionPathError from "../components/CollectionPathError.vue";
 import { useAppStore } from "../store/app";
 import PageOverlay from "../components/PageOverlay.vue";
@@ -22,15 +22,8 @@ const isPathValid = ref<boolean>(false);
 const route = useRoute();
 
 const { addToastMessage } = useAppStore();
-const {
-  canNavigate,
-  levels,
-  pathToActiveCollection,
-  createNewUrlPath,
-  restoreDefaultView,
-  validatePath,
-  updateLevelsAndFetchData,
-} = useCollectionManagerStore();
+const { canNavigate, levels, path, createNewUrlPath, restoreDefaultView, validatePath, updateLevelsAndFetchData } =
+  useHierarchyStore();
 
 const router = useRouter();
 
@@ -41,8 +34,8 @@ watch(
     // On first page load
     if (isLoading.value) {
       try {
-        // If path exists on page load, validate it. Else, just fetch top-level collections
-        const newPath: NodeDto<CollectionNode>[] = newValue ? await validatePath(newValue as string) : [];
+        // If path exists on page load, validate it. Else, just fetch top-level nodes
+        const newPath: HierarchyPath = newValue ? await validatePath(newValue as string) : [];
         await updateLevelsAndFetchData(newPath);
 
         isPathValid.value = true;
@@ -62,7 +55,7 @@ watch(
     }
 
     try {
-      const newPath: NodeDto<CollectionNode>[] = await validatePath(newValue as string);
+      const newPath: HierarchyPath = await validatePath(newValue as string);
       await updateLevelsAndFetchData(newPath);
 
       isPathValid.value = true;
@@ -134,8 +127,8 @@ function showUnsavedChangesWarning() {
       <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
       <CollectionTopMenu />
       <div class="main flex-grow-1 flex flex-column">
-        <CollectionBreadcrumbs
-          :path="pathToActiveCollection"
+        <HierarchyBreadcrumbs
+          :path="path"
           @item-clicked="handleBreadcrumbItemClick"
           @home-clicked="handleBreadcrumbHomeClick"
         />
@@ -162,11 +155,11 @@ function showUnsavedChangesWarning() {
           >
             <SplitterPanel class="overflow-y-auto">
               <div class="columns-container h-full flex overflow-x-scroll">
-                <CollectionsColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
+                <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
               </div>
             </SplitterPanel>
             <SplitterPanel :size="20" class="overflow-y-auto">
-              <CollectionEditPane />
+              <FocusPane />
             </SplitterPanel>
           </Splitter>
         </div>

@@ -1,22 +1,13 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import annotationRoutes from "./annotations.routes.js";
 import textRoutes from "./text.routes.js";
-import AnnotationService from "../services/annotation.service.js";
 import CollectionService from "../services/collection.service.js";
-import {
-  CollectionNode,
-  CollectionCreationData,
-  NodeAncestry,
-  PaginationResult,
-  NodeDto,
-  NodeStatusObject,
-} from "../models/types.js";
+import { CollectionNode, NodeAncestry, PaginationResult, NodeDto, NodeStatusObject } from "../models/types.js";
 import { getPagination } from "../utils/helper.js";
 
 const router: Router = express.Router({ mergeParams: true });
 
 const collectionService: CollectionService = new CollectionService();
-const annotationService: AnnotationService = new AnnotationService();
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -107,18 +98,6 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
     const updatedCollection: NodeDto<CollectionNode> = await collectionService.updateCollection(uuid, data);
 
     res.status(200).json(updatedCollection);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.delete("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.params.uuid;
-
-  try {
-    const collection: NodeDto<CollectionNode> = await collectionService.deleteCollection(uuid);
-
-    res.status(200).json(collection);
   } catch (error: unknown) {
     next(error);
   }

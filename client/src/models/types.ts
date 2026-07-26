@@ -229,15 +229,71 @@ export interface HistoryRecord {
 
 export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
 
-export interface ColumnEntry {
-  data: NodeDto<CollectionNode>;
-  status: "existing" | "temporary";
+/** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
+export type HierarchyNode = CollectionNode | TextNode;
+
+/**
+ * An ordered path of hierarchy nodes, root first, focused node last. */
+export type HierarchyPath = NodeDto<HierarchyNode>[];
+
+/** A single item in a hierarchy listing (column / directory / tree). */
+export interface HierarchyEntry {
+  data: NodeDto<HierarchyNode>;
+  meta: {
+    /**
+     * Derived from `data.node.nodeLabels` via `getBaseNodeLabel()`. Cached here because it is read
+     * on every render (icon, click behaviour).
+     */
+    baseLabel: "Collection" | "Content";
+    /** Multi-select flag — future drag & drop / bulk operations. */
+    isSelected: boolean;
+    /** Children shown in the next column / node unfolded in the tree. */
+    isExpanded: boolean;
+    /** Shown in the focus pane. */
+    isFocused: boolean;
+  };
 }
 
 export interface Level {
-  collections: ColumnEntry[];
-  activeCollection: NodeDto<CollectionNode> | null;
+  entries: HierarchyEntry[];
+  activeNode: NodeDto<HierarchyNode> | null;
   parentUuid: string | null;
+}
+
+/** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
+export interface CollectionFocus {
+  kind: "collection";
+  collection: NodeStatusObject<CollectionNode>;
+  annotations: NodeStatusObject[];
+}
+
+/** Focus-pane data for a Content: the node itself, shown read-only. */
+export interface ContentFocus {
+  kind: "content";
+  content: NodeStatusObject<TextNode>;
+}
+
+/** What the focus pane renders — a Collection (editable) or a Content (read-only preview). */
+export type FocusData = CollectionFocus | ContentFocus;
+
+/** Sort state for a hierarchy listing. */
+export interface HierarchySort {
+  /** Field to sort by. Normally defaults to `distinct` if no specific field is provided. Backend handles this by
+   * applying the default value for the given node (`text`, `label`, `etc`).
+   */
+  field: "distinct" | string;
+  /** Direction to sort by. */
+  direction: "asc" | "desc";
+}
+
+/**
+ * Filter state for a hierarchy listing. Kept as an object (not flat params) so property predicates
+ * can be added later without changing call signatures. `nodeLabels` is one flat, global set (union
+ * of Collection + Content labels).
+ */
+export interface HierarchyFilters {
+  search: string;
+  nodeLabels: string[];
 }
 
 export interface MalformedAnnotation {
@@ -265,7 +321,8 @@ export interface PaginationData {
   order: string;
   search: string;
   totalRecords: number;
-  nextCursor?: CursorData | null;
+  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
+  nextCursor?: CursorData | string | null;
 }
 
 export interface CursorData {

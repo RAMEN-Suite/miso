@@ -2,13 +2,13 @@
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import MultiSelect from "primevue/multiselect";
+import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, NodeDto, NodeStatusObject } from "../models/types";
-import FormPropertiesSection from "./FormPropertiesSection.vue";
+import { CollectionNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
 import NodeTag from "./NodeTag.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
-import { createCollectionNode } from "../utils/helper/helper";
+import { createTextNode } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -19,24 +19,23 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", collection: NodeDto<CollectionNode>): void;
+  (e: "success", content: NodeDto<TextNode>): void;
 }>();
 
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionConfigFields, getAvailableCollectionLabels } = useGuidelinesStore();
+const { getAvailableContentLabels } = useGuidelinesStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 
 const isLoading = ref<boolean>(false);
-const newCollectionNode = ref<CollectionNode>(createCollectionNode());
+const newContentNode = ref<TextNode>(createTextNode());
 const additionalLabels = ref<string[]>([]);
-const allLabels = computed<string[]>(() => ["Collection", ...additionalLabels.value]);
-const availableCollectionLabels = getAvailableCollectionLabels();
-const collectionFields = computed(() => getCollectionConfigFields(allLabels.value));
+const allLabels = computed<string[]>(() => ["Content", ...additionalLabels.value]);
+const availableContentLabels = getAvailableContentLabels();
 
-const inputIsValid = computed<boolean>(() => newCollectionNode.value.data.label.trim().length > 0);
+const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
 
 watch(() => route.path, closeModal);
 
@@ -45,16 +44,16 @@ function closeModal() {
 }
 
 /**
- * Wraps the new node in an ownership tree for the create endpoint: the parent as root with the new
- * node attached, or the new node alone when created at top level.
+ * Wraps the new Content node in an ownership tree for the create endpoint: the parent as root with
+ * the Content attached, or the Content alone when created at top level.
  *
- * @param {CollectionNode} collectionNode - The new collection node.
+ * @param {TextNode} contentNode - The new content node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
  * @returns {NodeStatusObject} The ownership tree to persist.
  */
-function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionNode | null): NodeStatusObject {
-  const nodeStatusObject: NodeStatusObject<CollectionNode> = {
-    node: collectionNode,
+function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | null): NodeStatusObject {
+  const nodeStatusObject: NodeStatusObject<TextNode> = {
+    node: contentNode,
     connectedNodes: [],
     meta: { status: "created" },
   };
@@ -71,26 +70,30 @@ function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionN
 }
 
 async function handleSubmit() {
-  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: allLabels.value };
+  // Collapse newlines, matching how Content text is stored elsewhere
+  const text: string = newContentNode.value.data.text.replace(/(\r\n|\n|\r)/g, " ");
+
+  const contentNodeToAdd: TextNode = {
+    ...newContentNode.value,
+    nodeLabels: allLabels.value,
+    data: { ...newContentNode.value.data, text },
+  };
 
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
+    const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
 
-    const result: NodeDto<CollectionNode> = (await api.createHierarchyNode(
-      collectionNodeToAdd.data.uuid,
-      updateObj,
-    )) as NodeDto<CollectionNode>;
+    const result: NodeDto<TextNode> = (await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj)) as NodeDto<TextNode>;
 
     emit("success", toValue(result));
 
-    dialogRef?.value.close({ collection: result.node });
+    dialogRef?.value.close({ content: result.node });
   } catch {
     addToastMessage({
       severity: "error",
       summary: "Error",
-      detail: "Failed to create collection.",
+      detail: "Failed to create content.",
       life: 3000,
     });
   } finally {
@@ -105,19 +108,19 @@ async function handleSubmit() {
       <h3 class="text-center">Labels</h3>
       <MultiSelect
         v-model="additionalLabels"
-        :options="availableCollectionLabels"
+        :options="availableContentLabels"
         display="chip"
         placeholder="Select labels"
         :filter="false"
       >
         <template #chip="{ value }">
-          <NodeTag :content="value" type="Collection" class="mr-1" />
+          <NodeTag :content="value" type="Content" class="mr-1" />
         </template>
       </MultiSelect>
     </div>
     <div class="flex flex-column gap-1">
-      <h3 class="text-center">Properties</h3>
-      <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
+      <h3 class="text-center">Text</h3>
+      <Textarea v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Enter the content text" />
     </div>
 
     <div class="flex justify-content-center gap-2">

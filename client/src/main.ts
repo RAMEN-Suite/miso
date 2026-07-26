@@ -7,6 +7,7 @@ import DialogService from "primevue/dialogservice";
 import ToastService from "primevue/toastservice";
 import App from "./App.vue";
 import router from "./router.ts";
+import { contenteditable } from "./directives/contenteditable";
 import "../src/styles/style.css";
 import "../src/styles/tiptap.css";
 import "../src/styles/variables.css";
@@ -27,5 +28,6 @@ app
   .use(ToastService);
 
 app.directive("tooltip", Tooltip);
+app.directive("contenteditable", contenteditable);
 
 app.mount("#app");

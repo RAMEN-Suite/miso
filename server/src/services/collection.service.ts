@@ -574,49 +574,4 @@ export default class CollectionService {
       connectedNodes: [],
     };
   }
-
-  public async deleteCollection(uuid: string): Promise<NodeDto<CollectionNode>> {
-    const query: string = `
-
-    MATCH (c:Collection {uuid: $uuid})
-
-    WITH c, {
-        nodeLabels: labels(c),
-        data: c {.*}
-    } AS collectionToDelete
-
-    // Delete annotations
-    CALL (c) {
-        OPTIONAL MATCH (c)-[:HAS_ANNOTATION]->(a:Annotation)
-        DETACH DELETE a
-    }
-
-    // Delete texts, characters, and annotations
-    CALL (c) {
-        OPTIONAL MATCH (c)<-[:PART_OF]-(t:Content)
-        
-        OPTIONAL MATCH (t)-[:HAS_ANNOTATION]->(a:Annotation)
-        OPTIONAL MATCH (t)-[:NEXT_CHARACTER*]->(ch:Character)
-
-        DETACH DELETE t, a, ch
-    }
-
-    // Delete collection
-    DETACH DELETE c
-
-    RETURN collectionToDelete as collection
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const deletedCollection: CollectionNode = result.records[0]?.get("collection");
-
-    if (!deletedCollection) {
-      throw new NotFoundError(`Collection with UUID ${uuid} not found`);
-    }
-
-    return {
-      node: toNativeTypes(deletedCollection) as CollectionNode,
-      connectedNodes: [],
-    };
-  }
 }

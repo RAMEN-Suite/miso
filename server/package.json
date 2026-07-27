@@ -1,6 +1,6 @@
 {
   "name": "miso-server",
-  "version": "0.0.3",
+  "version": "0.0.8",
   "description": "BE Express",
   "type": "module",
   "scripts": {

@@ -52,6 +52,9 @@ const breadcrumbItems = computed<MenuItem[]>(() =>
             title: context.item.title,
           };
         },
+        itemLink: {
+          class: ['gap-2'],
+        },
       }"
     >
     </Breadcrumb>

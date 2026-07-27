@@ -243,30 +243,30 @@ function endResize(): void {
         @click="handleChangeSortOrderClick"
       />
     </div>
-    <div ref="scroll-pane" class="content">
-      <template v-for="(entry, i) in entries" :key="entry.data.node.data.uuid">
-        <HierarchyItem
-          :entry="entry"
-          :is-active="levels[props.index]?.activeNode?.node.data.uuid === entry.data.node.data.uuid"
-          @item-selected="handleItemSelected"
-        ></HierarchyItem>
-      </template>
-      <div v-if="isLoading && entries.length > 0" class="text-center" title="More data are loading...">
-        <span class="pi pi-spin pi-spinner"></span>
+    <div class="content-wrapper">
+      <div ref="scroll-pane" class="content">
+        <template v-for="entry in entries" :key="entry.data.node.data.uuid">
+          <HierarchyItem
+            :entry="entry"
+            :is-active="levels[props.index]?.activeNode?.node.data.uuid === entry.data.node.data.uuid"
+            @item-selected="handleItemSelected"
+          ></HierarchyItem>
+        </template>
+        <div v-if="isLoading && entries.length > 0" class="text-center" title="More data are loading...">
+          <span class="pi pi-spin pi-spinner"></span>
+        </div>
       </div>
-    </div>
-    <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ pagination?.totalRecords ?? 0 }}</div>
-    <div class="footer flex justify-content-center">
       <Button
-        size="small"
+        class="add-button"
         severity="secondary"
         icon="pi pi-plus"
-        class="w-full"
-        label="Add"
         title="Add Collection or Content"
         @click="toggleAddMenu"
       />
       <Menu ref="add-menu" :model="addMenuItems" :popup="true" />
+    </div>
+    <div class="footer">
+      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ pagination?.totalRecords ?? 0 }}</div>
     </div>
   </div>
   <div ref="resizer" class="resizer" title="Hold down mouse and drag to resize column">
@@ -302,6 +302,13 @@ function endResize(): void {
   min-width: 0;
 }
 
+.content-wrapper {
+  position: relative;
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+}
+
 .content {
   overflow-y: auto;
   overflow-x: hidden;
@@ -310,10 +317,17 @@ function endResize(): void {
   scrollbar-gutter: stable;
 }
 
-/* Separates the Collections group from the Contents group (Finder-style) */
-.group-divider {
-  height: 0;
-  border-top: 2px solid hsl(0, 0%, 65%);
-  margin: 2px 0;
+.add-button {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  opacity: 0.55;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
 }
 </style>

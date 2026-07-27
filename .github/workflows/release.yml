@@ -310,4 +310,4 @@ jobs:
       - name: Start Edition Container
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s' "$GH_TOKEN" | ssh staging deploy-cami-full
+        run: printf '%s' "$GH_TOKEN" | ssh staging deploy-miso-full

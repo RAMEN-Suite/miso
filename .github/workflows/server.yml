@@ -222,4 +222,4 @@ jobs:
       - name: Start Container
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s' "$GH_TOKEN" | ssh staging deploy-cami-server
+        run: printf '%s' "$GH_TOKEN" | ssh staging deploy-miso-server

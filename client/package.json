@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "miso-client",
   "private": true,
   "version": "0.0.8",
   "type": "module",

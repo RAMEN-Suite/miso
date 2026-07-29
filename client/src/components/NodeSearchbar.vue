@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, toValue, watch } from "vue";
+import { ComponentPublicInstance, computed, ref, toValue, useTemplateRef, watch } from "vue";
 import AutoComplete from "primevue/autocomplete";
 import MultiSelect from "primevue/multiselect";
 
@@ -17,6 +17,7 @@ import { useGuidelinesStore } from "../store/guidelines";
 import { useAppStore } from "../store/app";
 import NodeTag from "./NodeTag.vue";
 import { filterDefaultLabels } from "../utils/helper/helper";
+import { onStartTyping } from "@vueuse/core";
 
 const props = defineProps<{
   baseNodeLabel: BaseNodeLabel;
@@ -127,6 +128,16 @@ async function handleSearchParamsChange() {
   setPagination(pagination);
   resetPagination();
 }
+
+const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
+
+onStartTyping(() => {
+  const inputEl: HTMLInputElement | undefined = searchbar.value?.$el.querySelector("input");
+
+  if (inputEl && document.activeElement !== inputEl) {
+    inputEl.focus();
+  }
+});
 </script>
 
 <template>

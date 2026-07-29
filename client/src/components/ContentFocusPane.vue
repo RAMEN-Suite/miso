@@ -2,8 +2,6 @@
 import { computed } from "vue";
 import Button from "primevue/button";
 import { ContentFocus } from "../models/types";
-import NodeTag from "./NodeTag.vue";
-import { filterBaseNodeLabel } from "../utils/helper/helper";
 import { useBookmarks } from "../composables/useBookmarks";
 import { resolveNodeIcon } from "../config/icons";
 import { useAppStore } from "../store/app.ts";
@@ -23,7 +21,6 @@ const { bookmarks, toggleBookmark } = useBookmarks();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const contentNode = computed(() => props.focus.content.node);
-const contentLabels = computed<string[]>(() => filterBaseNodeLabel(contentNode.value.nodeLabels));
 const icon = computed<string>(() => resolveNodeIcon(contentNode.value.nodeLabels));
 
 const isBookmarked = computed<boolean>(() => bookmarks.value.some((b) => b.data.data.uuid === contentNode.value.data.uuid));
@@ -106,12 +103,6 @@ async function updateView() {
 
       <div class="label-section flex align-items-center justify-content-center gap-2">
         <i :class="icon" />
-        <div class="node-labels flex gap-1">
-          <template v-if="contentLabels.length > 0">
-            <NodeTag v-for="label in contentLabels" :key="label" :content="label" type="Content" />
-          </template>
-          <span v-else class="font-italic">Content</span>
-        </div>
       </div>
 
       <div class="content-preview">

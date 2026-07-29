@@ -2,7 +2,6 @@
 import { computed, ComputedRef, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
-import NodeTag from "./NodeTag.vue";
 import { useGuidelinesStore } from "../store/guidelines";
 import {
   AnnotationType,
@@ -14,7 +13,6 @@ import {
   NodeStatusObject,
 } from "../models/types";
 import { capitalize, cloneDeep, getDefaultValueForProperty, filterBaseNodeLabel } from "../utils/helper/helper";
-import MultiSelect from "primevue/multiselect";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -32,8 +30,8 @@ import { useBookmarks } from "../composables/useBookmarks";
 import AnnotationButton from "./AnnotationButton.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import AnnotationAnnotationsSection from "./AnnotationAnnotationsSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
+import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
   focus: CollectionFocus;
@@ -372,6 +370,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 
       <div class="label-section">
         <h3 class="label-heading">
+          <i :class="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)" />
           <span
             v-if="mode === 'edit'"
             v-contenteditable="temporaryWorkData.collection.node.data.label"
@@ -393,54 +392,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           <i v-if="mode === 'edit'" class="pi pi-pencil label-edit-icon" aria-hidden="true"></i>
         </h3>
       </div>
-
       <div class="content">
-        <div class="properties-pane">
-          <div v-if="mode === 'edit'" class="flex justify-content-center p-4">
-            <MultiSelect
-              v-model="collectionNodeLabels"
-              :options="availableCollectionLabels"
-              display="chip"
-              :invalid="availableCollectionLabels.length > 0 && temporaryWorkData.collection.node.nodeLabels.length === 0"
-              title="Select node labels"
-              placeholder="Select labels"
-              :filter="false"
-            >
-              <template #chip="{ value }">
-                <NodeTag :content="value" type="Collection" class="mr-1" />
-              </template>
-            </MultiSelect>
-          </div>
-          <div v-else class="flex gap-2 justify-content-center p-4">
-            <template v-if="temporaryWorkData.collection.node.nodeLabels.length > 0">
-              <NodeTag v-for="label in collectionNodeLabels" :key="label" :content="label" type="Collection" class="mr-1" />
-            </template>
-            <div v-else>
-              <i>This Collection has no labels yet.</i>
-            </div>
-          </div>
-
-          <form ref="form">
-            <div v-for="field in collectionFields" :key="field.name" class="input-container">
-              <div class="flex align-items-center gap-3 mb-3">
-                <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
-                <DataInputGroup
-                  v-if="field.type === 'array'"
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <DataInputComponent
-                  v-else
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-              </div>
-            </div>
-          </form>
-        </div>
-
         <div class="annotations-pane">
           <div v-if="mode === 'edit'" class="annotation-button-pane flex flex-wrap gap-3 py-3">
             <AnnotationButton
@@ -505,8 +457,8 @@ function showMessage(result: "success" | "error", error?: Error) {
                 :mode="mode"
               />
             </Fieldset>
+
             <AnnotationReferencesSection v-model="annotation.connectedNodes" :mode="mode" />
-            <AnnotationAnnotationsSection v-model="annotation.connectedNodes" :mode="mode" />
 
             <div class="action-buttons flex justify-content-center">
               <Button
@@ -521,6 +473,27 @@ function showMessage(result: "success" | "error", error?: Error) {
             </div>
             <ConfirmPopup></ConfirmPopup>
           </Panel>
+        </div>
+        <div class="properties-pane">
+          <form ref="form">
+            <div v-for="field in collectionFields" :key="field.name" class="input-container">
+              <div class="flex align-items-center gap-3 mb-3">
+                <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
+                <DataInputGroup
+                  v-if="field.type === 'array'"
+                  v-model="temporaryWorkData.collection.node.data[field.name]"
+                  :config="field"
+                  :mode="mode"
+                />
+                <DataInputComponent
+                  v-else
+                  v-model="temporaryWorkData.collection.node.data[field.name]"
+                  :config="field"
+                  :mode="mode"
+                />
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -658,6 +631,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 }
 
 .content {
+  margin-top: 1rem;
   flex-grow: 1;
   overflow-y: auto;
   scrollbar-gutter: stable;

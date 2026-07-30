@@ -6,6 +6,7 @@ import router from "../router";
 import NodeTag from "./NodeTag.vue";
 import Button from "primevue/button";
 import Card from "primevue/card";
+import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
   bookmarkData: Bookmark;
@@ -30,6 +31,8 @@ const htmlTitle = computed<string>(
 // TODO: This should be in a helper function
 const PREVIEW_LENGTH: number = 120;
 
+const icon = computed<string>(() => resolveNodeIcon(props.bookmarkData.data.nodeLabels));
+
 const displayedText = computed<string>(() => {
   const text: string | undefined = (props.bookmarkData.data as TextNode).data.text;
 
@@ -45,32 +48,15 @@ const displayedText = computed<string>(() => {
   <Card :title="htmlTitle" class="container" :pt="{ body: { class: 'p-1' } }">
     <template #content>
       <div
-        class="flex align-items-center p-1"
+        class="flex align-items-center p-1 gap-2"
         role="link"
         tabindex="0"
         @keydown.enter="handleItemSelect"
         @keydown.space.prevent="handleItemSelect"
         @click="handleItemSelect"
       >
-        <div class="data flex-grow-1">
-          <div class="labels">
-            <NodeTag
-              v-for="label in props.bookmarkData.data.nodeLabels"
-              :key="label"
-              :style="{
-                fontSize: '0.7rem',
-                backgroundColor: 'white',
-                fontWeight: 'normal',
-                color: 'black',
-                padding: '2px 2px',
-                lineHeight: '100%',
-                border: '1px solid black',
-              }"
-              class="test mr-1"
-              :content="label"
-              type="Collection"
-            />
-          </div>
+        <div class="flex gap-2 align-items-center flex-grow-1">
+          <i :class="icon" class="node-icon flex-shrink-0" />
           <template v-if="isCollection">
             <div class="label font-bold">
               {{ (props.bookmarkData.data as CollectionNode).data.label }}

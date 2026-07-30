@@ -127,11 +127,7 @@ function showUnsavedChangesWarning() {
       <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
       <CollectionTopMenu />
       <div class="main flex-grow-1 flex flex-column">
-        <HierarchyBreadcrumbs
-          :path="path"
-          @item-clicked="handleBreadcrumbItemClick"
-          @home-clicked="handleBreadcrumbHomeClick"
-        />
+        <HierarchyBreadcrumbs :path="path" @item-clicked="handleBreadcrumbItemClick" @home-clicked="handleBreadcrumbHomeClick" />
 
         <div class="edit-area flex-grow-1">
           <Splitter
@@ -155,6 +151,8 @@ function showUnsavedChangesWarning() {
           >
             <SplitterPanel class="overflow-y-auto">
               <div class="columns-container h-full flex overflow-x-scroll">
+                <!-- eslint-disable-next-line vue/valid-v-for -- No key needed currently,
+                 column fetches it's new state all the time. TODO: This will likely be refactored in the near future though -->
                 <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
               </div>
             </SplitterPanel>

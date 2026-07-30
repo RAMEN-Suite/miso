@@ -38,9 +38,11 @@ function handleItemSelect(): void {
   <div
     class="container p-1"
     draggable="true"
+    role="treeitem"
     tabindex="0"
     :class="{ active: props.isActive, selected: props.entry.meta.isSelected, collection: isCollection, content: !isCollection }"
     :title="title"
+    :aria-selected="props.entry.meta.isSelected"
     @click="handleItemSelect"
     @keydown.enter="handleItemSelect"
     @keydown.space.prevent="handleItemSelect"

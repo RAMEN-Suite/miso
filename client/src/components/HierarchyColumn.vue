@@ -46,7 +46,6 @@ const groupedLabelOptions = computed(() => [
 
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
-// Filter state (owned by the column — spans both node types)
 const searchInput = ref<string>("");
 const selectedLabels = ref<string[]>([...allLabelValues]);
 const sort = ref<HierarchySort>({ field: "distinct", direction: "asc" });
@@ -62,7 +61,9 @@ const column = useTemplateRef<HTMLDivElement>("column");
 const scrollPane = useTemplateRef<HTMLDivElement>("scroll-pane");
 const resizer = useTemplateRef<HTMLDivElement>("resizer");
 
-// The store-owned entries array for this column is the fetch sink — shared, reachable by the focus pane
+// The store-owned entries array for this column is the fetch sink - shared, reachable by the focus pane
+// and the children composable. Needed to allow the composable working on the
+// reactive data itself since it can not reach to the store itself (too many moving parts)
 const entries: WritableComputedRef<HierarchyEntry[]> = computed({
   get: () => levels.value[props.index]?.entries ?? [],
   set: (value: HierarchyEntry[]) => {
@@ -131,7 +132,7 @@ function openCreateModal(kind: "Collection" | "Content"): void {
           }
 
           // Add to top of list (should be visible directly) and focus it
-          levels.value[props.index].entries.unshift(createEntryFromNode(created));
+          entries.value.unshift(createEntryFromNode(created));
 
           await router.push({
             query: { path: createNewUrlPath(created.node.data.uuid, props.index) },

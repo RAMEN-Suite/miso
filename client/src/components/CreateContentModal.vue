@@ -70,7 +70,6 @@ function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | nul
 }
 
 async function handleSubmit() {
-  // Collapse newlines, matching how Content text is stored elsewhere
   const text: string = newContentNode.value.data.text.replace(/(\r\n|\n|\r)/g, " ");
 
   const contentNodeToAdd: TextNode = {
@@ -120,7 +119,7 @@ async function handleSubmit() {
     </div>
     <div class="flex flex-column gap-1">
       <h3 class="text-center">Text</h3>
-      <Textarea v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Enter the content text" />
+      <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Enter the content text" />
     </div>
 
     <div class="flex justify-content-center gap-2">

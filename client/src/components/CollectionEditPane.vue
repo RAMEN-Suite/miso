@@ -158,17 +158,6 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   temporaryWorkData.value.annotations.push(newAnnotation);
 }
 
-/**
- * Commits the label on Enter. The label is a single-line field, so the key must not insert a break.
- *
- * @param {KeyboardEvent} event - The keydown event of the editable heading.
- * @returns {void} This function does not return any value.
- */
-function handleLabelKeydown(event: KeyboardEvent): void {
-  event.preventDefault();
-  (event.target as HTMLElement).blur();
-}
-
 function handleClickEditButton(): void {
   enrichCollectionData();
   setMode("edit");
@@ -381,7 +370,6 @@ function showMessage(result: "success" | "error", error?: Error) {
             data-placeholder="No label provided"
             title="Click to edit the label"
             @input="(e) => (temporaryWorkData.collection.node.data.label = (e.target as HTMLSpanElement).innerText.trim())"
-            @keydown.enter="handleLabelKeydown"
           ></span>
           <span
             v-else

@@ -8,7 +8,6 @@ import { CollectionFocus, ContentFocus } from "../models/types";
 
 const { focus, isFetchingFocus } = useHierarchyStore();
 
-// Explicit narrowing so each pane receives a correctly-typed focus prop
 const collectionFocus = computed<CollectionFocus | null>(() => (focus.value?.kind === "collection" ? focus.value : null));
 const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === "content" ? focus.value : null));
 </script>

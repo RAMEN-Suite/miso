@@ -25,7 +25,7 @@ export interface UseHierarchyChildrenOptions {
  * pane); a future tree node passes a local `ref([])`. The composable owns only what is genuinely
  * per-list — the opaque cursor, the loading flag and hasMore.
  *
- * This might be replaced in the near future since it is not completely usabel for tree/directory view.
+ * Note: This will likely be replaced in the near future since it is not completely usable for tree/directory view.
  *
  * @param {MaybeRefOrGetter<string | null>} parentUuid - Parent UUID, or null for top-level nodes.
  * @param {Ref<HierarchyEntry[]>} entries - The sink the fetched entries are written into.

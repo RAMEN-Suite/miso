@@ -12,7 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits(["itemClicked", "homeClicked"]);
 
-const LABEL_LENGTH: number = 30;
+const LABEL_MAX_LENGTH: number = 30;
 
 const home = ref<MenuItem>({
   icon: "pi pi-home",
@@ -23,7 +23,7 @@ const breadcrumbItems = computed<MenuItem[]>(() =>
   props.path.map((item, index) => {
     const data = item.node.data as { label?: string; text?: string };
     const itemLabel: string = data.label ?? data.text ?? "";
-    const shortened: string = ellipsize(itemLabel, LABEL_LENGTH);
+    const shortened: string = ellipsize(itemLabel, LABEL_MAX_LENGTH);
 
     return {
       index,

@@ -19,7 +19,11 @@ const ancestryPaths: NodeAncestry[] = route.meta.ancestryPaths ?? [];
     <p>This collection is part of {{ ancestryPaths.length }} hierarchies. Select one of them:</p>
 
     <div class="collection-path-pane flex flex-column align-items-center">
-      <RouterLink v-for="path in ancestryPaths" :to="`/?path=${[...path.map((n) => n.node.data.uuid), uuid].join(',')}`">
+      <RouterLink
+        v-for="(path, i) in ancestryPaths"
+        :key="i"
+        :to="`/?path=${[...path.map((n) => n.node.data.uuid), uuid].join(',')}`"
+      >
         <Card
           class="path cursor-pointer mb-4"
           title="Open collection in this path"

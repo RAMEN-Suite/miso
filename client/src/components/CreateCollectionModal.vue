@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
-import MultiSelect from "primevue/multiselect";
 import { useRoute } from "vue-router";
-import { CollectionNode, NodeDto, NodeStatusObject } from "../models/types";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
-import NodeTag from "./NodeTag.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createCollectionNode } from "../utils/helper/helper";
@@ -19,22 +17,21 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", collection: NodeDto<CollectionNode>): void;
+  (e: "success", collection: NodeDto<HierarchyNode>): void;
 }>();
 
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionConfigFields, getAvailableCollectionLabels } = useGuidelinesStore();
+const { getCollectionConfigFields } = useGuidelinesStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
+const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
 
 const isLoading = ref<boolean>(false);
 const newCollectionNode = ref<CollectionNode>(createCollectionNode());
-const additionalLabels = ref<string[]>([]);
-const allLabels = computed<string[]>(() => ["Collection", ...additionalLabels.value]);
-const availableCollectionLabels = getAvailableCollectionLabels();
-const collectionFields = computed(() => getCollectionConfigFields(allLabels.value));
+const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
+const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value));
 
 const inputIsValid = computed<boolean>(() => newCollectionNode.value.data.label.trim().length > 0);
 
@@ -71,17 +68,14 @@ function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionN
 }
 
 async function handleSubmit() {
-  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: allLabels.value };
+  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: toValue(nodeLabels.value) };
 
   isLoading.value = true;
 
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
 
-    const result: NodeDto<CollectionNode> = (await api.createHierarchyNode(
-      collectionNodeToAdd.data.uuid,
-      updateObj,
-    )) as NodeDto<CollectionNode>;
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.data.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -102,21 +96,6 @@ async function handleSubmit() {
 <template>
   <div class="container flex flex-column gap-3">
     <div class="flex flex-column gap-1">
-      <h3 class="text-center">Labels</h3>
-      <MultiSelect
-        v-model="additionalLabels"
-        :options="availableCollectionLabels"
-        display="chip"
-        placeholder="Select labels"
-        :filter="false"
-      >
-        <template #chip="{ value }">
-          <NodeTag :content="value" type="Collection" class="mr-1" />
-        </template>
-      </MultiSelect>
-    </div>
-    <div class="flex flex-column gap-1">
-      <h3 class="text-center">Properties</h3>
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
     </div>
 

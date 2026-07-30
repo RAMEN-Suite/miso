@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
-import MultiSelect from "primevue/multiselect";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
-import NodeTag from "./NodeTag.vue";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
 import { createTextNode } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
@@ -19,21 +16,19 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", content: NodeDto<TextNode>): void;
+  (e: "success", content: NodeDto<HierarchyNode>): void;
 }>();
 
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getAvailableContentLabels } = useGuidelinesStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
+const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
 
 const isLoading = ref<boolean>(false);
 const newContentNode = ref<TextNode>(createTextNode());
-const additionalLabels = ref<string[]>([]);
-const allLabels = computed<string[]>(() => ["Content", ...additionalLabels.value]);
-const availableContentLabels = getAvailableContentLabels();
+const nodeLabels = computed<string[]>(() => ["Content", ...additionalNodeLabel]);
 
 const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
 
@@ -74,7 +69,7 @@ async function handleSubmit() {
 
   const contentNodeToAdd: TextNode = {
     ...newContentNode.value,
-    nodeLabels: allLabels.value,
+    nodeLabels: toValue(nodeLabels.value),
     data: { ...newContentNode.value.data, text },
   };
 
@@ -83,7 +78,7 @@ async function handleSubmit() {
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
 
-    const result: NodeDto<TextNode> = (await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj)) as NodeDto<TextNode>;
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -103,25 +98,7 @@ async function handleSubmit() {
 
 <template>
   <div class="container flex flex-column gap-3">
-    <div class="flex flex-column gap-1">
-      <h3 class="text-center">Labels</h3>
-      <MultiSelect
-        v-model="additionalLabels"
-        :options="availableContentLabels"
-        display="chip"
-        placeholder="Select labels"
-        :filter="false"
-      >
-        <template #chip="{ value }">
-          <NodeTag :content="value" type="Content" class="mr-1" />
-        </template>
-      </MultiSelect>
-    </div>
-    <div class="flex flex-column gap-1">
-      <h3 class="text-center">Text</h3>
-      <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Enter the content text" />
-    </div>
-
+    <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Add some text" />
     <div class="flex justify-content-center gap-2">
       <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="pi pi-plus" @click="handleSubmit" />
     </div>

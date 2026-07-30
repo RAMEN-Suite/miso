@@ -10,11 +10,6 @@ const props = defineProps<{
   fields: PropertyConfig[];
   mode?: "edit" | "view";
 }>();
-
-// const { getAnnotationFields } = useGuidelinesStore();
-
-// const config: AnnotationType = getAnnotationConfig(properties.value.type);
-// const fields: PropertyConfig[] = getAnnotationFields(properties.value.type);
 </script>
 
 <template>

@@ -16,6 +16,7 @@ import { useHierarchyChildren } from "../composables/useHierarchyChildren";
 import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
+import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
   index: number;
@@ -32,13 +33,30 @@ const { levels, focus, canNavigate, createNewUrlPath, setMode } = useHierarchySt
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 
+const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
+const contentLabels: string[] = getAvailableContentLabels().toSorted();
+
 const addMenuItems: MenuItem[] = [
-  { label: "Collection", icon: "pi pi-folder", command: () => openCreateModal("Collection") },
-  { label: "Content", icon: "pi pi-file", command: () => openCreateModal("Content") },
+  {
+    label: "Collection",
+    icon: "pi pi-folder",
+    items: collectionLabels.map((l) => ({
+      label: l,
+      icon: resolveNodeIcon(["Collection"]),
+      command: () => openCreateModal("Collection", { additionalNodeLabel: l }),
+    })),
+  },
+  {
+    label: "Content",
+    icon: "pi pi-file",
+    items: contentLabels.map((l) => ({
+      label: l,
+      icon: resolveNodeIcon(["Content"]),
+      command: () => openCreateModal("Content", { additionalNodeLabel: l }),
+    })),
+  },
 ];
 
-const collectionLabels: string[] = getAvailableCollectionLabels();
-const contentLabels: string[] = getAvailableContentLabels();
 const groupedLabelOptions = computed(() => [
   { label: "Collections", items: collectionLabels.map((l) => ({ label: l, value: l })) },
   { label: "Contents", items: contentLabels.map((l) => ({ label: l, value: l })) },
@@ -106,7 +124,7 @@ watch(
 watch([selectedLabels, sort], () => fetchFirstPage(), { deep: true });
 watchDebounced(searchInput, () => fetchFirstPage(), { debounce: FETCH_DELAY });
 
-function openCreateModal(kind: "Collection" | "Content"): void {
+function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
@@ -121,10 +139,10 @@ function openCreateModal(kind: "Collection" | "Content"): void {
     dialog.open(modalComponent, {
       props: {
         modal: true,
-        header: `Create new ${kind}`,
+        header: `Create new ${params.additionalNodeLabel}`,
         style: { width: "420px" },
       },
-      data: { parentCollection },
+      data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel },
       emits: {
         onSuccess: async (created: NodeDto<HierarchyNode>) => {
           if (!created) {

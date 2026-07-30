@@ -33,9 +33,12 @@ export default class ApiService {
   /** The base URL of the API */
   private baseUrl: string;
 
+  /** The base URL of the hierarchy API. Used for hierarchy-related requests (ancestry, children, path validation etc.) */
+  private hierarchyUrl: string;
+
   constructor() {
-    // Earlier built with a function, but now managed by Vite proxy configuration
     this.baseUrl = "/api";
+    this.hierarchyUrl = `${this.baseUrl}/hierarchy`;
   }
 
   /**
@@ -119,7 +122,7 @@ export default class ApiService {
 
   public async deleteHierarchyNode(uuid: string): Promise<NodeDto<HierarchyNode>> {
     try {
-      const url: string = `${this.baseUrl}/hierarchy/nodes/${uuid}`;
+      const url: string = `${this.hierarchyUrl}/nodes/${uuid}`;
 
       const response: Response = await fetch(url, {
         method: "DELETE",
@@ -181,9 +184,9 @@ export default class ApiService {
     }
   }
 
-  public async getCollectionAncestry(collectionUuid: string): Promise<NodeAncestry[]> {
+  public async getHierarchyNodeAncestry(nodeUuid: string): Promise<NodeAncestry[]> {
     try {
-      const url: string = `${this.baseUrl}/collections/${collectionUuid}/ancestry`;
+      const url: string = `${this.hierarchyUrl}/ancestry/${nodeUuid}`;
 
       const response: Response = await fetch(url);
 
@@ -232,44 +235,6 @@ export default class ApiService {
     }
   }
 
-  public async getChildCollections(
-    parentUuid: string,
-    params: {
-      filters: DeepReadonly<NodeSearchParams> | NodeSearchParams;
-      cursor: CursorData | null;
-    },
-  ): Promise<PaginationResult<NodeDto<CollectionNode>[]>> {
-    const DEFAULT_ROW_COUNT: number | null = 10;
-
-    const path: string = parentUuid ? `${this.baseUrl}/collections/${parentUuid}/collections` : `${this.baseUrl}/collections`;
-
-    const urlParams: URLSearchParams = new URLSearchParams();
-
-    const { filters, cursor } = params;
-
-    urlParams.set("order", filters.sortDirection);
-    urlParams.set("search", filters.searchInput);
-    urlParams.set("nodeLabels", filters.nodeLabels.join(","));
-    urlParams.set("limit", filters.rowCount?.toString() ?? DEFAULT_ROW_COUNT.toString());
-
-    if (cursor) {
-      urlParams.set("cursorUuid", cursor.uuid ?? "");
-      urlParams.set("cursorLabel", cursor.label ?? "");
-    }
-
-    const fetchUrl: string = `${path}?${urlParams.toString()}`;
-
-    try {
-      const response: Response = await fetch(fetchUrl);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
   /**
    * Fetches one page of a parent's hierarchy children (Collections + Contents), or the top-level
    * nodes when `parentUuid` is null.
@@ -303,7 +268,7 @@ export default class ApiService {
       urlParams.set("cursor", cursor);
     }
 
-    const fetchUrl: string = `${this.baseUrl}/hierarchy/children?${urlParams.toString()}`;
+    const fetchUrl: string = `${this.hierarchyUrl}/children?${urlParams.toString()}`;
 
     try {
       const response: Response = await fetch(fetchUrl);
@@ -324,7 +289,7 @@ export default class ApiService {
    */
   public async validateHierarchyPath(uuidString: string): Promise<NodeDto<HierarchyNode>[]> {
     try {
-      const url: string = `${this.baseUrl}/hierarchy/path?path=${uuidString}`;
+      const url: string = `${this.hierarchyUrl}/path?path=${uuidString}`;
 
       const response: Response = await fetch(url);
 
@@ -345,7 +310,7 @@ export default class ApiService {
    */
   public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
     try {
-      const url: string = `${this.baseUrl}/hierarchy/nodes`;
+      const url: string = `${this.hierarchyUrl}/nodes`;
 
       const response: Response = await fetch(url, {
         method: "POST",
@@ -410,20 +375,6 @@ export default class ApiService {
   public async getTextAccessObject(textUuid: string): Promise<TextAccessObject> {
     try {
       const url: string = `${this.baseUrl}/texts/${textUuid}`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  public async getChildTexts(collectionUuid: string): Promise<NodeDto<TextNode>[]> {
-    try {
-      const url: string = `${this.baseUrl}/collections/${collectionUuid}/texts`;
 
       const response: Response = await fetch(url);
 

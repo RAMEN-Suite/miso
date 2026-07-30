@@ -7,7 +7,7 @@ import { toNativeTypes } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
-import { HierarchyNode, NodeDto, NodeStatusObject, NodeUpdateObject, PaginationResult } from "../models/types.js";
+import { HierarchyNode, NodeAncestry, NodeDto, NodeStatusObject, NodeUpdateObject, PaginationResult } from "../models/types.js";
 
 /** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
 const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
@@ -45,6 +45,74 @@ export default class HierarchyService {
    */
   private sortValueExpression(): string {
     return `coalesce(n.label, left(n.text, $previewLength), '')`;
+  }
+
+  /**
+     * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID.
+     *
+     * The ancestry is the path from the root node (the top-most `Collection` node)
+     * to the given node via outgoing `PART_OF` relationships. This is used to determine a node's position in the Collection/Content
+     * hierarchy and create breadcrumb-like visualization and navigation in the frontend.
+  
+     * Contrary to earlier versions, the ancestry can now only consist of `Collection`/`Content` via outgoing `PART_OF` relationships.
+     * The earlier approach included `HAS_ANNOTATION` and `REFERS_TO` relationships together with all other nodes,
+     * but this lead to circular matches and will likely not be used in the editor anyway.
+     *
+     * @param {string} uuid - The UUID of the node to retrieve the ancestry for.
+     * @return {Promise<NodeAncestry[]>} A promise that resolves to an array of node ancestries. Each node ancestry
+     * is an array of node objects..
+     */
+  public async getAncestry(uuid: string): Promise<NodeAncestry[]> {
+    // TODO: maxLevel 50 should be enough, but change maybe?
+    // TODO: What if circular matches happen? uniqueness should filter that
+    const query: string = `
+      MATCH (c:Collection|Content {uuid: $uuid})
+  
+      CALL apoc.path.expandConfig(c, {
+            relationshipFilter: 'PART_OF>',
+            labelFilter: 'Collection',
+            maxLevel: 50,
+            uniqueness: 'NODE_PATH'
+        }) YIELD path
+  
+        WITH path, last(nodes(path)) AS topNode
+  
+        // Keep only "longest paths" (which have Collections)
+        WHERE
+            NOT (topNode)-[:PART_OF]->() AND
+            NOT ()-[:REFERS_TO]->(topNode)
+  
+        // Reverse path so that the top node of the hierarchy comes first
+        WITH reverse(tail(nodes(path))) as pathNodes
+  
+        RETURN collect([
+            n IN pathNodes | {
+                node: {
+                    nodeLabels: labels(n), 
+                    data: n {.*}
+                },
+                connectedNodes: []
+            }
+        ]) as paths
+      `;
+
+    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
+    const paths: NodeAncestry[] = result.records[0]?.get("paths");
+
+    // Data need to be tranformed to native types, too, even without the possibility of editing them
+    const mapped: NodeAncestry[] = paths.map((path) =>
+      path.map((pathElement: NodeDto) => {
+        return {
+          ...pathElement,
+          node: {
+            nodeLabels: pathElement.node.nodeLabels,
+            data: toNativeTypes(pathElement.node.data),
+          },
+        };
+      }),
+    ) as NodeAncestry[];
+
+    return mapped;
   }
 
   /**

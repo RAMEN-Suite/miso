@@ -45,7 +45,7 @@ export interface AnnotationData {
 }
 
 /**
- * CAMI-internal role of the annotation in a text document. Defines how an annotation is represented
+ * Miso-internal role of the annotation in a text document. Defines how an annotation is represented
  * in the tiptap editor. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
@@ -64,24 +64,24 @@ export type AnnotationRole = "structure" | "inline" | "semanticBlock";
 export type AnnotationBehaviour = "zeroPoint" | "range";
 
 export interface AnnotationType {
-  category: string; // CAMI
-  defaultSelected: boolean; // CAMI
+  category: string; // Miso
+  defaultSelected: boolean; // Miso
   /** @deprecated Use `behaviour: "zeroPoint"`. Kept as a legacy input the normalization derives from. */
-  isZeroPoint?: boolean; // CAMI and NORI
-  hasAdditionalTexts?: boolean; // Derived from NORI
-  hasEntities?: boolean; // Derived from NORI
-  entityNodes?: string[]; // Derived from NORI
-  properties?: PropertyConfig[]; // NORI
-  shortcut: string[]; // CAMI
-  text: string; // CAMI
-  type: string; // NORI -> discriminator, also property there
+  isZeroPoint?: boolean; // Miso and Nori
+  hasAdditionalTexts?: boolean; // Derived from Nori
+  hasEntities?: boolean; // Derived from Nori
+  entityNodes?: string[]; // Derived from Nori
+  properties?: PropertyConfig[]; // Nori
+  shortcut: string[]; // Miso
+  text: string; // Miso
+  type: string; // Nori -> discriminator, also property there
   /** @deprecated Use `role`. Kept as a legacy input the normalization derives from. */
-  isBlock?: boolean; // CAMI
-  contains?: string[]; // CAMI -> only for builtin structural elements
-  topLevel?: boolean; // CAMI -> deprecated, but keep for now
-  priority?: number; // CAMI
-  role?: AnnotationRole; // CAMI -> operational category (structure/inline/semanticBlock)
-  behaviour?: AnnotationBehaviour; // CAMI -> zeroPoint vs range
+  isBlock?: boolean; // Miso
+  contains?: string[]; // Miso -> only for builtin structural elements
+  topLevel?: boolean; // Miso -> deprecated, but keep for now
+  priority?: number; // Miso
+  role?: AnnotationRole; // Miso -> operational category (structure/inline/semanticBlock)
+  behaviour?: AnnotationBehaviour; // Miso -> zeroPoint vs range
 }
 
 export interface AnnotationReference {
@@ -337,18 +337,18 @@ export interface PaginationResult<T> {
 
 export interface PropertyConfig {
   /** folioEnd, label, websiteUrl */
-  name: string; // CAMI -> name to display. Or remove kompletely, type is type
+  name: string; // Miso -> name to display. Or remove kompletely, type is type
   /** data type (raw string, dropdown, multiple options) */
-  type: PropertyConfigDataType; // NORI
+  type: PropertyConfigDataType; // Nori
   /** required or optional */
-  required: boolean; // NORI
+  required: boolean; // Nori
   /** Editable by user */
-  editable: boolean; // CAMI
+  editable: boolean; // Miso
   /** Visible by user */
-  visible: boolean; // CAMI;
+  visible: boolean; // Miso;
   /** Render as normal input or textarea? */
-  template?: PropertyConfigStringTemplate; // CAMI;
-  // The rest here is cami
+  template?: PropertyConfigStringTemplate; // Miso;
+  // The rest here is Miso
   /* Only relevant if type is "array" */
   items?: Partial<PropertyConfig>;
   minItems?: number;

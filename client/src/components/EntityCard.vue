@@ -45,7 +45,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
     return;
   }
 
-  window.open(`/api/tools/awen/entity/${node.value.node.data.uuid}`, "_blank", "noopener noreferrer");
+  window.open(`/api/tools/tori/entity/${node.value.node.data.uuid}`, "_blank", "noopener noreferrer");
 }
 
 const tableData = Object.entries(node.value.node.data).map(([property, value]) => {

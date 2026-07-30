@@ -45,8 +45,8 @@ services:
       - NODE_ENV=${NODE_ENV}
       - PROTOCOL=${PROTOCOL}
       - STYLESHEET_URL=${STYLESHEET_URL}
-      - AWEN_URL=${AWEN_URL}
-      - ORA_URL=${ORA_URL}
+      - TORI_URL=${TORI_URL}
+      - SHOYU_URL=${SHOYU_URL}
     depends_on:
       neo4j:
         condition: service_healthy

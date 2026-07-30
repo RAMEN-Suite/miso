@@ -190,12 +190,16 @@ export function createCollectionNode(): CollectionNode {
  * Creates a new Text object with default values.
  *
  * This function is used to generate a new Text object with default values for the node labels and data properties.
+ * The additional (domain) labels are applied on creation so that the node never needs its labels mutated later.
  *
+ * @param {Object} params - The optional parameters for the new node.
+ * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Content" base label.
+ *   Defaults to none, leaving the node with the base label only.
  * @return {TextNode} A new Text object with default values.
  */
-export function createTextNode(): TextNode {
+export function createTextNode(params?: { additionalNodeLabels: string[] }): TextNode {
   return {
-    nodeLabels: ["Content"],
+    nodeLabels: ["Content", ...(params?.additionalNodeLabels ?? [])],
     data: {
       uuid: crypto.randomUUID(),
       text: "",
@@ -208,11 +212,14 @@ export function createTextNode(): TextNode {
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.
  *
+ * @param {Object} params - The optional parameters for the new node.
+ * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Content" base label.
+ *   Defaults to none, leaving the node with the base label only.
  * @return {NodeStatusObject<TextNode>} A new Content node status object with default values.
  */
-export function createContentNodeStatusObject(): NodeStatusObject<TextNode> {
+export function createContentNodeStatusObject(params?: { additionalNodeLabels: string[] }): NodeStatusObject<TextNode> {
   const contentNode: NodeStatusObject<TextNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createTextNode()),
+    createNodeDtoFromNode(createTextNode({ additionalNodeLabels: params?.additionalNodeLabels ?? [] })),
   ) as NodeStatusObject<TextNode>;
 
   contentNode.meta.status = "created";

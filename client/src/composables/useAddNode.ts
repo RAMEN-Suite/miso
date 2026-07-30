@@ -7,7 +7,7 @@ interface ErrorMessage {
   id: number;
 }
 
-type PipelineStep = null | "choosing" | "editing" | "finishing";
+type PipelineStep = null | "choosing" | "finishing";
 
 export interface UseAddNodeReturn {
   currentStep: Readonly<Ref<PipelineStep, PipelineStep>>;
@@ -16,15 +16,19 @@ export interface UseAddNodeReturn {
   addErrorMessage: (error: DOMException | unknown) => void;
   cancel: () => void;
   finish: () => void;
-  init: () => Promise<void>;
   setNode: (node: NodeStatusObject | null) => void;
   setPipelineStep: (step: PipelineStep) => void;
 }
 
 /**
- * A composable function that provides a pipeline for importing JSON data into the Editor.
- * The pipeline consists of three steps: validating, transforming and importing. The import process can be cancelled at any time.
- * If an error occurs during the pipeline, an error message is added and the pipeline is reset to the previous state.
+ * A composable function that provides the pipeline for adding a node as a reference.
+ *
+ * The pipeline starts in the "choosing" step, where an existing node is searched for (or, for Content,
+ * a new one is drafted), and moves to "finishing" once a node has been picked for review and confirmation.
+ * The process can be cancelled at any time. If an error occurs, an error message is added.
+ *
+ * The node's labels are not owned by this pipeline: they are fixed by the caller before the modal opens
+ * and must not be changed while the process runs.
  *
  * @returns {UseAddNodeReturn} An object containing the necessary state variables and functions to control the pipeline.
  */
@@ -67,13 +71,6 @@ export function useAddNode(): UseAddNodeReturn {
     resetPipeline();
   }
 
-  function init(): void {
-    clearErrorMessages();
-    setPipelineStep("choosing");
-
-    // setPipelineStep('finishing');
-  }
-
   function resetPipeline(): void {
     setNode(null);
     setPipelineStep(null);
@@ -94,7 +91,6 @@ export function useAddNode(): UseAddNodeReturn {
     addErrorMessage,
     cancel,
     finish,
-    init,
     setPipelineStep,
     setNode,
   };

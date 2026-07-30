@@ -4,7 +4,7 @@ import Button from "primevue/button";
 import Divider from "primevue/divider";
 import { useAddNode } from "../composables/useAddNode";
 import { RouteLocationNormalizedLoaded, useRoute } from "vue-router";
-import { BaseNodeLabel, NodeStatusObject, CollectionNode, TextNode, EntityNode } from "../models/types";
+import { NodeStatusObject, CollectionNode, TextNode, EntityNode, ReferenceNodeLabel } from "../models/types";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -23,7 +23,12 @@ const route: RouteLocationNormalizedLoaded = useRoute();
 
 const { currentStep, node: nodeToAdd, setPipelineStep, setNode, finish: finishProcess } = useAddNode();
 
-const baseNodeLabel: BaseNodeLabel = dialogRef.value.data.baseNodeLabel;
+const baseNodeLabel: ReferenceNodeLabel = dialogRef.value.data.baseNodeLabel;
+const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+
+if (!additionalNodeLabel) {
+  throw new Error("additionalNodeLabel not provided - the node label must be chosen before opening the modal");
+}
 
 const emit = defineEmits<{
   (e: "close"): void;
@@ -61,7 +66,7 @@ function handleSearchItemSelected(item: CollectionNode | TextNode | EntityNode) 
 }
 
 function handleStartDraft(): void {
-  draftNode.value = createContentNodeStatusObject();
+  draftNode.value = createContentNodeStatusObject({ additionalNodeLabels: [additionalNodeLabel] });
 }
 
 function handleDiscardDraft(): void {
@@ -96,34 +101,28 @@ function closeModal(): void {
 <template>
   <div class="container">
     <template v-if="currentStep === 'choosing'">
-      <NodeSearchbar :base-node-label="baseNodeLabel" @item-selected="handleSearchItemSelected" />
+      <NodeSearchbar
+        :base-node-label="baseNodeLabel"
+        :additional-node-label="additionalNodeLabel"
+        @item-selected="handleSearchItemSelected"
+      />
 
       <template v-if="canCreateNode">
         <Divider align="center">
           <span class="text-sm">or create a new one</span>
         </Divider>
 
-        <TextContainer
-          v-if="draftNode"
-          :text="draftNode"
-          mode="edit"
-          status="temporary"
-          @text-added="handleDraftConfirmed"
-          @text-removed="handleDiscardDraft"
-        />
+        <TextContainer v-if="draftNode" :text="draftNode" @text-added="handleDraftConfirmed" @text-removed="handleDiscardDraft" />
         <Button
           v-else
-          label="Create new Content"
+          :label="`Create new ${additionalNodeLabel}`"
           icon="pi pi-plus"
           severity="secondary"
           class="w-full"
-          title="Create a new Content node"
+          :title="`Create a new ${additionalNodeLabel} node`"
           @click="handleStartDraft"
         />
       </template>
-    </template>
-    <template v-if="currentStep === 'editing'">
-      <h2>Edit your data here :)</h2>
     </template>
     <template v-if="currentStep === 'finishing'">
       <CollectionCard v-if="baseNodeLabel === 'Collection'" :model-value="nodeAsCollection" mode="view" />

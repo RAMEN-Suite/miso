@@ -142,6 +142,9 @@ export interface BaseNodeData {
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
 
+/** The base node labels that can be searched for and referenced from an Annotation */
+export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
+
 export interface Bookmark {
   data: CollectionNode | TextNode;
   createdAt: string; // ISO 8601 string

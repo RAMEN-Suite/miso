@@ -28,7 +28,7 @@ const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
 
 const isLoading = ref<boolean>(false);
 const newContentNode = ref<TextNode>(createTextNode());
-const nodeLabels = computed<string[]>(() => ["Content", ...additionalNodeLabel]);
+const nodeLabels = computed<string[]>(() => ["Content", additionalNodeLabel]);
 
 const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
 

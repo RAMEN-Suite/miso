@@ -4,13 +4,16 @@ import Fieldset from "primevue/fieldset";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import { BaseNodeLabel, CollectionNode, EntityNode, NodeStatusObject, TextNode } from "../models/types";
+import { CollectionNode, EntityNode, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
 import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
+import { MenuItem } from "primevue/menuitem";
 import AddNodeModal from "./AddNodeModal.vue";
 import { useAppStore } from "../store/app";
+import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
+import { resolveNodeIcon } from "../config/icons.ts";
 
 const nodes = defineModel<NodeStatusObject[]>({ required: true });
 
@@ -19,19 +22,57 @@ const props = defineProps<{
 }>();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEntityLabels } = useGuidelinesStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const sectionIsCollapsed = ref<boolean>(false);
 
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
 
-function startAddingNode(nodeLabel: BaseNodeLabel): void {
+const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
+const contentLabels: string[] = getAvailableContentLabels().toSorted();
+const entityLabels: string[] = [...new Set(getAvailableEntityLabels())].toSorted();
+
+/**
+ * Builds one menu group per base node label, listing the domain labels configured for it.
+ *
+ * @param {ReferenceNodeLabel} baseNodeLabel - The base node label of the group.
+ * @param {string[]} additionalNodeLabels - The domain labels available for that base node label.
+ * @returns {MenuItem} The menu group for the given base node label.
+ */
+function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLabels: string[]): MenuItem {
+  return {
+    label: baseNodeLabel,
+    items: additionalNodeLabels
+      .map((additionalNodeLabel: string) => ({
+        label: additionalNodeLabel,
+        icon: resolveNodeIcon([baseNodeLabel]),
+        command: () => startAddingNode(baseNodeLabel, { additionalNodeLabel }),
+      }))
+      .toSorted(),
+  };
+}
+
+const addMenuItems: MenuItem[] = [
+  createAddMenuGroup("Collection", collectionLabels),
+  createAddMenuGroup("Content", contentLabels),
+  createAddMenuGroup("Entity", entityLabels),
+];
+
+/**
+ * Opens the modal for adding a reference of the given base node label, fixed to one domain label.
+ *
+ * @param {ReferenceNodeLabel} baseNodeLabel - The base node label of the reference to add.
+ * @param {{ additionalNodeLabel: string }} params - The domain label chosen in the menu.
+ * @returns {void} This function does not return any value.
+ */
+function startAddingNode(baseNodeLabel: ReferenceNodeLabel, params: { additionalNodeLabel: string }): void {
   createModalInstance(
     dialog.open(AddNodeModal, {
       props: {
         modal: true,
         closable: true,
-        closeOnEscape: false,
+        closeOnEscape: true,
         style: { width: "40rem", height: "30rem" },
         closeButtonProps: {
           severity: "secondary",
@@ -39,13 +80,14 @@ function startAddingNode(nodeLabel: BaseNodeLabel): void {
           style: { width: "30px", height: "30px" },
           rounded: true,
         },
-        header: `Add a ${nodeLabel} node`,
+        header: `Add ${params.additionalNodeLabel}`,
         pt: {
           headerActions: { style: "margin-left: auto" },
         },
       },
       data: {
-        baseNodeLabel: nodeLabel,
+        baseNodeLabel,
+        additionalNodeLabel: params.additionalNodeLabel,
       },
       emits: {
         onSubmit: (node: NodeStatusObject) => {
@@ -80,26 +122,6 @@ function isReference(node: NodeStatusObject): boolean {
 function isNotDeleted(node: NodeStatusObject): boolean {
   return node.meta.status !== "deleted" && node.meta.status !== "removed";
 }
-
-const nodeOptions = ref([
-  {
-    label: "Reference types",
-    items: [
-      {
-        label: "Collection",
-        command: () => startAddingNode("Collection"),
-      },
-      {
-        label: "Entity",
-        command: () => startAddingNode("Entity"),
-      },
-      {
-        label: "Content",
-        command: () => startAddingNode("Content"),
-      },
-    ],
-  },
-]);
 
 function handleAddNodeClick(event: PointerEvent): void {
   menu.value?.toggle(event);
@@ -154,7 +176,7 @@ function handleAddNodeClick(event: PointerEvent): void {
       title="Add new reference"
       @click="handleAddNodeClick"
     />
-    <Menu id="references_overlay_menu" ref="menu" :model="nodeOptions" :popup="true" />
+    <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems" :popup="true" />
   </Fieldset>
 </template>
 

@@ -1,33 +1,35 @@
 <script setup lang="ts">
-import { ComponentPublicInstance, computed, ref, toValue, useTemplateRef, watch } from "vue";
+import { ComponentPublicInstance, computed, ref, useTemplateRef, watch } from "vue";
 import AutoComplete from "primevue/autocomplete";
-import MultiSelect from "primevue/multiselect";
+import InputGroup from "primevue/inputgroup";
+import InputGroupAddon from "primevue/inputgroupaddon";
 
 import { useSearchParams } from "../composables/useSearchParams";
 import {
-  BaseNodeLabel,
   CollectionNode,
   NodeSearchParams,
   EntityNode,
   PaginationData,
   PaginationResult,
+  ReferenceNodeLabel,
   TextNode,
 } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
 import { useAppStore } from "../store/app";
 import NodeTag from "./NodeTag.vue";
 import { filterDefaultLabels } from "../utils/helper/helper";
 import { onStartTyping } from "@vueuse/core";
+import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
-  baseNodeLabel: BaseNodeLabel;
+  baseNodeLabel: ReferenceNodeLabel;
+  additionalNodeLabel: string;
 }>();
 
-const { getAvailableNodeLabels } = useGuidelinesStore();
 const { api } = useAppStore();
 const { searchParams, updateSearchParams, resetSearchParams } = useSearchParams({
   scope: props.baseNodeLabel,
   rowCount: 50,
+  nodeLabels: [props.additionalNodeLabel],
 });
 
 const emit = defineEmits<(e: "itemSelected", item: CollectionNode | TextNode | EntityNode) => void>();
@@ -36,10 +38,10 @@ const PREVIEW_CHARACTER_SIZE: number = 25;
 
 const isSearchActive = ref<boolean>(false);
 const placeHolder = computed<string>(() => {
-  return `Search ${getNodeLabelPlural(props.baseNodeLabel)}`;
+  return `Search ${props.additionalNodeLabel}`;
 });
 
-const availableNodeLabels: string[] = toValue(getAvailableNodeLabels(props.baseNodeLabel));
+const nodeIcon = computed<string>(() => resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel]));
 
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
 const resultPagination = ref<PaginationData>();
@@ -47,21 +49,6 @@ const resultPagination = ref<PaginationData>();
 watch(searchParams, handleSearchParamsChange, {
   deep: true,
 });
-
-function getNodeLabelPlural(nodeLabel: BaseNodeLabel): string {
-  switch (nodeLabel) {
-    case "Collection":
-      return "Collections";
-    case "Content":
-      return "Contents";
-    case "Entity":
-      return "Entities";
-    case "Annotation":
-      return "Annotations";
-    default:
-      return "Nodes";
-  }
-}
 
 function resetSearch(): void {
   resetSearchParams();
@@ -103,14 +90,6 @@ async function fetchData(): Promise<PaginationResult<(CollectionNode | EntityNod
   return { data, pagination };
 }
 
-function handleNodeLabelsChange(selectedLabels: string[]) {
-  const data: NodeSearchParams = {
-    nodeLabels: selectedLabels,
-  };
-
-  updateSearchParams(data);
-}
-
 function setPagination(newPagination: PaginationData) {
   resultPagination.value = newPagination;
 }
@@ -141,18 +120,10 @@ onStartTyping(() => {
 </script>
 
 <template>
-  <div class="flex gap-1">
-    <MultiSelect
-      :model-value="searchParams.nodeLabels"
-      :options="availableNodeLabels"
-      :filter="false"
-      display="chip"
-      :max-selected-labels="2"
-      :selected-items-label="`${searchParams.nodeLabels?.length ?? 0} labels selected`"
-      title="Select node labels to filter"
-      class="flex-shrink-0 w-12rem"
-      @update:model-value="handleNodeLabelsChange"
-    />
+  <InputGroup>
+    <InputGroupAddon class="w-3rem" :title="`Searching ${props.additionalNodeLabel} nodes`">
+      <i :class="nodeIcon"></i>
+    </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
       :class="isSearchActive ? 'active' : 'inactive'"
@@ -160,7 +131,7 @@ onStartTyping(() => {
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
       input-class="w-full"
-      class="searchbar h-3rem flex-grow-1"
+      class="searchbar h-3rem"
       variant="filled"
       :title="placeHolder"
       @complete="handleSearchInputChange($event.query)"
@@ -196,7 +167,7 @@ onStartTyping(() => {
         </template>
       </template>
     </AutoComplete>
-  </div>
+  </InputGroup>
 </template>
 
 <style scoped></style>

@@ -1,5 +1,5 @@
 import { DeepReadonly, readonly, Ref, ref, toValue } from "vue";
-import { NodeSearchParams } from "../models/types";
+import { NodeSearchParams, ReferenceNodeLabel } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTimeoutFn } from "@vueuse/core";
 import { FETCH_DELAY } from "../config/constants";
@@ -24,22 +24,28 @@ export interface UseSearchParamsReturn {
  * - `resetSearchParams`: A function that resets the search parameters to their default values.
  * - `updateSearchParams`: A function that updates the search parameters with given data. These are partials, so not all parameters will be updated.
  *
- * @param {number} rowCount - The number of rows to fetch per page (optional).
+ * @param {Object} options - The options for the search.
+ * @param {string} options.scope - The base node label the search is scoped to.
+ * @param {number} options.rowCount - The number of rows to fetch per page (optional).
+ * @param {string[]} options.nodeLabels - Fixed node labels to search with, overriding the default of
+ *   "all available labels for this scope". Pass this to lock a search to a single label; the lock is
+ *   re-applied by `resetSearchParams` so it survives a reset.
  * @returns {UseSearchParamsReturn} An object with reactive properties for performing a search query on the backend.
  */
 export function useSearchParams(options: {
-  scope: "Collection" | "Entity" | "Content";
+  scope: ReferenceNodeLabel;
   rowCount?: number;
+  nodeLabels?: string[];
 }): UseSearchParamsReturn {
   const { getAvailableNodeLabels } = useGuidelinesStore();
 
   const DEFAULT_ROW_COUNT: number | null = options?.rowCount ?? null;
 
-  const availableNodeLabels: string[] = toValue(getAvailableNodeLabels(options.scope));
+  const defaultNodeLabels: string[] = options.nodeLabels ?? toValue(getAvailableNodeLabels(options.scope));
 
   const searchParams = ref<NodeSearchParams>({
     searchInput: "",
-    nodeLabels: availableNodeLabels,
+    nodeLabels: [...defaultNodeLabels],
     offset: 0,
     rowCount: DEFAULT_ROW_COUNT,
     sortDirection: "asc",
@@ -54,7 +60,7 @@ export function useSearchParams(options: {
   function resetSearchParams(): void {
     searchParams.value = {
       searchInput: "",
-      nodeLabels: availableNodeLabels,
+      nodeLabels: [...defaultNodeLabels],
       offset: 0,
       rowCount: DEFAULT_ROW_COUNT,
       sortDirection: "asc",

@@ -143,25 +143,19 @@ onStartTyping(() => {
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
+            <i :class="resolveNodeIcon(option.nodeLabels)" />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Entity'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
+            <i :class="resolveNodeIcon(option.nodeLabels)" />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Content'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
+            <i :class="resolveNodeIcon(option.nodeLabels)" />
             <span :title="option.data">{{ option.data?.text.slice(0, PREVIEW_CHARACTER_SIZE) }}</span>
           </div>
         </template>
@@ -170,4 +164,10 @@ onStartTyping(() => {
   </InputGroup>
 </template>
 
-<style scoped></style>
+<style scoped>
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+</style>

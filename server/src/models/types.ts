@@ -14,7 +14,6 @@ export type Annotation = {
   data: AnnotationData;
   endUuid: string;
   initialData: AnnotationData;
-  isTruncated: boolean;
   startUuid: string;
   status: "existing" | "created" | "deleted" | "edited";
 };
@@ -99,6 +98,9 @@ export type CharacterPostData = {
 
 export type CollectionNode = Node<ICollection>;
 
+/** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
+export type HierarchyNode = CollectionNode | ContentNode;
+
 export type CollectionAccessObject = {
   annotations: AnnotationData[];
   collection: CollectionNode;
@@ -182,7 +184,8 @@ export type PaginationData = {
   order: string;
   search: string;
   totalRecords: number;
-  nextCursor?: CursorData | null;
+  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
+  nextCursor?: CursorData | string | null;
 };
 
 export type CursorData = {

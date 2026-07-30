@@ -213,74 +213,6 @@ export default class CollectionService {
    */
 
   /**
-   * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID.
-   *
-   * The ancestry is the path from the root node (the top-most `Collection` node)
-   * to the given node via outgoing `PART_OF` relationships. This is used to determine the position of a node in the Collection/Content
-   * network and create breadcrumb-like visualization and navigation in the frontend.
-
-   * Contrary to earlier versions, the ancestry can now only consist of `Collection` via outgoing `PART_OF` relationships.
-   * The earlier approach included `HAS_ANNOTATION` and `REFERS_TO` relationships together with all other nodes,
-   * but this lead to circular matches and will likely not be used in the editor anyway.
-   *
-   * @param {string} uuid - The UUID of the node to retrieve the ancestry for.
-   * @return {Promise<NodeAncestry[]>} A promise that resolves to an array of node ancestries. Each node ancestry
-   * is an array of node objects..
-   */
-  public async getAncestry(uuid: string): Promise<NodeAncestry[]> {
-    // TODO: maxLevel 50 should be enough, but change maybe?
-    // TODO: What if circular matches happen? uniqueness should filter that
-    const query: string = `
-    MATCH (c:Collection|Content {uuid: $uuid})
-
-    CALL apoc.path.expandConfig(c, {
-          relationshipFilter: 'PART_OF>',
-          labelFilter: 'Collection',
-          maxLevel: 50,
-          uniqueness: 'NODE_PATH'
-      }) YIELD path
-
-      WITH path, last(nodes(path)) AS topNode
-
-      // Keep only "longest paths" (which have Collections)
-      WHERE
-          NOT (topNode)-[:PART_OF]->() AND
-          NOT ()-[:REFERS_TO]->(topNode)
-
-      // Reverse path so that the top node of the hierarchy comes first
-      WITH reverse(tail(nodes(path))) as pathNodes
-
-      RETURN collect([
-          n IN pathNodes | {
-              node: {
-                  nodeLabels: labels(n), 
-                  data: n {.*}
-              },
-              connectedNodes: []
-          }
-      ]) as paths
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const paths: NodeAncestry[] = result.records[0]?.get("paths");
-
-    // Data need to be tranformed to native types, too, even without the possibility of editing them
-    const mapped: NodeAncestry[] = paths.map((path) =>
-      path.map((pathElement: NodeDto) => {
-        return {
-          ...pathElement,
-          node: {
-            nodeLabels: pathElement.node.nodeLabels,
-            data: toNativeTypes(pathElement.node.data),
-          },
-        };
-      }),
-    ) as NodeAncestry[];
-
-    return mapped;
-  }
-
-  /**
    * Retrieves collection node with given UUID together with connected text nodes. Annotation nodes will be retrieved 
    * by a separate query from the `AnnotationService`.
   
@@ -571,51 +503,6 @@ export default class CollectionService {
 
     return {
       node: updatedNode,
-      connectedNodes: [],
-    };
-  }
-
-  public async deleteCollection(uuid: string): Promise<NodeDto<CollectionNode>> {
-    const query: string = `
-
-    MATCH (c:Collection {uuid: $uuid})
-
-    WITH c, {
-        nodeLabels: labels(c),
-        data: c {.*}
-    } AS collectionToDelete
-
-    // Delete annotations
-    CALL (c) {
-        OPTIONAL MATCH (c)-[:HAS_ANNOTATION]->(a:Annotation)
-        DETACH DELETE a
-    }
-
-    // Delete texts, characters, and annotations
-    CALL (c) {
-        OPTIONAL MATCH (c)<-[:PART_OF]-(t:Content)
-        
-        OPTIONAL MATCH (t)-[:HAS_ANNOTATION]->(a:Annotation)
-        OPTIONAL MATCH (t)-[:NEXT_CHARACTER*]->(ch:Character)
-
-        DETACH DELETE t, a, ch
-    }
-
-    // Delete collection
-    DETACH DELETE c
-
-    RETURN collectionToDelete as collection
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const deletedCollection: CollectionNode = result.records[0]?.get("collection");
-
-    if (!deletedCollection) {
-      throw new NotFoundError(`Collection with UUID ${uuid} not found`);
-    }
-
-    return {
-      node: toNativeTypes(deletedCollection) as CollectionNode,
       connectedNodes: [],
     };
   }

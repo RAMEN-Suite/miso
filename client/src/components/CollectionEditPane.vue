@@ -1,29 +1,18 @@
 <script setup lang="ts">
 import { computed, ComputedRef, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
-import ButtonGroup from "primevue/buttongroup";
-import ToggleButton from "primevue/togglebutton";
-import { useCollectionManagerStore } from "../store/collectionManager";
-import NodeTag from "./NodeTag.vue";
+import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
 import {
   AnnotationType,
   CollectionNode,
-  ColumnEntry,
+  CollectionFocus,
+  HierarchyEntry,
   PropertyConfig,
-  TextNode,
   NodeDto,
-  CollectionAccessStatusObject,
   NodeStatusObject,
 } from "../models/types";
-import {
-  capitalize,
-  cloneDeep,
-  createContentNodeStatusObject,
-  getDefaultValueForProperty,
-  filterBaseNodeLabel,
-} from "../utils/helper/helper";
-import MultiSelect from "primevue/multiselect";
+import { capitalize, cloneDeep, getDefaultValueForProperty, filterBaseNodeLabel } from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -32,21 +21,21 @@ import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import Panel from "primevue/panel";
 import Fieldset from "primevue/fieldset";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
-import TextContainer from "./TextContainer.vue";
 import { useAppStore } from "../store/app";
 import { useRouter } from "vue-router";
-import CollectionDeleteModal from "./CollectionDeleteModal.vue";
-import ProgressSpinner from "primevue/progressspinner";
+import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
 import { useBookmarks } from "../composables/useBookmarks";
 import AnnotationButton from "./AnnotationButton.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import AnnotationAnnotationsSection from "./AnnotationAnnotationsSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
+import { resolveNodeIcon } from "../config/icons.ts";
 
-type TabView = "annotations" | "details" | "texts";
+const props = defineProps<{
+  focus: CollectionFocus;
+}>();
 
 const router = useRouter();
 const { api, addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
@@ -63,25 +52,13 @@ const {
   getAvailableCollectionLabels,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const {
-  activeCollection,
-  isFetchingCollectionDetails,
-  levels,
-  mode,
-  pathToActiveCollection,
-  findCollectionInHierarchy,
-  getUrlPath,
-  removeTemporaryCollectionItems,
-  setMode,
-} = useCollectionManagerStore();
+const { levels, mode, path, findEntryInHierarchy, getUrlPath, setMode } = useHierarchyStore();
 
 const { bookmarks, toggleBookmark } = useBookmarks();
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
-const temporaryWorkData = ref<CollectionAccessStatusObject | null>(null);
-const initialTemporaryWorkData = ref<CollectionAccessStatusObject | null>(null);
-
-const temporaryTexts = ref<NodeStatusObject<TextNode>[]>([]);
+const temporaryWorkData = ref<CollectionFocus | null>(null);
+const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
 const propertiesAreCollapsed = ref<boolean>(false);
@@ -89,11 +66,6 @@ const propertiesAreCollapsed = ref<boolean>(false);
 const isBookmarked = computed<boolean>(() => {
   return bookmarks.value.some((b) => b.data.data.uuid === temporaryWorkData.value?.collection.node.data.uuid);
 });
-
-const selectedView = ref<TabView>("details");
-const isTextsSelected = computed<boolean>(() => selectedView.value === "texts");
-const isDetailsSelected = computed<boolean>(() => selectedView.value === "details");
-const isAnnotationsSelected = computed<boolean>(() => selectedView.value === "annotations");
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels) : [];
@@ -105,7 +77,6 @@ const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
 );
 
 // Writable computed since "Collection" should be stripped from all visual displays/selection options
-// Adjusting styling in the `Multiselect` was not possible since chip items don't provide context
 const collectionNodeLabels = computed<string[]>({
   get: () => filterBaseNodeLabel(temporaryWorkData.value.collection.node.nodeLabels),
   set: (labels: string[]) =>
@@ -113,17 +84,10 @@ const collectionNodeLabels = computed<string[]>({
 });
 
 watch(
-  () => activeCollection.value?.collection?.node.data.uuid,
+  () => props.focus.collection.node.data.uuid,
   () => {
-    temporaryWorkData.value = cloneDeep(activeCollection.value);
-    initialTemporaryWorkData.value = cloneDeep(activeCollection.value);
-
-    temporaryTexts.value = [];
-
-    // In this case, the collection data is editable directly, meaning that the data need to be enriched
-    if (mode.value === "create") {
-      enrichCollectionData();
-    }
+    temporaryWorkData.value = cloneDeep(props.focus);
+    initialTemporaryWorkData.value = cloneDeep(props.focus);
   },
   { immediate: true },
 );
@@ -131,21 +95,15 @@ watch(
 /**
  * Checks the validity of the Collection edit pane data and throws errors if criteria are not met.
  *
- * This function returns `true` when everything is ok, `false` if the native HTML form validation fails
- * and throws an error if the custom validation fails.
- *
  * @returns {boolean} Whether the collection data are valid.
  * @throws {AppError} If the collection data are not valid.
  */
 function checkValidity(): boolean {
-  // TODO: This is currently a mix of native HTML form validation and custom validation. Should be refactored
-  // in the future (e.g. use the PrimeVue form validation).
-
   if (!form.value.reportValidity()) {
     return false;
   }
 
-  // Collections must have and additional node label (if options exist)
+  // Collections must have an additional node label (if options exist)
   if (availableCollectionLabels.value.length > 0 && temporaryWorkData.value.collection.node.nodeLabels.length === 0) {
     throw new ValidationError("A Collection MUST have an additional node label.");
   }
@@ -164,10 +122,6 @@ function checkValidity(): boolean {
   return true;
 }
 
-function clearTemporaryTexts(): void {
-  temporaryTexts.value = [];
-}
-
 function setAnnotationDeleted(uuid: string): void {
   const found: NodeStatusObject | undefined = temporaryWorkData.value.annotations.find((a) => a.node.data.uuid === uuid);
 
@@ -182,9 +136,6 @@ function setAnnotationDeleted(uuid: string): void {
 
 /**
  * Fills in any missing collection properties with the type-specific default value.
- *
- * Called when entering edit mode to create a full data object from which the dynamically rendered fields
- * can get their values from.
  *
  * @returns {void} This function does not return any value.
  */
@@ -207,28 +158,13 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   temporaryWorkData.value.annotations.push(newAnnotation);
 }
 
-function handleAddText(newText: NodeStatusObject<TextNode>) {
-  newText.node.data.text = newText.node.data.text.replace(/(\r\n|\n|\r)/g, " ");
-
-  temporaryTexts.value = temporaryTexts.value.filter((t) => t.node.data.uuid !== newText.node.data.uuid);
-
-  temporaryWorkData.value.texts.push(newText);
-}
-
-function handleAddTextClick(): void {
-  temporaryTexts.value.push(createContentNodeStatusObject());
-}
-
 function handleClickEditButton(): void {
   enrichCollectionData();
   setMode("edit");
 }
 
-async function handleDiscardChanges(): Promise<void> {
+function handleDiscardChanges(): void {
   temporaryWorkData.value = cloneDeep(initialTemporaryWorkData.value);
-
-  removeTemporaryCollectionItems();
-  clearTemporaryTexts();
 
   setMode("view");
 }
@@ -237,34 +173,16 @@ function handleRemoveAnnotation(event: MouseEvent, uuid: string): void {
   setAnnotationDeleted(uuid);
 }
 
-function handleRemoveText(text: NodeDto<TextNode>, status: "existing" | "temporary"): void {
-  if (status === "existing") {
-    const textToRemove = temporaryWorkData.value.texts.find((t) => t.node.data.uuid === text.node.data.uuid);
-
-    if (!textToRemove) {
-      console.error(`Text with UUID ${text.node.data.uuid} not found in existing texts.`);
-    }
-
-    textToRemove.meta.status = "removed";
-  } else {
-    temporaryTexts.value = temporaryTexts.value.filter((t) => t.node.data.uuid !== text.node.data.uuid);
-  }
-}
-
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
-  // TODO: Make this more elegant
-  const collectionObject: ColumnEntry | null = findCollectionInHierarchy(uuid, index);
+  const entry: HierarchyEntry | null = findEntryInHierarchy(uuid, index);
 
-  if (collectionObject) {
-    collectionObject.data.node.data = data.node.data;
-    collectionObject.data.node.nodeLabels = data.node.nodeLabels;
-    collectionObject.status = "existing";
+  if (entry) {
+    entry.data.node.data = data.node.data;
+    entry.data.node.nodeLabels = data.node.nodeLabels;
   }
 }
 
 async function handleApplyChanges(): Promise<void> {
-  // Handle errors in fronted to show warnings instead of errors coming from server
-
   try {
     if (!checkValidity()) {
       return;
@@ -285,15 +203,12 @@ async function handleApplyChanges(): Promise<void> {
   try {
     const result = await updateCollection();
 
-    // Set returned collection data to column list item
-    const pathIndex: number = pathToActiveCollection.value.length - 1;
+    // Update the column entry with the returned collection data
+    const pathIndex: number = path.value.length - 1;
 
-    // Update column entry (data, status)
     transferDataToListItem(result.node.data.uuid, pathIndex, result);
 
-    // Clean up pane data
     initialTemporaryWorkData.value = cloneDeep(temporaryWorkData.value);
-    clearTemporaryTexts();
 
     showMessage("success");
     setMode("view");
@@ -315,16 +230,17 @@ function handleBookmarkAction(): void {
 
 function handleDeleteColletion(): void {
   createModalInstance(
-    dialog.open(CollectionDeleteModal, {
+    dialog.open(NodeDeleteModal, {
       props: {
         modal: true,
         closable: false,
         closeOnEscape: false,
+        showHeader: false,
         style: { width: "25rem" },
       },
       data: {
         action: "delete",
-        collection: temporaryWorkData.value,
+        node: temporaryWorkData.value?.collection.node,
       },
       emits: {
         onDeleted: handleSuccessfullDeletion,
@@ -343,37 +259,30 @@ async function handleSuccessfullDeletion() {
 async function updateView() {
   const currentUuids: string[] = getUrlPath();
 
-  // Set returned collection data to column list item
-  const pathIndex: number = pathToActiveCollection.value.length - 1;
+  const pathIndex: number = path.value.length - 1;
   const newUuids: string[] = currentUuids.slice(0, pathIndex);
 
   await router.push({ query: { path: newUuids.join(",") } });
 
-  // Remove collection from level explicitly. This is not handled by the watcher since the watcher
-  // either refetches completely or keeps the last level.
-  levels.value[newUuids.length].collections = levels.value[newUuids.length].collections.filter(
-    (c) => c.data.node.data.uuid !== temporaryWorkData.value.collection.node.data.uuid,
+  // Remove the deleted collection from its column explicitly (the watcher keeps/refetches columns,
+  // but not this specific removal)
+  levels.value[newUuids.length].entries = levels.value[newUuids.length].entries.filter(
+    (e) => e.data.node.data.uuid !== temporaryWorkData.value.collection.node.data.uuid,
   );
 
   setMode("view");
 }
 
 /**
- * Called before saving the collection to remove any data entries that are not configured
- * according to the current node labels of the collection.
- *
- * This is necessary since on edit mode toggling the data object was filled with empty data entries temporarily
- * to form a data pool for the dynamically rendered input fields (see {@linkcode enrichCollectionData}).
+ * Removes any data entries that are not configured according to the current node labels, before saving.
  *
  * @returns {void} This function does not return any value.
  */
 function removeUnnecessaryDataBeforeSave(): void {
-  // Get configured field names that are allowed to be saved
   const configuredFieldNames: string[] = getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).map(
     (f) => f.name,
   );
 
-  // Remove data entries that are not configured
   Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
     if (!configuredFieldNames.includes(key) && key !== "uuid") {
       delete temporaryWorkData.value.collection.node.data[key];
@@ -381,52 +290,28 @@ function removeUnnecessaryDataBeforeSave(): void {
   });
 }
 
-function wrapDataInSingleStructure(data: CollectionAccessStatusObject) {
-  const { collection, texts, annotations } = data;
+function wrapDataInSingleStructure(data: CollectionFocus): NodeStatusObject {
+  const { collection, annotations } = data;
 
-  // Collection is set to "modified", along with all annotations and contents. The annotation
-  // and content status handling could be more fine granular, but this here makes things
-  // easier (Collections won't have hundreds/thousands of annotations, query is
-  // still performant)
+  // Collection and its annotations are set to "modified". The status handling could be more
+  // granular, but this keeps things simple (Collections have few annotations, query stays performant)
   const updatedCollection: NodeStatusObject = { ...collection, meta: { status: "modified" } };
   const updatedAnnotations: NodeStatusObject[] = annotations.map((a) => {
     const newStatus = a.meta.status === "unchanged" ? "modified" : a.meta.status;
 
-    return {
-      ...a,
-      meta: { status: newStatus },
-    };
-  });
-
-  console.log(updatedAnnotations);
-
-  const updatedTexts: NodeStatusObject[] = texts.map((t) => {
-    const newStatus = t.meta.status === "unchanged" ? "modified" : t.meta.status;
-
-    return {
-      ...t,
-      meta: { status: newStatus },
-    };
+    return { ...a, meta: { status: newStatus } };
   });
 
   return {
     ...updatedCollection,
-    connectedNodes: [...updatedTexts, ...updatedAnnotations],
+    connectedNodes: [...updatedAnnotations],
   };
 }
 
 async function updateCollection(): Promise<NodeDto<CollectionNode>> {
   removeUnnecessaryDataBeforeSave();
 
-  console.log(temporaryWorkData.value);
   const updateObj = wrapDataInSingleStructure(temporaryWorkData.value);
-
-  // console.log(flattenNodeTree(updateObj));
-
-  // const collectionPostData: CollectionPostData = {
-  //   data: temporaryWorkData.value,
-  //   initialData: initialTemporaryWorkData.value,
-  // };
 
   const json = await api.updateCollection(temporaryWorkData.value.collection.node.data.uuid, updateObj);
 
@@ -441,17 +326,10 @@ function showMessage(result: "success" | "error", error?: Error) {
     life: 2000,
   });
 }
-
-function toggleViewMode(direction: TabView): void {
-  selectedView.value = direction;
-}
 </script>
 
 <template>
-  <div
-    v-if="temporaryWorkData && !isFetchingCollectionDetails"
-    class="edit-pane-container h-full flex flex-column align-items-center p-2"
-  >
+  <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-column align-items-center p-2">
     <div class="main flex-grow-1 flex flex-column w-full">
       <div class="buttons flex justify-content-end gap-1">
         <Button
@@ -480,97 +358,30 @@ function toggleViewMode(direction: TabView): void {
       </div>
 
       <div class="label-section">
-        <h3 v-if="temporaryWorkData.collection.node.data.label">
-          {{ temporaryWorkData.collection.node.data.label }}
+        <h3 class="label-heading">
+          <i :class="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)" />
+          <span
+            v-if="mode === 'edit'"
+            v-contenteditable="temporaryWorkData.collection.node.data.label"
+            class="label-text"
+            contenteditable="true"
+            role="textbox"
+            aria-multiline="false"
+            data-placeholder="No label provided"
+            title="Click to edit the label"
+            @input="(e) => (temporaryWorkData.collection.node.data.label = (e.target as HTMLSpanElement).innerText.trim())"
+          ></span>
+          <span
+            v-else
+            v-contenteditable="temporaryWorkData.collection.node.data.label"
+            class="label-text"
+            data-placeholder="No label provided"
+          ></span>
+          <i v-if="mode === 'edit'" class="pi pi-pencil label-edit-icon" aria-hidden="true"></i>
         </h3>
-        <h3 v-else class="font-italic font-normal">No label provided</h3>
       </div>
-
-      <div class="tab-section pb-2">
-        <ButtonGroup class="w-full flex">
-          <ToggleButton
-            :model-value="isDetailsSelected"
-            class="w-full"
-            on-label="Details"
-            off-label="Details"
-            on-icon="pi pi-info-circle"
-            off-icon="pi pi-info-circle"
-            title="Show Collection details"
-            @change="toggleViewMode('details')"
-          />
-          <ToggleButton
-            :model-value="isAnnotationsSelected"
-            class="w-full"
-            on-label="Annotations"
-            off-label="Annotations"
-            on-icon="pi pi-pencil"
-            off-icon="pi pi-pencil"
-            title="Show Annotations"
-            @change="toggleViewMode('annotations')"
-          />
-          <ToggleButton
-            :model-value="isTextsSelected"
-            class="w-full"
-            on-label="Texts"
-            off-label="Texts"
-            on-icon="pi pi-align-justify"
-            off-icon="pi pi-align-justify"
-            title="Show Texts"
-            @change="toggleViewMode('texts')"
-          />
-        </ButtonGroup>
-      </div>
-
       <div class="content">
-        <div v-show="isDetailsSelected" class="properties-pane">
-          <h3 class="text-center">Labels</h3>
-          <div v-if="mode === 'edit'" class="flex justify-content-center">
-            <MultiSelect
-              v-model="collectionNodeLabels"
-              :options="availableCollectionLabels"
-              display="chip"
-              :invalid="availableCollectionLabels.length > 0 && temporaryWorkData.collection.node.nodeLabels.length === 0"
-              title="Select node labels"
-              placeholder="Select labels"
-              :filter="false"
-            >
-              <template #chip="{ value }">
-                <NodeTag :content="value" type="Collection" class="mr-1" />
-              </template>
-            </MultiSelect>
-          </div>
-          <div v-else class="flex gap-2 justify-content-center">
-            <template v-if="temporaryWorkData.collection.node.nodeLabels.length > 0">
-              <NodeTag v-for="label in collectionNodeLabels" :key="label" :content="label" type="Collection" class="mr-1" />
-            </template>
-            <div v-else>
-              <i>This Collection has no labels yet.</i>
-            </div>
-          </div>
-
-          <h3 class="text-center">Properties</h3>
-          <form ref="form">
-            <div v-for="field in collectionFields" :key="field.name" class="input-container">
-              <div class="flex align-items-center gap-3 mb-3">
-                <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
-                <DataInputGroup
-                  v-if="field.type === 'array'"
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <DataInputComponent
-                  v-else
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <div v-show="isAnnotationsSelected" class="annotations-pane">
+        <div class="annotations-pane">
           <div v-if="mode === 'edit'" class="annotation-button-pane flex flex-wrap gap-3 py-3">
             <AnnotationButton
               v-for="type in availabeAnnotationTypes"
@@ -580,10 +391,6 @@ function toggleViewMode(direction: TabView): void {
               :config="getCollectionAnnotationConfig(temporaryWorkData.collection.node.nodeLabels, type.type)"
               @clicked="handleAnnotationButtonClick($event)"
             />
-          </div>
-
-          <div v-if="mode === 'view' && temporaryWorkData.annotations.length === 0" class="pt-4 font-italic">
-            This collection has no annotations yet.
           </div>
 
           <Panel
@@ -638,8 +445,8 @@ function toggleViewMode(direction: TabView): void {
                 :mode="mode"
               />
             </Fieldset>
+
             <AnnotationReferencesSection v-model="annotation.connectedNodes" :mode="mode" />
-            <AnnotationAnnotationsSection v-model="annotation.connectedNodes" :mode="mode" />
 
             <div class="action-buttons flex justify-content-center">
               <Button
@@ -655,37 +462,26 @@ function toggleViewMode(direction: TabView): void {
             <ConfirmPopup></ConfirmPopup>
           </Panel>
         </div>
-        <div v-show="isTextsSelected" class="texts-pane">
-          <div v-if="mode === 'view' && temporaryWorkData.texts.length === 0" class="pt-4 font-italic">
-            This collection has no texts yet.
-          </div>
-          <TextContainer
-            v-for="text in temporaryWorkData.texts"
-            :key="text.node.data.uuid"
-            :text="text"
-            :mode="mode"
-            status="existing"
-            @text-removed="handleRemoveText(text, 'existing')"
-          />
-          <TextContainer
-            v-for="text in temporaryTexts"
-            :key="text.node.data.uuid"
-            :text="text"
-            :mode="mode"
-            status="temporary"
-            @text-added="handleAddText(text)"
-            @text-removed="handleRemoveText(text, 'temporary')"
-          />
-          <Button
-            v-if="mode === 'edit' && temporaryTexts.length === 0"
-            class="mt-2 w-full h-2rem"
-            icon="pi pi-plus"
-            size="small"
-            severity="secondary"
-            label="Add text"
-            title="Add new text"
-            @click="handleAddTextClick"
-          />
+        <div class="properties-pane">
+          <form ref="form">
+            <div v-for="field in collectionFields" :key="field.name" class="input-container">
+              <div class="flex align-items-center gap-3 mb-3">
+                <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
+                <DataInputGroup
+                  v-if="field.type === 'array'"
+                  v-model="temporaryWorkData.collection.node.data[field.name]"
+                  :config="field"
+                  :mode="mode"
+                />
+                <DataInputComponent
+                  v-else
+                  v-model="temporaryWorkData.collection.node.data[field.name]"
+                  :config="field"
+                  :mode="mode"
+                />
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -725,31 +521,6 @@ function toggleViewMode(direction: TabView): void {
       ></Button>
     </div>
   </div>
-
-  <div v-if="isFetchingCollectionDetails" class="w-full h-full flex justify-content-center align-items-center">
-    <ProgressSpinner
-      class="loading-spinner"
-      style="width: 80px; height: 80px"
-      stroke-width="2"
-      fill="transparent"
-      animation-duration="1.5s"
-      aria-label="Custom ProgressSpinner"
-      :dt="{
-        root: {
-          colorOne: 'black',
-          colorTwo: 'black',
-          colorThree: 'black',
-          colorFour: 'black',
-        },
-      }"
-    />
-  </div>
-
-  <div v-if="!activeCollection" class="w-full h-full flex justify-content-center align-items-center font-italic">
-    <div class="text-center">
-      <p>No Collection selected</p>
-    </div>
-  </div>
 </template>
 
 <style scoped>
@@ -773,17 +544,82 @@ function toggleViewMode(direction: TabView): void {
 }
 
 .label-section {
+  --label-field-background: var(--p-inputtext-background);
+  --label-field-border: var(--p-inputtext-border-color);
+  --label-field-border-hover: var(--p-inputtext-hover-border-color);
+  --label-field-radius: var(--p-inputtext-border-radius);
+  --label-placeholder-color: var(--p-inputtext-placeholder-color);
+  --label-accent: var(--p-primary-color);
+
   line-break: auto;
   min-height: 3rem;
   flex-shrink: 0;
   text-align: center;
+  padding: 0 5px;
 
   h3 {
     margin: 0;
   }
 }
 
+.label-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.label-text {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--label-field-radius);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.label-text[contenteditable="true"] {
+  border-style: dashed;
+  border-color: var(--label-field-border);
+  background: var(--label-field-background);
+  cursor: text;
+}
+
+.label-text[contenteditable="true"]:hover,
+.label-text:focus {
+  border-style: solid;
+  border-color: var(--label-field-border-hover);
+}
+
+.label-text:focus {
+  outline: none;
+  box-shadow: var(--box-shadow-focus);
+}
+
+/* The placeholder lives in CSS, so it can never be mistaken for the value and saved */
+.label-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--label-placeholder-color);
+  font-style: italic;
+  font-weight: normal;
+}
+
+.label-edit-icon {
+  font-size: 0.75rem;
+  opacity: 0.55;
+  transition:
+    color 0.2s,
+    opacity 0.2s;
+}
+
+.label-heading:hover .label-edit-icon,
+.label-text:focus + .label-edit-icon {
+  color: var(--label-accent);
+  opacity: 1;
+}
+
 .content {
+  margin-top: 1rem;
   flex-grow: 1;
   overflow-y: auto;
   scrollbar-gutter: stable;

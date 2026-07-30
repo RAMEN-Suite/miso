@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, Ref, ref, watch } from "vue";
 import Button from "primevue/button";
-import { CollectionAccessObject } from "../models/types";
+import { CollectionNode, HierarchyNode } from "../models/types";
 import { useAppStore } from "../store/app";
 import { useRoute } from "vue-router";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
@@ -21,28 +21,26 @@ const { api, addToastMessage } = useAppStore();
 const asyncOperationRunning = ref<boolean>(false);
 
 // Must be computed since PrimeVue's Dialog Service does not allow custom props for components
-const collection = computed<CollectionAccessObject>(() => {
-  return dialogRef?.value?.data?.collection ?? null;
+const node = computed<HierarchyNode>(() => {
+  return dialogRef?.value?.data?.node;
+});
+
+const kind = computed<"Collection" | "Content">(() => {
+  if (node.value.nodeLabels.includes("Collection")) {
+    return "Collection";
+  } else {
+    return "Content";
+  }
 });
 
 const deleteMessage = computed<string>(() => {
-  const label: string = collection.value?.collection.node.data.label ?? "";
-  const textsCount: number = collection.value?.texts?.length ?? 0;
-  const annotationsCount: number = collection.value?.annotations?.length ?? 0;
+  if (kind.value === "Collection") {
+    const label: string = (node.value as CollectionNode).data.label ?? "";
 
-  const parts: string[] = [];
-
-  if (textsCount > 0) {
-    parts.push(`${textsCount} ${textsCount === 1 ? "Text" : "Texts"}`);
+    return `The Collection "${label}" and everything below it (Content, Annotations) will be deleted. This can NOT be undone. Are you sure?`;
+  } else {
+    return `This Content will be deleted. This can NOT be undone. Are you sure?`;
   }
-
-  if (annotationsCount > 0) {
-    parts.push(`${annotationsCount} ${annotationsCount === 1 ? "Annotation" : "Annotations"}`);
-  }
-
-  const itemsPart: string = parts.length > 0 ? `, including ${parts.join(" and ")}` : "";
-
-  return `The Collection with label "${label}" will be deleted${itemsPart}. Are you sure?`;
 });
 
 watch(() => route.path, closeModal);
@@ -51,7 +49,7 @@ async function handleSubmitClick(): Promise<void> {
   asyncOperationRunning.value = true;
 
   try {
-    await api.deleteCollection(collection.value.collection.node.data.uuid);
+    await api.deleteHierarchyNode(node.value.data.uuid);
 
     closeModal();
 
@@ -64,7 +62,7 @@ async function handleSubmitClick(): Promise<void> {
 }
 
 function closeModal(): void {
-  dialogRef.value.close();
+  dialogRef?.value.close();
 }
 
 function showMessage(result: "success" | "error", error?: Error) {
@@ -82,15 +80,13 @@ function handleCancelClick(): void {
 </script>
 
 <template>
-  <h2 class="w-full text-center m-0">Delete collection "{{ collection.collection.node.data.label }}"</h2>
-
   <div class="content text-center mb-2">
     <p>
       {{ deleteMessage }}
     </p>
   </div>
 
-  <div class="button-container flex justify-content-end gap-2">
+  <div class="button-container flex justify-content-center gap-2">
     <Button
       type="submit"
       label="Yes, delete"

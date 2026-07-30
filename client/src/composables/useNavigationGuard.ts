@@ -35,7 +35,7 @@ export function useNavigationGuard() {
    */
   async function redirectToCollectionPath(route: RouteLocationNormalized): Promise<RouteLocationRaw | boolean> {
     const uuid: string = route.params.uuid as string;
-    const ancestryPaths: NodeAncestry[] = await api.getCollectionAncestry(uuid);
+    const ancestryPaths: NodeAncestry[] = await api.getHierarchyNodeAncestry(uuid);
 
     // If multiple paths exist, set data to route object and return back to router
     if (ancestryPaths.length > 1) {

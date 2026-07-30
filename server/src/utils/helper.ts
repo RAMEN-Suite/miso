@@ -84,6 +84,44 @@ export function getPagination(req: Request): Record<string, any> {
 }
 
 /**
+ * Parses the query parameters for a hierarchy children request into a normalized spec.
+ *
+ * Distinct from {@link getPagination}: this uses opaque cursor pagination (not offset/structured
+ * cursor) and carries the label/sort filter shape the hierarchy view needs.
+ *
+ * @param {Request} req - The express request object.
+ * @returns {Object} The parsed hierarchy query: `parentUuid`, `nodeLabels`,
+ *   `search`, `sort`, `direction`, `limit`, and the raw `cursor` string (or `null`).
+ */
+export function getHierarchyQuery(req: Request): {
+  parentUuid: string | null;
+  nodeLabels: string[];
+  search: string;
+  sort: string;
+  direction: "asc" | "desc";
+  limit: number;
+  cursor: string | null;
+} {
+  const DEFAULT_LIMIT: number = 50;
+  const MAX_LIMIT: number = 1000;
+
+  const parentUuid: string | null = (req.query.parent as string) || null;
+
+  const nodeLabels: string[] = ((req.query.nodeLabels as string) ?? "").split(",").filter((label) => label.trim() !== "");
+
+  const search: string = (req.query.search as string) ?? "";
+  const sort: string = (req.query.sort as string) || "distinct";
+  const direction: "asc" | "desc" = req.query.dir === "desc" ? "desc" : "asc";
+
+  const parsedLimit: number = parseInt(req.query.limit as string);
+  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+
+  const cursor: string | null = (req.query.cursor as string) || null;
+
+  return { parentUuid, nodeLabels, search, sort, direction, limit, cursor };
+}
+
+/**
  * Checks if a given file name is a valid configuration file.
  *
  * Currently used to validate the provided file name for guidelines and stylesheet when the provided URL

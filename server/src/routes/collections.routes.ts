@@ -78,18 +78,6 @@ router.get("/:uuid/collections", async (req: Request, res: Response, next: NextF
   }
 });
 
-router.get("/:uuid/ancestry", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.params.uuid;
-
-  try {
-    const ancestryPaths: NodeAncestry[] = await collectionService.getAncestry(uuid);
-
-    res.status(200).json(ancestryPaths);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
 router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
   const uuid: string = req.params.uuid;
   const data: NodeStatusObject = req.body;

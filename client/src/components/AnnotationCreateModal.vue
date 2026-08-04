@@ -9,6 +9,7 @@ import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import AnnotationAnnotationsSection from "./AnnotationAnnotationsSection.vue";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
+import { checkAnnotationValidity } from "../utils/helper/helper.ts";
 
 const route = useRoute();
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -31,34 +32,12 @@ const propertyFields: PropertyConfig[] = getAnnotationFields(annotationTemplate.
 const asyncOperationRunning = ref<boolean>(false);
 const propertiesAreCollapsed = ref<boolean>(false);
 
-const inputIsValid = computed<boolean>(checkAnnotationValidity);
+const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotationTemplate, config));
 
 watch(() => route.path, closeModal);
 
-// TODO: Move this to helper or something
-function checkAnnotationValidity() {
-  // For properties. Will be extended when rules for connected entites etc. are applied
-  return propertyFields.every((field: PropertyConfig) => {
-    if (!field.required) {
-      return true;
-    }
-
-    const value = annotationTemplate.node.data[field.name];
-
-    if (value === null || value === undefined) {
-      return false;
-    }
-
-    if (field.type === "string" && (value as string).trim().length === 0) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
 function closeModal(): void {
-  dialogRef.value.close();
+  dialogRef?.value.close();
 }
 
 function handleCancelClick(): void {

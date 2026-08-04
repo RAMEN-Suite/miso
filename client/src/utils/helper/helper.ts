@@ -14,6 +14,8 @@ import {
   ToCItem,
   Annotation,
   BaseNodeLabel,
+  PropertyConfig,
+  AnnotationType,
 } from "../../models/types";
 import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
@@ -333,6 +335,38 @@ export function getBaseNodeLabel(labels: string[]): BaseNodeLabel {
   } else {
     throw new Error("Node does not have a valid base label");
   }
+}
+
+/**
+ * Checks whether an annotation matches the requirements of its configuration.
+ *
+ * Currently only property fields are validated. Will be extended when rules for connected
+ * entities etc. are applied.
+ *
+ * @param {Annotation} annotation - The annotation whose node data is checked.
+ * @param {PropertyConfig[]} config - The config of the annotation type.
+ * @return {boolean} Returns `true` if all required fields have a value, `false` otherwise.
+ */
+export function checkAnnotationValidity(annotation: Annotation, config: AnnotationType): boolean {
+  const fields: PropertyConfig[] = config.properties ?? [];
+
+  return fields.every((field: PropertyConfig) => {
+    if (!field.required) {
+      return true;
+    }
+
+    const value: unknown = annotation.node.data[field.name];
+
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    if (field.type === "string" && (value as string).trim().length === 0) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 /**

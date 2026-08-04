@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { computed, ref, toRef, useTemplateRef } from "vue";
+import { computed, ref, toRef } from "vue";
 import { useEditorStore } from "../store/editor.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import Fieldset from "primevue/fieldset";
-import { useConfirm } from "primevue/useconfirm";
+import { useDialog } from "primevue/usedialog";
 import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
+import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import AnnotationAnnotationsSection from "./AnnotationAnnotationsSection.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
-import NodeStatusBadge from "./NodeStatusBadge.vue";
 import { Range } from "../models/types.ts";
 import { findDecorationBoundariesByUuid, findNodeBoundariesByUuid } from "../utils/helper/tiptapHelper.ts";
 import { DecorationSet } from "@tiptap/pm/view";
 import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration.ts";
-import { onClickOutside } from "@vueuse/core";
 import { useAppStore } from "../store/app.ts";
 
 const props = defineProps<{
@@ -28,9 +26,9 @@ const props = defineProps<{
 const initialData = toRef<NodeStatusObject<AnnotationNode>>(cloneDeep(props.annotation));
 const workingData = ref<NodeStatusObject<AnnotationNode>>(cloneDeep(props.annotation));
 
-const confirm = useConfirm();
+const dialog = useDialog();
 
-const { activeModal, addToastMessage } = useAppStore();
+const { createModalInstance, destroyModalInstance } = useAppStore();
 const { tiptap, annotations } = useTiptapStore();
 const { isRedrawMode, redrawMode } = useEditorStore();
 const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
@@ -38,8 +36,6 @@ const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = use
 const config: AnnotationType = getAnnotationConfig(workingData.value.node.data.type);
 // TODO: Maybe give whole config instead of only fields...?
 const propertyFields: PropertyConfig[] = getAnnotationFields(workingData.value.node.data.type);
-
-const mode = ref<"view" | "edit">("view");
 
 const isCollapsed = ref<boolean>(true);
 const propertiesAreCollapsed = ref<boolean>(false);
@@ -53,79 +49,49 @@ const previewText = computed<string>(() => {
 const redrawButtonicon = computed<string>(() => (redrawMode.value?.direction === "on" ? "pi pi-times" : "pi pi-pencil"));
 const redrawButtonTitle = computed<string>(() => (isRedrawMode.value ? "Cancel redraw operation" : "Redraw annotation"));
 
-const formEl = useTemplateRef<HTMLDivElement>("annotationForm");
+function handleDeleteAnnotation(): void {
+  // Do NOT set status to 'deleted'or change the store in any way - this is determined during save preprocessing
+  // when checked what annotations are in the document
+  const annoEntry: Annotation | undefined = annotations.value?.get(workingData.value.node.data.uuid);
 
-onClickOutside(formEl, (event) => {
-  if (mode.value === "view") {
+  if (!annoEntry) {
     return;
   }
 
-  if (activeModal.value) {
-    return;
-  }
-
-  event.preventDefault();
-
-  showUnsavedChangesWarning();
-});
-
-function showUnsavedChangesWarning() {
-  addToastMessage({
-    severity: "warn",
-    summary: "You have unsaved changes in annotation form",
-    detail: "Please save or discard your changes.",
-    life: 3000,
-  });
+  // TODO: Include removing zero point annotations
+  tiptap.value?.commands.removeAnnotationDecoration(workingData.value.node);
 }
 
-function handleDeleteAnnotation(event: MouseEvent): void {
-  confirm.require({
-    target: event.currentTarget as HTMLButtonElement,
-    message: "Do you want to delete this annotation?",
-    icon: "pi pi-exclamation-triangle",
-    rejectProps: {
-      label: "Cancel",
-      severity: "secondary",
-      outlined: true,
-      title: "Cancel",
-    },
-    acceptProps: {
-      label: "Delete",
-      severity: "danger",
-      title: "Delete annotation",
-    },
-    accept: () => {
-      // TODO: Might be changed when the "status" behaviour is changed.
-      const annoEntry: Annotation | undefined = annotations.value?.get(workingData.value.node.data.uuid);
-
-      if (!annoEntry) {
-        return;
-      }
-
-      // Do NOT set status to 'deleted' - this is determined during save preprocessing
-      // when checked what annotations are in the document
-      // annoEntry.meta.status = 'deleted';
-
-      // Remove decoration
-      tiptap.value?.commands.removeAnnotationDecoration(workingData.value.node);
-    },
-    reject: () => {},
-  });
-}
-
+/**
+ * Opens the {@linkcode AnnotationEditModal} for this annotation. The form itself stays read-only -
+ * all editing happens in the modal, which works on its own copy and emits the result on "Update".
+ *
+ * @returns {void} This function does not return any value.
+ */
 function handleEditAnnotation(): void {
-  toggleCollapsed(false);
-  toggleFormMode("edit");
-}
+  createModalInstance(
+    dialog.open(AnnotationEditModal, {
+      props: {
+        modal: true,
+        closable: true,
+        closeOnEscape: true,
+        header: `Edit ${workingData.value.node.data.subType ?? workingData.value.node.data.type} annotation`,
+        style: { width: "28rem" },
+        pt: {
+          pcCloseButton: { root: { title: "Close" } },
+        },
+      },
 
-function handleUpdate(): void {
-  updateData();
-  toggleFormMode("view");
-}
-
-function handleCancelChanges(): void {
-  resetData();
-  toggleFormMode("view");
+      data: { annotation: workingData.value },
+      emits: {
+        onSubmit: (updated: Annotation) => {
+          updateData(updated);
+          destroyModalInstance();
+        },
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
 }
 
 function handleRedraw(): void {
@@ -196,22 +162,15 @@ function toggleCollapsed(newState?: boolean): void {
   isCollapsed.value = newState ?? !isCollapsed.value;
 }
 
-function resetData() {
-  workingData.value = cloneDeep(initialData.value);
-}
+/**
+ * Writes the data edited in the {@linkcode AnnotationEditModal} back into the form and the store.
+ *
+ * @param {Annotation} updated - The annotation data as returned by the modal
+ * @returns {void} This function does not return any value.
+ */
+function updateData(updated: Annotation): void {
+  const newData: NodeStatusObject<AnnotationNode> = cloneDeep(updated);
 
-function toggleFormMode(newState?: "view" | "edit"): void {
-  if (newState) {
-    mode.value = newState;
-  } else {
-    mode.value = newState ?? mode.value === "view" ? "edit" : "view";
-  }
-}
-
-function updateData(): void {
-  const newData: NodeStatusObject<AnnotationNode> = cloneDeep(workingData.value);
-
-  console.log(newData);
   // Set status field depeding on whether the annotation freshly created
   if (initialData.value.meta.status === "created") {
     newData.meta.status = "created";
@@ -233,13 +192,7 @@ function updateData(): void {
 </script>
 
 <template>
-  <div
-    :id="props.annotation.node.data.uuid"
-    ref="annotationForm"
-    class="annotation-card mb-3"
-    :data-annotation-uuid="workingData.node.data.uuid"
-    :data-mode="mode"
-  >
+  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-3" :data-annotation-uuid="workingData.node.data.uuid">
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 align-items-center flex-grow-1">
         <div class="icon-container">
@@ -263,7 +216,6 @@ function updateData(): void {
           @click="handleSpyClick"
         ></div>
       </div>
-      <NodeStatusBadge :status="workingData.meta.status" />
       <Button
         :icon="`pi pi-chevron-${isCollapsed ? 'down' : 'up'}`"
         severity="secondary"
@@ -287,17 +239,13 @@ function updateData(): void {
         <template #toggleicon>
           <span :class="`pi pi-chevron-${propertiesAreCollapsed ? 'down' : 'up'}`"></span>
         </template>
-        <FormPropertiesSection v-model="workingData.node.data" :fields="propertyFields" :mode="mode" />
+        <FormPropertiesSection v-model="workingData.node.data" :fields="propertyFields" mode="view" />
       </Fieldset>
-      <AnnotationReferencesSection v-model="workingData.connectedNodes" :mode="mode" />
-      <AnnotationAnnotationsSection v-model="workingData.connectedNodes" :mode="mode" />
+      <AnnotationReferencesSection v-model="workingData.connectedNodes" mode="view" />
     </div>
 
     <div class="annotation-card-footer">
-      <!-- <div
-        v-if="mode === 'view'"
-        class="edit-buttons flex justify-content-center align-items-center"
-      >
+      <!-- <div class="edit-buttons flex justify-content-center align-items-center">
         <Button
           icon="pi pi-angle-left"
           size="small"
@@ -351,7 +299,6 @@ function updateData(): void {
       </div> -->
       <div class="action-buttons flex gap-1 justify-content-center">
         <Button
-          v-if="mode === 'view'"
           title="Edit annotation"
           severity="contrast"
           icon="pi pi-pencil"
@@ -360,31 +307,12 @@ function updateData(): void {
           @click="handleEditAnnotation"
         />
         <Button
-          v-if="mode === 'view'"
           title="Delete annotation"
           severity="danger"
           icon="pi pi-trash"
           size="small"
           :style="{ width: '25px', height: '25px' }"
           @click="handleDeleteAnnotation"
-        />
-        <Button
-          v-if="mode === 'edit'"
-          label="Update"
-          title="Update annotation"
-          severity="primary"
-          icon="pi pi-check"
-          size="small"
-          @click="handleUpdate"
-        />
-        <Button
-          v-if="mode === 'edit'"
-          label="Cancel"
-          title="Cancel changes"
-          severity="secondary"
-          icon="pi pi-times"
-          size="small"
-          @click="handleCancelChanges"
         />
       </div>
     </div>

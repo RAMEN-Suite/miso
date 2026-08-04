@@ -2,11 +2,11 @@
 import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, NodeStatusObject, SemanticBlockRange } from "../models/types";
+import type { Annotation, SemanticBlockRange } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
-import SemanticBlockDetailsModal from "./SemanticBlockDetailsModal.vue";
+import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { Menu } from "primevue";
 import { collectSemanticBlocks } from "../utils/helper/tiptapHelper";
 import { Node } from "@tiptap/pm/model";
@@ -211,7 +211,7 @@ function updateAnnotation(updated: Annotation): void {
 }
 
 /**
- * Opens the {@linkcode SemanticBlockDetailsModal} for the given line's semantic block. The
+ * Opens the {@linkcode AnnotationEditModal} for the given line's semantic block. The
  * annotation is assembled from the doc attrs (the source of truth); on submit the edited data is
  * written back into the doc via the `updateSemanticBlockData` command (undoable, save reads it).
  *
@@ -225,20 +225,19 @@ function handleDetailsClick(line: PositionedLine): void {
     return;
   }
 
-  const annotation: NodeStatusObject | undefined = collectSemanticBlocks(doc).get(line.uuid);
+  const annotation: Annotation | undefined = collectSemanticBlocks(doc).get(line.uuid);
 
   if (!annotation) {
     return;
   }
 
   createModalInstance(
-    dialog.open(SemanticBlockDetailsModal, {
+    dialog.open(AnnotationEditModal, {
       props: {
         modal: true,
         closable: true,
         closeOnEscape: true,
-        dismissableMask: true,
-        header: `Annotation details`,
+        header: `Edit ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
         style: { width: "28rem" },
         pt: {
           pcCloseButton: { root: { title: "Close" } },

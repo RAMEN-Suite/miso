@@ -15,8 +15,6 @@ import {
   TextNode,
 } from "../models/types";
 import { useAppStore } from "../store/app";
-import NodeTag from "./NodeTag.vue";
-import { filterDefaultLabels } from "../utils/helper/helper";
 import { onStartTyping } from "@vueuse/core";
 import { resolveNodeIcon } from "../config/icons.ts";
 

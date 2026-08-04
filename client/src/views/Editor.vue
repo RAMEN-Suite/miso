@@ -45,7 +45,7 @@ import { useCreateIndexMaps } from "../composables/useCreateIndexMaps.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import { IAnnotation } from "../models/IAnnotation.ts";
 import EditorToC from "../components/EditorToC.vue";
-import { cloneDeep } from "../utils/helper/helper.ts";
+import { cloneDeep, setNodeTreeStatus } from "../utils/helper/helper.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -143,7 +143,7 @@ function cleanUpAnnotations(updatedAnnotations: NodeStatusObject[]): void {
       annotations.value?.delete(a.node.data.uuid);
     } else {
       // Recursively set all nodes to "unchanged"
-      traverseNodeTreeAndSetToCreated(a);
+      setNodeTreeStatus(a, "unchanged");
 
       // Update value
       annotations.value?.set(a.node.data.uuid, a as Annotation);
@@ -164,7 +164,7 @@ function cleanUpStructureElements(structureElements: NodeStatusObject[]): void {
     } else {
       // Recursively set all nodes to "unchanged". Technically, this is currently not necessary
       // since the structure elements can not have any connected nodes.
-      traverseNodeTreeAndSetToCreated(elm);
+      setNodeTreeStatus(elm, "unchanged");
 
       // Update value
       initialStructuralAnnotations.value?.set(uuid, elm as Annotation);
@@ -674,12 +674,6 @@ async function handleSaveChanges(): Promise<void> {
   } finally {
     asyncOperationRunning.value = false;
   }
-}
-
-function traverseNodeTreeAndSetToCreated(node: NodeStatusObject) {
-  node.meta.status = "unchanged";
-
-  node.connectedNodes.forEach((child) => traverseNodeTreeAndSetToCreated(child));
 }
 
 function handleCancelChanges(): void {

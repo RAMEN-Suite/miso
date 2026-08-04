@@ -12,7 +12,14 @@ import {
   NodeDto,
   NodeStatusObject,
 } from "../models/types";
-import { capitalize, cloneDeep, getDefaultValueForProperty, filterBaseNodeLabel } from "../utils/helper/helper";
+import {
+  capitalize,
+  cloneDeep,
+  getDefaultValueForProperty,
+  filterBaseNodeLabel,
+  setNodeTreeStatus,
+  pruneDeletedNodes,
+} from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -182,6 +189,27 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
   }
 }
 
+/**
+ * Removes stale data from the temporary work data after a successful save operation. This includes filtering out
+ * annotations previously marked as "deleted"/"removed" as well as setting the status of all remaining nodes to "unchanged".
+ * The edit process has finished, now everything is in sync with the database.
+ *
+ * @returns {void} This function does not return any value.
+ */
+function cleanupDataAfterSave(): void {
+  temporaryWorkData.value.annotations = temporaryWorkData.value.annotations.filter(
+    (a) => a.meta.status !== "deleted" && a.meta.status !== "removed",
+  );
+
+  pruneDeletedNodes(temporaryWorkData.value.collection);
+  setNodeTreeStatus(temporaryWorkData.value.collection, "unchanged");
+
+  temporaryWorkData.value.annotations.forEach((a) => {
+    pruneDeletedNodes(a);
+    setNodeTreeStatus(a, "unchanged");
+  });
+}
+
 async function handleApplyChanges(): Promise<void> {
   try {
     if (!checkValidity()) {
@@ -207,6 +235,8 @@ async function handleApplyChanges(): Promise<void> {
     const pathIndex: number = path.value.length - 1;
 
     transferDataToListItem(result.node.data.uuid, pathIndex, result);
+
+    cleanupDataAfterSave();
 
     initialTemporaryWorkData.value = cloneDeep(temporaryWorkData.value);
 

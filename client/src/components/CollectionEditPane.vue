@@ -377,7 +377,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         />
         <Button
           as="a"
-          :href="`/api/tools/ora/collections/${temporaryWorkData.collection.node.data.uuid}`"
+          :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
           target="_blank"
           rel="noopener"
           severity="secondary"

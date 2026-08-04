@@ -26,7 +26,6 @@ import { useDialog } from "primevue";
 import ConfirmPopup from "primevue/confirmpopup";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import Panel from "primevue/panel";
-import Fieldset from "primevue/fieldset";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import { useAppStore } from "../store/app";
 import { useRouter } from "vue-router";
@@ -458,34 +457,22 @@ function showMessage(result: "success" | "error", error?: Error) {
             <template #toggleicon="{ collapsed }">
               <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
             </template>
-            <Fieldset
-              legend="Properties"
-              :toggle-button-props="{
-                title: `${propertiesAreCollapsed ? 'Expand' : 'Collapse'} properties`,
-              }"
-              :toggleable="true"
-              @toggle="propertiesAreCollapsed = !propertiesAreCollapsed"
-            >
-              <template #toggleicon>
-                <span :class="`pi pi-chevron-${propertiesAreCollapsed ? 'down' : 'up'}`"></span>
-              </template>
-              <FormPropertiesSection
-                v-model="annotation.node.data"
-                :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
-                :mode="mode"
-              />
-            </Fieldset>
+            <FormPropertiesSection
+              v-model="annotation.node.data"
+              :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
+              :mode="mode"
+            />
 
             <AnnotationReferencesSection v-model="annotation.connectedNodes" :mode="mode" />
 
             <div class="action-buttons flex justify-content-center">
               <Button
                 v-if="mode === 'edit'"
-                label="Remove"
                 title="Remove annotation from Collection"
                 severity="danger"
                 icon="pi pi-trash"
                 size="small"
+                :style="{ width: '25px', height: '25px' }"
                 @click="handleRemoveAnnotation($event, annotation.node.data.uuid)"
               />
             </div>

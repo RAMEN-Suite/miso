@@ -25,8 +25,6 @@ const { createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEntityLabels } = useGuidelinesStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
-const sectionIsCollapsed = ref<boolean>(false);
-
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
@@ -129,18 +127,7 @@ function handleAddNodeClick(event: PointerEvent): void {
 </script>
 
 <template>
-  <Fieldset
-    legend="References"
-    :toggleable="true"
-    :toggle-button-props="{
-      title: `${sectionIsCollapsed ? 'Expand' : 'Collapse'} references`,
-    }"
-    @toggle="sectionIsCollapsed = !sectionIsCollapsed"
-  >
-    <template #toggleicon>
-      <span :class="`pi pi-chevron-${sectionIsCollapsed ? 'down' : 'up'}`"></span>
-    </template>
-
+  <Fieldset legend="References">
     <template v-for="(node, index) in nodes" :key="node.node.data.uuid">
       <template v-if="isNotDeleted(node) && isReference(node)">
         <EntityCard

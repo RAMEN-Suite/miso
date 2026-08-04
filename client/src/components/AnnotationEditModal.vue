@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref, toValue, watch } from "vue";
 import { useRoute } from "vue-router";
-import Fieldset from "primevue/fieldset";
 import Button from "primevue/button";
 import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -25,7 +24,6 @@ const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 const config: AnnotationType | undefined = getAnnotationConfig(annotation.value.node.data.type);
 const propertyFields: PropertyConfig[] = getAnnotationFields(annotation.value.node.data.type);
 
-const propertiesAreCollapsed = ref<boolean>(false);
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
 
 watch(() => route.path, closeModal);
@@ -56,19 +54,7 @@ function closeModal(): void {
     </div>
 
     <div class="content">
-      <Fieldset
-        legend="Properties"
-        :toggle-button-props="{
-          title: `${propertiesAreCollapsed ? 'Expand' : 'Collapse'} properties`,
-        }"
-        :toggleable="true"
-        @toggle="propertiesAreCollapsed = !propertiesAreCollapsed"
-      >
-        <template #toggleicon>
-          <span :class="`pi pi-chevron-${propertiesAreCollapsed ? 'down' : 'up'}`"></span>
-        </template>
-        <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
-      </Fieldset>
+      <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="edit" />
     </div>
   </div>

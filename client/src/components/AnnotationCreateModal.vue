@@ -2,7 +2,6 @@
 import { computed, inject, Ref, ref, watch } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import Fieldset from "primevue/fieldset";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -30,7 +29,6 @@ const config: AnnotationType = getAnnotationConfig(annotationTemplate.node.data.
 const propertyFields: PropertyConfig[] = getAnnotationFields(annotationTemplate.node.data.type);
 
 const asyncOperationRunning = ref<boolean>(false);
-const propertiesAreCollapsed = ref<boolean>(false);
 
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotationTemplate, config));
 
@@ -58,19 +56,7 @@ function handleSubmitClick(): void {
     </h2>
 
     <div v-if="annotationTemplate" class="content mb-2">
-      <Fieldset
-        legend="Properties"
-        :toggle-button-props="{
-          title: `${propertiesAreCollapsed ? 'Expand' : 'Collapse'} properties`,
-        }"
-        :toggleable="true"
-        @toggle="propertiesAreCollapsed = !propertiesAreCollapsed"
-      >
-        <template #toggleicon>
-          <span :class="`pi pi-chevron-${propertiesAreCollapsed ? 'down' : 'up'}`"></span>
-        </template>
-        <FormPropertiesSection v-model="annotationTemplate.node.data" :fields="propertyFields" mode="edit" />
-      </Fieldset>
+      <FormPropertiesSection v-model="annotationTemplate.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotationTemplate.connectedNodes" mode="edit" />
       <AnnotationAnnotationsSection v-model="annotationTemplate.connectedNodes" mode="edit" />
     </div>

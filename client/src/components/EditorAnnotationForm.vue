@@ -4,7 +4,6 @@ import { useEditorStore } from "../store/editor.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
-import Fieldset from "primevue/fieldset";
 import { useDialog } from "primevue/usedialog";
 import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -38,7 +37,6 @@ const config: AnnotationType = getAnnotationConfig(workingData.value.node.data.t
 const propertyFields: PropertyConfig[] = getAnnotationFields(workingData.value.node.data.type);
 
 const isCollapsed = ref<boolean>(true);
-const propertiesAreCollapsed = ref<boolean>(false);
 const previewText = computed<string>(() => {
   const sliced: string = workingData.value.node.data.text?.slice(0, 10);
 
@@ -228,19 +226,7 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div v-show="!isCollapsed" class="annotation-card-body">
-      <Fieldset
-        legend="Properties"
-        :toggle-button-props="{
-          title: `${propertiesAreCollapsed ? 'Expand' : 'Collapse'} properties`,
-        }"
-        :toggleable="true"
-        @toggle="propertiesAreCollapsed = !propertiesAreCollapsed"
-      >
-        <template #toggleicon>
-          <span :class="`pi pi-chevron-${propertiesAreCollapsed ? 'down' : 'up'}`"></span>
-        </template>
-        <FormPropertiesSection v-model="workingData.node.data" :fields="propertyFields" mode="view" />
-      </Fieldset>
+      <FormPropertiesSection v-model="workingData.node.data" :fields="propertyFields" mode="view" />
       <AnnotationReferencesSection v-model="workingData.connectedNodes" mode="view" />
     </div>
 

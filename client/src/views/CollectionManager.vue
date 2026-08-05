@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import CollectionTopMenu from "../components/CollectionTopMenu.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Splitter from "primevue/splitter";
 import SplitterPanel from "primevue/splitterpanel";
@@ -123,9 +122,8 @@ function showUnsavedChangesWarning() {
   <template v-else>
     <LoadingSpinner v-if="isLoading === true" />
 
-    <div v-else class="container flex flex-column h-screen">
+    <div v-else class="container flex flex-column h-full">
       <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
-      <CollectionTopMenu />
       <div class="main flex-grow-1 flex flex-column">
         <HierarchyBreadcrumbs :path="path" @item-clicked="handleBreadcrumbItemClick" @home-clicked="handleBreadcrumbHomeClick" />
 
@@ -162,7 +160,6 @@ function showUnsavedChangesWarning() {
           </Splitter>
         </div>
       </div>
-      <div class="footer"></div>
     </div>
   </template>
 </template>
@@ -175,9 +172,5 @@ function showUnsavedChangesWarning() {
   .edit-area {
     overflow-y: hidden;
   }
-}
-
-.footer {
-  height: 30px;
 }
 </style>

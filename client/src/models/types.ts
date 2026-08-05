@@ -145,6 +145,9 @@ export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity"
 /** The base node labels that can be searched for and referenced from an Annotation */
 export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
 
+/** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
+export type LayoutName = "default" | "blank";
+
 export interface Bookmark {
   data: CollectionNode | TextNode;
   createdAt: string; // ISO 8601 string

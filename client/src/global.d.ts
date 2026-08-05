@@ -1,5 +1,5 @@
 import "vue-router";
-import { CollectionNode, NodeAncestry, NodeDto } from "./models/types";
+import { CollectionNode, LayoutName, NodeAncestry, NodeDto } from "./models/types";
 
 declare module "vue-router" {
   /**
@@ -8,5 +8,7 @@ declare module "vue-router" {
   interface RouteMeta {
     collection?: NodeDto<CollectionNode>;
     ancestryPaths?: NodeAncestry[];
+    /** Name of the layout wrapping this route's view. Defaults to "default" when omitted. */
+    layout?: LayoutName;
   }
 }

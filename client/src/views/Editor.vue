@@ -835,7 +835,7 @@ watch(
     <LoadingSpinner />
   </PageOverlay>
   <EditorError v-else-if="isValidText === false" :uuid="textUuid" />
-  <div v-else class="container flex h-screen">
+  <div v-else class="container flex h-full">
     <PageOverlay v-if="asyncOperationRunning">
       <LoadingSpinner />
     </PageOverlay>

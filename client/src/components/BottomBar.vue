@@ -46,7 +46,7 @@ import Button from "primevue/button";
   display: inline-block;
   width: 1rem;
   height: 1rem;
-  background-image: url("../../public/ramen.svg");
+  background-image: url("../../public/icons/ramen.svg");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;

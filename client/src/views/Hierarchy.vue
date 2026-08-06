@@ -6,6 +6,7 @@ import SplitterPanel from "primevue/splitterpanel";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import HierarchyColumn from "../components/HierarchyColumn.vue";
+import HierarchySidebar from "../components/HierarchySidebar.vue";
 import FocusPane from "../components/FocusPane.vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { HierarchyPath } from "../models/types";
@@ -121,46 +122,54 @@ function showUnsavedChangesWarning() {
   </template>
   <template v-else>
     <LoadingSpinner v-if="isLoading === true" />
+    <template v-else>
+      <div class="page flex h-full">
+        <HierarchySidebar />
+        <div class="container flex flex-column flex-grow-1 min-w-0 h-full">
+          <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
+          <div class="main flex-grow-1 flex flex-column">
+            <HierarchyBreadcrumbs
+              :path="path"
+              @item-clicked="handleBreadcrumbItemClick"
+              @home-clicked="handleBreadcrumbHomeClick"
+            />
 
-    <div v-else class="container flex flex-column h-full">
-      <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
-      <div class="main flex-grow-1 flex flex-column">
-        <HierarchyBreadcrumbs :path="path" @item-clicked="handleBreadcrumbItemClick" @home-clicked="handleBreadcrumbHomeClick" />
-
-        <div class="edit-area flex-grow-1">
-          <Splitter
-            class="h-full gap-2"
-            :pt="{
-              gutter: {
-                style: {
-                  width: '4px',
-                  zIndex: 'var(--z-index-gutter)',
-                },
-              },
-              gutterHandle: {
-                style: {
-                  width: '6px',
-                  position: 'absolute',
-                  backgroundColor: 'darkgray',
-                  height: '40px',
-                },
-              },
-            }"
-          >
-            <SplitterPanel class="overflow-y-auto">
-              <div class="columns-container h-full flex overflow-x-scroll">
-                <!-- eslint-disable-next-line vue/valid-v-for -- No key needed currently,
-                 column fetches it's new state all the time. TODO: This will likely be refactored in the near future though -->
-                <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
-              </div>
-            </SplitterPanel>
-            <SplitterPanel :size="20" class="overflow-y-auto">
-              <FocusPane />
-            </SplitterPanel>
-          </Splitter>
+            <div class="edit-area flex-grow-1">
+              <Splitter
+                class="h-full gap-2"
+                :pt="{
+                  gutter: {
+                    style: {
+                      width: '4px',
+                      zIndex: 'var(--z-index-gutter)',
+                    },
+                  },
+                  gutterHandle: {
+                    style: {
+                      width: '6px',
+                      position: 'absolute',
+                      backgroundColor: 'darkgray',
+                      height: '40px',
+                    },
+                  },
+                }"
+              >
+                <SplitterPanel class="overflow-y-auto">
+                  <div class="columns-container h-full flex overflow-x-scroll">
+                    <!-- eslint-disable-next-line vue/valid-v-for -- No key needed currently,
+                     column fetches it's new state all the time. TODO: This will likely be refactored in the near future though -->
+                    <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
+                  </div>
+                </SplitterPanel>
+                <SplitterPanel :size="20" class="overflow-y-auto">
+                  <FocusPane />
+                </SplitterPanel>
+              </Splitter>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
   </template>
 </template>
 

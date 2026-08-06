@@ -1,6 +1,6 @@
 import { Router, createWebHistory, createRouter } from "vue-router";
 import Editor from "./views/Editor.vue";
-import CollectionManager from "./views/CollectionManager.vue";
+import Hierarchy from "./views/Hierarchy.vue";
 import CollectionSingleView from "./views/CollectionSingleView.vue";
 import NotFound from "./views/NotFound.vue";
 import { useNavigationGuard } from "./composables/useNavigationGuard";
@@ -8,7 +8,7 @@ import { useNavigationGuard } from "./composables/useNavigationGuard";
 const { hasOpenModal, redirectToCollectionPath } = useNavigationGuard();
 
 const allRoutes = [
-  { path: "/", component: CollectionManager, meta: { layout: "default" as const } },
+  { path: "/", component: Hierarchy, meta: { layout: "default" as const } },
   {
     path: "/collections/:uuid",
     component: CollectionSingleView,

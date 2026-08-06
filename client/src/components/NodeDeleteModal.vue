@@ -94,7 +94,7 @@ function handleCancelClick(): void {
       :loading="asyncOperationRunning"
       @click="handleSubmitClick"
     ></Button>
-    <Button type="button" label="Cancel" title="Cancel" severity="secondary" @click="handleCancelClick"></Button>
+    <Button type="button" label="Cancel" title="Cancel" severity="secondary" autofocus @click="handleCancelClick"></Button>
   </div>
 </template>
 

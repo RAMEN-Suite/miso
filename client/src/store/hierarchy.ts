@@ -13,7 +13,6 @@ import {
   AnnotationNode,
 } from "../models/types";
 import { useAppStore } from "./app";
-import { useRefHistory } from "@vueuse/core";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
 
@@ -24,17 +23,10 @@ const focus = ref<FocusData | null>(null);
 const path = ref<HierarchyPath>([]);
 const root = ref<HierarchyRoot>({ kind: "database", uuid: null });
 
-// Navigation history is in-app
-const previousPaths = useRefHistory(path, {
-  capacity: 25,
-});
-
 const mode = ref<"view" | "edit">("view");
 const asyncOperationRunning = ref<boolean>(false);
 const isFetchingFocus = ref<boolean>(false);
 const canNavigate = computed<boolean>(() => mode.value === "view");
-const canGoBack = computed<boolean>(() => previousPaths.canUndo.value);
-const canGoForward = computed<boolean>(() => previousPaths.canRedo.value);
 
 /**
  * Guards against a slow focus request overwriting a newer one. Every path change bumps the token,
@@ -189,28 +181,6 @@ export function useHierarchyStore() {
   }
 
   /**
-   * Steps back to the previously selected path. No-op while there are unsaved changes.
-   *
-   * @returns {void} This function does not return a value.
-   */
-  function goBack(): void {
-    if (canNavigate.value && canGoBack.value) {
-      previousPaths.undo();
-    }
-  }
-
-  /**
-   * Steps forward to the path that was undone last. No-op while there are unsaved changes.
-   *
-   * @returns {void} This function does not return a value.
-   */
-  function goForward(): void {
-    if (canNavigate.value && canGoForward.value) {
-      previousPaths.redo();
-    }
-  }
-
-  /**
    * Selects an item at a given depth, dropping everything selected below it. The item is passed in
    * whole because the caller (e.g. {@linkcode HierarchyColumn}) already holds it.
    *
@@ -260,8 +230,6 @@ export function useHierarchyStore() {
 
   return {
     asyncOperationRunning,
-    canGoBack,
-    canGoForward,
     canNavigate,
     isFetchingFocus: readonly(isFetchingFocus),
     levels,
@@ -271,8 +239,6 @@ export function useHierarchyStore() {
     root: readonly(root),
     clearSelection,
     findEntryInHierarchy,
-    goBack,
-    goForward,
     initialize,
     selectItem,
     updatePath,

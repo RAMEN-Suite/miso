@@ -28,7 +28,6 @@ import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import Panel from "primevue/panel";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import { useAppStore } from "../store/app";
-import { useRouter } from "vue-router";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
@@ -43,7 +42,6 @@ const props = defineProps<{
   focus: CollectionFocus;
 }>();
 
-const router = useRouter();
 const { api, addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 
 const dialog: ReturnType<typeof useDialog> = useDialog();
@@ -58,7 +56,7 @@ const {
   getAvailableCollectionLabels,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const { levels, mode, path, findEntryInHierarchy, getUrlPath, setMode } = useHierarchyStore();
+const { levels, mode, path, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
 
 const { bookmarks, toggleBookmark } = useBookmarks();
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
@@ -279,23 +277,20 @@ function handleDeleteColletion(): void {
   );
 }
 
-async function handleSuccessfullDeletion() {
+function handleSuccessfullDeletion() {
   showMessage("success");
   destroyModalInstance();
-  await updateView();
+  updateView();
 }
 
-async function updateView() {
-  const currentUuids: string[] = getUrlPath();
+function updateView() {
+  const parentIndex: number = path.value.length - 1;
 
-  const pathIndex: number = path.value.length - 1;
-  const newUuids: string[] = currentUuids.slice(0, pathIndex);
+  updatePath(path.value.slice(0, parentIndex));
 
-  await router.push({ query: { path: newUuids.join(",") } });
-
-  // Remove the deleted collection from its column explicitly (the watcher keeps/refetches columns,
-  // but not this specific removal)
-  levels.value[newUuids.length].entries = levels.value[newUuids.length].entries.filter(
+  // Remove the deleted collection from its column explicitly (rebuilding the levels keeps/refetches
+  // columns, but not this specific removal)
+  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
     (e) => e.data.node.data.uuid !== temporaryWorkData.value.collection.node.data.uuid,
   );
 

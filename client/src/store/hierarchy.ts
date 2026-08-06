@@ -1,9 +1,10 @@
-import { computed, readonly, ref } from "vue";
+import { computed, readonly, ref, watch } from "vue";
 import {
   CollectionNode,
   HierarchyEntry,
   HierarchyPath,
   HierarchyNode,
+  HierarchyRoot,
   Level,
   FocusData,
   TextNode,
@@ -14,79 +15,166 @@ import {
 import { useAppStore } from "./app";
 import { useRefHistory } from "@vueuse/core";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
+import type HierarchyColumn from "../components/HierarchyColumn.vue";
 
 const { api } = useAppStore();
 
 const levels = ref<Level[]>([]);
 const focus = ref<FocusData | null>(null);
 const path = ref<HierarchyPath>([]);
+const root = ref<HierarchyRoot>({ kind: "database", uuid: null });
 
+// Navigation history is in-app
 const previousPaths = useRefHistory(path, {
-  capacity: 5,
+  capacity: 25,
 });
 
 const mode = ref<"view" | "edit">("view");
 const asyncOperationRunning = ref<boolean>(false);
 const isFetchingFocus = ref<boolean>(false);
 const canNavigate = computed<boolean>(() => mode.value === "view");
+const canGoBack = computed<boolean>(() => previousPaths.canUndo.value);
+const canGoForward = computed<boolean>(() => previousPaths.canRedo.value);
 
-export function useHierarchyStore() {
-  /**
-   * Fetches the focus-pane data for a hierarchy node. A Collection loads its node and annotations; a
-   * Content is a leaf — the path already carries its data, so no extra request is made.
-   *
-   * @param {NodeDto<HierarchyNode>} node - The node to focus.
-   * @returns {Promise<FocusData>} The focus data for the pane.
-   */
-  async function fetchFocusData(node: NodeDto<HierarchyNode>): Promise<FocusData> {
-    const uuid: string = node.node.data.uuid;
+/**
+ * Guards against a slow focus request overwriting a newer one. Every path change bumps the token,
+ * and a response whose token no longer matches is discarded.
+ */
+let focusRequestToken: number = 0;
 
-    if (getBaseNodeLabel(node.node.nodeLabels) === "Collection") {
-      isFetchingFocus.value = true;
+/**
+ * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and annotations; a
+ * Content is a leaf — the path already carries its data, so no extra request is made.
+ *
+ * @param {NodeDto<HierarchyNode>} item - The item to focus.
+ * @returns {Promise<FocusData>} The focus data for the pane.
+ */
+async function fetchFocusData(item: NodeDto<HierarchyNode>): Promise<FocusData> {
+  const uuid: string = item.node.data.uuid;
 
+  if (getBaseNodeLabel(item.node.nodeLabels) === "Collection") {
+    isFetchingFocus.value = true;
+
+    try {
       // TODO: Handle errors
       const [collection, annotations] = await Promise.all([api.getCollection(uuid), api.getAnnotations("collection", uuid)]);
 
-      const focusData: FocusData = {
+      return {
         kind: "collection",
         collection: createNodeStatusObjectFromRawData(collection) as NodeStatusObject<CollectionNode>,
         annotations: annotations.map((a: NodeDto<AnnotationNode>) => createNodeStatusObjectFromRawData(a)),
       };
-
+    } finally {
       isFetchingFocus.value = false;
-
-      return focusData;
     }
+  }
 
-    return {
-      kind: "content",
-      content: createNodeStatusObjectFromRawData(node) as NodeStatusObject<TextNode>,
-    };
+  return {
+    kind: "content",
+    content: createNodeStatusObjectFromRawData(item) as NodeStatusObject<TextNode>,
+  };
+}
+
+/**
+ * Rebuilds the column levels from the current path.
+ *
+ * There is one "selection" level per path element (each showing its parent's children and
+ * highlighting the selected item), plus a trailing "child" column showing the children of the
+ * focused item — but **only when that item is a Collection**. A Content is a leaf, so no child
+ * column is appended. The trailing column is reused (not refetched) when it already shows the
+ * children of the same parent (e.g. on breadcrumb navigation or when the path is truncated).
+ *
+ * @returns {void} This function does not return a value.
+ */
+function updateLevels(): void {
+  const newPathLength: number = path.value.length;
+  const lastItem: NodeDto<HierarchyNode> | null = path.value[newPathLength - 1] ?? null;
+
+  // Empty path (root) behaves like a collection: it still gets a top-level child column
+  const lastItemCanHaveChildren: boolean = lastItem ? getBaseNodeLabel(lastItem.node.nodeLabels) === "Collection" : true;
+
+  // Column that would show the focused item's children — captured before resizing, for reuse
+  const currentChildColumn: Level | undefined = levels.value[newPathLength];
+
+  if (levels.value.length > newPathLength) {
+    // Slice to match new path length
+    levels.value = levels.value.slice(0, newPathLength);
+  } else if (newPathLength > levels.value.length) {
+    // Fill up with empty selection levels
+    const diff: number = newPathLength - levels.value.length;
+
+    for (let i = 0; i < diff; i++) {
+      levels.value.push({ entries: [], activeItem: null, parentUuid: null });
+    }
+  }
+
+  // Set activeItem + parentUuid of each selection level. Level 0 has no parent: what it lists is
+  // decided by `root`, not by a parent uuid.
+  levels.value.forEach((level: Level, index: number) => {
+    level.activeItem = path.value[index];
+    level.parentUuid = levels.value[index - 1]?.activeItem?.node.data.uuid ?? null;
+  });
+
+  // A focused Content is a leaf — no child column to append
+  if (!lastItemCanHaveChildren) {
+    return;
+  }
+
+  const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.data.uuid ?? null;
+  const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
+
+  if (canReuse) {
+    levels.value.push({ ...currentChildColumn, activeItem: null });
+  } else {
+    levels.value.push({ entries: [], activeItem: null, parentUuid: childParentUuid });
+  }
+}
+
+// `path` is the single source of truth: levels and focus are derived from it, so every way of
+// changing the path (item click, breadcrumb, history back/forward, deep-link seed) lands here.
+watch(path, async (newPath: HierarchyPath) => {
+  updateLevels();
+
+  const token: number = ++focusRequestToken;
+
+  if (newPath.length === 0) {
+    focus.value = null;
+
+    return;
+  }
+
+  const focusData: FocusData = await fetchFocusData(newPath[newPath.length - 1]);
+
+  // A newer selection has been made while this request was in flight — discard the stale result
+  if (token === focusRequestToken) {
+    focus.value = focusData;
+  }
+});
+
+export function useHierarchyStore() {
+  /**
+   * Clears the selection, collapsing the view back to the root listing.
+   *
+   * @returns {void} This function does not return a value.
+   */
+  function clearSelection(): void {
+    updatePath([]);
   }
 
   /**
-   * Creates a new URL path element array by inserting a new UUID at the given index.
+   * Builds the initial levels for the current root when nothing has been selected yet.
    *
-   * @param {string} uuid The UUID to be inserted into the URL path element array.
-   * @param {number} index The index at which to insert the new UUID.
-   * @returns {string[]} A new array with the inserted UUID.
-   */
-  function createNewUrlPathElements(uuid: string, index: number): string[] {
-    const currentUuids: string[] = getUrlPath();
-    const newUuids: string[] = [...currentUuids.slice(0, index), uuid];
-
-    return newUuids;
-  }
-
-  /**
-   * Creates a new URL `path` query by inserting a new UUID at the given index.
+   * Called by the hierarchy view on mount. It deliberately does nothing when levels already exist:
+   * a deep link seeds the path in a router guard *before* the view mounts, and rebuilding here
+   * would throw that selection away. It also preserves the selection when navigating back from
+   * another route.
    *
-   * @param {string} uuid The UUID to be inserted into the URL path.
-   * @param {number} index The index at which to insert the new UUID.
-   * @returns {string} The new URL path as a string.
+   * @returns {void} This function does not return a value.
    */
-  function createNewUrlPath(uuid: string, index: number): string {
-    return createNewUrlPathElements(uuid, index).join(",");
+  function initialize(): void {
+    if (levels.value.length === 0) {
+      updateLevels();
+    }
   }
 
   /**
@@ -101,62 +189,46 @@ export function useHierarchyStore() {
   }
 
   /**
-   * Retrieves the URL path from the current URL `path` query.
-   *
-   * @returns {string[]} The URL path as an array of UUIDs, or an empty array.
-   */
-  function getUrlPath(): string[] {
-    const uuidPath: string | null = new URLSearchParams(window.location.search).get("path");
-
-    return uuidPath?.split(",") ?? [];
-  }
-
-  /**
-   * Resets the application to its default view by clearing the path selection, focus pane and
-   * keeping only the first level of the hierarchy.
+   * Steps back to the previously selected path. No-op while there are unsaved changes.
    *
    * @returns {void} This function does not return a value.
    */
-  function restoreDefaultView(): void {
-    if (levels.value[0]) {
-      levels.value[0].activeNode = null;
-    }
-
-    setPath([]);
-    setFocus(null);
-
-    // Keep only first level (top-level column)
-    levels.value = levels.value.slice(0, 1);
-  }
-
-  /**
-   * Restores the previous path selection by undoing the last path selection operation.
-   *
-   * @returns {void} This function does not return a value.
-   */
-  function restorePath(): void {
-    if (previousPaths.canUndo) {
+  function goBack(): void {
+    if (canNavigate.value && canGoBack.value) {
       previousPaths.undo();
     }
   }
 
   /**
-   * Sets the node shown in the focus pane.
+   * Steps forward to the path that was undone last. No-op while there are unsaved changes.
    *
-   * @param {FocusData | null} focusData - The focus data, or null when nothing is focused.
    * @returns {void} This function does not return a value.
    */
-  function setFocus(focusData: FocusData | null): void {
-    focus.value = focusData;
+  function goForward(): void {
+    if (canNavigate.value && canGoForward.value) {
+      previousPaths.redo();
+    }
   }
 
   /**
-   * Sets the active path (root first, focused node last).
+   * Selects an item at a given depth, dropping everything selected below it. The item is passed in
+   * whole because the caller (e.g. {@linkcode HierarchyColumn}) already holds it.
+   *
+   * @param {NodeDto<HierarchyNode>} item - The item that was selected.
+   * @param {number} depth - The depth the item sits at (the level index it was selected in).
+   * @returns {void} This function does not return a value.
+   */
+  function selectItem(item: NodeDto<HierarchyNode>, depth: number): void {
+    updatePath([...path.value.slice(0, depth), item]);
+  }
+
+  /**
+   * Sets the whole active path (root first, focused item last). Levels and focus follow from it.
    *
    * @param {HierarchyPath} newPath The active path.
    * @returns {void} This function does not return a value.
    */
-  function setPath(newPath: HierarchyPath): void {
+  function updatePath(newPath: HierarchyPath): void {
     path.value = newPath;
   }
 
@@ -164,116 +236,47 @@ export function useHierarchyStore() {
    * Sets the current mode ('view' or 'edit').
    *
    * @param {string} newMode - The new mode.
+   * @returns {void} This function does not return a value.
    */
   function setMode(newMode: "view" | "edit"): void {
     mode.value = newMode;
   }
 
   /**
-   * Updates the hierarchy levels and fetches focus data for the new path.
+   * Switches the listing to another root (the database hierarchy, bookmarks, a workspace) and
+   * clears the current selection.
    *
-   * @param {HierarchyPath} newPath The new path.
-   * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   */
-  async function updateLevelsAndFetchData(newPath: HierarchyPath): Promise<void> {
-    setPath(newPath);
-    updateLevels();
-
-    if (newPath.length === 0) {
-      setFocus(null);
-
-      return;
-    }
-
-    const focusData: FocusData = await fetchFocusData(newPath[newPath.length - 1]);
-
-    setFocus(focusData);
-  }
-
-  /**
-   * Rebuilds the column levels from the current path.
-   *
-   * There is one "selection" level per path element (each showing its parent's children and
-   * highlighting the selected node), plus a trailing "child" column showing the children of the
-   * focused node — but **only when that node is a Collection**. A Content is a leaf, so no child
-   * column is appended. The trailing column is reused (not refetched) when it already shows the
-   * children of the same parent (e.g. on breadcrumb navigation or URL truncation).
-   *
+   * @param {HierarchyRoot} newRoot - The root to display.
    * @returns {void} This function does not return a value.
    */
-  function updateLevels(): void {
-    const newPathLength: number = path.value.length;
-    const lastNode: NodeDto<HierarchyNode> | null = path.value[newPathLength - 1] ?? null;
+  function setRoot(newRoot: HierarchyRoot): void {
+    root.value = newRoot;
+    path.value = [];
+    levels.value = [];
 
-    // Empty path (root) behaves like a collection: it still gets a top-level child column
-    const lastNodeCanHaveChildren: boolean = lastNode ? getBaseNodeLabel(lastNode.node.nodeLabels) === "Collection" : true;
-
-    // Column that would show the focused node's children — captured before resizing, for reuse
-    const currentChildColumn: Level | undefined = levels.value[newPathLength];
-
-    if (levels.value.length > newPathLength) {
-      // Slice to match new path length
-      levels.value = levels.value.slice(0, newPathLength);
-    } else if (newPathLength > levels.value.length) {
-      // Fill up with empty selection levels
-      const diff: number = newPathLength - levels.value.length;
-
-      for (let i = 0; i < diff; i++) {
-        levels.value.push({ entries: [], activeNode: null, parentUuid: null });
-      }
-    }
-
-    // Set activeNode + parentUuid of each selection level
-    levels.value.forEach((level: Level, index: number) => {
-      level.activeNode = path.value[index];
-      level.parentUuid = levels.value[index - 1]?.activeNode?.node.data.uuid ?? null;
-    });
-
-    // A focused Content is a leaf — no child column to append
-    if (!lastNodeCanHaveChildren) {
-      return;
-    }
-
-    const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeNode?.node.data.uuid ?? null;
-    const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
-
-    if (canReuse) {
-      levels.value.push({ ...currentChildColumn, activeNode: null });
-    } else {
-      levels.value.push({ entries: [], activeNode: null, parentUuid: childParentUuid });
-    }
-  }
-
-  /**
-   * Validates a hierarchy path given by a comma-separated string of UUIDs.
-   *
-   * @param {string} uuidString - The comma-separated string of UUIDs to validate.
-   * @returns {Promise<HierarchyPath>} A promise that resolves with the validated path.
-   */
-  async function validatePath(uuidString: string): Promise<HierarchyPath> {
-    return await api.validateHierarchyPath(uuidString);
+    // `path` may already have been empty, in which case the watcher does not fire
+    updateLevels();
   }
 
   return {
     asyncOperationRunning,
+    canGoBack,
+    canGoForward,
     canNavigate,
     isFetchingFocus: readonly(isFetchingFocus),
     levels,
     mode,
     path,
     focus,
-    createNewUrlPath,
-    createNewUrlPathElements,
-    fetchFocusData,
+    root: readonly(root),
+    clearSelection,
     findEntryInHierarchy,
-    getUrlPath,
-    restoreDefaultView,
-    restorePath,
-    setFocus,
+    goBack,
+    goForward,
+    initialize,
+    selectItem,
+    updatePath,
     setMode,
-    setPath,
-    updateLevels,
-    updateLevelsAndFetchData,
-    validatePath,
+    setRoot,
   };
 }

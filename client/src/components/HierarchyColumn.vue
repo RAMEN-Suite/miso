@@ -2,7 +2,6 @@
 import { InputText, Button, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
-import { Router, useRouter } from "vue-router";
 import { MenuItem } from "primevue/menuitem";
 import { HierarchyEntry, HierarchyFilters, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -23,13 +22,11 @@ const props = defineProps<{
   parentUuid: string | null;
 }>();
 
-const router: Router = useRouter();
-
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
-const { levels, focus, canNavigate, createNewUrlPath, setMode } = useHierarchyStore();
+const { levels, focus, canNavigate, selectItem, setMode } = useHierarchyStore();
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 
@@ -130,8 +127,8 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
     return;
   }
 
-  // The parent is the active node of the previous column, always a Collection (Contents have no columns)
-  const parentCollection = props.index > 0 ? levels.value[props.index - 1]?.activeNode?.node ?? null : null;
+  // The parent is the active item of the previous column, always a Collection (Contents have no columns)
+  const parentCollection = props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null;
 
   const modalComponent = kind === "Collection" ? CreateCollectionModal : CreateContentModal;
 
@@ -144,17 +141,14 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
       },
       data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel },
       emits: {
-        onSuccess: async (created: NodeDto<HierarchyNode>) => {
+        onSuccess: (created: NodeDto<HierarchyNode>) => {
           if (!created) {
             return;
           }
 
           // Add to top of list (should be visible directly) and focus it
           entries.value.unshift(createEntryFromNode(created));
-
-          await router.push({
-            query: { path: createNewUrlPath(created.node.data.uuid, props.index) },
-          });
+          selectItem(created, props.index);
 
           addToastMessage({ severity: "success", summary: "Operation successful", detail: "", life: 2000 });
 
@@ -175,7 +169,7 @@ function handleChangeSortOrderClick(): void {
   sort.value = { ...sort.value, direction: sort.value.direction === "asc" ? "desc" : "asc" };
 }
 
-async function handleItemSelected(uuid: string): Promise<void> {
+function handleItemSelected(uuid: string): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
@@ -185,7 +179,11 @@ async function handleItemSelected(uuid: string): Promise<void> {
     return;
   }
 
-  await router.push({ query: { path: createNewUrlPath(uuid, props.index) } });
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+
+  if (entry) {
+    selectItem(entry.data, props.index);
+  }
 }
 
 function handleLabelsChange(selected: string[]): void {
@@ -267,7 +265,7 @@ function endResize(): void {
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
-            :is-active="levels[props.index]?.activeNode?.node.data.uuid === entry.data.node.data.uuid"
+            :is-active="levels[props.index]?.activeItem?.node.data.uuid === entry.data.node.data.uuid"
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>

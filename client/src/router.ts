@@ -5,18 +5,17 @@ import CollectionSingleView from "./views/CollectionSingleView.vue";
 import NotFound from "./views/NotFound.vue";
 import { useNavigationGuard } from "./composables/useNavigationGuard";
 
-const { hasOpenModal, redirectToCollectionPath } = useNavigationGuard();
+const { hasOpenModal } = useNavigationGuard();
 
 const allRoutes = [
   { path: "/", component: Hierarchy, meta: { layout: "default" as const } },
   {
     path: "/collections/:uuid",
     component: CollectionSingleView,
-    beforeEnter: redirectToCollectionPath,
+    props: true,
     meta: { layout: "default" as const },
   },
-  { path: "/texts/:uuid", component: Editor, meta: { layout: "default" as const } },
-  { path: "/contents/:uuid", component: Editor, meta: { layout: "default" as const } },
+  { path: "/contents/:uuid", component: Editor, meta: { layout: "default" as const }, alias: ["/texts/:uuid"] },
   { path: "/:pathMatch(.*)*", component: NotFound, meta: { layout: "blank" as const } },
 ];
 

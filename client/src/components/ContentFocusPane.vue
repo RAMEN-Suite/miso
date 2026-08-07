@@ -8,15 +8,13 @@ import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
-import { useRouter } from "vue-router";
 
 const props = defineProps<{
   focus: ContentFocus;
 }>();
 
-const router = useRouter();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { asyncOperationRunning, levels, mode, path, getUrlPath, setMode } = useHierarchyStore();
+const { asyncOperationRunning, levels, mode, path, updatePath, setMode } = useHierarchyStore();
 const { bookmarks, toggleBookmark } = useBookmarks();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -62,23 +60,20 @@ function showMessage(result: "success" | "error", error?: Error) {
   });
 }
 
-async function handleSuccessfullDeletion() {
+function handleSuccessfullDeletion() {
   showMessage("success");
   destroyModalInstance();
-  await updateView();
+  updateView();
 }
 
-async function updateView() {
-  const currentUuids: string[] = getUrlPath();
+function updateView() {
+  const parentIndex: number = path.value.length - 1;
 
-  const pathIndex: number = path.value.length - 1;
-  const newUuids: string[] = currentUuids.slice(0, pathIndex);
+  updatePath(path.value.slice(0, parentIndex));
 
-  await router.push({ query: { path: newUuids.join(",") } });
-
-  // Remove the deleted content from its column explicitly (the watcher keeps/refetches columns,
-  // but not this specific removal)
-  levels.value[newUuids.length].entries = levels.value[newUuids.length].entries.filter(
+  // Remove the deleted content from its column explicitly (rebuilding the levels keeps/refetches
+  // columns, but not this specific removal)
+  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
     (e) => e.data.node.data.uuid !== props.focus.content.node.data.uuid,
   );
 

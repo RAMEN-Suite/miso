@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Splitter from "primevue/splitter";
 import SplitterPanel from "primevue/splitterpanel";
 import { useHierarchyStore } from "../store/hierarchy";
@@ -8,65 +6,14 @@ import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import HierarchyColumn from "../components/HierarchyColumn.vue";
 import HierarchySidebar from "../components/HierarchySidebar.vue";
 import FocusPane from "../components/FocusPane.vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { HierarchyPath } from "../models/types";
-import CollectionPathError from "../components/CollectionPathError.vue";
+import { onBeforeRouteLeave } from "vue-router";
 import { useAppStore } from "../store/app";
 import PageOverlay from "../components/PageOverlay.vue";
-import { LocationQueryValue } from "vue-router";
-
-// Initial pageload
-const isLoading = ref<boolean>(true);
-const isPathValid = ref<boolean>(false);
-
-const route = useRoute();
 
 const { addToastMessage } = useAppStore();
-const { canNavigate, levels, path, createNewUrlPath, restoreDefaultView, validatePath, updateLevelsAndFetchData } =
-  useHierarchyStore();
+const { canNavigate, levels, path, clearSelection, initialize, updatePath } = useHierarchyStore();
 
-const router = useRouter();
-
-watch(
-  () => route.query.path,
-  async (newValue: LocationQueryValue | LocationQueryValue[]) => {
-    // TODO: This can be refactored...
-    // On first page load
-    if (isLoading.value) {
-      try {
-        // If path exists on page load, validate it. Else, just fetch top-level nodes
-        const newPath: HierarchyPath = newValue ? await validatePath(newValue as string) : [];
-        await updateLevelsAndFetchData(newPath);
-
-        isPathValid.value = true;
-      } catch {
-        isPathValid.value = false;
-      } finally {
-        isLoading.value = false;
-      }
-
-      return;
-    }
-
-    // Empty path query -> Restore default view
-    if (!newValue || newValue === "") {
-      restoreDefaultView();
-      return;
-    }
-
-    try {
-      const newPath: HierarchyPath = await validatePath(newValue as string);
-      await updateLevelsAndFetchData(newPath);
-
-      isPathValid.value = true;
-    } catch {
-      isPathValid.value = false;
-    } finally {
-      isLoading.value = false;
-    }
-  },
-  { immediate: true },
-);
+initialize();
 
 onBeforeRouteLeave(() => {
   if (!canNavigate.value) {
@@ -77,33 +24,22 @@ onBeforeRouteLeave(() => {
   return true;
 });
 
-onBeforeRouteUpdate(() => {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return false;
-  }
-
-  return true;
-});
-
-async function handleBreadcrumbItemClick(data: { index: number; uuid: string }): Promise<void> {
+function handleBreadcrumbItemClick(data: { index: number; uuid: string }): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
   }
 
-  const { index, uuid } = data;
-
-  await router.push({ query: { path: createNewUrlPath(uuid, index) } });
+  updatePath(path.value.slice(0, data.index + 1));
 }
 
-async function handleBreadcrumbHomeClick(): Promise<void> {
+function handleBreadcrumbHomeClick(): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
   }
 
-  await router.push({ query: {} });
+  clearSelection();
 }
 
 function showUnsavedChangesWarning() {
@@ -117,60 +53,55 @@ function showUnsavedChangesWarning() {
 </script>
 
 <template>
-  <template v-if="!isLoading && !isPathValid">
-    <CollectionPathError />
-  </template>
-  <template v-else>
-    <LoadingSpinner v-if="isLoading === true" />
-    <template v-else>
-      <div class="page flex h-full">
-        <HierarchySidebar />
-        <div class="container flex flex-column flex-grow-1 min-w-0 h-full">
-          <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
-          <div class="main flex-grow-1 flex flex-column">
-            <HierarchyBreadcrumbs
-              :path="path"
-              @item-clicked="handleBreadcrumbItemClick"
-              @home-clicked="handleBreadcrumbHomeClick"
-            />
+  <div class="page flex h-full">
+    <HierarchySidebar />
+    <div class="container flex flex-column flex-grow-1 min-w-0 h-full">
+      <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
+      <div class="main flex-grow-1 flex flex-column">
+        <div class="breadcrumb-bar flex align-items-center gap-1 pl-1">
+          <HierarchyBreadcrumbs
+            :path="path"
+            class="flex-grow-1 min-w-0"
+            @item-clicked="handleBreadcrumbItemClick"
+            @home-clicked="handleBreadcrumbHomeClick"
+          />
+        </div>
 
-            <div class="edit-area flex-grow-1">
-              <Splitter
-                class="h-full gap-2"
-                :pt="{
-                  gutter: {
-                    style: {
-                      width: '4px',
-                      zIndex: 'var(--z-index-gutter)',
-                    },
-                  },
-                  gutterHandle: {
-                    style: {
-                      width: '6px',
-                      position: 'absolute',
-                      backgroundColor: 'darkgray',
-                      height: '40px',
-                    },
-                  },
-                }"
-              >
-                <SplitterPanel class="overflow-y-auto">
-                  <div class="columns-container h-full flex overflow-x-scroll">
-                    <!-- eslint-disable-next-line vue/valid-v-for -- No key needed currently,
-                     column fetches it's new state all the time. TODO: This will likely be refactored in the near future though -->
-                    <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
-                  </div>
-                </SplitterPanel>
-                <SplitterPanel :size="20" class="overflow-y-auto">
-                  <FocusPane />
-                </SplitterPanel>
-              </Splitter>
-            </div>
-          </div>
+        <div class="edit-area flex-grow-1">
+          <Splitter
+            class="h-full gap-2"
+            :pt="{
+              gutter: {
+                style: {
+                  width: '4px',
+                  zIndex: 'var(--z-index-gutter)',
+                },
+              },
+              gutterHandle: {
+                style: {
+                  width: '6px',
+                  position: 'absolute',
+                  backgroundColor: 'darkgray',
+                  height: '40px',
+                },
+              },
+            }"
+          >
+            <SplitterPanel class="overflow-y-auto">
+              <div class="columns-container h-full flex overflow-x-scroll">
+                <!-- eslint-disable-next-line vue/valid-v-for -- No key needed currently,
+                 column fetches it's new state all the time. TODO: This will likely be refactored in the near future though -->
+                <HierarchyColumn v-for="(_, index) in levels" :index="index" :parent-uuid="levels[index].parentUuid" />
+              </div>
+            </SplitterPanel>
+            <SplitterPanel :size="20" class="overflow-y-auto">
+              <FocusPane />
+            </SplitterPanel>
+          </Splitter>
         </div>
       </div>
-    </template>
-  </template>
+    </div>
+  </div>
 </template>
 
 <style scoped>

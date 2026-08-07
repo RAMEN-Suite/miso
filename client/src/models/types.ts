@@ -262,8 +262,21 @@ export interface HierarchyEntry {
 
 export interface Level {
   entries: HierarchyEntry[];
-  activeNode: NodeDto<HierarchyNode> | null;
+  /** The item selected in this level — the one whose children the next level shows. */
+  activeItem: NodeDto<HierarchyNode> | null;
   parentUuid: string | null;
+}
+
+/**
+ * Root element for any kind of Collection/Content hierarchies in the editor.
+ * Which set of items the first column lists. `"database"` lists the top of the `PART_OF` hierarchy;
+ * the other kinds list a client-side set of items (bookmarks, or the members of one workspace).
+ * Every column below the first shows `PART_OF` children regardless of the root.
+ */
+export interface HierarchyRoot {
+  kind: "database" | "bookmarks" | "workspace";
+  /** Workspace uuid; `null` for the other kinds. */
+  uuid: string | null;
 }
 
 /** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */

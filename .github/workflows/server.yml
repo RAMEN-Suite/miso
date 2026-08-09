@@ -78,14 +78,12 @@ jobs:
             echo ""
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Lint
-        run: npm run lint
-        continue-on-error: true
-      - name: Format Check
-        run: npm run format
-        continue-on-error: true
       - name: Build
         run: npm run compile
+      - name: Lint
+        run: npm run lint
+      - name: Format Check
+        run: npm run format
   dev-container:
     name: dev container
     needs: [node-ci]

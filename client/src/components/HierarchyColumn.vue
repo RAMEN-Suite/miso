@@ -4,7 +4,7 @@ import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
 import { HierarchyEntry, HierarchyFilters, HierarchyScope, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
-import { useTags } from "../composables/useTags";
+import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
 import MultiSelect from "primevue/multiselect";
 import Menu from "primevue/menu";
@@ -28,7 +28,7 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
 const { levels, focus, root, canNavigate, selectItem, setMode } = useHierarchyStore();
-const { getTagEntryUuids } = useTags();
+const { getTagEntryUuids } = useTagsStore();
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 
@@ -131,7 +131,7 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-watch(scope, () => fetchFirstPage(), { deep: true, immediate: true });
+watch(scope, () => fetchFirstPage(), { immediate: true });
 
 // Label/sort changes -> reload immediately; search is debounced
 watch([selectedLabels, sort], () => fetchFirstPage(), { deep: true });

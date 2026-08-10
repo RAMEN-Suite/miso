@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { HierarchyEntry } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
-import { useTags } from "../composables/useTags";
+import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 
 const emit = defineEmits(["itemSelected"]);
@@ -13,7 +13,7 @@ const props = defineProps<{
   isActive: boolean;
 }>();
 
-const { entryIndex, tags } = useTags();
+const { entryIndex, tags } = useTagsStore();
 
 const PREVIEW_LENGTH: number = 80;
 

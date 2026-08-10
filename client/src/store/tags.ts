@@ -2,55 +2,57 @@ import { computed, ComputedRef, DeepReadonly, readonly, Ref } from "vue";
 import { useStorage } from "@vueuse/core";
 import type { Tag, TagEntry } from "../models/types";
 
-interface UseTagsReturnType {
+interface TagsStore {
   tags: DeepReadonly<Ref<Tag[]>>;
   entryIndex: ComputedRef<Map<string, string[]>>;
   getTag: (uuid: string) => DeepReadonly<Tag> | null;
   getTagEntryUuids: (uuid: string) => string[];
   getTagsForItem: (itemUuid: string) => string[];
   createTag: (params: { label: string; uuid?: string; appearance?: Tag["appearance"] }) => Tag;
-  updateTag: (params: { tagUuid: string; label: string; appearance?: Tag["appearance"] }) => void;
+  updateTag: (params: { tagUuid: string; label?: string; appearance?: Tag["appearance"] }) => void;
   deleteTag: (uuid: string) => void;
   addItemsToTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
   removeItemsFromTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
   toggleItemInTag: (params: { tagUuid: string; itemUuid: string }) => void;
 }
 
+const storedTags = useStorage<Tag[]>("tags", []);
+
+if (!Array.isArray(storedTags.value)) {
+  storedTags.value = [];
+}
+
+const tags: DeepReadonly<Ref<Tag[]>> = readonly(storedTags);
+
+/** Node UUID -> UUIDs of the tags carrying it. */
+const entryIndex: ComputedRef<Map<string, string[]>> = computed(() => {
+  const index = new Map<string, string[]>();
+
+  for (const tag of storedTags.value) {
+    for (const entry of tag.entries) {
+      const existing: string[] | undefined = index.get(entry.uuid);
+
+      if (existing) {
+        existing.push(tag.uuid);
+      } else {
+        index.set(entry.uuid, [tag.uuid]);
+      }
+    }
+  }
+
+  return index;
+});
+
 /**
- * A composable function that manages tags in the browser's local storage.
+ * Store for the tags a user has put on hierarchy nodes, persisted in the browser's local storage.
  *
  * A tag stores **references only** (`{ uuid, createdAt }`), never node snapshots: the nodes are
  * resolved server-side on read via `POST /api/hierarchy/query`, so a renamed or re-parented node
  * never goes stale here.
  *
- * @returns {UseTagsReturnType} The tags reactive ref, and the functions to manage them.
+ * @returns {TagsStore} The tags reactive ref, and the functions to manage them.
  */
-export function useTags(): UseTagsReturnType {
-  const storedTags = useStorage<Tag[]>("tags", []);
-
-  if (!Array.isArray(storedTags.value)) {
-    storedTags.value = [];
-  }
-
-  /** Node UUID -> UUIDs of the tags carrying it. */
-  const entryIndex: ComputedRef<Map<string, string[]>> = computed(() => {
-    const index = new Map<string, string[]>();
-
-    for (const tag of storedTags.value) {
-      for (const entry of tag.entries) {
-        const existing: string[] | undefined = index.get(entry.uuid);
-
-        if (existing) {
-          existing.push(tag.uuid);
-        } else {
-          index.set(entry.uuid, [tag.uuid]);
-        }
-      }
-    }
-
-    return index;
-  });
-
+export function useTagsStore(): TagsStore {
   /**
    * Finds a tag in the store.
    *
@@ -117,13 +119,14 @@ export function useTags(): UseTagsReturnType {
   }
 
   /**
-   * Updates a tag's label and appearance. Its entries are untouched, so re-styling or renaming a
-   * tag never disturbs a listing rooted in it.
+   * Updates a tag's label and/or appearance. An omitted field is left alone, so renaming a tag
+   * does not drop its colour and recolouring it does not drop its label. Entries are never
+   * touched, so neither disturbs a listing rooted in the tag.
    *
-   * @param {Object} params - The tag UUID, its new label and (optionally) its new appearance.
+   * @param {Object} params - The tag UUID, and the label and/or appearance to apply.
    * @returns {void} This function does not return any value.
    */
-  function updateTag(params: { tagUuid: string; label: string; appearance?: Tag["appearance"] }): void {
+  function updateTag(params: { tagUuid: string; label?: string; appearance?: Tag["appearance"] }): void {
     const { tagUuid, label, appearance } = params;
 
     const tag: Tag | undefined = findTag(tagUuid);
@@ -132,8 +135,13 @@ export function useTags(): UseTagsReturnType {
       return;
     }
 
-    tag.label = label;
-    tag.appearance = appearance;
+    if (label !== undefined) {
+      tag.label = label;
+    }
+
+    if (appearance !== undefined) {
+      tag.appearance = appearance;
+    }
   }
 
   /**
@@ -214,7 +222,7 @@ export function useTags(): UseTagsReturnType {
   }
 
   return {
-    tags: readonly(storedTags),
+    tags,
     entryIndex,
     getTag,
     getTagEntryUuids,

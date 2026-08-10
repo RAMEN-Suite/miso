@@ -3,14 +3,14 @@ import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
-import { useTags } from "../composables/useTags";
+import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 
 const props = defineProps<{
   nodeUuid: string;
 }>();
 
-const { tags, getTagsForItem, toggleItemInTag } = useTags();
+const { tags, getTagsForItem, toggleItemInTag } = useTagsStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 

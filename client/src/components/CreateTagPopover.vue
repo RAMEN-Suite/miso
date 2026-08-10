@@ -1,30 +1,24 @@
 <script setup lang="ts">
-import { ComponentPublicInstance, computed, DeepReadonly, ref, useTemplateRef } from "vue";
+import { ComponentPublicInstance, computed, ref, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import ColorPicker from "primevue/colorpicker";
 import InputText from "primevue/inputtext";
 import Popover from "primevue/popover";
-import { useTags } from "../composables/useTags";
-import { Tag } from "../models/types";
+import { useTagsStore } from "../store/tags";
 import { DEFAULT_TAG_COLOR, normalizeTagColor, TAG_COLORS } from "../config/tags";
 
 defineExpose({
   open,
 });
 
-const { tags, createTag, updateTag } = useTags();
+const { tags, createTag } = useTagsStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 const labelInput = useTemplateRef<ComponentPublicInstance>("label-input");
 
-const editedTagUuid = ref<string | null>(null);
 const label = ref<string>("");
 const color = ref<string>(DEFAULT_TAG_COLOR);
-// The form no longer offers an icon, but `appearance.icon` is still part of the model: carry an
-// existing one through an edit rather than silently dropping it
-const icon = ref<string | undefined>(undefined);
 
-const isEditing = computed<boolean>(() => editedTagUuid.value !== null);
 const hasDuplicateLabel = computed<boolean>(() => {
   const trimmed: string = label.value.trim().toLowerCase();
 
@@ -32,26 +26,21 @@ const hasDuplicateLabel = computed<boolean>(() => {
     return false;
   }
 
-  return tags.value.some((tag) => tag.uuid !== editedTagUuid.value && tag.label.toLowerCase() === trimmed);
+  return tags.value.some((tag) => tag.label.toLowerCase() === trimmed);
 });
 
 const isValid = computed<boolean>(() => label.value.trim().length > 0 && !hasDuplicateLabel.value);
 
 /**
- * Opens the form, either blank (create) or prefilled from an existing tag (edit).
- *
- * Exposed to and called by the sidebar, which owns a single instance of this component for both
- * the "new tag" button and the per-tag edit buttons.
+ * Opens a blank form. Editing an existing tag happens in place in the sidebar, so this only ever
+ * creates.
  *
  * @param {Event} event - The event that triggered the open, used to anchor the popover.
- * @param {DeepReadonly<Tag>} [tag] - The tag to edit. Omitted when creating a new one.
  * @returns {void} This function does not return any value.
  */
-function open(event: Event, tag?: DeepReadonly<Tag>): void {
-  editedTagUuid.value = tag?.uuid ?? null;
-  label.value = tag?.label ?? "";
-  color.value = normalizeTagColor(tag?.appearance?.color);
-  icon.value = tag?.appearance?.icon;
+function open(event: Event): void {
+  label.value = "";
+  color.value = DEFAULT_TAG_COLOR;
 
   popover.value?.show(event);
 }
@@ -66,17 +55,34 @@ function close(): void {
  *
  * @returns {void} This function does not return any value.
  */
+/**
+ * Checks whether a preset is the current colour, tolerating case and a missing `#`.
+ *
+ * @param {string} presetColor - The preset to compare against.
+ * @returns {boolean} Whether the preset is currently selected.
+ */
+function isSelectedColor(presetColor: string): boolean {
+  return normalizeTagColor(color.value).toLowerCase() === presetColor.toLowerCase();
+}
+
+/**
+ * Applies a colour. The `ColorPicker` hands back a bare hex string without the leading `#`, which
+ * is not a valid CSS colour, so everything is normalized on the way in.
+ *
+ * @param {string} value - The chosen colour, with or without a leading `#`.
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectColor(value: string): void {
+  color.value = normalizeTagColor(value);
+}
+
 function handleShow(): void {
   labelInput.value?.$el?.focus();
 }
 
-function handleSelectColor(value: string): void {
-  color.value = value;
-}
-
 /**
- * Persists the form. The colour is normalized first: the `ColorPicker` hands back a bare hex
- * string without the leading `#`, which is not a valid CSS colour.
+ * Creates the tag. The colour is normalized first: the `ColorPicker` hands back a bare hex string
+ * without the leading `#`, which is not a valid CSS colour.
  *
  * @returns {void} This function does not return any value.
  */
@@ -85,16 +91,10 @@ function handleSubmit(): void {
     return;
   }
 
-  const appearance: Tag["appearance"] = {
-    ...(icon.value && { icon: icon.value }),
-    color: normalizeTagColor(color.value),
-  };
-
-  if (editedTagUuid.value) {
-    updateTag({ tagUuid: editedTagUuid.value, label: label.value.trim(), appearance });
-  } else {
-    createTag({ label: label.value.trim(), appearance });
-  }
+  createTag({
+    label: label.value.trim(),
+    appearance: { color: normalizeTagColor(color.value) },
+  });
 
   close();
 }
@@ -140,21 +140,29 @@ function handleSubmit(): void {
             :key="presetColor"
             type="button"
             class="swatch"
-            :class="{ selected: color.toLowerCase() === presetColor.toLowerCase() }"
+            :class="{ selected: isSelectedColor(presetColor) }"
             :style="{ backgroundColor: presetColor }"
             :title="presetColor"
             :aria-label="`Use colour ${presetColor}`"
-            :aria-pressed="color.toLowerCase() === presetColor.toLowerCase()"
+            :aria-pressed="isSelectedColor(presetColor)"
             @click="handleSelectColor(presetColor)"
-          />
+          ></button>
 
-          <ColorPicker v-model="color" append-to="self" format="hex" title="Choose a custom colour" />
+          <!-- appendTo="self" keeps the picker's panel inside this popover; teleported to the body
+               it would count as an outside click and close the whole form -->
+          <ColorPicker
+            :model-value="color"
+            append-to="self"
+            format="hex"
+            title="Choose a custom colour"
+            @update:model-value="handleSelectColor($event as string)"
+          />
         </div>
       </div>
 
       <div class="flex justify-content-end gap-2">
-        <Button type="submit" :label="isEditing ? 'Update' : 'Create'" :disabled="!isValid" size="small" />
         <Button type="button" label="Cancel" severity="secondary" size="small" @click="close" />
+        <Button type="submit" label="Create" :disabled="!isValid" size="small" />
       </div>
     </form>
   </Popover>

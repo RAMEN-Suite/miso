@@ -4,6 +4,7 @@ import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
 import { useTags } from "../composables/useTags";
+import { normalizeTagColor } from "../config/tags";
 
 const props = defineProps<{
   nodeUuid: string;
@@ -60,15 +61,10 @@ function handleTagToggle(tagUuid: string): void {
             :input-id="`tag-${tag.uuid}`"
             @update:model-value="handleTagToggle(tag.uuid)"
           />
-          <i
-            :class="tag.appearance?.icon ?? 'pi pi-tag'"
-            class="flex-shrink-0"
-            :style="{ color: tag.appearance?.color ?? 'inherit' }"
-          />
+          <span class="tag-dot flex-shrink-0" :style="{ backgroundColor: normalizeTagColor(tag.appearance?.color) }" />
           <span class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap">
             {{ tag.label }}
           </span>
-          <span class="text-xs opacity-60">{{ tag.entries.length }}</span>
         </label>
       </li>
     </ul>
@@ -81,6 +77,12 @@ function handleTagToggle(tagUuid: string): void {
 </template>
 
 <style scoped>
+.tag-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .tag-list .tag-item {
   transition: background-color 0.1s;
 

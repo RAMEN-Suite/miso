@@ -1,42 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import Button from "primevue/button";
+import ConfirmPopup from "primevue/confirmpopup";
+import { useConfirm } from "primevue/useconfirm";
 import { useTags } from "../composables/useTags";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useAppStore } from "../store/app";
+import TagFormPopover from "./TagFormPopover.vue";
+import { Tag } from "../models/types";
+import { normalizeTagColor } from "../config/tags";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 600;
+const CONFIRM_GROUP = "tags";
 
-/** Placeholder labels and appearances for the mock tags, until a real create dialog exists. */
-const MOCK_LABELS: string[] = [
-  "Workspace",
-  "In Review",
-  "Needs OCR",
-  "To Verify",
-  "Draft",
-  "Priority",
-  "Archive",
-  "Reading List",
-];
-
-const MOCK_ICONS: string[] = [
-  "pi pi-tag",
-  "pi pi-star",
-  "pi pi-heart",
-  "pi pi-flag",
-  "pi pi-bolt",
-  "pi pi-inbox",
-  "pi pi-briefcase",
-  "pi pi-compass",
-];
-
-const MOCK_COLORS: string[] = ["#e11d48", "#ea580c", "#ca8a04", "#16a34a", "#0891b2", "#2563eb", "#7c3aed", "#db2777"];
-
-const { tags, createTag, deleteTag } = useTags();
+const { tags, deleteTag } = useTags();
 const { root, canNavigate, setRoot } = useHierarchyStore();
 const { addToastMessage } = useAppStore();
+const confirm: ReturnType<typeof useConfirm> = useConfirm();
+
+const tagForm = useTemplateRef<InstanceType<typeof TagFormPopover>>("tag-form");
 
 const width = ref<number>(280);
 const isResizing = ref<boolean>(false);
@@ -73,6 +57,26 @@ function handleSelectDatabase(): void {
 }
 
 /**
+ * Selects a tag from a click on its row, unless the click came from one of the row's action buttons.
+ *
+ * The buttons deliberately do **not** stop propagation: `ConfirmPopup` only positions itself from
+ * the document-level click listener it binds while opening, so a stopped click leaves it
+ * unanchored in the top-left corner of the page. Filtering here instead of there keeps both
+ * working.
+ *
+ * @param {MouseEvent} event - The click event.
+ * @param {string} uuid - The tag UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleRowClick(event: MouseEvent, uuid: string): void {
+  if ((event.target as HTMLElement).closest(".action-buttons")) {
+    return;
+  }
+
+  handleSelectTag(uuid);
+}
+
+/**
  * Switches the columns to a tag: the first column then lists the nodes carrying it, which may sit
  * anywhere in the graph, and navigating into one of them follows `PART_OF` as usual.
  *
@@ -93,18 +97,57 @@ function handleSelectTag(uuid: string): void {
 }
 
 /**
- * Deletes a tag. If it is the one currently displayed, the columns fall back to the database
- * hierarchy — otherwise the listing would be rooted in a tag that no longer exists.
+ * Opens the tag form, blank for a new tag or prefilled to edit an existing one.
  *
- * @param {string} uuid - The tag UUID.
+ * @param {Event} event - The click event, used to anchor the popover.
+ * @param {Tag} [tag] - The tag to edit. Omitted when creating.
  * @returns {void} This function does not return any value.
  */
-function handleDeleteTag(uuid: string): void {
+function handleOpenTagForm(event: Event, tag?: Tag): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
   }
 
+  tagForm.value?.open(event, tag);
+}
+
+/**
+ * Asks before deleting a tag. Deletion only drops the tag and its references — the nodes it
+ * pointed at are untouched — so the message says so rather than reading as a graph deletion.
+ *
+ * @param {Event} event - The click event, used to anchor the confirmation.
+ * @param {Tag} tag - The tag to delete.
+ * @returns {void} This function does not return any value.
+ */
+function handleDeleteTag(event: Event, tag: Tag): void {
+  if (!canNavigate.value) {
+    showUnsavedChangesWarning();
+    return;
+  }
+
+  confirm.require({
+    // Other views render their own ungrouped ConfirmPopup; without a group they would all answer
+    // this request and stack duplicate popups on the same button
+    group: CONFIRM_GROUP,
+    target: event.currentTarget as HTMLElement,
+    message: `Delete "${tag.label}"`,
+    icon: "pi pi-exclamation-triangle",
+    defaultFocus: "reject",
+    rejectProps: { label: "Cancel", severity: "secondary", size: "small" },
+    acceptProps: { label: "Delete", severity: "danger", size: "small" },
+    accept: () => confirmDeleteTag(tag.uuid),
+  });
+}
+
+/**
+ * Performs the deletion. If the deleted tag was the active listing, the columns fall back to the
+ * database hierarchy — otherwise the view stays rooted in a tag that no longer exists.
+ *
+ * @param {string} uuid - The tag UUID.
+ * @returns {void} This function does not return any value.
+ */
+function confirmDeleteTag(uuid: string): void {
   const wasActive: boolean = isTagActive(uuid);
 
   deleteTag(uuid);
@@ -125,34 +168,6 @@ function showUnsavedChangesWarning(): void {
     summary: "You have unsaved changes.",
     detail: "Please save or discard your changes before navigating.",
     life: 3000,
-  });
-}
-
-/**
- * Picks a random element of an array.
- *
- * @param {T[]} values - The array to pick from.
- * @returns {T} A random element.
- */
-function pickRandom<T>(values: T[]): T {
-  return values[Math.floor(Math.random() * values.length)];
-}
-
-/**
- * Creates a throwaway tag with a random label and appearance.
- *
- * Placeholder for the real create flow (label input + icon/colour picker). It exists so the tag
- * list and the tag popover in the focus panes can be exercised.
- *
- * @returns {void} This function does not return any value.
- */
-function handleCreateTag(): void {
-  createTag({
-    label: pickRandom(MOCK_LABELS),
-    appearance: {
-      icon: pickRandom(MOCK_ICONS),
-      color: pickRandom(MOCK_COLORS),
-    },
   });
 }
 
@@ -206,7 +221,7 @@ useEventListener(window, "mouseup", () => {
             size="small"
             title="Create a new tag"
             aria-label="Create a new tag"
-            @click="handleCreateTag"
+            @click="handleOpenTagForm($event)"
           />
         </div>
 
@@ -221,29 +236,41 @@ useEventListener(window, "mouseup", () => {
               tabindex="0"
               :aria-current="isTagActive(tag.uuid) ? 'true' : undefined"
               :title="`Show everything tagged ${tag.label}`"
-              @click="handleSelectTag(tag.uuid)"
+              @click="handleRowClick($event, tag.uuid)"
               @keydown.enter.prevent="handleSelectTag(tag.uuid)"
               @keydown.space.prevent="handleSelectTag(tag.uuid)"
             >
-              <i
-                :class="tag.appearance?.icon ?? 'pi pi-tag'"
-                class="flex-shrink-0"
-                :style="{ color: tag.appearance?.color ?? 'inherit' }"
-              />
-              <span class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap">
+              <span class="tag-dot flex-shrink-0" :style="{ backgroundColor: normalizeTagColor(tag.appearance?.color) }" />
+              <span
+                class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap"
+                :style="{ color: normalizeTagColor(isTagActive(tag.uuid) ? tag.appearance?.color : '#000000') }"
+              >
                 {{ tag.label }}
               </span>
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                size="small"
-                title="Delete this tag"
-                aria-label="Delete this tag"
-                @click.stop="handleDeleteTag(tag.uuid)"
-              />
-              <span class="text-xs opacity-60">{{ tag.entries.length }}</span>
+              <div class="action-buttons">
+                <Button
+                  class="row-action"
+                  icon="pi pi-pencil"
+                  severity="secondary"
+                  text
+                  rounded
+                  size="small"
+                  :title="`Edit ${tag.label}`"
+                  :aria-label="`Edit ${tag.label}`"
+                  @click="handleOpenTagForm($event, tag as Tag)"
+                />
+                <Button
+                  class="row-action"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  size="small"
+                  :title="`Delete ${tag.label}`"
+                  :aria-label="`Delete ${tag.label}`"
+                  @click="handleDeleteTag($event, tag as Tag)"
+                />
+              </div>
             </div>
           </li>
         </ul>
@@ -251,6 +278,9 @@ useEventListener(window, "mouseup", () => {
     </div>
 
     <div class="resizer flex-shrink-0" :class="{ active: isResizing }" @mousedown.prevent="isResizing = true"></div>
+
+    <TagFormPopover ref="tag-form" />
+    <ConfirmPopup :group="CONFIRM_GROUP" />
   </aside>
 </template>
 
@@ -269,6 +299,12 @@ useEventListener(window, "mouseup", () => {
     }
   }
 
+  .tag-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
   .nav-list .nav-item {
     cursor: pointer;
     transition: background-color 0.1s;
@@ -280,6 +316,17 @@ useEventListener(window, "mouseup", () => {
     &.active {
       background-color: hsl(0, 0%, 87%);
       font-weight: 600;
+    }
+
+    /* Edit/delete stay out of the way until the row is hovered or keyboard-focused */
+    .row-action {
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    &:hover .row-action,
+    &:focus-within .row-action {
+      opacity: 1;
     }
   }
 }

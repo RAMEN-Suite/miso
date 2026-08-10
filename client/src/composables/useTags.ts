@@ -9,7 +9,7 @@ interface UseTagsReturnType {
   getTagEntryUuids: (uuid: string) => string[];
   getTagsForItem: (itemUuid: string) => string[];
   createTag: (params: { label: string; uuid?: string; appearance?: Tag["appearance"] }) => Tag;
-  renameTag: (params: { tagUuid: string; label: string }) => void;
+  updateTag: (params: { tagUuid: string; label: string; appearance?: Tag["appearance"] }) => void;
   deleteTag: (uuid: string) => void;
   addItemsToTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
   removeItemsFromTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
@@ -117,13 +117,14 @@ export function useTags(): UseTagsReturnType {
   }
 
   /**
-   * Renames a tag. A no-op if the tag does not exist.
+   * Updates a tag's label and appearance. Its entries are untouched, so re-styling or renaming a
+   * tag never disturbs a listing rooted in it.
    *
-   * @param {Object} params - The tag UUID and its new label.
+   * @param {Object} params - The tag UUID, its new label and (optionally) its new appearance.
    * @returns {void} This function does not return any value.
    */
-  function renameTag(params: { tagUuid: string; label: string }): void {
-    const { tagUuid, label } = params;
+  function updateTag(params: { tagUuid: string; label: string; appearance?: Tag["appearance"] }): void {
+    const { tagUuid, label, appearance } = params;
 
     const tag: Tag | undefined = findTag(tagUuid);
 
@@ -132,6 +133,7 @@ export function useTags(): UseTagsReturnType {
     }
 
     tag.label = label;
+    tag.appearance = appearance;
   }
 
   /**
@@ -218,7 +220,7 @@ export function useTags(): UseTagsReturnType {
     getTagEntryUuids,
     getTagsForItem,
     createTag,
-    renameTag,
+    updateTag,
     deleteTag,
     addItemsToTag,
     removeItemsFromTag,

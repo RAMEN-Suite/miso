@@ -4,6 +4,7 @@ import { HierarchyEntry } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
 import { useTags } from "../composables/useTags";
+import { normalizeTagColor } from "../config/tags";
 
 const emit = defineEmits(["itemSelected"]);
 
@@ -18,11 +19,10 @@ const PREVIEW_LENGTH: number = 80;
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
 const icon = computed<string>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
-const tagColors = computed(() => {
+const tagColors = computed<string[]>(() => {
   const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
 
-  // TODO: Use default color from tag somehow
-  return tagUuids.map((uuid) => tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color ?? "grey");
+  return tagUuids.map((uuid) => normalizeTagColor(tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color));
 });
 
 // A Collection shows its label; a Content shows a single-line preview of its (truncated) text

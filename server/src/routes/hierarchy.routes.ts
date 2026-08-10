@@ -1,21 +1,30 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
-import { HierarchyNode, NodeAncestry, NodeDto, NodeStatusObject, PaginationResult } from "../models/types.js";
-import { getHierarchyQuery } from "../utils/helper.js";
+import { HierarchyNode, HierarchyScope, NodeAncestry, NodeDto, NodeStatusObject, PaginationResult } from "../models/types.js";
+import { getHierarchyQuery, HierarchyQuery } from "../utils/helper.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
 const router: Router = express.Router();
 
 const hierarchyService: HierarchyService = new HierarchyService();
 
-router.get("/children", async (req: Request, res: Response, next: NextFunction) => {
+/**
+ * The single hierarchy listing endpoint. What is listed is decided by the `scope` in the body —
+ * a Collection's children, the top of the hierarchy, or an explicit set of uuids (everything
+ * carrying one client-side tag) — with identical filter, sort and cursor semantics for all three.
+ *
+ * This is a **read**, not a mutation. It is a POST because the parameters do not reliably fit in a
+ * URI (large uuid lists, long cursor strings, complex filters etc.)
+ */
+router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { parentUuid, nodeLabels, search, sort, direction, limit, cursor } = getHierarchyQuery(req);
+    const query: HierarchyQuery = getHierarchyQuery(req);
+    const { scope, nodeLabels, search, sort, direction, limit, cursor } = query;
 
-    const signature: string = createQuerySignature({ parentUuid, nodeLabels, search, sort, direction });
+    const signature: string = createQuerySignature({ scope, nodeLabels, search, sort, direction });
     const decodedCursor: HierarchyCursor | null = cursor ? decodeCursor(cursor, signature) : null;
 
-    const children: PaginationResult<NodeDto<HierarchyNode>[]> = await hierarchyService.getChildren(parentUuid, {
+    const nodes: PaginationResult<NodeDto<HierarchyNode>[]> = await hierarchyService.listNodes(scope, {
       nodeLabels,
       search,
       sort,
@@ -25,7 +34,7 @@ router.get("/children", async (req: Request, res: Response, next: NextFunction) 
       signature,
     });
 
-    res.status(200).json(children);
+    res.status(200).set("Cache-Control", "no-store").json(nodes);
   } catch (error: unknown) {
     next(error);
   }

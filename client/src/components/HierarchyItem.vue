@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { HierarchyEntry } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
+import { useTags } from "../composables/useTags";
 
 const emit = defineEmits(["itemSelected"]);
 
@@ -11,10 +12,18 @@ const props = defineProps<{
   isActive: boolean;
 }>();
 
+const { entryIndex, tags } = useTags();
+
 const PREVIEW_LENGTH: number = 80;
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
 const icon = computed<string>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
+const tagColors = computed(() => {
+  const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
+
+  // TODO: Use default color from tag somehow
+  return tagUuids.map((uuid) => tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color ?? "grey");
+});
 
 // A Collection shows its label; a Content shows a single-line preview of its (truncated) text
 const displayText = computed<string>(() => {
@@ -54,6 +63,11 @@ function handleItemSelect(): void {
           {{ displayText }}
         </div>
       </div>
+      <span
+        v-for="color in tagColors"
+        class="flex-shrink-0"
+        :style="{ backgroundColor: color, width: '7px', height: '7px', borderRadius: '50%' }"
+      ></span>
       <i v-if="isCollection" class="pi pi-angle-right chevron flex-shrink-0" />
     </div>
   </div>

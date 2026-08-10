@@ -4,6 +4,7 @@ import {
   HierarchyEntry,
   HierarchyFilters,
   HierarchyNode,
+  HierarchyScope,
   HierarchySort,
   NodeDto,
   PaginationData,
@@ -25,14 +26,16 @@ export interface UseHierarchyChildrenOptions {
  * pane); a future tree node passes a local `ref([])`. The composable owns only what is genuinely
  * per-list — the opaque cursor, the loading flag and hasMore.
  *
+ * What is listed is decided by the {@link HierarchyScope}.
+ *
  * Note: This will likely be replaced in the near future since it is not completely usable for tree/directory view.
  *
- * @param {MaybeRefOrGetter<string | null>} parentUuid - Parent UUID, or null for top-level nodes.
+ * @param {MaybeRefOrGetter<HierarchyScope>} scope - Which set of nodes to list.
  * @param {Ref<HierarchyEntry[]>} entries - The sink the fetched entries are written into.
  * @param {UseHierarchyChildrenOptions} options - Reactive filters, sort and optional page size.
  */
 export function useHierarchyChildren(
-  parentUuid: MaybeRefOrGetter<string | null>,
+  scope: MaybeRefOrGetter<HierarchyScope>,
   entries: Ref<HierarchyEntry[]>,
   options: UseHierarchyChildrenOptions,
 ) {
@@ -79,7 +82,7 @@ export function useHierarchyChildren(
     const { replace } = fetchOptions;
 
     try {
-      const result: PaginationResult<NodeDto<HierarchyNode>[]> = await api.getHierarchyChildren(toValue(parentUuid), {
+      const result: PaginationResult<NodeDto<HierarchyNode>[]> = await api.listHierarchyNodes(toValue(scope), {
         filters: toValue(options.filters),
         sort: toValue(options.sort),
         cursor: cursor.value,

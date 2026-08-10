@@ -36,6 +36,7 @@ import AnnotationButton from "./AnnotationButton.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
+import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
@@ -369,6 +370,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           }"
           @click="handleBookmarkAction"
         />
+        <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
         <Button
           as="a"
           :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"

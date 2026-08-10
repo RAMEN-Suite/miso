@@ -7,6 +7,7 @@ import { resolveNodeIcon } from "../config/icons";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
+import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
 
 const props = defineProps<{
@@ -94,6 +95,7 @@ function updateView() {
           :pt="{ icon: { style: isBookmarked ? { color: 'var(--p-primary-color)' } : {} } }"
           @click="handleBookmarkAction"
         />
+        <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
       </div>
 
       <div class="label-section flex align-items-center justify-content-center gap-2">

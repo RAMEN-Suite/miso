@@ -1,8 +1,9 @@
 import { Request } from "express";
 import { int, isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
-import { CursorData, PropertyConfig } from "../models/types.js";
+import { CursorData, HierarchyScope, PropertyConfig } from "../models/types.js";
 import ICharacter from "../models/ICharacter.js";
 import NotFoundError from "../errors/notFound.error.js";
+import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
 
 /**
@@ -83,42 +84,95 @@ export function getPagination(req: Request): Record<string, any> {
   };
 }
 
-/**
- * Parses the query parameters for a hierarchy children request into a normalized spec.
- *
- * Distinct from {@link getPagination}: this uses opaque cursor pagination (not offset/structured
- * cursor) and carries the label/sort filter shape the hierarchy view needs.
- *
- * @param {Request} req - The express request object.
- * @returns {Object} The parsed hierarchy query: `parentUuid`, `nodeLabels`,
- *   `search`, `sort`, `direction`, `limit`, and the raw `cursor` string (or `null`).
- */
-export function getHierarchyQuery(req: Request): {
-  parentUuid: string | null;
+/** A parsed hierarchy listing request: which nodes to list, and how to filter/sort/paginate them. */
+export interface HierarchyQuery {
+  scope: HierarchyScope;
   nodeLabels: string[];
   search: string;
   sort: string;
   direction: "asc" | "desc";
   limit: number;
   cursor: string | null;
-} {
+}
+
+/**
+ * Parses and validates the `scope` of a hierarchy listing request — which set of nodes is being
+ * listed.
+ *
+ * @param {unknown} raw - The `scope` member of the request body.
+ * @returns {HierarchyScope} The validated scope.
+ * @throws {ValidationError} If the scope is missing, of an unknown kind, or malformed.
+ */
+function parseHierarchyScope(raw: unknown): HierarchyScope {
+  if (!raw || typeof raw !== "object") {
+    throw new ValidationError("`scope` is required.");
+  }
+
+  const maxScopeUuids: number = 10000;
+  const scope = raw as { kind?: unknown; parentUuid?: unknown; uuids?: unknown };
+
+  switch (scope.kind) {
+    case "top": {
+      return { kind: "top" };
+    }
+    case "children": {
+      if (typeof scope.parentUuid !== "string" || scope.parentUuid === "") {
+        throw new ValidationError("A `children` scope needs a `parentUuid`.");
+      }
+
+      return { kind: "children", parentUuid: scope.parentUuid };
+    }
+    case "uuids": {
+      if (!Array.isArray(scope.uuids) || scope.uuids.some((uuid) => typeof uuid !== "string")) {
+        throw new ValidationError("A `uuids` scope needs `uuids` to be an array of strings.");
+      }
+
+      if (scope.uuids.length > maxScopeUuids) {
+        throw new ValidationError(`Too many uuids requested (max ${maxScopeUuids}).`);
+      }
+
+      return { kind: "uuids", uuids: scope.uuids as string[] };
+    }
+    default: {
+      throw new ValidationError(`Unknown scope kind "${String(scope.kind)}".`);
+    }
+  }
+}
+
+/**
+ * Parses a `POST /hierarchy/query` request into a normalized listing spec.
+ *
+ * Every hierarchy listing goes through this one endpoint, whatever its scope — see the route for
+ * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
+ * (not offset/structured cursor) and carries the label/sort filter shape the hierarchy view needs.
+ *
+ * @param {Request} req - The express request object.
+ * @returns {HierarchyQuery} The parsed hierarchy query.
+ * @throws {ValidationError} If the scope is missing or malformed.
+ */
+export function getHierarchyQuery(req: Request): HierarchyQuery {
   const DEFAULT_LIMIT: number = 50;
   const MAX_LIMIT: number = 1000;
 
-  const parentUuid: string | null = (req.query.parent as string) || null;
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
 
-  const nodeLabels: string[] = ((req.query.nodeLabels as string) ?? "").split(",").filter((label) => label.trim() !== "");
+  const scope: HierarchyScope = parseHierarchyScope(body.scope);
 
-  const search: string = (req.query.search as string) ?? "";
-  const sort: string = (req.query.sort as string) || "distinct";
-  const direction: "asc" | "desc" = req.query.dir === "desc" ? "desc" : "asc";
+  const rawNodeLabels: unknown = body.nodeLabels;
+  const nodeLabels: string[] = Array.isArray(rawNodeLabels)
+    ? rawNodeLabels.map((label) => String(label)).filter((label) => label.trim() !== "")
+    : [];
 
-  const parsedLimit: number = parseInt(req.query.limit as string);
+  const search: string = (body.search as string) ?? "";
+  const sort: string = (body.sort as string) || "distinct";
+  const direction: "asc" | "desc" = body.dir === "desc" ? "desc" : "asc";
+
+  const parsedLimit: number = parseInt(body.limit as string);
   const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
 
-  const cursor: string | null = (req.query.cursor as string) || null;
+  const cursor: string | null = (body.cursor as string) || null;
 
-  return { parentUuid, nodeLabels, search, sort, direction, limit, cursor };
+  return { scope, nodeLabels, search, sort, direction, limit, cursor };
 }
 
 /**

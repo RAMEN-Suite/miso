@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import ValidationError from "../errors/validation.error.js";
+import { HierarchyScope } from "../models/types.js";
 
 /** Current cursor format version. Bump when the shape of {@link HierarchyCursor} changes. */
 export const CURSOR_VERSION: number = 1;
@@ -30,7 +31,7 @@ export interface HierarchyCursor {
  * so a hash of this is stored in the cursor and checked on decode.
  */
 export interface HierarchyQuerySpec {
-  parentUuid: string | null;
+  scope: HierarchyScope;
   sort: string;
   direction: "asc" | "desc";
   nodeLabels: string[];
@@ -83,14 +84,23 @@ export function encodeCursor(cursor: HierarchyCursor): string {
 }
 
 /**
- * Computes a stable, order-independent signature of the sort + filter spec.
+ * Computes a stable, order-independent signature of the scope + sort + filter spec.
+ *
+ * The scope is part of it: a `uuids` scope is a client-owned set that can change between two
+ * page requests (a node losing a tag). Without the uuids in the signature such a
+ * cursor would still validate, and its keyset comparison would then run against a different set —
+ * silently skipping rows.
  *
  * @param {HierarchyQuerySpec} spec - The request parts a cursor is bound to.
- * @returns {string} A short hex digest identifying this exact sort + filter combination.
+ * @returns {string} A short hex digest identifying this exact scope + sort + filter combination.
  */
 export function querySignature(spec: HierarchyQuerySpec): string {
+  // Sort the uuids to keep signature stable on different orderings of the same uuid set
+  const canonicalScope: HierarchyScope =
+    spec.scope.kind === "uuids" ? { kind: "uuids", uuids: [...spec.scope.uuids].sort() } : spec.scope;
+
   const canonical: string = JSON.stringify({
-    parentUuid: spec.parentUuid ?? null,
+    scope: canonicalScope,
     sort: spec.sort,
     direction: spec.direction,
     // Sort node labels so selection order never changes the signature

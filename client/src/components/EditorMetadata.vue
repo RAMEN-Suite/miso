@@ -6,14 +6,11 @@ import Fieldset from "primevue/fieldset";
 import InputText from "primevue/inputtext";
 import Panel from "primevue/panel";
 import NodeTag from "./NodeTag.vue";
-import { useBookmarks } from "../composables/useBookmarks";
 import { MenuItem } from "primevue/menuitem";
 import Breadcrumb from "primevue/breadcrumb";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 
 const { text, correspondingCollection } = useTextStore();
-
-const { bookmarks, toggleBookmark } = useBookmarks();
 
 const breadcrumbRoot = ref<MenuItem>({
   role: "Collection",
@@ -21,14 +18,6 @@ const breadcrumbRoot = ref<MenuItem>({
   uuid: correspondingCollection.value?.data.uuid,
 });
 const breadcrumbItems = ref<MenuItem[]>([{ role: "Content", labels: text.value.nodeLabels }]);
-
-const isBookmarked = computed<boolean>(() => {
-  return bookmarks.value.some((b) => b.data.data.uuid === text.value.data.uuid);
-});
-
-function handleBookmarkAction() {
-  toggleBookmark({ data: text.value });
-}
 
 async function handleCopy(): Promise<void> {
   await navigator.clipboard.writeText(text.value.data.uuid);
@@ -103,19 +92,6 @@ async function handleCopy(): Promise<void> {
             </div>
           </template>
         </Breadcrumb>
-        <Button
-          type="button"
-          severity="secondary"
-          :icon="`pi pi-bookmark${isBookmarked ? '-fill' : ''}`"
-          size="small"
-          :title="isBookmarked ? 'Remove text from bookmarks' : 'Add text to bookmarks'"
-          :pt="{
-            icon: {
-              style: isBookmarked ? { color: 'var(--p-primary-color)' } : {},
-            },
-          }"
-          @click="handleBookmarkAction"
-        />
       </div>
     </Fieldset>
   </Panel>

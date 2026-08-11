@@ -13,7 +13,7 @@ export const CURSOR_VERSION: number = 1;
  * (`k`) can grow — a secondary sort, a per-type property — without any client or URL change.
  */
 export interface HierarchyCursor {
-  /** Format version. A mismatch on decode means a stale bookmark/tab from before a deploy. Not necessary, but kept for safety.*/
+  /** Format version. A mismatch on decode means a stale tab from before a deploy. Not necessary, but kept for safety.*/
   v: number;
   /** Group rank of the last returned item (0 = Collection, 1 = Content). Leading sort component. */
   g: number;

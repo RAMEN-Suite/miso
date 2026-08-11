@@ -24,7 +24,6 @@ import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
-import { useBookmarks } from "../composables/useBookmarks";
 import AnnotationButton from "./AnnotationButton.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -52,17 +51,12 @@ const {
 } = useGuidelinesStore();
 const { levels, mode, path, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
 
-const { bookmarks, toggleBookmark } = useBookmarks();
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
 const temporaryWorkData = ref<CollectionFocus | null>(null);
 const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
-
-const isBookmarked = computed<boolean>(() => {
-  return bookmarks.value.some((b) => b.data.data.uuid === temporaryWorkData.value?.collection.node.data.uuid);
-});
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels) : [];
@@ -233,14 +227,6 @@ async function handleApplyChanges(): Promise<void> {
   }
 }
 
-function handleBookmarkAction(): void {
-  if (!temporaryWorkData.value) {
-    return;
-  }
-
-  toggleBookmark({ data: temporaryWorkData.value.collection.node });
-}
-
 function handleDeleteColletion(): void {
   createModalInstance(
     dialog.open(NodeDeleteModal, {
@@ -343,19 +329,6 @@ function showMessage(result: "success" | "error", error?: Error) {
   <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-column align-items-center p-2">
     <div class="main flex-grow-1 flex flex-column w-full">
       <div class="buttons flex justify-content-end gap-1">
-        <Button
-          type="button"
-          severity="secondary"
-          :icon="`pi pi-bookmark${isBookmarked ? '-fill' : ''}`"
-          size="small"
-          :title="isBookmarked ? 'Remove collection from bookmarks' : 'Add collection to bookmarks'"
-          :pt="{
-            icon: {
-              style: isBookmarked ? { color: 'var(--p-primary-color)' } : {},
-            },
-          }"
-          @click="handleBookmarkAction"
-        />
         <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
         <Button
           as="a"

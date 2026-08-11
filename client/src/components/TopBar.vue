@@ -4,7 +4,6 @@ import Button from "primevue/button";
 import Menu from "primevue/menu";
 import type { MenuItem } from "primevue/menuitem";
 import EditorSettingsButton from "./EditorSettingsButton.vue";
-import BookmarkButton from "./BookmarkButton.vue";
 
 const appsMenu = useTemplateRef<InstanceType<typeof Menu>>("appsMenu");
 
@@ -36,7 +35,6 @@ function toggleAppsMenu(event: PointerEvent): void {
       </RouterLink>
     </nav>
     <div class="flex align-items-center gap-2">
-      <BookmarkButton />
       <EditorSettingsButton />
       <Button
         icon="pi pi-ellipsis-v"

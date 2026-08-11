@@ -148,12 +148,6 @@ export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" 
 /** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
 export type LayoutName = "default" | "blank";
 
-export interface Bookmark {
-  data: CollectionNode | TextNode;
-  createdAt: string; // ISO 8601 string
-  updatedAt: string; // ISO 8601 string
-}
-
 export interface Character {
   data: ICharacter;
   annotations: AnnotationReference[];

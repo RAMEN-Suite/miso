@@ -116,6 +116,7 @@ function handleSubmit(): void {
   >
     <form class="tag-form flex flex-column gap-3" @submit.prevent="handleSubmit">
       <div class="flex flex-column gap-1">
+        <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
         <label for="tag-label" class="text-sm font-semibold">Label</label>
         <InputText
           id="tag-label"
@@ -126,6 +127,8 @@ function handleSubmit(): void {
           placeholder="e.g. In Review"
           autocomplete="off"
         />
+        <!-- eslint-enable vuejs-accessibility/label-has-for -->
+
         <small v-if="hasDuplicateLabel" class="duplicate-hint flex align-items-center gap-1">
           <i class="pi pi-exclamation-circle" />
           <span>A tag with this label already exists.</span>

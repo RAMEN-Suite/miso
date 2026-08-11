@@ -6,7 +6,6 @@ import {
   CharacterPostData,
   CollectionNode,
   NodeSearchParams,
-  CursorData,
   EntityNode,
   NetworkPostData,
   NodeAncestry,

@@ -65,6 +65,7 @@ function handleItemSelect(): void {
       </div>
       <span
         v-for="color in tagColors"
+        :key="color"
         class="flex-shrink-0"
         :style="{ backgroundColor: color, width: '7px', height: '7px', borderRadius: '50%' }"
       ></span>

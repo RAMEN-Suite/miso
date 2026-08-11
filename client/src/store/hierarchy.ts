@@ -14,6 +14,7 @@ import {
 } from "../models/types";
 import { useAppStore } from "./app";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
 
 const scope: EffectScope = effectScope(true);

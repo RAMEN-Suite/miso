@@ -54,7 +54,8 @@ function handleTagToggle(tagUuid: string): void {
 
     <ul v-else class="tag-list flex flex-column gap-1 list-none p-0 m-0">
       <li v-for="tag in tags" :key="tag.uuid">
-        <label class="tag-item flex align-items-center gap-2 p-2 border-round cursor-pointer">
+        <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
+        <label :for="`tag-${tag.uuid}`" class="tag-item flex align-items-center gap-2 p-2 border-round cursor-pointer">
           <Checkbox
             :model-value="assignedTags.includes(tag.uuid)"
             binary
@@ -66,6 +67,7 @@ function handleTagToggle(tagUuid: string): void {
             {{ tag.label }}
           </span>
         </label>
+        <!-- eslint-enable vuejs-accessibility/label-has-for -->
       </li>
     </ul>
 

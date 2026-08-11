@@ -12,14 +12,7 @@ import {
   NodeDto,
   NodeStatusObject,
 } from "../models/types";
-import {
-  capitalize,
-  cloneDeep,
-  getDefaultValueForProperty,
-  filterBaseNodeLabel,
-  setNodeTreeStatus,
-  pruneDeletedNodes,
-} from "../utils/helper/helper";
+import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -66,7 +59,6 @@ const temporaryWorkData = ref<CollectionFocus | null>(null);
 const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
-const propertiesAreCollapsed = ref<boolean>(false);
 
 const isBookmarked = computed<boolean>(() => {
   return bookmarks.value.some((b) => b.data.data.uuid === temporaryWorkData.value?.collection.node.data.uuid);
@@ -80,13 +72,6 @@ const availableCollectionLabels = computed(getAvailableCollectionLabels);
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
   getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
 );
-
-// Writable computed since "Collection" should be stripped from all visual displays/selection options
-const collectionNodeLabels = computed<string[]>({
-  get: () => filterBaseNodeLabel(temporaryWorkData.value.collection.node.nodeLabels),
-  set: (labels: string[]) =>
-    (temporaryWorkData.value.collection.node.nodeLabels = ["Collection", ...filterBaseNodeLabel(labels)]),
-});
 
 watch(
   () => props.focus.collection.node.data.uuid,
@@ -310,6 +295,7 @@ function removeUnnecessaryDataBeforeSave(): void {
 
   Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
     if (!configuredFieldNames.includes(key) && key !== "uuid") {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
       delete temporaryWorkData.value.collection.node.data[key];
     }
   });
@@ -384,7 +370,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       </div>
 
       <div class="label-section">
-        <h3 class="label-heading">
+        <h3 class="label-heading" aria-label="Collection label">
           <i :class="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)" />
           <span
             v-if="mode === 'edit'"
@@ -397,12 +383,9 @@ function showMessage(result: "success" | "error", error?: Error) {
             title="Click to edit the label"
             @input="(e) => (temporaryWorkData.collection.node.data.label = (e.target as HTMLSpanElement).innerText.trim())"
           ></span>
-          <span
-            v-else
-            v-contenteditable="temporaryWorkData.collection.node.data.label"
-            class="label-text"
-            data-placeholder="No label provided"
-          ></span>
+          <span v-else class="label-text" data-placeholder="No label provided">
+            {{ temporaryWorkData.collection.node.data.label }}
+          </span>
           <i v-if="mode === 'edit'" class="pi pi-pencil label-edit-icon" aria-hidden="true"></i>
         </h3>
       </div>
@@ -480,6 +463,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           <form ref="form">
             <div v-for="field in collectionFields" :key="field.name" class="input-container">
               <div class="flex align-items-center gap-3 mb-3">
+                <!-- eslint-disable vuejs-accessibility/label-has-for -- No id as component prop currently -->
                 <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
                 <DataInputGroup
                   v-if="field.type === 'array'"
@@ -493,6 +477,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                   :config="field"
                   :mode="mode"
                 />
+                <!-- eslint-enable vuejs-accessibility/label-has-for -->
               </div>
             </div>
           </form>

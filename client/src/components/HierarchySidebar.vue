@@ -193,7 +193,13 @@ useEventListener(window, "mouseup", () => {
       </div>
     </div>
 
-    <div class="resizer flex-shrink-0" :class="{ active: isResizing }" @mousedown.prevent="isResizing = true"></div>
+    <div
+      class="resizer flex-shrink-0"
+      :class="{ active: isResizing }"
+      role="button"
+      tabindex="0"
+      @mousedown.prevent="isResizing = true"
+    ></div>
 
     <CreateTagPopover ref="tag-popover" />
   </aside>

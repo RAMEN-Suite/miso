@@ -13,10 +13,7 @@ const props = defineProps<{
   isActive: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: "select"): void;
-  (e: "delete"): void;
-}>();
+const emit = defineEmits<(e: "select" | "delete") => void>();
 
 const { updateTag } = useTagsStore();
 
@@ -165,6 +162,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
       />
       <span
         v-else
+        role="button"
         tabindex="0"
         class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap"
         :style="{ color: props.isActive ? color : 'inherit' }"

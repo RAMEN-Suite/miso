@@ -63,12 +63,9 @@ function handleItemSelect(): void {
           {{ displayText }}
         </div>
       </div>
-      <span
-        v-for="color in tagColors"
-        :key="color"
-        class="flex-shrink-0"
-        :style="{ backgroundColor: color, width: '7px', height: '7px', borderRadius: '50%' }"
-      ></span>
+      <div class="tags flex">
+        <span v-for="color in tagColors" :key="color" class="tag-dot" :style="{ backgroundColor: color }"></span>
+      </div>
       <i v-if="isCollection" class="pi pi-angle-right chevron flex-shrink-0" />
     </div>
   </div>
@@ -107,6 +104,17 @@ function handleItemSelect(): void {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.tags {
+  gap: 2px;
+
+  .tag-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
 }
 
 .chevron {

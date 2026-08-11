@@ -140,8 +140,6 @@ useEventListener(window, "mouseup", () => {
 <template>
   <aside class="sidebar flex flex-shrink-0 h-full" :style="{ width: width + 'px' }">
     <div class="sidebar-body flex flex-column flex-grow-1 min-w-0 overflow-y-auto">
-      <div class="sidebar-header p-3 font-bold">Collections</div>
-
       <div class="sidebar-content flex flex-column gap-3 p-3">
         <nav aria-label="Collection navigation">
           <ul class="nav-list flex flex-column gap-1 list-none p-0 m-0">
@@ -165,7 +163,7 @@ useEventListener(window, "mouseup", () => {
         </nav>
 
         <div class="tags-header flex align-items-center justify-content-between gap-2">
-          <h4 class="m-0">Tags</h4>
+          <h4 class="m-0 font-normal">Tags</h4>
           <Button
             icon="pi pi-plus"
             severity="secondary"

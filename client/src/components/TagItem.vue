@@ -121,8 +121,6 @@ function handleCommitRename(): void {
  * @returns {void} This function does not return any value.
  */
 function handleRenameKeydown(event: KeyboardEvent): void {
-  event.stopPropagation();
-
   if (event.key === "Enter") {
     event.preventDefault();
     handleCommitRename();
@@ -143,8 +141,8 @@ function handleRenameKeydown(event: KeyboardEvent): void {
       :aria-current="props.isActive ? 'true' : undefined"
       :title="`Show everything tagged ${props.tag.label}`"
       @click="emit('select')"
-      @keydown.enter.prevent="emit('select')"
-      @keydown.space.prevent="emit('select')"
+      @keydown.enter.self="emit('select')"
+      @keydown.space.self="emit('select')"
     >
       <button
         type="button"
@@ -162,15 +160,17 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         class="rename-input text-sm flex-grow-1 min-w-0"
         spellcheck="false"
         :aria-label="`Rename ${props.tag.label}`"
-        @click.stop
         @blur="handleCommitRename"
         @keydown="handleRenameKeydown"
       />
       <span
         v-else
+        tabindex="0"
         class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap"
         :style="{ color: props.isActive ? color : 'inherit' }"
-        @dblclick.stop="startRename"
+        @dblclick="startRename"
+        @keydown.enter="startRename"
+        @keydown.space="startRename"
       >
         {{ props.tag.label }}
       </span>

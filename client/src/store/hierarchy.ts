@@ -14,6 +14,7 @@ import {
 } from "../models/types";
 import { useAppStore } from "./app";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
 
 const scope: EffectScope = effectScope(true);
@@ -38,7 +39,7 @@ function createStore() {
     const levels = ref<Level[]>([]);
     const focus = ref<FocusData | null>(null);
     const path = ref<HierarchyPath>([]);
-    const root = ref<HierarchyRoot>({ kind: "database", uuid: null });
+    const root = ref<HierarchyRoot>({ kind: "database" });
 
     const mode = ref<"view" | "edit">("view");
     const asyncOperationRunning = ref<boolean>(false);
@@ -208,7 +209,7 @@ function createStore() {
     }
 
     /**
-     * Switches the listing to another root (the database hierarchy, bookmarks, a workspace) and
+     * Switches the listing to another root (the database hierarchy or a tag) and
      * clears the current selection.
      *
      * @param {HierarchyRoot} newRoot - The root to display.

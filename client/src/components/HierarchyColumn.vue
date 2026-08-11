@@ -3,7 +3,8 @@ import { InputText, Button, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
-import { HierarchyEntry, HierarchyFilters, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
+import { HierarchyEntry, HierarchyFilters, HierarchyScope, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
+import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
 import MultiSelect from "primevue/multiselect";
 import Menu from "primevue/menu";
@@ -26,7 +27,8 @@ const { addToastMessage, createModalInstance, destroyModalInstance } = useAppSto
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
-const { levels, focus, canNavigate, selectItem, setMode } = useHierarchyStore();
+const { levels, focus, root, canNavigate, selectItem, setMode } = useHierarchyStore();
+const { getTagEntryUuids } = useTagsStore();
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 
@@ -88,6 +90,25 @@ const entries: WritableComputedRef<HierarchyEntry[]> = computed({
   },
 });
 
+/**
+ * Which set of nodes this column lists (db hierarchy, tags etc.). Only the first column depends on the active root — every
+ * column below it always shows the `PART_OF` children of the item selected in the previous one.
+ */
+const scope = computed<HierarchyScope>(() => {
+  if (props.parentUuid) {
+    return { kind: "children", parentUuid: props.parentUuid };
+  }
+
+  if (props.index === 0 && root.value.kind === "tag") {
+    return { kind: "uuids", uuids: getTagEntryUuids(root.value.uuid) };
+  }
+
+  return { kind: "top" };
+});
+
+/** Creating a node inside a tag listing should not be allowed, there is no place to put it in the database */
+const canCreateNodes = computed<boolean>(() => scope.value.kind !== "uuids");
+
 const focusedUuid = computed<string | null>(() => {
   if (!focus.value) {
     return null;
@@ -97,7 +118,7 @@ const focusedUuid = computed<string | null>(() => {
 });
 
 const { pagination, isLoading, hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(
-  () => props.parentUuid,
+  scope,
   entries,
   { filters, sort },
 );
@@ -110,12 +131,7 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-// Parent change (navigation) -> reload from page 1
-watch(
-  () => props.parentUuid,
-  () => fetchFirstPage(),
-  { immediate: true },
-);
+watch(scope, () => fetchFirstPage(), { immediate: true });
 
 // Label/sort changes -> reload immediately; search is debounced
 watch([selectedLabels, sort], () => fetchFirstPage(), { deep: true });
@@ -274,13 +290,14 @@ function endResize(): void {
         </div>
       </div>
       <Button
+        v-if="canCreateNodes"
         class="add-button"
         severity="secondary"
         icon="pi pi-plus"
         title="Add Collection or Content"
         @click="toggleAddMenu"
       />
-      <Menu ref="add-menu" :model="addMenuItems" :popup="true" />
+      <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems" :popup="true" />
     </div>
     <div class="footer">
       <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ pagination?.totalRecords ?? 0 }}</div>

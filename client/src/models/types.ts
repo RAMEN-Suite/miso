@@ -270,14 +270,18 @@ export interface Level {
 /**
  * Root element for any kind of Collection/Content hierarchies in the editor.
  * Which set of items the first column lists. `"database"` lists the top of the `PART_OF` hierarchy;
- * the other kinds list a client-side set of items (bookmarks, or the members of one workspace).
+ * `"tag"` lists the nodes carrying one client-side tag, which may sit anywhere in the graph.
  * Every column below the first shows `PART_OF` children regardless of the root.
  */
-export interface HierarchyRoot {
-  kind: "database" | "bookmarks" | "workspace";
-  /** Workspace uuid; `null` for the other kinds. */
-  uuid: string | null;
-}
+export type HierarchyRoot = { kind: "database" } | { kind: "tag"; uuid: string };
+
+/**
+ * Which set of nodes a hierarchy listing is drawn from.
+ *
+ * This is the *scope*, not a filter: {@link HierarchyFilters} narrows a set, a scope defines it,
+ * and the three kinds are mutually exclusive. All three are served by `POST /hierarchy/query`.
+ */
+export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
 
 /** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
 export interface CollectionFocus {
@@ -458,3 +462,27 @@ export type ToCItem = TreeNode & {
   };
   children: ToCItem[];
 };
+
+/**
+ * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text
+ * describing what the set is for ("Workspace", "In Review"). A node can carry any
+ * number of tags, and a tag's members may sit anywhere in the graph.
+ */
+export interface Tag {
+  uuid: string;
+  label: string;
+  appearance?: {
+    icon?: string;
+    color?: string;
+  };
+  entries: TagEntry[];
+}
+
+/**
+ * One tagged node. A **reference only** — never a node snapshot, so a renamed or re-parented node
+ * cannot go stale here. The node itself is resolved server-side via `POST /api/hierarchy/query`.
+ */
+export interface TagEntry {
+  uuid: string;
+  createdAt: string; // ISO 8601 string
+}

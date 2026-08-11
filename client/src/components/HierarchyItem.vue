@@ -3,6 +3,8 @@ import { computed } from "vue";
 import { HierarchyEntry } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
+import { useTagsStore } from "../store/tags";
+import { normalizeTagColor } from "../config/tags";
 
 const emit = defineEmits(["itemSelected"]);
 
@@ -11,10 +13,17 @@ const props = defineProps<{
   isActive: boolean;
 }>();
 
+const { entryIndex, tags } = useTagsStore();
+
 const PREVIEW_LENGTH: number = 80;
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
 const icon = computed<string>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
+const tagColors = computed<string[]>(() => {
+  const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
+
+  return tagUuids.map((uuid) => normalizeTagColor(tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color));
+});
 
 // A Collection shows its label; a Content shows a single-line preview of its (truncated) text
 const displayText = computed<string>(() => {
@@ -54,6 +63,9 @@ function handleItemSelect(): void {
           {{ displayText }}
         </div>
       </div>
+      <div class="tags flex">
+        <span v-for="color in tagColors" :key="color" class="tag-dot" :style="{ backgroundColor: color }"></span>
+      </div>
       <i v-if="isCollection" class="pi pi-angle-right chevron flex-shrink-0" />
     </div>
   </div>
@@ -92,6 +104,17 @@ function handleItemSelect(): void {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.tags {
+  gap: 2px;
+
+  .tag-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
 }
 
 .chevron {

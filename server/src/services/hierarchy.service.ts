@@ -7,7 +7,15 @@ import { toNativeTypes } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
-import { HierarchyNode, NodeAncestry, NodeDto, NodeStatusObject, NodeUpdateObject, PaginationResult } from "../models/types.js";
+import {
+  HierarchyNode,
+  HierarchyScope,
+  NodeAncestry,
+  NodeDto,
+  NodeStatusObject,
+  NodeUpdateObject,
+  PaginationResult,
+} from "../models/types.js";
 
 /** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
 const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
@@ -18,14 +26,14 @@ const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity"
  */
 const SORT_KEY_MAX_LENGTH: number = 500;
 
-export interface HierarchyChildrenOptions {
+export interface HierarchyListOptions {
   nodeLabels: string[];
   search: string;
   sort: string;
   direction: "asc" | "desc";
   limit: number;
   cursor: HierarchyCursor | null;
-  /** Signature of the active sort + filter spec, stamped into the produced nextCursor. */
+  /** Signature of the active scope + sort + filter spec, stamped into the produced nextCursor. */
   signature: string;
 }
 
@@ -116,29 +124,62 @@ export default class HierarchyService {
   }
 
   /**
-   * Retrieves a paginated page of a parent's direct children (Collections and Contents), or the
-   * top-level nodes when no parent is given. Collections always sort before Contents (Finder-style);
-   * within each group the nodes sort by the distinct property, tie-broken by uuid. Uses keyset
-   * (cursor) pagination.
+   * Builds the Cypher that establishes `n` — the set of nodes the listing is drawn from.
    *
-   * @param {string | null} parentUuid - The parent Collection UUID, or null for top-level nodes.
-   * @param {HierarchyChildrenOptions} options - Filter, sort, limit and cursor parameters.
-   * @return {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of children plus pagination info.
+   * Used in the cypher query to fetch hierarchy nodes (Collection or Content), based on different scopes
+   *
+   * @param {HierarchyScope} scope - The scope to build the match for.
+   * @returns {string} A Cypher fragment binding `n`.
    */
-  public async getChildren(
-    parentUuid: string | null,
-    options: HierarchyChildrenOptions,
+  private scopeMatchClause(scope: HierarchyScope): string {
+    switch (scope.kind) {
+      case "children": {
+        return `MATCH (parent:Collection {uuid: $parentUuid})<-[:PART_OF]-(n:Collection|Content)`;
+      }
+      case "top": {
+        return `MATCH (n:Collection|Content) WHERE NOT EXISTS { (:Collection)<-[:PART_OF]-(n) }`;
+      }
+      case "uuids": {
+        return `UNWIND $uuids AS scopeUuid
+                MATCH (n:Collection|Content {uuid: scopeUuid})
+                WITH DISTINCT n`;
+      }
+    }
+  }
+
+  /**
+   * Retrieves a paginated page of a hierarchy listing. What is listed is decided by the
+   * {@link HierarchyScope}: a Collection's direct children, the top of the hierarchy, or an
+   * explicit set of uuids (a client-side tag, whose nodes may sit anywhere in the graph).
+   *
+   * Everything but the scope is identical across the three: Collections always sort before
+   * Contents (Finder-style); within each group the nodes sort by the distinct property,
+   * tie-broken by uuid; pagination is keyset (cursor) based.
+   *
+   * @param {HierarchyScope} scope - Which set of nodes to list.
+   * @param {HierarchyListOptions} options - Filter, sort, limit and cursor parameters.
+   * @return {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of nodes plus pagination info.
+   */
+  public async listNodes(
+    scope: HierarchyScope,
+    options: HierarchyListOptions,
   ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
     const { nodeLabels, search, direction, limit, cursor, signature } = options;
 
     const order: "ASC" | "DESC" = direction === "desc" ? "DESC" : "ASC";
+
+    // An empty uuid scope can only ever yield an empty page -> skip db query
+    if (scope.kind === "uuids" && scope.uuids.length === 0) {
+      return {
+        data: [],
+        pagination: { limit, order, search, totalRecords: 0, nextCursor: null },
+      };
+    }
+
     const op: "<" | ">" = sortDirection(direction);
     const sortValue: string = this.sortValueExpression();
 
-    // Scope: children of a parent, or top-level nodes (no outgoing PART_OF to a Collection)
-    const scopeMatch: string = parentUuid
-      ? `MATCH (parent:Collection {uuid: $parentUuid})<-[:PART_OF]-(n:Collection|Content)`
-      : `MATCH (n:Collection|Content) WHERE NOT EXISTS { (:Collection)<-[:PART_OF]-(n) }`;
+    const scopeMatch: string = this.scopeMatchClause(scope);
 
     // Group rank + sort value, then the shared label/search filter
     const baseQuery: string = `
@@ -179,7 +220,8 @@ export default class HierarchyService {
     `;
 
     const queryParams = {
-      ...(parentUuid && { parentUuid }),
+      ...(scope.kind === "children" && { parentUuid: scope.parentUuid }),
+      ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       baseLabels: BASE_LABELS,
       nodeLabels,
       search,

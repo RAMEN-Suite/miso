@@ -24,12 +24,8 @@ const isRenaming = ref<boolean>(false);
 const renameDraft = ref<string>("");
 
 const menuItems: MenuItem[] = [
-  {
-    items: [
-      { label: "Rename", icon: "pi pi-pencil", command: startRename },
-      { label: "Delete", icon: "pi pi-trash", command: () => emit("delete") },
-    ],
-  },
+  { label: "Rename", icon: "pi pi-pencil", command: startRename },
+  { label: "Delete", icon: "pi pi-trash", command: () => emit("delete") },
 ];
 
 /**

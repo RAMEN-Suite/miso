@@ -111,6 +111,9 @@ function createStore() {
     /**
      * The fetch state of a level that has not been fetched yet.
      *
+     * Called when a new level is created or an existing one is cleared in {@linkcode updateLevels}.
+     *
+     *
      * @returns {LevelState} A fresh, empty state. Never shared between levels.
      */
     function createEmptyState(): LevelState {

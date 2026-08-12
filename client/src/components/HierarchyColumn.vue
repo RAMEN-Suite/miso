@@ -174,7 +174,7 @@ function toggleAddMenu(event: Event): void {
   addMenu.value?.toggle(event);
 }
 
-function handleChangeSortOrderClick(): void {
+async function handleChangeSortOrderClick(): Promise<void> {
   const level: Level | undefined = levels.value[props.index];
 
   if (!level) {
@@ -183,7 +183,7 @@ function handleChangeSortOrderClick(): void {
 
   level.query.sort = { ...level.query.sort, direction: level.query.sort.direction === "asc" ? "desc" : "asc" };
 
-  fetchFirstPage();
+  await fetchFirstPage();
 }
 
 function handleItemSelected(uuid: string): void {
@@ -203,13 +203,13 @@ function handleItemSelected(uuid: string): void {
   }
 }
 
-function handleLabelsChange(selected: string[]): void {
+async function handleLabelsChange(selected: string[]): Promise<void> {
   const level: Level | undefined = levels.value[props.index];
 
   if (level) {
     level.query.filters.nodeLabels = selected;
 
-    fetchFirstPage();
+    await fetchFirstPage();
   }
 }
 
@@ -246,11 +246,11 @@ function endResize(): void {
       <InputText
         v-model="levels[props.index].query.filters.search"
         size="small"
-        @update:model-value="handleSearchInputChange"
         class="w-full"
         spellcheck="false"
         placeholder="Filter"
         title="Filter by label or text"
+        @update:model-value="handleSearchInputChange"
       />
       <MultiSelect
         :model-value="levels[props.index].query.filters.nodeLabels"

@@ -3,15 +3,15 @@ import { InputText, Button, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
-import { HierarchyEntry, HierarchyFilters, HierarchyScope, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
+import { HierarchyEntry, HierarchyScope, HierarchyNode, Level, LevelState, NodeDto } from "../models/types";
 import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
 import MultiSelect from "primevue/multiselect";
 import Menu from "primevue/menu";
-import { computed, ref, useTemplateRef, watch, WritableComputedRef } from "vue";
+import { computed, useTemplateRef, watch, WritableComputedRef } from "vue";
 import OverlayBadge from "primevue/overlaybadge";
 import { useAppStore } from "../store/app";
-import { useEventListener, useInfiniteScroll, watchDebounced } from "@vueuse/core";
+import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";
 import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
@@ -23,17 +23,25 @@ const props = defineProps<{
   parentUuid: string | null;
 }>();
 
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
+const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
 const { levels, focus, root, canNavigate, selectItem, setMode } = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
+
+/** Derived state from the store. Shorthand since multiple use cases in the component */
+const state = computed<LevelState>(() => levels.value[props.index]?.state);
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
+
+const groupedLabelOptions = computed(() => [
+  { label: "Collections", items: collectionLabels.map((l) => ({ label: l, value: l })) },
+  { label: "Contents", items: contentLabels.map((l) => ({ label: l, value: l })) },
+]);
 
 const addMenuItems: MenuItem[] = [
   {
@@ -56,23 +64,11 @@ const addMenuItems: MenuItem[] = [
   },
 ];
 
-const groupedLabelOptions = computed(() => [
-  { label: "Collections", items: collectionLabels.map((l) => ({ label: l, value: l })) },
-  { label: "Contents", items: contentLabels.map((l) => ({ label: l, value: l })) },
-]);
-
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
-const searchInput = ref<string>("");
-const selectedLabels = ref<string[]>([...allLabelValues]);
-const sort = ref<HierarchySort>({ field: "distinct", direction: "asc" });
-
-const filters = computed<HierarchyFilters>(() => ({
-  search: searchInput.value,
-  nodeLabels: selectedLabels.value,
-}));
-
-const areAllLabelsSelected = computed<boolean>(() => selectedLabels.value.length === allLabelValues.length);
+const areAllLabelsSelected = computed<boolean>(
+  () => (levels.value[props.index]?.query.filters.nodeLabels.length ?? 0) === allLabelValues.length,
+);
 
 const column = useTemplateRef<HTMLDivElement>("column");
 const scrollPane = useTemplateRef<HTMLDivElement>("scroll-pane");
@@ -117,25 +113,24 @@ const focusedUuid = computed<string | null>(() => {
   return focus.value.kind === "collection" ? focus.value.collection.node.data.uuid : focus.value.content.node.data.uuid;
 });
 
-const { pagination, isLoading, hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(
-  scope,
-  entries,
-  { filters, sort },
-);
+const { hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(scope, entries, state, {
+  filters: levels.value[props.index].query.filters,
+  sort: levels.value[props.index].query.sort,
+});
 
 useEventListener(resizer, "mousedown", startResize);
 useEventListener(window, "mouseup", endResize);
 
 useInfiniteScroll(scrollPane, fetchNextPage, {
   distance: 25,
-  canLoadMore: () => hasMore.value && !isLoading.value,
+  canLoadMore: () => hasMore.value && !state.value.isLoading,
 });
 
 watch(scope, () => fetchFirstPage(), { immediate: true });
 
-// Label/sort changes -> reload immediately; search is debounced
-watch([selectedLabels, sort], () => fetchFirstPage(), { deep: true });
-watchDebounced(searchInput, () => fetchFirstPage(), { debounce: FETCH_DELAY });
+function handleSearchInputChange(): void {
+  useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
+}
 
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {
@@ -182,7 +177,15 @@ function toggleAddMenu(event: Event): void {
 }
 
 function handleChangeSortOrderClick(): void {
-  sort.value = { ...sort.value, direction: sort.value.direction === "asc" ? "desc" : "asc" };
+  const level: Level | undefined = levels.value[props.index];
+
+  if (!level) {
+    return;
+  }
+
+  level.query.sort = { ...level.query.sort, direction: level.query.sort.direction === "asc" ? "desc" : "asc" };
+
+  fetchFirstPage();
 }
 
 function handleItemSelected(uuid: string): void {
@@ -203,7 +206,13 @@ function handleItemSelected(uuid: string): void {
 }
 
 function handleLabelsChange(selected: string[]): void {
-  selectedLabels.value = selected;
+  const level: Level | undefined = levels.value[props.index];
+
+  if (level) {
+    level.query.filters.nodeLabels = selected;
+
+    fetchFirstPage();
+  }
 }
 
 function handleResize(event: MouseEvent): void {
@@ -234,18 +243,19 @@ function endResize(): void {
 </script>
 
 <template>
-  <div ref="column" class="column flex flex-column p-1">
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-column p-1">
     <div class="header flex gap-1">
       <InputText
-        v-model="searchInput"
+        v-model="levels[props.index].query.filters.search"
         size="small"
+        @update:model-value="handleSearchInputChange"
         class="w-full"
         spellcheck="false"
         placeholder="Filter"
         title="Filter by label or text"
       />
       <MultiSelect
-        :model-value="selectedLabels"
+        :model-value="levels[props.index].query.filters.nodeLabels"
         :options="groupedLabelOptions"
         option-label="label"
         option-value="value"
@@ -271,7 +281,7 @@ function endResize(): void {
       <Button
         size="small"
         severity="secondary"
-        :icon="`pi pi-sort-alpha-${sort.direction === 'asc' ? 'down' : 'up'}`"
+        :icon="`pi pi-sort-alpha-${levels[props.index].query.sort.direction === 'asc' ? 'down' : 'up'}`"
         title="Change sort"
         @click="handleChangeSortOrderClick"
       />
@@ -281,11 +291,11 @@ function endResize(): void {
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
-            :is-active="levels[props.index]?.activeItem?.node.data.uuid === entry.data.node.data.uuid"
+            :is-active="levels[props.index].activeItem?.node.data.uuid === entry.data.node.data.uuid"
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>
-        <div v-if="isLoading && entries.length > 0" class="text-center" title="More data are loading...">
+        <div v-if="state.isLoading && entries.length > 0" class="text-center" title="More data are loading...">
           <span class="pi pi-spin pi-spinner"></span>
         </div>
       </div>
@@ -300,7 +310,7 @@ function endResize(): void {
       <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems" :popup="true" />
     </div>
     <div class="footer">
-      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ pagination?.totalRecords ?? 0 }}</div>
+      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
     </div>
   </div>
   <div ref="resizer" class="resizer" title="Hold down mouse and drag to resize column">

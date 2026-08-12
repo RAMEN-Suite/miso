@@ -6,6 +6,8 @@ import {
   HierarchyNode,
   HierarchyRoot,
   Level,
+  LevelQuery,
+  LevelState,
   FocusData,
   TextNode,
   NodeDto,
@@ -13,6 +15,7 @@ import {
   AnnotationNode,
 } from "../models/types";
 import { useAppStore } from "./app";
+import { useGuidelinesStore } from "./guidelines";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
@@ -35,6 +38,7 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
+    const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
 
     const levels = ref<Level[]>([]);
     const focus = ref<FocusData | null>(null);
@@ -86,6 +90,34 @@ function createStore() {
     }
 
     /**
+     * The query a freshly built level starts with: everything, unsorted-by-default, unfiltered.
+     *
+     * The labels are read on every call rather than once at store creation, because the guidelines
+     * are fetched asynchronously and this store may be created before they arrive — an early read
+     * would bake in an empty list and leave the first column listing nothing.
+     *
+     * @returns {LevelQuery} A fresh default query. Never shared between levels.
+     */
+    function createDefaultQuery(): LevelQuery {
+      return {
+        filters: {
+          search: "",
+          nodeLabels: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()],
+        },
+        sort: { field: "distinct", direction: "asc" },
+      };
+    }
+
+    /**
+     * The fetch state of a level that has not been fetched yet.
+     *
+     * @returns {LevelState} A fresh, empty state. Never shared between levels.
+     */
+    function createEmptyState(): LevelState {
+      return { cursor: null, pagination: null, isLoading: false, initialized: false };
+    }
+
+    /**
      * Rebuilds the column levels from the current path.
      *
      * There is one "selection" level per path element (each showing its parent's children and
@@ -93,6 +125,10 @@ function createStore() {
      * focused item — but **only when that item is a Collection**. A Content is a leaf, so no child
      * column is appended. The trailing column is reused (not refetched) when it already shows the
      * children of the same parent (e.g. on breadcrumb navigation or when the path is truncated).
+     *
+     * A newly built level starts on {@linkcode createDefaultQuery}: navigating to a different parent
+     * clears that column's filters, rather than carrying over a filter typed while looking at a
+     * different set of nodes. Only the reused trailing column keeps its query.
      *
      * @returns {void} This function does not return a value.
      */
@@ -114,7 +150,13 @@ function createStore() {
         const diff: number = newPathLength - levels.value.length;
 
         for (let i = 0; i < diff; i++) {
-          levels.value.push({ entries: [], activeItem: null, parentUuid: null });
+          levels.value.push({
+            entries: [],
+            activeItem: null,
+            parentUuid: null,
+            query: createDefaultQuery(),
+            state: createEmptyState(),
+          });
         }
       }
 
@@ -134,9 +176,17 @@ function createStore() {
       const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
 
       if (canReuse) {
+        // The spread carries `query` and `state` over by reference, which is what a reused column
+        // wants: it is not refetched, so its entries still match the filter it is showing.
         levels.value.push({ ...currentChildColumn, activeItem: null });
       } else {
-        levels.value.push({ entries: [], activeItem: null, parentUuid: childParentUuid });
+        levels.value.push({
+          entries: [],
+          activeItem: null,
+          parentUuid: childParentUuid,
+          query: createDefaultQuery(),
+          state: createEmptyState(),
+        });
       }
     }
 

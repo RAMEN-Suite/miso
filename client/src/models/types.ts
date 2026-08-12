@@ -259,6 +259,33 @@ export interface Level {
   /** The item selected in this level — the one whose children the next level shows. */
   activeItem: NodeDto<HierarchyNode> | null;
   parentUuid: string | null;
+  query: LevelQuery;
+  state: LevelState;
+}
+
+/**
+ * User-editable constraints for the to-be-displayed items (filter, sorting, etc).
+ *
+ * Lives on the {@linkcode Level} rather than in the component rendering it, so that it can be
+ * reached from anywhere.
+ */
+export interface LevelQuery {
+  filters: HierarchyFilters;
+  sort: HierarchySort;
+}
+
+/**
+ * Non-editable state information for the level. Contains pagination, loading/initializing state etc.
+ * Can be written by the fetching engine ({@link useHierarchyChildren}) and is invalidated
+ * as soon as {@linkcode LevelQuery} changes — every field here describes the last request made.
+ */
+export interface LevelState {
+  /** Opaque position handed out by the server, or null at the start of a listing. */
+  cursor: string | null;
+  pagination: PaginationData | null;
+  isLoading: boolean;
+  /** False until the first page has been fetched */
+  initialized: boolean;
 }
 
 /**

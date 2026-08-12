@@ -128,9 +128,7 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
 
 watch(scope, () => fetchFirstPage(), { immediate: true });
 
-function handleSearchInputChange(): void {
-  useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
-}
+const handleSearchInputChange = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
 
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {

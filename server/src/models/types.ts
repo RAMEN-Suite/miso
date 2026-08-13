@@ -102,8 +102,62 @@ export type CollectionNode = Node<ICollection>;
 export type HierarchyNode = CollectionNode | ContentNode;
 
 /**
+ * How a single condition compares. Mirror of the client type — kept deliberately
+ * framework-neutral, so a table library on the client is a translation concern and not a wire one.
+ */
+export type FilterComparator =
+  | "contains"
+  | "notContains"
+  | "startsWith"
+  | "endsWith"
+  | "equals"
+  | "notEquals"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "between"
+  | "in"
+  | "dateIs"
+  | "dateBefore"
+  | "dateAfter"
+  | "isEmpty"
+  | "isNotEmpty";
+
+export type FilterOperator = "and" | "or";
+
+/** A single condition/constraint for filtering a list of nodes. */
+export type FilterCondition = {
+  comparator: FilterComparator;
+  value: unknown;
+};
+
+/** A group of filter conditions which are applied together, and the concatenation operator */
+export type FilterConditionGroup = {
+  operator: FilterOperator;
+  conditions: FilterCondition[];
+};
+
+/**
+ * What a rule or a sort points at. Shared by both, so anything filterable is sortable and both
+ * resolve through one expression builder (`targetExpression` in `utils/filter.ts`).
+ */
+export type FilterTarget =
+  /** A node property: `n.<field>`. The only variant whose name is interpolated into Cypher. */
+  | { kind: "property"; field: string }
+  /** The node's default value to fulltext-search — `label`, falling back to a `text` preview. */
+  | { kind: "distinct" }
+  /** The node's labels. Filter only — not a valid sort target. */
+  | { kind: "labels" };
+
+export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
+
+/** All rules of a listing. Rules are ANDed with each other. */
+export type FilterSpec = FilterRule[];
+
+/**
  * Which set of nodes a hierarchy listing is drawn from. This is the *scope*, not a filter:
- * `search`/`nodeLabels` narrow a set, a scope defines it, and the three kinds are mutually
+ * a {@link FilterSpec} narrows a set, a scope defines it, and the three kinds are mutually
  * exclusive.
  *
  * - `children`: the direct `PART_OF` children of one Collection (the column view below level 0).

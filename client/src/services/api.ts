@@ -261,9 +261,8 @@ export default class ApiService {
 
     const body: string = JSON.stringify({
       scope,
-      search: filters.search,
-      nodeLabels: filters.nodeLabels,
-      sort: sort.field,
+      filters,
+      sort: sort.target,
       dir: sort.direction,
       ...(cursor && { cursor }),
     });

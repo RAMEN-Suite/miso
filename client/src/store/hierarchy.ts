@@ -100,11 +100,15 @@ function createStore() {
      */
     function createDefaultQuery(): LevelQuery {
       return {
-        filters: {
-          search: "",
-          nodeLabels: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()],
-        },
-        sort: { field: "distinct", direction: "asc" },
+        filters: [
+          { target: { kind: "distinct" }, operator: "and", conditions: [{ comparator: "contains", value: "" }] },
+          {
+            target: { kind: "labels" },
+            operator: "and",
+            conditions: [{ comparator: "in", value: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()] }],
+          },
+        ],
+        sort: { target: { kind: "distinct" }, direction: "asc" },
       };
     }
 

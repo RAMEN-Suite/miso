@@ -1,12 +1,24 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
-import { HierarchyNode, HierarchyScope, NodeAncestry, NodeDto, NodeStatusObject, PaginationResult } from "../models/types.js";
-import { getHierarchyQuery, HierarchyQuery } from "../utils/helper.js";
+import GuidelinesService from "../services/guidelines.service.js";
+import { IGuidelines } from "../models/IGuidelines.js";
+import {
+  HierarchyNode,
+  HierarchyQuery,
+  NodeAncestry,
+  NodeDto,
+  NodeStatusObject,
+  PaginationResult,
+  PropertyConfig,
+} from "../models/types.js";
+import { getHierarchyQuery } from "../utils/helper.js";
+import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
 const router: Router = express.Router();
 
 const hierarchyService: HierarchyService = new HierarchyService();
+const guidelinesService: GuidelinesService = new GuidelinesService();
 
 /**
  * The single hierarchy listing endpoint. What is listed is decided by the `scope` in the body —
@@ -18,20 +30,23 @@ const hierarchyService: HierarchyService = new HierarchyService();
  */
 router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const query: HierarchyQuery = getHierarchyQuery(req);
-    const { scope, nodeLabels, search, sort, direction, limit, cursor } = query;
+    const guidelines: IGuidelines = await guidelinesService.getGuidelines();
+    const properties: Map<string, PropertyConfig> = filterableProperties(guidelines);
 
-    const signature: string = createQuerySignature({ scope, nodeLabels, search, sort, direction });
+    const query: HierarchyQuery = getHierarchyQuery(req, properties);
+    const { scope, filters, sort, direction, limit, cursor } = query;
+
+    const signature: string = createQuerySignature({ scope, filters, sort, direction });
     const decodedCursor: HierarchyCursor | null = cursor ? decodeCursor(cursor, signature) : null;
 
     const nodes: PaginationResult<NodeDto<HierarchyNode>[]> = await hierarchyService.listNodes(scope, {
-      nodeLabels,
-      search,
+      filters,
       sort,
       direction,
       limit,
       cursor: decodedCursor,
       signature,
+      properties,
     });
 
     res.status(200).set("Cache-Control", "no-store").json(nodes);

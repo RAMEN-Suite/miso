@@ -101,6 +101,19 @@ export type CollectionNode = Node<ICollection>;
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
 export type HierarchyNode = CollectionNode | ContentNode;
 
+/** A parsed hierarchy listing request: which nodes to list, and how to filter/sort/paginate them. */
+export interface HierarchyQuery {
+  scope: HierarchyScope;
+  filters: FilterSpec;
+  /** What to order by (a certain property etc.) */
+  sort: FilterTarget;
+  direction: "asc" | "desc";
+  limit: number;
+  cursor: string | null;
+  /** The guidelines-derived allowlist for properties used for filtering and sorting */
+  properties: Map<string, PropertyConfig>;
+}
+
 /**
  * How a single condition compares. Mirror of the client type — kept deliberately
  * framework-neutral, so a table library on the client is a translation concern and not a wire one.
@@ -165,10 +178,7 @@ export type FilterSpec = FilterRule[];
  * - `uuids`: an explicit set of nodes, gathered client-side and independent of `PART_OF`
  *   (level 0 of a tag root). The nodes may sit anywhere in the graph.
  */
-export type HierarchyScope =
-  | { kind: "children"; parentUuid: string }
-  | { kind: "top" }
-  | { kind: "uuids"; uuids: string[] };
+export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
 
 export type CollectionAccessObject = {
   annotations: AnnotationData[];

@@ -18,7 +18,6 @@ import { useGuidelinesStore } from "../store/guidelines";
 import Menu from "primevue/menu";
 import FilterPopover from "./FilterPopover.vue";
 import { computed, useTemplateRef, watch, WritableComputedRef } from "vue";
-import OverlayBadge from "primevue/overlaybadge";
 import { useAppStore } from "../store/app";
 import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";

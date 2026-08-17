@@ -52,3 +52,19 @@ kbd {
 #app {
   width: 100%;
 }
+
+/* 
+   Mimics tailwind's sr-only class - Keeps lements readable for screen readers but hidden from sighted users.
+   Used for `label` elements that should not be displayed since the input element is descriptive enough.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
+}

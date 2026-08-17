@@ -137,10 +137,13 @@ function toDate(value: unknown): Date | null {
 </script>
 
 <template>
+  <!-- eslint-disable vuejs-accessibility/form-control-has-label -- Eslint config does not recognize PrimeVue's component -->
+  <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
   <div class="rule flex align-items-center gap-1">
     <Select
       :model-value="selectedTarget"
       :options="targetOptions"
+      :label-id="`target-${row.id}`"
       option-label="label"
       option-value="value"
       placeholder="Field"
@@ -148,10 +151,11 @@ function toDate(value: unknown): Date | null {
       class="target"
       @update:model-value="handleTargetChange"
     />
-
+    <label :for="`target-${row.id}`" class="sr-only"></label>
     <Select
       :model-value="row.comparator"
       :options="comparatorOptions"
+      :label-id="`comparator-${row.id}`"
       option-label="label"
       option-value="value"
       placeholder="Condition"
@@ -159,7 +163,7 @@ function toDate(value: unknown): Date | null {
       class="comparator"
       @update:model-value="handleComparatorChange"
     />
-
+    <label :for="`comparator-${row.id}`" class="sr-only"></label>
     <div class="value flex gap-1">
       <template v-if="needsValue">
         <template v-if="isRange">

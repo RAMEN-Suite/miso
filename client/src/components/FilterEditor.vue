@@ -138,7 +138,7 @@ function rowsToFilters(): FilterSpec {
     { target: { kind: "labels" }, operator: "and", conditions: [{ comparator: "in", value: [...selectedLabels.value] }] },
   ];
 
-  const byTarget: Map<string, FilterRule> = new Map();
+  const byTarget = new Map<string, FilterRule>();
 
   rows.value
     .filter((r: FilterRow) => isRowComplete(r))
@@ -201,6 +201,7 @@ defineExpose({ sync });
       <div v-for="label in group.additional" :key="label" class="flex align-items-center gap-2">
         <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" />
         <i :class="resolveNodeIcon([group.base, label])" />
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
         <label :for="`${instanceId}-${label}`" class="cursor-pointer">{{ label }}</label>
       </div>
     </div>

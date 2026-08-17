@@ -11,7 +11,7 @@ import {
   PaginationResult,
   PropertyConfig,
 } from "../models/types.js";
-import { getHierarchyQuery } from "../utils/helper.js";
+import { parseHierarchyQuery } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
@@ -33,16 +33,14 @@ router.post("/query", async (req: Request, res: Response, next: NextFunction) =>
     const guidelines: IGuidelines = await guidelinesService.getGuidelines();
     const properties: Map<string, PropertyConfig> = filterableProperties(guidelines);
 
-    const query: HierarchyQuery = getHierarchyQuery(req, properties);
-    const { scope, filters, sort, direction, limit, cursor } = query;
-
-    const signature: string = createQuerySignature({ scope, filters, sort, direction });
+    const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, properties);
+    const signature: string = createQuerySignature({ scope, filters, sort, order });
     const decodedCursor: HierarchyCursor | null = cursor ? decodeCursor(cursor, signature) : null;
 
     const nodes: PaginationResult<NodeDto<HierarchyNode>[]> = await hierarchyService.listNodes(scope, {
       filters,
       sort,
-      direction,
+      order,
       limit,
       cursor: decodedCursor,
       signature,

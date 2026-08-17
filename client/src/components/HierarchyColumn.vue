@@ -263,7 +263,7 @@ async function handleChangeSortOrderClick(): Promise<void> {
     return;
   }
 
-  level.query.sort = { ...level.query.sort, direction: level.query.sort.direction === "asc" ? "desc" : "asc" };
+  level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
 
   await fetchFirstPage();
 }
@@ -331,7 +331,7 @@ function endResize(): void {
       <Button
         size="small"
         severity="secondary"
-        :icon="`pi pi-sort-alpha-${levels[props.index].query.sort.direction === 'asc' ? 'down' : 'up'}`"
+        :icon="`pi pi-sort-alpha-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
         title="Change sort"
         @click="handleChangeSortOrderClick"
       />

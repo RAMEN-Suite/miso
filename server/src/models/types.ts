@@ -107,7 +107,7 @@ export interface HierarchyQuery {
   filters: FilterSpec;
   /** What to order by (a certain property etc.) */
   sort: FilterTarget;
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
   limit: number;
   cursor: string | null;
   /** The guidelines-derived allowlist for properties used for filtering and sorting */

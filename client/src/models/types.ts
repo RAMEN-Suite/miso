@@ -386,7 +386,7 @@ export interface HierarchySort {
    */
   target: FilterTarget;
   /** Direction to sort by. */
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
 }
 
 /** Filter state for a hierarchy listing: the rules are ANDed with each other. */

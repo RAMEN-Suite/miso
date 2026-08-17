@@ -263,7 +263,7 @@ export default class ApiService {
       scope,
       filters,
       sort: sort.target,
-      dir: sort.direction,
+      order: sort.order,
       ...(cursor && { cursor }),
     });
 

@@ -37,7 +37,7 @@ export interface HierarchyCursor {
 export interface HierarchyQuerySpec {
   scope: HierarchyScope;
   sort: FilterTarget;
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
   filters: FilterSpec;
 }
 
@@ -105,7 +105,7 @@ export function querySignature(spec: HierarchyQuerySpec): string {
   const canonical: string = JSON.stringify({
     scope: canonicalScope,
     sort: canonicalTarget(spec.sort),
-    direction: spec.direction,
+    order: spec.order,
     filters: canonicalFilters(spec.filters),
   });
 

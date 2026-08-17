@@ -108,7 +108,7 @@ function createStore() {
             conditions: [{ comparator: "in", value: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()] }],
           },
         ],
-        sort: { target: { kind: "distinct" }, direction: "asc" },
+        sort: { target: { kind: "distinct" }, order: "asc" },
       };
     }
 

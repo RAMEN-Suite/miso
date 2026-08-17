@@ -164,22 +164,38 @@ export function parseSortDirection(dir: unknown): "asc" | "desc" {
  * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
  * @throws {UnknownFilterFieldError} If a filter or the sort names a property the guidelines do not define.
  */
-export function getHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
-  const DEFAULT_LIMIT: number = 50;
-  const MAX_LIMIT: number = 1000;
-
+export function parseHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
   const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
 
   const scope: HierarchyScope = parseHierarchyScope(body.scope);
   const filters: FilterSpec = parseFilterSpec(body.filters, properties);
   const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
-  const direction: "asc" | "desc" = parseSortDirection(body.dir);
-  const parsedLimit: number = parseInt(body.limit as string);
-  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+  const order: "asc" | "desc" = parseSortDirection(body.dir);
+  const limit: number = parsePaginationLimit(body.limit);
 
   const cursor: string | null = (body.cursor as string) || null;
 
-  return { scope, filters, sort, direction, limit, cursor, properties };
+  return { scope, filters, sort, order, limit, cursor, properties };
+}
+
+/**
+ * Parses the pagination limit from the request body.
+ *
+ * @param {unknown} rawLimit - The `limit` value from the request body. Typed as `unknown` to be forgiving, but very likely string
+ * @returns {number} The normalized limit, defaulting to 50 and capped to 1000.
+ */
+function parsePaginationLimit(rawLimit: unknown): number {
+  const DEFAULT_LIMIT: number = 50;
+  const MAX_LIMIT: number = 1000;
+
+  if (!rawLimit || typeof rawLimit !== "string") {
+    return DEFAULT_LIMIT;
+  }
+
+  const parsedLimit: number = parseInt(rawLimit as string);
+  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+
+  return limit;
 }
 
 /**

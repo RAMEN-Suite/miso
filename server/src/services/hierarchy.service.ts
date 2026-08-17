@@ -2,7 +2,7 @@ import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
-import { sortDirection } from "../utils/cypher.js";
+import { orderDirection } from "../utils/cypher.js";
 import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
@@ -28,7 +28,7 @@ const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity"
 export interface HierarchyListOptions {
   filters: FilterSpec;
   sort: FilterTarget;
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
   limit: number;
   cursor: HierarchyCursor | null;
   /** Signature of the active scope + sort + filter spec, stamped into the produced nextCursor. */
@@ -185,9 +185,7 @@ export default class HierarchyService {
     scope: HierarchyScope,
     options: HierarchyListOptions,
   ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
-    const { filters, sort, direction, limit, cursor, signature, properties } = options;
-
-    const order: "ASC" | "DESC" = direction === "desc" ? "DESC" : "ASC";
+    const { filters, sort, order, limit, cursor, signature, properties } = options;
 
     // `search` in the pagination payload is a legacy field the client does not read for hierarchy
     // listings; the free-text rule (if any) is the `distinct` one
@@ -202,9 +200,8 @@ export default class HierarchyService {
       };
     }
 
-    const op: "<" | ">" = sortDirection(direction);
+    const op: "<" | ">" = orderDirection(order);
     const sortValue: string = this.sortValueExpression(sort, datatypeOf(sort, properties));
-
     const scopeMatch: string = this.scopeMatchClause(scope);
 
     const { clause: filterClause, params: filterParams } = buildFilterCypher(filters, properties);
@@ -304,7 +301,6 @@ export default class HierarchyService {
         order,
         search,
         totalRecords,
-        // Opaque string; the client stores and echoes it unchanged
         nextCursor,
       },
     };

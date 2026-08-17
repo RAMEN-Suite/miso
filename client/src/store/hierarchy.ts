@@ -100,11 +100,15 @@ function createStore() {
      */
     function createDefaultQuery(): LevelQuery {
       return {
-        filters: {
-          search: "",
-          nodeLabels: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()],
-        },
-        sort: { field: "distinct", direction: "asc" },
+        filters: [
+          { target: { kind: "distinct" }, operator: "and", conditions: [{ comparator: "contains", value: "" }] },
+          {
+            target: { kind: "labels" },
+            operator: "and",
+            conditions: [{ comparator: "in", value: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()] }],
+          },
+        ],
+        sort: { target: { kind: "distinct" }, order: "asc" },
       };
     }
 
@@ -200,6 +204,20 @@ function createStore() {
      */
     function clearSelection(): void {
       updatePath([]);
+    }
+
+    /**
+     * Resets one level's filters and sort back to the defaults.
+     *
+     * @param {number} index - The level to reset.
+     * @returns {void} This function does not return a value.
+     */
+    function resetQuery(index: number): void {
+      const level: Level | undefined = levels.value[index];
+
+      if (level) {
+        level.query = createDefaultQuery();
+      }
     }
 
     /**
@@ -310,6 +328,7 @@ function createStore() {
       clearSelection,
       findEntryInHierarchy,
       initialize,
+      resetQuery,
       selectItem,
       updatePath,
       setMode,

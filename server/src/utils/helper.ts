@@ -1,6 +1,7 @@
 import { Request } from "express";
 import { int, isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
-import { CursorData, HierarchyScope, PropertyConfig } from "../models/types.js";
+import { CursorData, FilterSpec, FilterTarget, HierarchyQuery, HierarchyScope, PropertyConfig } from "../models/types.js";
+import { parseFilterSpec, parseFilterTarget } from "./filter.js";
 import ICharacter from "../models/ICharacter.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
@@ -84,17 +85,6 @@ export function getPagination(req: Request): Record<string, any> {
   };
 }
 
-/** A parsed hierarchy listing request: which nodes to list, and how to filter/sort/paginate them. */
-export interface HierarchyQuery {
-  scope: HierarchyScope;
-  nodeLabels: string[];
-  search: string;
-  sort: string;
-  direction: "asc" | "desc";
-  limit: number;
-  cursor: string | null;
-}
-
 /**
  * Parses and validates the `scope` of a hierarchy listing request — which set of nodes is being
  * listed.
@@ -140,39 +130,72 @@ function parseHierarchyScope(raw: unknown): HierarchyScope {
 }
 
 /**
+ * Reads the sort direction out of a request.
+ *
+ * Deliberately forgiving: anything that is not explicitly `desc` falls back to `asc`. A wrong direction
+ * shows the same listing in the wrong order which the user sees immediately and fixes with one click. No further
+ * error throwing/handling is needed
+ *
+ * @param {unknown} dir - The `dir` value from the request body.
+ * @returns {"asc" | "desc"} The normalized direction, defaulting to `asc`.
+ */
+export function parseSortDirection(dir: unknown): "asc" | "desc" {
+  if (dir === "desc" || dir === "DESC") {
+    return "desc";
+  } else {
+    return "asc";
+  }
+}
+
+/**
  * Parses a `POST /hierarchy/query` request into a normalized listing spec.
  *
  * Every hierarchy listing goes through this one endpoint, whatever its scope — see the route for
  * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
- * (not offset/structured cursor) and carries the label/sort filter shape the hierarchy view needs.
+ * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
+ *
+ * The property allowlist is passed in rather than read here: it comes from the guidelines, and
+ * reading it in this module would make the low-level helpers depend on a service that depends on
+ * them.
  *
  * @param {Request} req - The express request object.
+ * @param {Map<string, PropertyConfig>} properties - Filterable properties, from `filterableProperties`.
  * @returns {HierarchyQuery} The parsed hierarchy query.
- * @throws {ValidationError} If the scope is missing or malformed.
+ * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
+ * @throws {UnknownFilterFieldError} If a filter or the sort names a property the guidelines do not define.
  */
-export function getHierarchyQuery(req: Request): HierarchyQuery {
-  const DEFAULT_LIMIT: number = 50;
-  const MAX_LIMIT: number = 1000;
-
+export function parseHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
   const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
 
   const scope: HierarchyScope = parseHierarchyScope(body.scope);
-
-  const rawNodeLabels: unknown = body.nodeLabels;
-  const nodeLabels: string[] = Array.isArray(rawNodeLabels)
-    ? rawNodeLabels.map((label) => String(label)).filter((label) => label.trim() !== "")
-    : [];
-
-  const search: string = (body.search as string) ?? "";
-  const sort: string = (body.sort as string) || "distinct";
-  const direction: "asc" | "desc" = body.dir === "desc" ? "desc" : "asc";
-
-  const parsedLimit: number = parseInt(body.limit as string);
-  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+  const filters: FilterSpec = parseFilterSpec(body.filters, properties);
+  const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
+  const order: "asc" | "desc" = parseSortDirection(body.dir);
+  const limit: number = parsePaginationLimit(body.limit);
 
   const cursor: string | null = (body.cursor as string) || null;
 
-  return { scope, nodeLabels, search, sort, direction, limit, cursor };
+  return { scope, filters, sort, order, limit, cursor, properties };
+}
+
+/**
+ * Parses the pagination limit from the request body.
+ *
+ * @param {unknown} rawLimit - The `limit` value from the request body. Typed as `unknown` to be forgiving, but very likely string
+ * @returns {number} The normalized limit, defaulting to 50 and capped to 1000.
+ */
+function parsePaginationLimit(rawLimit: unknown): number {
+  const DEFAULT_LIMIT: number = 50;
+  const MAX_LIMIT: number = 1000;
+
+  if (!rawLimit || typeof rawLimit !== "string") {
+    return DEFAULT_LIMIT;
+  }
+
+  const parsedLimit: number = parseInt(rawLimit as string);
+  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+
+  return limit;
 }
 
 /**
@@ -273,7 +296,7 @@ export function toNativeTypes(properties: Record<string, any>): Record<string, a
  * @param {any} value
  * @returns {any}
  */
-function valueToNativeType(value: any): any {
+export function valueToNativeType(value: any): any {
   if (Array.isArray(value)) {
     value = value.map((innerValue) => valueToNativeType(innerValue));
   } else if (isInt(value)) {

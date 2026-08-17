@@ -317,28 +317,80 @@ export interface ContentFocus {
   content: NodeStatusObject<TextNode>;
 }
 
+export type FilterComparator =
+  | "contains"
+  | "notContains"
+  | "startsWith"
+  | "endsWith"
+  | "equals"
+  | "notEquals"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "between"
+  | "in"
+  | "dateIs"
+  | "dateBefore"
+  | "dateAfter"
+  | "isEmpty"
+  | "isNotEmpty";
+
+/**
+ * A single condition/constraint for filtering a list of nodes.
+ */
+export interface FilterCondition {
+  comparator: FilterComparator;
+  value: unknown;
+}
+
+/** A group of filter conditions which are applied together, and the concatenation operator */
+export interface FilterConditionGroup {
+  operator: FilterOperator;
+  conditions: FilterCondition[];
+}
+
+export type FilterTarget =
+  /** A node property: `n.<field>`. */
+  | { kind: "property"; field: string }
+  /** The node's default value to fulltext-search — `label`, falling back to a `text` currently */
+  | { kind: "distinct" }
+  /** The node's labels. Filter only — not a valid sort target. */
+  | { kind: "labels" };
+
+export type FilterOperator = "and" | "or";
+
+export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
+
+export type FilterSpec = FilterRule[];
+
+/**
+ * One rule of the filter editor. Represents one condition of a filter rule.
+ */
+export interface FilterRow {
+  id: string;
+  target: FilterTarget;
+  comparator: FilterComparator;
+  value: unknown;
+}
+
 /** What the focus pane renders — a Collection (editable) or a Content (read-only preview). */
 export type FocusData = CollectionFocus | ContentFocus;
 
 /** Sort state for a hierarchy listing. */
 export interface HierarchySort {
-  /** Field to sort by. Normally defaults to `distinct` if no specific field is provided. Backend handles this by
-   * applying the default value for the given node (`text`, `label`, `etc`).
+  /**
+   * What to sort by, named the same way a {@linkcode FilterRule} names what it matches — so anything
+   * filterable is sortable, and both resolve through the same expression builder on the server.
+   * `{ kind: "labels" }` is rejected: a label set has no ordering.
    */
-  field: "distinct" | string;
+  target: FilterTarget;
   /** Direction to sort by. */
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
 }
 
-/**
- * Filter state for a hierarchy listing. Kept as an object (not flat params) so property predicates
- * can be added later without changing call signatures. `nodeLabels` is one flat, global set (union
- * of Collection + Content labels).
- */
-export interface HierarchyFilters {
-  search: string;
-  nodeLabels: string[];
-}
+/** Filter state for a hierarchy listing: the rules are ANDed with each other. */
+export type HierarchyFilters = FilterSpec;
 
 export interface MalformedAnnotation {
   reason: "indexOutOfBounds" | "unconfiguredType";

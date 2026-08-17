@@ -1,8 +1,7 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import GuidelinesService from "./guidelines.service.js";
-import { sortDirection } from "../utils/cypher.js";
-import { ancestryPaths } from "../utils/cypher.js";
+import { orderDirection } from "../utils/cypher.js";
 import { createCharactersFromText, toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
 import { IGuidelines } from "../models/IGuidelines.js";
@@ -85,7 +84,7 @@ export default class CollectionService {
 
     // Build cursor condition, depending on whether a cursor is provided or not
     const cursorCondition: string = cursor
-      ? `AND (c.label ${sortDirection(order)} $cursorLabel OR (c.label = $cursorLabel AND c.uuid ${sortDirection(order)} $cursorUuid))`
+      ? `AND (c.label ${orderDirection(order)} $cursorLabel OR (c.label = $cursorLabel AND c.uuid ${orderDirection(order)} $cursorUuid))`
       : "";
 
     // Base query: Add filters for nodeLabels and search string

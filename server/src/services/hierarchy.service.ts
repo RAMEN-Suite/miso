@@ -2,12 +2,15 @@ import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
-import { sortDirection } from "../utils/cypher.js";
-import { toNativeTypes } from "../utils/helper.js";
+import { orderDirection } from "../utils/cypher.js";
+import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
+import { buildFilterCypher, datatypeOf, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
+  FilterSpec,
+  FilterTarget,
   HierarchyNode,
   HierarchyScope,
   NodeAncestry,
@@ -15,26 +18,23 @@ import {
   NodeStatusObject,
   NodeUpdateObject,
   PaginationResult,
+  PropertyConfig,
+  PropertyConfigDataType,
 } from "../models/types.js";
 
 /** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
 const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
 
-/**
- * Max characters of a Content's text (if existing) used as its sort key. This ONLY bounds the internal sort value
- * (and therefore the cursor size). the returned node payload is never truncated.
- */
-const SORT_KEY_MAX_LENGTH: number = 500;
-
 export interface HierarchyListOptions {
-  nodeLabels: string[];
-  search: string;
-  sort: string;
-  direction: "asc" | "desc";
+  filters: FilterSpec;
+  sort: FilterTarget;
+  order: "asc" | "desc";
   limit: number;
   cursor: HierarchyCursor | null;
   /** Signature of the active scope + sort + filter spec, stamped into the produced nextCursor. */
   signature: string;
+  /** Guidelines-derived property allowlist, already used to validate `filters` and `sort`. */
+  properties: Map<string, PropertyConfig>;
 }
 
 /**
@@ -43,16 +43,37 @@ export interface HierarchyListOptions {
  */
 export default class HierarchyService {
   /**
-   * Resolves the Cypher expression for the sort key ("distinct property"). This is the single place
-   * that grows when per-type sort fields are added later. The Content branch is truncated so the
-   * cursor stays small; ORDER BY, the keyset WHERE and the stored cursor value all use this identical
-   * expression (the invariant that keeps pagination from skipping rows). It does not affect the
-   * returned node payload.
+   * Creates the Cypher statement used for the sort key in the final query
    *
+   * Dates are wrapped in `toString()`. This is because the cursor stores the sort value of the
+   * last row in JSON format — which has no date type. Therefore, the comparison value also must be
+   * a string to compare lexicographically. Otherwise, paging would break.
+   *
+   * @param {FilterTarget} sort - The validated sort target.
+   * @param {PropertyConfigDataType} datatype - The datatype the target compares as.
    * @returns {string} A Cypher expression evaluating to the node's sort value.
+   * @example
+   * // Sorting by a node's "status" property:
+   * {
+   *   kind: "property",
+   *   field: "status"
+   * }
+   *
+   * // returns:
+   *
+   * `n.status`
+   *
+   * // and will be used in the final query as:
+   *
+   * `WITH n.status AS sortValue
+   *  ...
+   *  ORDER BY sortValue`
    */
-  private sortValueExpression(): string {
-    return `coalesce(n.label, left(n.text, $previewLength), '')`;
+  private sortValueExpression(sort: FilterTarget, datatype: PropertyConfigDataType): string {
+    const expression: string = targetExpression(sort);
+    const isTemporal: boolean = datatype === "date" || datatype === "date-time" || datatype === "time";
+
+    return isTemporal ? `toString(${expression})` : expression;
   }
 
   /**
@@ -153,8 +174,8 @@ export default class HierarchyService {
    * explicit set of uuids (a client-side tag, whose nodes may sit anywhere in the graph).
    *
    * Everything but the scope is identical across the three: Collections always sort before
-   * Contents (Finder-style); within each group the nodes sort by the distinct property,
-   * tie-broken by uuid; pagination is keyset (cursor) based.
+   * Contents (Finder-style); within each group the nodes sort by the requested target (the distinct
+   * property by default), tie-broken by uuid; pagination is keyset (cursor) based.
    *
    * @param {HierarchyScope} scope - Which set of nodes to list.
    * @param {HierarchyListOptions} options - Filter, sort, limit and cursor parameters.
@@ -164,9 +185,12 @@ export default class HierarchyService {
     scope: HierarchyScope,
     options: HierarchyListOptions,
   ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
-    const { nodeLabels, search, direction, limit, cursor, signature } = options;
+    const { filters, sort, order, limit, cursor, signature, properties } = options;
 
-    const order: "ASC" | "DESC" = direction === "desc" ? "DESC" : "ASC";
+    // `search` in the pagination payload is a legacy field the client does not read for hierarchy
+    // listings; the free-text rule (if any) is the `distinct` one
+    // TODO: Remove search legacy from here and all pagination data occurences
+    const search: string = String(filters.find((rule) => rule.target.kind === "distinct")?.conditions[0]?.value ?? "");
 
     // An empty uuid scope can only ever yield an empty page -> skip db query
     if (scope.kind === "uuids" && scope.uuids.length === 0) {
@@ -176,12 +200,13 @@ export default class HierarchyService {
       };
     }
 
-    const op: "<" | ">" = sortDirection(direction);
-    const sortValue: string = this.sortValueExpression();
-
+    const op: "<" | ">" = orderDirection(order);
+    const sortValue: string = this.sortValueExpression(sort, datatypeOf(sort, properties));
     const scopeMatch: string = this.scopeMatchClause(scope);
 
-    // Group rank + sort value, then the shared label/search filter
+    const { clause: filterClause, params: filterParams } = buildFilterCypher(filters, properties);
+
+    // Group rank + sort value, then the rules
     const baseQuery: string = `
     ${scopeMatch}
 
@@ -189,9 +214,8 @@ export default class HierarchyService {
          CASE WHEN n:Collection THEN 0 ELSE 1 END AS groupRank,
          ${sortValue} AS sortValue
 
-    WHERE 
-      size(apoc.coll.intersection($nodeLabels, labels(n))) > 0
-      AND toLower(sortValue) CONTAINS toLower($search)
+    WHERE
+      ${filterClause}
     `;
 
     const countQuery: string = baseQuery + `\nRETURN count(n) AS totalRecords`;
@@ -222,9 +246,8 @@ export default class HierarchyService {
     const queryParams = {
       ...(scope.kind === "children" && { parentUuid: scope.parentUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
+      ...filterParams,
       baseLabels: BASE_LABELS,
-      nodeLabels,
-      search,
       previewLength: int(SORT_KEY_MAX_LENGTH),
       limit: int(limit + 1),
       ...(cursor && {
@@ -243,7 +266,7 @@ export default class HierarchyService {
     const rawChildren: {
       node: { nodeLabels: string[]; data: Record<string, any> };
       groupRank: number;
-      sortValue: string;
+      sortValue: unknown;
     }[] = dataResult.records[0]?.get("children") || [];
 
     const hasMore: boolean = rawChildren.length > limit;
@@ -263,7 +286,7 @@ export default class HierarchyService {
       const cursorObject: HierarchyCursor = {
         v: CURSOR_VERSION,
         g: last.groupRank,
-        k: [last.sortValue],
+        k: [valueToNativeType(last.sortValue)],
         u: last.node.data.uuid,
         s: signature,
       };
@@ -278,7 +301,6 @@ export default class HierarchyService {
         order,
         search,
         totalRecords,
-        // Opaque string; the client stores and echoes it unchanged
         nextCursor,
       },
     };

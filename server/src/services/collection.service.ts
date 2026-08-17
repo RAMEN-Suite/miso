@@ -8,6 +8,10 @@ import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatus
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import ValidationError from "../errors/validation.error.js";
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
+-- db results can not be typed (only with assertion) which is too cumbersome for now
+ */
+
 export default class CollectionService {
   /**
    * Retrieves the available labels that can be assigned to a Collection node.
@@ -131,9 +135,9 @@ export default class CollectionService {
       }),
     ]);
 
-    const totalRecords: number = countResult.records[0]?.get("totalRecords") || 0;
+    const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: CollectionNode[] = dataResult.records[0]?.get("collections") || [];
+    const rawData: CollectionNode[] = dataResult.records[0]?.get("collections") ?? [];
     const data: CollectionNode[] = rawData.map((c) => toNativeTypes(c)) as CollectionNode[];
 
     return {

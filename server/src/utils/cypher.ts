@@ -61,10 +61,10 @@ export function ancestryPaths(nodeAlias: string): string {
 /**
  * Returns the Cypher operator for sorting in ascending or descending order.
  *
- * @param {string} direction - The direction of the sort. Can be 'asc', 'desc', 'ASC', 'DESC', or any other string.
+ * @param {String} direction - The direction of the sort. Likely to be 'asc', 'desc', 'ASC', 'DESC', but accepts any string.
  * @returns {'<'|'>'} The Cypher operator for sorting in ascending or descending order.
  */
-export function orderDirection(direction: "asc" | "desc" | "ASC" | "DESC" | string): "<" | ">" {
+export function orderDirection(direction: string): "<" | ">" {
   if (direction === "desc" || direction === "DESC") {
     return "<";
   } else {

@@ -22,6 +22,10 @@ import {
   PropertyConfigDataType,
 } from "../models/types.js";
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
+-- db results can not be typed (only with assertion) which is too cumbersome for now
+ */
+
 /** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
 const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
 
@@ -190,7 +194,7 @@ export default class HierarchyService {
     // `search` in the pagination payload is a legacy field the client does not read for hierarchy
     // listings; the free-text rule (if any) is the `distinct` one
     // TODO: Remove search legacy from here and all pagination data occurences
-    const search: string = String(filters.find((rule) => rule.target.kind === "distinct")?.conditions[0]?.value ?? "");
+    const search: string = JSON.stringify(filters.find((rule) => rule.target.kind === "distinct")?.conditions[0]?.value ?? "");
 
     // An empty uuid scope can only ever yield an empty page -> skip db query
     if (scope.kind === "uuids" && scope.uuids.length === 0) {
@@ -262,12 +266,12 @@ export default class HierarchyService {
       Neo4jDriver.runQuery(dataQuery, queryParams),
     ]);
 
-    const totalRecords: number = countResult.records[0]?.get("totalRecords") || 0;
+    const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
     const rawChildren: {
       node: { nodeLabels: string[]; data: Record<string, any> };
       groupRank: number;
       sortValue: unknown;
-    }[] = dataResult.records[0]?.get("children") || [];
+    }[] = dataResult.records[0]?.get("children") ?? [];
 
     const hasMore: boolean = rawChildren.length > limit;
     const pageRows = hasMore ? rawChildren.slice(0, limit) : rawChildren;

@@ -59,7 +59,7 @@ export function decodeCursor(raw: string, expectedSignature: string): HierarchyC
   let parsed: HierarchyCursor;
 
   try {
-    parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as HierarchyCursor;
   } catch {
     throw new ValidationError("Malformed pagination cursor.");
   }

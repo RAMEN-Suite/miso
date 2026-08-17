@@ -74,7 +74,7 @@ export function filterableProperties(guidelines: IGuidelines): Map<string, Prope
     ...guidelines.collections.types.flatMap((type) => type.properties ?? []),
   ];
 
-  const properties: Map<string, PropertyConfig> = new Map();
+  const properties = new Map<string, PropertyConfig>();
 
   configs.forEach((config: PropertyConfig) => {
     if (config?.name && !properties.has(config.name)) {
@@ -149,7 +149,7 @@ export function datatypeOf(target: FilterTarget, properties: Map<string, Propert
     // `distinct` is `label` or a slice of `text` -> always a string
     return "string";
   } else {
-    return (properties.get(target.field) as PropertyConfig).type;
+    return properties.get(target.field)?.type ?? "string";
   }
 }
 
@@ -308,7 +308,7 @@ function assertOption(value: string | number | boolean, options?: string[] | num
  * @returns {FilterOperator} The validated operator.
  * @throws {ValidationError} If the operator is not a valid string.
  */
-function parseConcatenationOperator(operator: FilterOperator | (string & {}) | unknown): FilterOperator {
+function parseConcatenationOperator(operator: unknown): FilterOperator {
   if (typeof operator !== "string") {
     throw new ValidationError("A filter operator must be a string.");
   }
@@ -362,6 +362,7 @@ export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyCo
     const config: PropertyConfig | undefined = target.kind === "property" ? properties.get(target.field) : undefined;
 
     let conditions: FilterCondition[] = [];
+
     if (target.kind === "labels") {
       conditions = parseLabelConditions(rule.conditions);
     } else {

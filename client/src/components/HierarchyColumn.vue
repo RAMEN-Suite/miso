@@ -326,9 +326,7 @@ function endResize(): void {
         @update:model-value="debouncedFetchFirstPage"
       />
       <Button size="small" severity="secondary" title="Filter the listing" class="flex-shrink-0" @click="toggleFilterPopover">
-        <OverlayBadge v-if="hasActiveFilters" severity="danger">
-          <i class="pi pi-filter-fill" />
-        </OverlayBadge>
+        <i v-if="hasActiveFilters" class="pi pi-filter-fill" />
         <i v-else class="pi pi-filter" />
       </Button>
       <Button

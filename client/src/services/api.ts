@@ -6,7 +6,6 @@ import {
   CharacterPostData,
   CollectionNode,
   NodeSearchParams,
-  CursorData,
   EntityNode,
   NetworkPostData,
   NodeAncestry,
@@ -19,6 +18,7 @@ import {
   NodeStatusObject,
   HierarchyNode,
   HierarchyFilters,
+  HierarchyScope,
   HierarchySort,
 } from "../models/types";
 import DatabaseConnectionError from "../utils/errors/databaseConnection.error";
@@ -85,32 +85,6 @@ export default class ApiService {
       const url: string = `${this.baseUrl}/health`;
 
       const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  public async createOrAddCollection(uuid: string, data: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
-    try {
-      const url: string = `${this.baseUrl}/collections`;
-
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({
-          uuid: uuid,
-          data: data,
-        }),
-      });
 
       await this.assertResponseOk(response);
 
@@ -236,15 +210,19 @@ export default class ApiService {
   }
 
   /**
-   * Fetches one page of a parent's hierarchy children (Collections + Contents), or the top-level
-   * nodes when `parentUuid` is null.
+   * Fetches one page of a hierarchy listing. What is listed is decided by the scope: a Collection's
+   * children, the top of the hierarchy, or an explicit set of uuids (everything carrying one tag).
+   * Filtering, sorting and cursor pagination are identical for all three.
    *
-   * @param {string | null} parentUuid - The parent Collection UUID, or `null` for top-level nodes.
+   * This is a read despite being a POST — the parameters do not reliably fit in a URI, and a body allows
+   * more complex filters.
+   *
+   * @param {HierarchyScope} scope - Which set of nodes to list.
    * @param {Object} params - Filters, sort and the opaque cursor string.
-   * @returns {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of children plus pagination.
+   * @returns {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of nodes plus pagination.
    */
-  public async getHierarchyChildren(
-    parentUuid: string | null,
+  public async listHierarchyNodes(
+    scope: HierarchyScope,
     params: {
       filters: DeepReadonly<HierarchyFilters> | HierarchyFilters;
       sort: DeepReadonly<HierarchySort> | HierarchySort;
@@ -253,25 +231,27 @@ export default class ApiService {
   ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
     const { filters, sort, cursor } = params;
 
-    const urlParams: URLSearchParams = new URLSearchParams();
+    const url: string = `${this.hierarchyUrl}/query`;
 
-    if (parentUuid) {
-      urlParams.set("parent", parentUuid);
-    }
-
-    urlParams.set("search", filters.search);
-    urlParams.set("nodeLabels", filters.nodeLabels.join(","));
-    urlParams.set("sort", sort.field);
-    urlParams.set("dir", sort.direction);
-
-    if (cursor) {
-      urlParams.set("cursor", cursor);
-    }
-
-    const fetchUrl: string = `${this.hierarchyUrl}/children?${urlParams.toString()}`;
+    const body: string = JSON.stringify({
+      scope,
+      filters,
+      sort: sort.target,
+      order: sort.order,
+      ...(cursor && { cursor }),
+    });
 
     try {
-      const response: Response = await fetch(fetchUrl);
+      const response: Response = await fetch(url, {
+        method: "POST",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        referrerPolicy: "no-referrer",
+        body,
+      });
 
       await this.assertResponseOk(response);
 

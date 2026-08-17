@@ -3,14 +3,23 @@ import { InputText, Button, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
-import { HierarchyEntry, HierarchyFilters, HierarchySort, HierarchyNode, NodeDto } from "../models/types";
+import {
+  FilterRule,
+  FilterSpec,
+  HierarchyEntry,
+  HierarchyScope,
+  HierarchyNode,
+  Level,
+  LevelState,
+  NodeDto,
+} from "../models/types";
+import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
-import MultiSelect from "primevue/multiselect";
 import Menu from "primevue/menu";
-import { computed, ref, useTemplateRef, watch, WritableComputedRef } from "vue";
-import OverlayBadge from "primevue/overlaybadge";
+import FilterPopover from "./FilterPopover.vue";
+import { computed, useTemplateRef, watch, WritableComputedRef } from "vue";
 import { useAppStore } from "../store/app";
-import { useEventListener, useInfiniteScroll, watchDebounced } from "@vueuse/core";
+import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";
 import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
@@ -22,13 +31,48 @@ const props = defineProps<{
   parentUuid: string | null;
 }>();
 
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
+const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
-const { levels, focus, canNavigate, selectItem, setMode } = useHierarchyStore();
+const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
+const { getTagEntryUuids } = useTagsStore();
+
+/** Derived state from the store. Shorthand since multiple use cases in the component */
+const state = computed<LevelState>(() => levels.value[props.index]?.state);
+
+/** Filters of this column. */
+const filters: WritableComputedRef<FilterSpec> = computed({
+  get: () => levels.value[props.index]?.query.filters ?? [],
+  set: (value: FilterSpec) => {
+    if (levels.value[props.index]) {
+      levels.value[props.index].query.filters = value;
+    }
+  },
+});
+
+/**
+ * The rule representing the distinct property search (`label` for Collections, `text` for Content).
+ * Used to access the nested state direcly via a searchbox component.
+ */
+const searchRule = computed<FilterRule | undefined>(() =>
+  filters.value.find((rule: FilterRule) => rule.target.kind === "distinct"),
+);
+
+/**
+ * The search input for the search rule. Bound to the component's state.
+ */
+const searchInput: WritableComputedRef<string> = computed({
+  get: () => (searchRule.value?.conditions[0]?.value as string) ?? "",
+  set: (value: string) => {
+    if (searchRule.value?.conditions[0]) {
+      searchRule.value.conditions[0].value = value;
+    }
+  },
+});
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
+const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
@@ -54,23 +98,22 @@ const addMenuItems: MenuItem[] = [
   },
 ];
 
-const groupedLabelOptions = computed(() => [
-  { label: "Collections", items: collectionLabels.map((l) => ({ label: l, value: l })) },
-  { label: "Contents", items: contentLabels.map((l) => ({ label: l, value: l })) },
-]);
-
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
-const searchInput = ref<string>("");
-const selectedLabels = ref<string[]>([...allLabelValues]);
-const sort = ref<HierarchySort>({ field: "distinct", direction: "asc" });
+/**
+ * Whether anything in the filter popover currently narrows the listing (currently, search inputs are not considered,
+ * only node labels and property-based filters).
+ */
+const hasActiveFilters = computed<boolean>(() => {
+  const selectedLabels: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "labels")?.conditions[0]
+    ?.value ?? []) as string[];
 
-const filters = computed<HierarchyFilters>(() => ({
-  search: searchInput.value,
-  nodeLabels: selectedLabels.value,
-}));
+  if (selectedLabels.length !== allLabelValues.length) {
+    return true;
+  }
 
-const areAllLabelsSelected = computed<boolean>(() => selectedLabels.value.length === allLabelValues.length);
+  return filters.value.some((rule: FilterRule) => rule.target.kind === "property" && rule.conditions.length > 0);
+});
 
 const column = useTemplateRef<HTMLDivElement>("column");
 const scrollPane = useTemplateRef<HTMLDivElement>("scroll-pane");
@@ -88,6 +131,25 @@ const entries: WritableComputedRef<HierarchyEntry[]> = computed({
   },
 });
 
+/**
+ * Which set of nodes this column lists (db hierarchy, tags etc.). Only the first column depends on the active root — every
+ * column below it always shows the `PART_OF` children of the item selected in the previous one.
+ */
+const scope = computed<HierarchyScope>(() => {
+  if (props.parentUuid) {
+    return { kind: "children", parentUuid: props.parentUuid };
+  }
+
+  if (props.index === 0 && root.value.kind === "tag") {
+    return { kind: "uuids", uuids: getTagEntryUuids(root.value.uuid) };
+  }
+
+  return { kind: "top" };
+});
+
+/** Creating a node inside a tag listing should not be allowed, there is no place to put it in the database */
+const canCreateNodes = computed<boolean>(() => scope.value.kind !== "uuids");
+
 const focusedUuid = computed<string | null>(() => {
   if (!focus.value) {
     return null;
@@ -96,30 +158,25 @@ const focusedUuid = computed<string | null>(() => {
   return focus.value.kind === "collection" ? focus.value.collection.node.data.uuid : focus.value.content.node.data.uuid;
 });
 
-const { pagination, isLoading, hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(
-  () => props.parentUuid,
-  entries,
-  { filters, sort },
-);
+// Getters, not the objects themselves: `updateLevels` replaces the whole level on navigation, and a
+// captured reference would keep sending the previous level's query (the column is reused by index,
+// not remounted).
+const { hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(scope, entries, state, {
+  filters: () => levels.value[props.index].query.filters,
+  sort: () => levels.value[props.index].query.sort,
+});
 
 useEventListener(resizer, "mousedown", startResize);
 useEventListener(window, "mouseup", endResize);
 
 useInfiniteScroll(scrollPane, fetchNextPage, {
   distance: 25,
-  canLoadMore: () => hasMore.value && !isLoading.value,
+  canLoadMore: () => hasMore.value && !state.value.isLoading,
 });
 
-// Parent change (navigation) -> reload from page 1
-watch(
-  () => props.parentUuid,
-  () => fetchFirstPage(),
-  { immediate: true },
-);
+watch(scope, () => fetchFirstPage(), { immediate: true });
 
-// Label/sort changes -> reload immediately; search is debounced
-watch([selectedLabels, sort], () => fetchFirstPage(), { deep: true });
-watchDebounced(searchInput, () => fetchFirstPage(), { debounce: FETCH_DELAY });
+const debouncedFetchFirstPage = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
 
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {
@@ -165,8 +222,50 @@ function toggleAddMenu(event: Event): void {
   addMenu.value?.toggle(event);
 }
 
-function handleChangeSortOrderClick(): void {
-  sort.value = { ...sort.value, direction: sort.value.direction === "asc" ? "desc" : "asc" };
+/**
+ * Opens/closes the filter popover.
+ *
+ * @param {Event} event - The click that triggered it, used by the popover to position itself.
+ * @returns {void} This function does not return a value.
+ */
+function toggleFilterPopover(event: Event): void {
+  filterPopover.value?.toggle(event);
+}
+
+/**
+ * Resets this column back to an unfiltered listing. The defaults come from the store, so "no
+ * filtering" means the same thing here as it does for a freshly built level.
+ *
+ * @returns {void} This function does not return a value.
+ */
+async function handleClearFilters(): Promise<void> {
+  resetQuery(props.index);
+
+  await fetchFirstPage();
+}
+
+/**
+ * Apply filters to the current column and refetch the first page.
+ *
+ * @param {FilterSpec} updatedFilters - The filters to apply.
+ * @returns {void} This function does not return a value.
+ */
+async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
+  levels.value[props.index].query.filters = updatedFilters;
+
+  await fetchFirstPage();
+}
+
+async function handleChangeSortOrderClick(): Promise<void> {
+  const level: Level | undefined = levels.value[props.index];
+
+  if (!level) {
+    return;
+  }
+
+  level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
+
+  await fetchFirstPage();
 }
 
 function handleItemSelected(uuid: string): void {
@@ -184,10 +283,6 @@ function handleItemSelected(uuid: string): void {
   if (entry) {
     selectItem(entry.data, props.index);
   }
-}
-
-function handleLabelsChange(selected: string[]): void {
-  selectedLabels.value = selected;
 }
 
 function handleResize(event: MouseEvent): void {
@@ -218,72 +313,55 @@ function endResize(): void {
 </script>
 
 <template>
-  <div ref="column" class="column flex flex-column p-1">
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-column p-1">
     <div class="header flex gap-1">
       <InputText
         v-model="searchInput"
         size="small"
         class="w-full"
         spellcheck="false"
-        placeholder="Filter"
+        placeholder="Search..."
         title="Filter by label or text"
+        @update:model-value="debouncedFetchFirstPage"
       />
-      <MultiSelect
-        :model-value="selectedLabels"
-        :options="groupedLabelOptions"
-        option-label="label"
-        option-value="value"
-        option-group-label="label"
-        option-group-children="items"
-        dropdown-icon="pi pi-filter"
-        :filter="false"
-        title="Select node labels to filter"
-        class="flex-shrink-0"
-        :pt="{
-          root: { style: { height: '100%' } },
-          labelContainer: { style: { display: 'none' } },
-        }"
-        @update:model-value="handleLabelsChange"
-      >
-        <template #dropdownicon>
-          <OverlayBadge v-if="!areAllLabelsSelected" severity="danger">
-            <i class="pi pi-filter-fill" />
-          </OverlayBadge>
-          <i v-else class="pi pi-filter" />
-        </template>
-      </MultiSelect>
+      <Button size="small" severity="secondary" title="Filter the listing" class="flex-shrink-0" @click="toggleFilterPopover">
+        <i v-if="hasActiveFilters" class="pi pi-filter-fill" />
+        <i v-else class="pi pi-filter" />
+      </Button>
       <Button
         size="small"
         severity="secondary"
-        :icon="`pi pi-sort-alpha-${sort.direction === 'asc' ? 'down' : 'up'}`"
+        :icon="`pi pi-sort-alpha-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
         title="Change sort"
         @click="handleChangeSortOrderClick"
       />
     </div>
+    <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
       <div ref="scroll-pane" class="content">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
-            :is-active="levels[props.index]?.activeItem?.node.data.uuid === entry.data.node.data.uuid"
+            :is-active="levels[props.index].activeItem?.node.data.uuid === entry.data.node.data.uuid"
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>
-        <div v-if="isLoading && entries.length > 0" class="text-center" title="More data are loading...">
+        <div v-if="state.isLoading && entries.length > 0" class="text-center" title="More data are loading...">
           <span class="pi pi-spin pi-spinner"></span>
         </div>
       </div>
       <Button
+        v-if="canCreateNodes"
         class="add-button"
         severity="secondary"
         icon="pi pi-plus"
         title="Add Collection or Content"
         @click="toggleAddMenu"
       />
-      <Menu ref="add-menu" :model="addMenuItems" :popup="true" />
+      <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems" :popup="true" />
     </div>
     <div class="footer">
-      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ pagination?.totalRecords ?? 0 }}</div>
+      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
     </div>
   </div>
   <div ref="resizer" class="resizer" title="Hold down mouse and drag to resize column">

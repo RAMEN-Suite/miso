@@ -1,8 +1,10 @@
 import { Request } from "express";
 import { int, isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
-import { CursorData, PropertyConfig } from "../models/types.js";
+import { CursorData, FilterSpec, FilterTarget, HierarchyQuery, HierarchyScope, PropertyConfig } from "../models/types.js";
+import { parseFilterSpec, parseFilterTarget } from "./filter.js";
 import ICharacter from "../models/ICharacter.js";
 import NotFoundError from "../errors/notFound.error.js";
+import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
 
 /**
@@ -84,41 +86,116 @@ export function getPagination(req: Request): Record<string, any> {
 }
 
 /**
- * Parses the query parameters for a hierarchy children request into a normalized spec.
+ * Parses and validates the `scope` of a hierarchy listing request — which set of nodes is being
+ * listed.
  *
- * Distinct from {@link getPagination}: this uses opaque cursor pagination (not offset/structured
- * cursor) and carries the label/sort filter shape the hierarchy view needs.
+ * @param {unknown} raw - The `scope` member of the request body.
+ * @returns {HierarchyScope} The validated scope.
+ * @throws {ValidationError} If the scope is missing, of an unknown kind, or malformed.
+ */
+function parseHierarchyScope(raw: unknown): HierarchyScope {
+  if (!raw || typeof raw !== "object") {
+    throw new ValidationError("`scope` is required.");
+  }
+
+  const maxScopeUuids: number = 10000;
+  const scope = raw as { kind?: unknown; parentUuid?: unknown; uuids?: unknown };
+
+  switch (scope.kind) {
+    case "top": {
+      return { kind: "top" };
+    }
+    case "children": {
+      if (typeof scope.parentUuid !== "string" || scope.parentUuid === "") {
+        throw new ValidationError("A `children` scope needs a `parentUuid`.");
+      }
+
+      return { kind: "children", parentUuid: scope.parentUuid };
+    }
+    case "uuids": {
+      if (!Array.isArray(scope.uuids) || scope.uuids.some((uuid) => typeof uuid !== "string")) {
+        throw new ValidationError("A `uuids` scope needs `uuids` to be an array of strings.");
+      }
+
+      if (scope.uuids.length > maxScopeUuids) {
+        throw new ValidationError(`Too many uuids requested (max ${maxScopeUuids}).`);
+      }
+
+      return { kind: "uuids", uuids: scope.uuids as string[] };
+    }
+    default: {
+      throw new ValidationError(`Unknown scope kind "${String(scope.kind)}".`);
+    }
+  }
+}
+
+/**
+ * Reads the sort direction out of a request.
+ *
+ * Deliberately forgiving: anything that is not explicitly `desc` falls back to `asc`. A wrong direction
+ * shows the same listing in the wrong order which the user sees immediately and fixes with one click. No further
+ * error throwing/handling is needed
+ *
+ * @param {unknown} dir - The `dir` value from the request body.
+ * @returns {"asc" | "desc"} The normalized direction, defaulting to `asc`.
+ */
+export function parseSortDirection(dir: unknown): "asc" | "desc" {
+  if (dir === "desc" || dir === "DESC") {
+    return "desc";
+  } else {
+    return "asc";
+  }
+}
+
+/**
+ * Parses a `POST /hierarchy/query` request into a normalized listing spec.
+ *
+ * Every hierarchy listing goes through this one endpoint, whatever its scope — see the route for
+ * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
+ * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
+ *
+ * The property allowlist is passed in rather than read here: it comes from the guidelines, and
+ * reading it in this module would make the low-level helpers depend on a service that depends on
+ * them.
  *
  * @param {Request} req - The express request object.
- * @returns {Object} The parsed hierarchy query: `parentUuid`, `nodeLabels`,
- *   `search`, `sort`, `direction`, `limit`, and the raw `cursor` string (or `null`).
+ * @param {Map<string, PropertyConfig>} properties - Filterable properties, from `filterableProperties`.
+ * @returns {HierarchyQuery} The parsed hierarchy query.
+ * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
+ * @throws {UnknownFilterFieldError} If a filter or the sort names a property the guidelines do not define.
  */
-export function getHierarchyQuery(req: Request): {
-  parentUuid: string | null;
-  nodeLabels: string[];
-  search: string;
-  sort: string;
-  direction: "asc" | "desc";
-  limit: number;
-  cursor: string | null;
-} {
+export function parseHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+
+  const scope: HierarchyScope = parseHierarchyScope(body.scope);
+  const filters: FilterSpec = parseFilterSpec(body.filters, properties);
+  const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
+  const order: "asc" | "desc" = parseSortDirection(body.dir);
+  const limit: number = parsePaginationLimit(body.limit);
+
+  const cursor: string | null = (body.cursor as string) || null;
+
+  return { scope, filters, sort, order, limit, cursor, properties };
+}
+
+/**
+ * Parses the pagination limit from the request body.
+ *
+ * @param {unknown} rawLimit - The `limit` value from the request body. Typed as `unknown` to be forgiving, but very likely string
+ * @returns {number} The normalized limit, defaulting to 50 and capped to 1000.
+ */
+function parsePaginationLimit(rawLimit: unknown): number {
   const DEFAULT_LIMIT: number = 50;
   const MAX_LIMIT: number = 1000;
 
-  const parentUuid: string | null = (req.query.parent as string) || null;
+  if (!rawLimit || typeof rawLimit !== "string") {
+    return DEFAULT_LIMIT;
+  }
 
-  const nodeLabels: string[] = ((req.query.nodeLabels as string) ?? "").split(",").filter((label) => label.trim() !== "");
-
-  const search: string = (req.query.search as string) ?? "";
-  const sort: string = (req.query.sort as string) || "distinct";
-  const direction: "asc" | "desc" = req.query.dir === "desc" ? "desc" : "asc";
-
-  const parsedLimit: number = parseInt(req.query.limit as string);
+  const parsedLimit: number = parseInt(rawLimit as string);
   const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
 
-  const cursor: string | null = (req.query.cursor as string) || null;
-
-  return { parentUuid, nodeLabels, search, sort, direction, limit, cursor };
+  return limit;
 }
 
 /**
@@ -219,7 +296,7 @@ export function toNativeTypes(properties: Record<string, any>): Record<string, a
  * @param {any} value
  * @returns {any}
  */
-function valueToNativeType(value: any): any {
+export function valueToNativeType(value: any): any {
   if (Array.isArray(value)) {
     value = value.map((innerValue) => valueToNativeType(innerValue));
   } else if (isInt(value)) {

@@ -12,14 +12,7 @@ import {
   NodeDto,
   NodeStatusObject,
 } from "../models/types";
-import {
-  capitalize,
-  cloneDeep,
-  getDefaultValueForProperty,
-  filterBaseNodeLabel,
-  setNodeTreeStatus,
-  pruneDeletedNodes,
-} from "../utils/helper/helper";
+import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -31,11 +24,11 @@ import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
-import { useBookmarks } from "../composables/useBookmarks";
 import AnnotationButton from "./AnnotationButton.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
+import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
 
 const props = defineProps<{
@@ -58,18 +51,12 @@ const {
 } = useGuidelinesStore();
 const { levels, mode, path, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
 
-const { bookmarks, toggleBookmark } = useBookmarks();
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
 const temporaryWorkData = ref<CollectionFocus | null>(null);
 const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
-const propertiesAreCollapsed = ref<boolean>(false);
-
-const isBookmarked = computed<boolean>(() => {
-  return bookmarks.value.some((b) => b.data.data.uuid === temporaryWorkData.value?.collection.node.data.uuid);
-});
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels) : [];
@@ -79,13 +66,6 @@ const availableCollectionLabels = computed(getAvailableCollectionLabels);
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
   getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
 );
-
-// Writable computed since "Collection" should be stripped from all visual displays/selection options
-const collectionNodeLabels = computed<string[]>({
-  get: () => filterBaseNodeLabel(temporaryWorkData.value.collection.node.nodeLabels),
-  set: (labels: string[]) =>
-    (temporaryWorkData.value.collection.node.nodeLabels = ["Collection", ...filterBaseNodeLabel(labels)]),
-});
 
 watch(
   () => props.focus.collection.node.data.uuid,
@@ -247,14 +227,6 @@ async function handleApplyChanges(): Promise<void> {
   }
 }
 
-function handleBookmarkAction(): void {
-  if (!temporaryWorkData.value) {
-    return;
-  }
-
-  toggleBookmark({ data: temporaryWorkData.value.collection.node });
-}
-
 function handleDeleteColletion(): void {
   createModalInstance(
     dialog.open(NodeDeleteModal, {
@@ -309,6 +281,7 @@ function removeUnnecessaryDataBeforeSave(): void {
 
   Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
     if (!configuredFieldNames.includes(key) && key !== "uuid") {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
       delete temporaryWorkData.value.collection.node.data[key];
     }
   });
@@ -356,19 +329,7 @@ function showMessage(result: "success" | "error", error?: Error) {
   <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-column align-items-center p-2">
     <div class="main flex-grow-1 flex flex-column w-full">
       <div class="buttons flex justify-content-end gap-1">
-        <Button
-          type="button"
-          severity="secondary"
-          :icon="`pi pi-bookmark${isBookmarked ? '-fill' : ''}`"
-          size="small"
-          :title="isBookmarked ? 'Remove collection from bookmarks' : 'Add collection to bookmarks'"
-          :pt="{
-            icon: {
-              style: isBookmarked ? { color: 'var(--p-primary-color)' } : {},
-            },
-          }"
-          @click="handleBookmarkAction"
-        />
+        <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
         <Button
           as="a"
           :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
@@ -382,7 +343,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       </div>
 
       <div class="label-section">
-        <h3 class="label-heading">
+        <h3 class="label-heading" aria-label="Collection label">
           <i :class="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)" />
           <span
             v-if="mode === 'edit'"
@@ -395,12 +356,9 @@ function showMessage(result: "success" | "error", error?: Error) {
             title="Click to edit the label"
             @input="(e) => (temporaryWorkData.collection.node.data.label = (e.target as HTMLSpanElement).innerText.trim())"
           ></span>
-          <span
-            v-else
-            v-contenteditable="temporaryWorkData.collection.node.data.label"
-            class="label-text"
-            data-placeholder="No label provided"
-          ></span>
+          <span v-else class="label-text" data-placeholder="No label provided">
+            {{ temporaryWorkData.collection.node.data.label }}
+          </span>
           <i v-if="mode === 'edit'" class="pi pi-pencil label-edit-icon" aria-hidden="true"></i>
         </h3>
       </div>
@@ -478,6 +436,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           <form ref="form">
             <div v-for="field in collectionFields" :key="field.name" class="input-container">
               <div class="flex align-items-center gap-3 mb-3">
+                <!-- eslint-disable vuejs-accessibility/label-has-for -- No id as component prop currently -->
                 <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
                 <DataInputGroup
                   v-if="field.type === 'array'"
@@ -491,6 +450,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                   :config="field"
                   :mode="mode"
                 />
+                <!-- eslint-enable vuejs-accessibility/label-has-for -->
               </div>
             </div>
           </form>

@@ -2,11 +2,11 @@
 import { computed } from "vue";
 import Button from "primevue/button";
 import { ContentFocus } from "../models/types";
-import { useBookmarks } from "../composables/useBookmarks";
 import { resolveNodeIcon } from "../config/icons";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
+import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
 
 const props = defineProps<{
@@ -15,19 +15,12 @@ const props = defineProps<{
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { asyncOperationRunning, levels, mode, path, updatePath, setMode } = useHierarchyStore();
-const { bookmarks, toggleBookmark } = useBookmarks();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<string>(() => resolveNodeIcon(contentNode.value.nodeLabels));
 
-const isBookmarked = computed<boolean>(() => bookmarks.value.some((b) => b.data.data.uuid === contentNode.value.data.uuid));
-
 const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
-
-function handleBookmarkAction(): void {
-  toggleBookmark({ data: contentNode.value });
-}
 
 function handleDeleteContent(): void {
   createModalInstance(
@@ -85,15 +78,7 @@ function updateView() {
   <div class="content-focus-pane h-full flex flex-column align-items-center p-2">
     <div class="main flex-grow-1 flex flex-column w-full">
       <div class="buttons flex justify-content-end gap-1">
-        <Button
-          type="button"
-          severity="secondary"
-          :icon="`pi pi-bookmark${isBookmarked ? '-fill' : ''}`"
-          size="small"
-          :title="isBookmarked ? 'Remove Content from bookmarks' : 'Add Content to bookmarks'"
-          :pt="{ icon: { style: isBookmarked ? { color: 'var(--p-primary-color)' } : {} } }"
-          @click="handleBookmarkAction"
-        />
+        <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
       </div>
 
       <div class="label-section flex align-items-center justify-content-center gap-2">

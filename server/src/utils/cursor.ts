@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import ValidationError from "../errors/validation.error.js";
+import { FilterCondition, FilterRule, FilterSpec, FilterTarget, HierarchyScope } from "../models/types.js";
 
 /** Current cursor format version. Bump when the shape of {@link HierarchyCursor} changes. */
 export const CURSOR_VERSION: number = 1;
@@ -12,7 +13,7 @@ export const CURSOR_VERSION: number = 1;
  * (`k`) can grow — a secondary sort, a per-type property — without any client or URL change.
  */
 export interface HierarchyCursor {
-  /** Format version. A mismatch on decode means a stale bookmark/tab from before a deploy. Not necessary, but kept for safety.*/
+  /** Format version. A mismatch on decode means a stale tab from before a deploy. Not necessary, but kept for safety.*/
   v: number;
   /** Group rank of the last returned item (0 = Collection, 1 = Content). Leading sort component. */
   g: number;
@@ -28,13 +29,16 @@ export interface HierarchyCursor {
  * The parts of a request that a cursor is only valid for. If any of these change, the cursor's
  * keyset comparison would run against a different ordering/set and silently skip or repeat rows —
  * so a hash of this is stored in the cursor and checked on decode.
+ *
+ * Everything here goes through a canonicalization step before hashing (see {@link querySignature}):
+ * the rules are user-ordered and some of their values are sets, so a raw `JSON.stringify` would
+ * produce a different signature for two requests that mean exactly the same thing.
  */
 export interface HierarchyQuerySpec {
-  parentUuid: string | null;
-  sort: string;
-  direction: "asc" | "desc";
-  nodeLabels: string[];
-  search: string;
+  scope: HierarchyScope;
+  sort: FilterTarget;
+  order: "asc" | "desc";
+  filters: FilterSpec;
 }
 
 /**
@@ -83,20 +87,78 @@ export function encodeCursor(cursor: HierarchyCursor): string {
 }
 
 /**
- * Computes a stable, order-independent signature of the sort + filter spec.
+ * Computes a stable, order-independent signature of the scope + sort + filter spec.
+ *
+ * The scope is part of it: a `uuids` scope is a client-owned set that can change between two
+ * page requests (a node losing a tag). Without the uuids in the signature such a
+ * cursor would still validate, and its keyset comparison would then run against a different set —
+ * silently skipping rows.
  *
  * @param {HierarchyQuerySpec} spec - The request parts a cursor is bound to.
- * @returns {string} A short hex digest identifying this exact sort + filter combination.
+ * @returns {string} A short hex digest identifying this exact scope + sort + filter combination.
  */
 export function querySignature(spec: HierarchyQuerySpec): string {
+  // Sort the uuids to keep signature stable on different orderings of the same uuid set
+  const canonicalScope: HierarchyScope =
+    spec.scope.kind === "uuids" ? { kind: "uuids", uuids: [...spec.scope.uuids].sort() } : spec.scope;
+
   const canonical: string = JSON.stringify({
-    parentUuid: spec.parentUuid ?? null,
-    sort: spec.sort,
-    direction: spec.direction,
-    // Sort node labels so selection order never changes the signature
-    nodeLabels: [...spec.nodeLabels].sort(),
-    search: spec.search,
+    scope: canonicalScope,
+    sort: canonicalTarget(spec.sort),
+    order: spec.order,
+    filters: canonicalFilters(spec.filters),
   });
 
   return createHash("sha1").update(canonical).digest("hex").slice(0, 12);
+}
+
+/**
+ * Serializes a target into a stable string. Object key order is not guaranteed across the wire, so
+ * the members are written out explicitly rather than stringified.
+ *
+ * @param {FilterTarget} target - The target to serialize.
+ * @returns {string} A stable representation.
+ */
+function canonicalTarget(target: FilterTarget): string {
+  if (target.kind === "property") {
+    return `property:${target.field}`;
+  } else {
+    return target.kind;
+  }
+}
+
+/**
+ * Brings a rule list into a canonical form so that two requests meaning the same thing hash the
+ * same.
+ *
+ * The rules are user-ordered and their values may be sets whose order carries no meaning (the label
+ * selection is the obvious one). Without this, scrolling to page 2 after re-selecting the same
+ * labels in a different order would fail the signature check and 400.
+ *
+ * @param {FilterSpec} filters - The parsed rules.
+ * @returns {unknown[]} A canonical, order-independent representation.
+ */
+function canonicalFilters(filters: FilterSpec): unknown[] {
+  return filters
+    .map((rule: FilterRule) => ({
+      target: canonicalTarget(rule.target),
+      operator: rule.operator,
+      conditions: rule.conditions
+        .map((condition: FilterCondition) => {
+          if (!Array.isArray(condition.value)) {
+            return { comparator: condition.comparator, value: String(condition.value) };
+          }
+
+          const entries: string[] = condition.value.map((entry: unknown) => String(entry));
+
+          // `in` is a set — selection order is meaningless. `between` is positional, and sorting it
+          // would make [5, 12] and [12, 5] share a signature despite meaning different things.
+          return {
+            comparator: condition.comparator,
+            value: condition.comparator === "in" ? entries.sort() : entries,
+          };
+        })
+        .sort((a, b) => `${a.comparator}${a.value}`.localeCompare(`${b.comparator}${b.value}`)),
+    }))
+    .sort((a, b) => `${a.target}${a.operator}`.localeCompare(`${b.target}${b.operator}`));
 }

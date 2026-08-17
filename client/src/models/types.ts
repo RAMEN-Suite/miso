@@ -148,12 +148,6 @@ export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" 
 /** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
 export type LayoutName = "default" | "blank";
 
-export interface Bookmark {
-  data: CollectionNode | TextNode;
-  createdAt: string; // ISO 8601 string
-  updatedAt: string; // ISO 8601 string
-}
-
 export interface Character {
   data: ICharacter;
   annotations: AnnotationReference[];
@@ -265,19 +259,50 @@ export interface Level {
   /** The item selected in this level — the one whose children the next level shows. */
   activeItem: NodeDto<HierarchyNode> | null;
   parentUuid: string | null;
+  query: LevelQuery;
+  state: LevelState;
+}
+
+/**
+ * User-editable constraints for the to-be-displayed items (filter, sorting, etc).
+ *
+ * Lives on the {@linkcode Level} rather than in the component rendering it, so that it can be
+ * reached from anywhere.
+ */
+export interface LevelQuery {
+  filters: HierarchyFilters;
+  sort: HierarchySort;
+}
+
+/**
+ * Non-editable state information for the level. Contains pagination, loading/initializing state etc.
+ * Can be written by the fetching engine ({@link useHierarchyChildren}) and is invalidated
+ * as soon as {@linkcode LevelQuery} changes — every field here describes the last request made.
+ */
+export interface LevelState {
+  /** Opaque position handed out by the server, or null at the start of a listing. */
+  cursor: string | null;
+  pagination: PaginationData | null;
+  isLoading: boolean;
+  /** False until the first page has been fetched */
+  initialized: boolean;
 }
 
 /**
  * Root element for any kind of Collection/Content hierarchies in the editor.
  * Which set of items the first column lists. `"database"` lists the top of the `PART_OF` hierarchy;
- * the other kinds list a client-side set of items (bookmarks, or the members of one workspace).
+ * `"tag"` lists the nodes carrying one client-side tag, which may sit anywhere in the graph.
  * Every column below the first shows `PART_OF` children regardless of the root.
  */
-export interface HierarchyRoot {
-  kind: "database" | "bookmarks" | "workspace";
-  /** Workspace uuid; `null` for the other kinds. */
-  uuid: string | null;
-}
+export type HierarchyRoot = { kind: "database" } | { kind: "tag"; uuid: string };
+
+/**
+ * Which set of nodes a hierarchy listing is drawn from.
+ *
+ * This is the *scope*, not a filter: {@link HierarchyFilters} narrows a set, a scope defines it,
+ * and the three kinds are mutually exclusive. All three are served by `POST /hierarchy/query`.
+ */
+export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
 
 /** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
 export interface CollectionFocus {
@@ -292,28 +317,80 @@ export interface ContentFocus {
   content: NodeStatusObject<TextNode>;
 }
 
+export type FilterComparator =
+  | "contains"
+  | "notContains"
+  | "startsWith"
+  | "endsWith"
+  | "equals"
+  | "notEquals"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "between"
+  | "in"
+  | "dateIs"
+  | "dateBefore"
+  | "dateAfter"
+  | "isEmpty"
+  | "isNotEmpty";
+
+/**
+ * A single condition/constraint for filtering a list of nodes.
+ */
+export interface FilterCondition {
+  comparator: FilterComparator;
+  value: unknown;
+}
+
+/** A group of filter conditions which are applied together, and the concatenation operator */
+export interface FilterConditionGroup {
+  operator: FilterOperator;
+  conditions: FilterCondition[];
+}
+
+export type FilterTarget =
+  /** A node property: `n.<field>`. */
+  | { kind: "property"; field: string }
+  /** The node's default value to fulltext-search — `label`, falling back to a `text` currently */
+  | { kind: "distinct" }
+  /** The node's labels. Filter only — not a valid sort target. */
+  | { kind: "labels" };
+
+export type FilterOperator = "and" | "or";
+
+export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
+
+export type FilterSpec = FilterRule[];
+
+/**
+ * One rule of the filter editor. Represents one condition of a filter rule.
+ */
+export interface FilterRow {
+  id: string;
+  target: FilterTarget;
+  comparator: FilterComparator;
+  value: unknown;
+}
+
 /** What the focus pane renders — a Collection (editable) or a Content (read-only preview). */
 export type FocusData = CollectionFocus | ContentFocus;
 
 /** Sort state for a hierarchy listing. */
 export interface HierarchySort {
-  /** Field to sort by. Normally defaults to `distinct` if no specific field is provided. Backend handles this by
-   * applying the default value for the given node (`text`, `label`, `etc`).
+  /**
+   * What to sort by, named the same way a {@linkcode FilterRule} names what it matches — so anything
+   * filterable is sortable, and both resolve through the same expression builder on the server.
+   * `{ kind: "labels" }` is rejected: a label set has no ordering.
    */
-  field: "distinct" | string;
+  target: FilterTarget;
   /** Direction to sort by. */
-  direction: "asc" | "desc";
+  order: "asc" | "desc";
 }
 
-/**
- * Filter state for a hierarchy listing. Kept as an object (not flat params) so property predicates
- * can be added later without changing call signatures. `nodeLabels` is one flat, global set (union
- * of Collection + Content labels).
- */
-export interface HierarchyFilters {
-  search: string;
-  nodeLabels: string[];
-}
+/** Filter state for a hierarchy listing: the rules are ANDed with each other. */
+export type HierarchyFilters = FilterSpec;
 
 export interface MalformedAnnotation {
   reason: "indexOutOfBounds" | "unconfiguredType";
@@ -458,3 +535,27 @@ export type ToCItem = TreeNode & {
   };
   children: ToCItem[];
 };
+
+/**
+ * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text
+ * describing what the set is for ("Workspace", "In Review"). A node can carry any
+ * number of tags, and a tag's members may sit anywhere in the graph.
+ */
+export interface Tag {
+  uuid: string;
+  label: string;
+  appearance?: {
+    icon?: string;
+    color?: string;
+  };
+  entries: TagEntry[];
+}
+
+/**
+ * One tagged node. A **reference only** — never a node snapshot, so a renamed or re-parented node
+ * cannot go stale here. The node itself is resolved server-side via `POST /api/hierarchy/query`.
+ */
+export interface TagEntry {
+  uuid: string;
+  createdAt: string; // ISO 8601 string
+}

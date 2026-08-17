@@ -5,6 +5,7 @@ import Button from "primevue/button";
 <template>
   <footer class="bottom-bar flex align-items-center justify-content-end gap-2 px-1 flex-shrink-0">
     <Button
+      as="a"
       href="https://ramen-schema.org/"
       target="_blank"
       rel="noopener noreferrer"
@@ -19,6 +20,7 @@ import Button from "primevue/button";
       </template>
     </Button>
     <Button
+      as="a"
       href="https://github.com/RAMEN-Suite"
       target="_blank"
       rel="noopener noreferrer"

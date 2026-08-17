@@ -364,6 +364,16 @@ export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
 
 export type FilterSpec = FilterRule[];
 
+/**
+ * One rule of the filter editor. Represents one condition of a filter rule.
+ */
+export interface FilterRow {
+  id: string;
+  target: FilterTarget;
+  comparator: FilterComparator;
+  value: unknown;
+}
+
 /** What the focus pane renders — a Collection (editable) or a Content (read-only preview). */
 export type FocusData = CollectionFocus | ContentFocus;
 

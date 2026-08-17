@@ -207,6 +207,20 @@ function createStore() {
     }
 
     /**
+     * Resets one level's filters and sort back to the defaults.
+     *
+     * @param {number} index - The level to reset.
+     * @returns {void} This function does not return a value.
+     */
+    function resetQuery(index: number): void {
+      const level: Level | undefined = levels.value[index];
+
+      if (level) {
+        level.query = createDefaultQuery();
+      }
+    }
+
+    /**
      * Builds the initial levels for the current root when nothing has been selected yet.
      *
      * Called by the hierarchy view on mount. It deliberately does nothing when levels already exist:
@@ -314,6 +328,7 @@ function createStore() {
       clearSelection,
       findEntryInHierarchy,
       initialize,
+      resetQuery,
       selectItem,
       updatePath,
       setMode,

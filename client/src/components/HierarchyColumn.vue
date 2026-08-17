@@ -3,11 +3,20 @@ import { InputText, Button, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
-import { HierarchyEntry, HierarchyScope, HierarchyNode, Level, LevelState, NodeDto } from "../models/types";
+import {
+  FilterRule,
+  FilterSpec,
+  HierarchyEntry,
+  HierarchyScope,
+  HierarchyNode,
+  Level,
+  LevelState,
+  NodeDto,
+} from "../models/types";
 import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
-import MultiSelect from "primevue/multiselect";
 import Menu from "primevue/menu";
+import FilterPopover from "./FilterPopover.vue";
 import { computed, useTemplateRef, watch, WritableComputedRef } from "vue";
 import OverlayBadge from "primevue/overlaybadge";
 import { useAppStore } from "../store/app";
@@ -27,21 +36,47 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
-const { levels, focus, root, canNavigate, selectItem, setMode } = useHierarchyStore();
+const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
 
 /** Derived state from the store. Shorthand since multiple use cases in the component */
 const state = computed<LevelState>(() => levels.value[props.index]?.state);
 
+/** Filters of this column. */
+const filters: WritableComputedRef<FilterSpec> = computed({
+  get: () => levels.value[props.index]?.query.filters ?? [],
+  set: (value: FilterSpec) => {
+    if (levels.value[props.index]) {
+      levels.value[props.index].query.filters = value;
+    }
+  },
+});
+
+/**
+ * The rule representing the distinct property search (`label` for Collections, `text` for Content).
+ * Used to access the nested state direcly via a searchbox component.
+ */
+const searchRule = computed<FilterRule | undefined>(() =>
+  filters.value.find((rule: FilterRule) => rule.target.kind === "distinct"),
+);
+
+/**
+ * The search input for the search rule. Bound to the component's state.
+ */
+const searchInput: WritableComputedRef<string> = computed({
+  get: () => (searchRule.value?.conditions[0]?.value as string) ?? "",
+  set: (value: string) => {
+    if (searchRule.value?.conditions[0]) {
+      searchRule.value.conditions[0].value = value;
+    }
+  },
+});
+
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
+const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
-
-const groupedLabelOptions = computed(() => [
-  { label: "Collections", items: collectionLabels.map((l) => ({ label: l, value: l })) },
-  { label: "Contents", items: contentLabels.map((l) => ({ label: l, value: l })) },
-]);
 
 const addMenuItems: MenuItem[] = [
   {
@@ -66,9 +101,20 @@ const addMenuItems: MenuItem[] = [
 
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
-const areAllLabelsSelected = computed<boolean>(
-  () => (levels.value[props.index]?.query.filters.nodeLabels.length ?? 0) === allLabelValues.length,
-);
+/**
+ * Whether anything in the filter popover currently narrows the listing (currently, search inputs are not considered,
+ * only node labels and property-based filters).
+ */
+const hasActiveFilters = computed<boolean>(() => {
+  const selectedLabels: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "labels")?.conditions[0]
+    ?.value ?? []) as string[];
+
+  if (selectedLabels.length !== allLabelValues.length) {
+    return true;
+  }
+
+  return filters.value.some((rule: FilterRule) => rule.target.kind === "property" && rule.conditions.length > 0);
+});
 
 const column = useTemplateRef<HTMLDivElement>("column");
 const scrollPane = useTemplateRef<HTMLDivElement>("scroll-pane");
@@ -113,9 +159,12 @@ const focusedUuid = computed<string | null>(() => {
   return focus.value.kind === "collection" ? focus.value.collection.node.data.uuid : focus.value.content.node.data.uuid;
 });
 
+// Getters, not the objects themselves: `updateLevels` replaces the whole level on navigation, and a
+// captured reference would keep sending the previous level's query (the column is reused by index,
+// not remounted).
 const { hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(scope, entries, state, {
-  filters: levels.value[props.index].query.filters,
-  sort: levels.value[props.index].query.sort,
+  filters: () => levels.value[props.index].query.filters,
+  sort: () => levels.value[props.index].query.sort,
 });
 
 useEventListener(resizer, "mousedown", startResize);
@@ -128,7 +177,7 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
 
 watch(scope, () => fetchFirstPage(), { immediate: true });
 
-const handleSearchInputChange = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
+const debouncedFetchFirstPage = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
 
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {
@@ -174,6 +223,40 @@ function toggleAddMenu(event: Event): void {
   addMenu.value?.toggle(event);
 }
 
+/**
+ * Opens/closes the filter popover.
+ *
+ * @param {Event} event - The click that triggered it, used by the popover to position itself.
+ * @returns {void} This function does not return a value.
+ */
+function toggleFilterPopover(event: Event): void {
+  filterPopover.value?.toggle(event);
+}
+
+/**
+ * Resets this column back to an unfiltered listing. The defaults come from the store, so "no
+ * filtering" means the same thing here as it does for a freshly built level.
+ *
+ * @returns {void} This function does not return a value.
+ */
+async function handleClearFilters(): Promise<void> {
+  resetQuery(props.index);
+
+  await fetchFirstPage();
+}
+
+/**
+ * Apply filters to the current column and refetch the first page.
+ *
+ * @param {FilterSpec} updatedFilters - The filters to apply.
+ * @returns {void} This function does not return a value.
+ */
+async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
+  levels.value[props.index].query.filters = updatedFilters;
+
+  await fetchFirstPage();
+}
+
 async function handleChangeSortOrderClick(): Promise<void> {
   const level: Level | undefined = levels.value[props.index];
 
@@ -200,16 +283,6 @@ function handleItemSelected(uuid: string): void {
 
   if (entry) {
     selectItem(entry.data, props.index);
-  }
-}
-
-async function handleLabelsChange(selected: string[]): Promise<void> {
-  const level: Level | undefined = levels.value[props.index];
-
-  if (level) {
-    level.query.filters.nodeLabels = selected;
-
-    await fetchFirstPage();
   }
 }
 
@@ -244,38 +317,20 @@ function endResize(): void {
   <div v-if="levels[props.index]" ref="column" class="column flex flex-column p-1">
     <div class="header flex gap-1">
       <InputText
-        v-model="levels[props.index].query.filters.search"
+        v-model="searchInput"
         size="small"
         class="w-full"
         spellcheck="false"
         placeholder="Filter"
         title="Filter by label or text"
-        @update:model-value="handleSearchInputChange"
+        @update:model-value="debouncedFetchFirstPage"
       />
-      <MultiSelect
-        :model-value="levels[props.index].query.filters.nodeLabels"
-        :options="groupedLabelOptions"
-        option-label="label"
-        option-value="value"
-        option-group-label="label"
-        option-group-children="items"
-        dropdown-icon="pi pi-filter"
-        :filter="false"
-        title="Select node labels to filter"
-        class="flex-shrink-0"
-        :pt="{
-          root: { style: { height: '100%' } },
-          labelContainer: { style: { display: 'none' } },
-        }"
-        @update:model-value="handleLabelsChange"
-      >
-        <template #dropdownicon>
-          <OverlayBadge v-if="!areAllLabelsSelected" severity="danger">
-            <i class="pi pi-filter-fill" />
-          </OverlayBadge>
-          <i v-else class="pi pi-filter" />
-        </template>
-      </MultiSelect>
+      <Button size="small" severity="secondary" title="Filter the listing" class="flex-shrink-0" @click="toggleFilterPopover">
+        <OverlayBadge v-if="hasActiveFilters" severity="danger">
+          <i class="pi pi-filter-fill" />
+        </OverlayBadge>
+        <i v-else class="pi pi-filter" />
+      </Button>
       <Button
         size="small"
         severity="secondary"
@@ -284,6 +339,7 @@ function endResize(): void {
         @click="handleChangeSortOrderClick"
       />
     </div>
+    <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
       <div ref="scroll-pane" class="content">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">

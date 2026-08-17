@@ -160,7 +160,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         v-else
         role="button"
         tabindex="0"
-        class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap"
+        class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap select-none"
         :style="{ color: props.isActive ? color : 'inherit' }"
         @dblclick="startRename"
         @keydown.enter="startRename"

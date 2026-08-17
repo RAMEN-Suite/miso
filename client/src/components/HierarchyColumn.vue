@@ -320,7 +320,7 @@ function endResize(): void {
         size="small"
         class="w-full"
         spellcheck="false"
-        placeholder="Filter"
+        placeholder="Search..."
         title="Filter by label or text"
         @update:model-value="debouncedFetchFirstPage"
       />

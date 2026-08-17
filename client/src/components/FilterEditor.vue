@@ -197,7 +197,7 @@ defineExpose({ sync });
 
 <template>
   <div class="editor flex flex-column gap-1">
-    <div v-for="group in labelGroups" :key="group.base" class="group flex gap-2">
+    <div v-for="group in labelGroups" :key="group.base" class="group flex gap-2 flex-wrap">
       <div v-for="label in group.additional" :key="label" class="flex align-items-center gap-2">
         <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" />
         <i :class="resolveNodeIcon([group.base, label])" />
@@ -210,7 +210,7 @@ defineExpose({ sync });
 
     <IconField>
       <InputIcon class="pi pi-search search-icon" />
-      <InputText v-model="search" size="small" placeholder="Search by label or text" class="w-full" />
+      <InputText v-model="search" size="small" placeholder="Search..." class="w-full" />
     </IconField>
 
     <div class="rules flex flex-column gap-2">

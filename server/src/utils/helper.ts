@@ -1,6 +1,14 @@
 import { Request } from "express";
-import { int, isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
-import { CursorData, FilterSpec, FilterTarget, HierarchyQuery, HierarchyScope, PropertyConfig } from "../models/types.js";
+import { isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
+import {
+  CursorData,
+  FilterSpec,
+  FilterTarget,
+  HierarchyQuery,
+  HierarchyScope,
+  NodeStatusObject,
+  PropertyConfig,
+} from "../models/types.js";
 import { parseFilterSpec, parseFilterTarget } from "./filter.js";
 import ICharacter from "../models/ICharacter.js";
 import NotFoundError from "../errors/notFound.error.js";
@@ -83,6 +91,54 @@ export function getPagination(req: Request): Record<string, any> {
     order,
     search,
   };
+}
+
+/**
+ * Parses a uuid from a request body.
+ *
+ * @param {Request} req - The express request object.
+ * @returns {string} The parsed uuid.
+ * @throws {ValidationError} If the `uuid` field is missing or malformed.
+ */
+export function parseUuid(req: Request): string {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+
+  if (typeof body.uuid !== "string" || body.uuid === "") {
+    throw new ValidationError("`uuid` is required.");
+  }
+
+  return body.uuid;
+}
+
+/**
+ * Parses a node status object from a request body.
+ *
+ * @param {Request} req - The express request object.
+ * @returns {string} The parsed node status object.
+ * @throws {ValidationError} If the `data` field is missing or malformed.
+ */
+export function parseNodeStatusObject(req: Request): NodeStatusObject {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+
+  if (!body.data || typeof body.data !== "object") {
+    throw new ValidationError("`data` is required.");
+  }
+
+  return body.data as NodeStatusObject;
+}
+
+/**
+ *  Parses the `POST /nodes` request body into a valid combination of uuid and `NodeStatusObject`.
+ *
+ * @param {Request} req - The express request object.
+ * @returns The parsed uuid and node status object.
+ * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
+ */
+export function parseCreateNodePayload(req: Request): { uuid: string; data: NodeStatusObject } {
+  const uuid: string = parseUuid(req);
+  const data: NodeStatusObject = parseNodeStatusObject(req);
+
+  return { uuid, data };
 }
 
 /**

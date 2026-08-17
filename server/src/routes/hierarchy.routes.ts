@@ -2,16 +2,8 @@ import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import GuidelinesService from "../services/guidelines.service.js";
 import { IGuidelines } from "../models/IGuidelines.js";
-import {
-  HierarchyNode,
-  HierarchyQuery,
-  NodeAncestry,
-  NodeDto,
-  NodeStatusObject,
-  PaginationResult,
-  PropertyConfig,
-} from "../models/types.js";
-import { parseHierarchyQuery } from "../utils/helper.js";
+import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult, PropertyConfig } from "../models/types.js";
+import { parseCreateNodePayload, parseHierarchyQuery, parseUuid } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
@@ -67,8 +59,7 @@ router.get("/path", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 router.post("/nodes", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.body.uuid;
-  const data: NodeStatusObject = req.body.data;
+  const { uuid, data } = parseCreateNodePayload(req);
 
   try {
     const node: NodeDto<HierarchyNode> = await hierarchyService.createNode(uuid, data);
@@ -80,7 +71,7 @@ router.post("/nodes", async (req: Request, res: Response, next: NextFunction) =>
 });
 
 router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.params.uuid;
+  const uuid: string = parseUuid(req);
 
   try {
     const ancestryPaths: NodeAncestry[] = await hierarchyService.getAncestry(uuid);
@@ -92,7 +83,7 @@ router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunc
 });
 
 router.delete("/nodes/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.params.uuid;
+  const uuid: string = parseUuid(req);
 
   try {
     const node: NodeDto<HierarchyNode> = await hierarchyService.deleteNode(uuid);

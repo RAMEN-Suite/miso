@@ -94,32 +94,6 @@ export default class ApiService {
     }
   }
 
-  public async createOrAddCollection(uuid: string, data: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
-    try {
-      const url: string = `${this.baseUrl}/collections`;
-
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({
-          uuid: uuid,
-          data: data,
-        }),
-      });
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
   public async deleteHierarchyNode(uuid: string): Promise<NodeDto<HierarchyNode>> {
     try {
       const url: string = `${this.hierarchyUrl}/nodes/${uuid}`;

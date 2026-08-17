@@ -9,41 +9,6 @@ const router: Router = express.Router({ mergeParams: true });
 
 const collectionService: CollectionService = new CollectionService();
 
-router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { order, limit, search, cursor } = getPagination(req);
-    const nodeLabels: string[] = (req.query.nodeLabels as string).split(",").filter((label) => label.trim() !== "");
-
-    const parentUuid: string | null = req.query.parentUuid as string | null;
-
-    const collections: PaginationResult<NodeDto<CollectionNode>[]> = await collectionService.getCollections(
-      nodeLabels,
-      order,
-      limit,
-      search,
-      parentUuid,
-      cursor,
-    );
-
-    res.status(200).json(collections);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  const data: NodeStatusObject = req.body.data;
-  const uuid: string = req.body.uuid;
-
-  try {
-    const newCollection: NodeDto<CollectionNode> = await collectionService.createOrAddCollection(uuid, data);
-
-    res.status(201).json(newCollection);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
 router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
   const uuid: string = req.params.uuid;
 
@@ -51,28 +16,6 @@ router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => 
     const collection: NodeDto<CollectionNode> = await collectionService.getCollection(uuid);
 
     res.status(200).json(collection);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.get("/:uuid/collections", async (req: Request, res: Response, next: NextFunction) => {
-  const parentUuid: string = req.params.uuid;
-
-  const { order, limit, search, cursor } = getPagination(req);
-  const nodeLabels: string[] = ((req.query.nodeLabels as string) ?? "").split(",").filter((label) => label.trim() !== "");
-
-  try {
-    const collections: PaginationResult<NodeDto<CollectionNode>[]> = await collectionService.getCollections(
-      nodeLabels,
-      order,
-      limit,
-      search,
-      parentUuid,
-      cursor,
-    );
-
-    res.status(200).json(collections);
   } catch (error: unknown) {
     next(error);
   }

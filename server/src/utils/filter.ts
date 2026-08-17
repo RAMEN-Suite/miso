@@ -563,8 +563,6 @@ export function buildFilterCypher(
     }
   });
 
-  console.log(params);
-
   return {
     clause: clauses.length > 0 ? clauses.join("\n      AND ") : "true",
     params,

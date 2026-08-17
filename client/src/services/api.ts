@@ -2,8 +2,6 @@ import { DeepReadonly } from "vue";
 import { IGuidelines } from "../models/IGuidelines";
 import {
   NodeDto,
-  Character,
-  CharacterPostData,
   CollectionNode,
   NodeSearchParams,
   EntityNode,
@@ -119,20 +117,6 @@ export default class ApiService {
   public async getAnnotations(nodeType: "collection" | "text", nodeUuid: string): Promise<NodeDto<AnnotationNode>[]> {
     try {
       const url: string = `${this.baseUrl}/${nodeType}s/${nodeUuid}/annotations`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  public async getCharacters(textUuid: string): Promise<Character[]> {
-    try {
-      const url: string = `${this.baseUrl}/texts/${textUuid}/characters`;
 
       const response: Response = await fetch(url);
 
@@ -381,27 +365,6 @@ export default class ApiService {
     console.error(error);
 
     throw error;
-  }
-
-  public async updateCharacterChain(textUuid: string, characterPostData: CharacterPostData): Promise<void> {
-    try {
-      const url: string = `${this.baseUrl}/texts/${textUuid}/characters`;
-
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify(characterPostData),
-      });
-
-      await this.assertResponseOk(response);
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
   }
 
   public async updateCollection(uuid: string, data: NodeStatusObject): Promise<NodeDto<CollectionNode>> {

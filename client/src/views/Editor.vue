@@ -800,27 +800,14 @@ watch(
     // TODO: This needs refactoring. Centralize fetches, split fetch/initialize logic
     await fetchAndInitializeText(textUuid.value);
 
-    const text: TextAccessObject = await api.getTextAccessObject(textUuid.value);
-
     if (!isValidText.value) {
       isLoading.value = false;
       return;
     }
 
-    // await fetchAndInitializeCharacters(text.value.data.uuid);
-
-    // if (charactersFetchError.value) {
-    //   isLoading.value = false;
-    //   return;
-    // }
-
     const fetchedAnnotations: NodeDto[] = await api.getAnnotations("text", textUuid.value);
-    // if (annotationFetchError.value) {
-    //   isLoading.value = false;
-    //   return;
-    // }
 
-    const standoffObject = { text: text.text.data.text, annotations: fetchedAnnotations };
+    const standoffObject = { text: text.value.data.text, annotations: fetchedAnnotations };
 
     initializeTiptap(standoffObject);
 
@@ -857,7 +844,7 @@ watch(
     </PageOverlay>
 
     <EditorSidebar position="left" :is-collapsed="sidebars['left'].isCollapsed === true" :width="sidebars['left'].width">
-      <EditorMetadata />
+      <EditorMetadata :content-uuid="textUuid" />
       <EditorToC />
       <EditorAnnotations />
     </EditorSidebar>

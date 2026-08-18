@@ -271,7 +271,7 @@ useEventListener(window, "mouseup", () => {
                 @keydown.space.prevent="handleSelectDatabase"
               >
                 <i class="pi pi-folder flex-shrink-0" />
-                <span class="text-sm">Collections</span>
+                <span class="text-sm">Data</span>
               </div>
             </li>
           </ul>

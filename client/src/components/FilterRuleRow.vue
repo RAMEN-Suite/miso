@@ -134,6 +134,13 @@ function boundAt(index: number): unknown {
 function toDate(value: unknown): Date | null {
   return value ? new Date(value as string) : null;
 }
+
+const defaultProps = {
+  title: "Value to test against",
+  size: "small",
+  "append-to": "self",
+  class: "w-full",
+} as const;
 </script>
 
 <template>
@@ -149,6 +156,7 @@ function toDate(value: unknown): Date | null {
       placeholder="Field"
       size="small"
       class="target"
+      append-to="self"
       @update:model-value="handleTargetChange"
     />
     <label :for="`target-${row.id}`" class="sr-only"></label>
@@ -161,6 +169,7 @@ function toDate(value: unknown): Date | null {
       placeholder="Condition"
       size="small"
       class="comparator"
+      append-to="self"
       @update:model-value="handleComparatorChange"
     />
     <label :for="`comparator-${row.id}`" class="sr-only"></label>
@@ -169,28 +178,28 @@ function toDate(value: unknown): Date | null {
         <template v-if="isRange">
           <DatePicker
             v-if="isTemporal"
+            v-bind="defaultProps"
             :model-value="toDate(boundAt(0))"
-            size="small"
             placeholder="From"
             @update:model-value="setBound(0, ($event as Date)?.toISOString() ?? null)"
           />
           <DatePicker
             v-if="isTemporal"
             :model-value="toDate(boundAt(1))"
-            size="small"
+            v-bind="defaultProps"
             placeholder="To"
             @update:model-value="setBound(1, ($event as Date)?.toISOString() ?? null)"
           />
           <template v-else>
             <InputNumber
               :model-value="boundAt(0) as number"
-              size="small"
+              v-bind="defaultProps"
               placeholder="From"
               @update:model-value="setBound(0, $event)"
             />
             <InputNumber
               :model-value="boundAt(1) as number"
-              size="small"
+              v-bind="defaultProps"
               placeholder="To"
               @update:model-value="setBound(1, $event)"
             />
@@ -201,35 +210,31 @@ function toDate(value: unknown): Date | null {
           v-else-if="enumOptions.length && row.comparator === 'in'"
           :model-value="(row.value as unknown[]) ?? []"
           :options="enumOptions"
-          size="small"
+          v-bind="defaultProps"
           placeholder="Any"
-          class="w-full"
           @update:model-value="setValue($event)"
         />
         <Select
           v-else-if="enumOptions.length"
           :model-value="row.value"
           :options="enumOptions"
-          size="small"
+          v-bind="defaultProps"
           placeholder="Any"
-          class="w-full"
           show-clear
           @update:model-value="setValue($event)"
         />
         <DatePicker
           v-else-if="isTemporal"
           :model-value="toDate(row.value)"
-          size="small"
+          v-bind="defaultProps"
           placeholder="Date"
-          class="w-full"
           @update:model-value="setValue(($event as Date)?.toISOString() ?? null)"
         />
         <InputNumber
           v-else-if="isNumeric"
           :model-value="row.value as number"
-          size="small"
+          v-bind="defaultProps"
           placeholder="Value"
-          class="w-full"
           @update:model-value="setValue($event)"
         />
         <Select
@@ -241,18 +246,16 @@ function toDate(value: unknown): Date | null {
           ]"
           option-label="label"
           option-value="value"
-          size="small"
+          v-bind="defaultProps"
           placeholder="Any"
-          class="w-full"
           show-clear
           @update:model-value="setValue($event)"
         />
         <InputText
           v-else
+          v-bind="defaultProps"
           :model-value="(row.value as string) ?? ''"
-          size="small"
           placeholder="Value"
-          class="w-full"
           @update:model-value="setValue($event ?? '')"
         />
       </template>

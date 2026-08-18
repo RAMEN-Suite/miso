@@ -1,55 +1,35 @@
 <script setup lang="ts">
-import { ComponentPublicInstance, computed, DeepReadonly, ref, useTemplateRef } from "vue";
+import { ComponentPublicInstance, DeepReadonly, ref, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
 import { MenuItem } from "primevue/menuitem";
-import { useTagsStore } from "../store/tags";
-import TagColorPopover from "./TagColorPopover.vue";
-import { Tag } from "../models/types";
-import { normalizeTagColor } from "../config/tags";
+import { useSmartViewsStore } from "../store/smartViews";
+import { SmartView } from "../models/types";
+
+const SMART_VIEW_ICON: string = "pi pi-folder";
+const SMART_VIEW_ICON_ACTIVE: string = "pi pi-folder";
 
 const props = defineProps<{
-  tag: DeepReadonly<Tag>;
+  view: DeepReadonly<SmartView>;
   isActive: boolean;
 }>();
 
-const emit = defineEmits<(e: "select" | "delete") => void>();
+const emit = defineEmits<(e: "select" | "edit" | "delete") => void>();
 
-const { updateTag } = useTagsStore();
+const { updateSmartView } = useSmartViewsStore();
 
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
-const colorPopover = useTemplateRef<InstanceType<typeof TagColorPopover>>("color-popover");
 
 const isRenaming = ref<boolean>(false);
 const renameDraft = ref<string>("");
 
 const menuItems: MenuItem[] = [
-  { label: "Rename", icon: "pi pi-pencil", command: startRename },
+  { label: "Edit", icon: "pi pi-pencil", command: () => emit("edit") },
   { label: "Delete", icon: "pi pi-trash", command: () => emit("delete") },
 ];
 
-/**
- * The tag's colour as a writable model. The store owns the value and `tags` is readonly, so the
- * setter has to go through {@linkcode updateTag} — wrapping that in a computed is what lets the
- * chooser stay a plain `v-model` component instead of an event relay. The rest of the appearance
- * is carried over, so an icon set elsewhere survives a recolour.
- */
-const color = computed<string>({
-  get: () => normalizeTagColor(props.tag.appearance?.color),
-  set: (value: string) => {
-    updateTag({
-      tagUuid: props.tag.uuid,
-      appearance: { ...props.tag.appearance, color: normalizeTagColor(value) },
-    });
-  },
-});
-
 function handleOpenMenu(event: Event): void {
   menu.value?.toggle(event);
-}
-
-function handleOpenColorPopover(event: Event): void {
-  colorPopover.value?.toggle(event);
 }
 
 /**
@@ -59,7 +39,7 @@ function handleOpenColorPopover(event: Event): void {
  */
 function startRename(): void {
   isRenaming.value = true;
-  renameDraft.value = props.tag.label;
+  renameDraft.value = props.view.label;
 }
 
 /**
@@ -81,7 +61,7 @@ function focusRenameInput(element: Element | ComponentPublicInstance | null): vo
  * Persists the rename. Called from both Enter and blur, hence the guard: leaving edit mode
  * unmounts the input, which can itself fire a blur.
  *
- * An empty label is discarded rather than saved — a nameless tag cannot be told apart in the list.
+ * An empty label is discarded rather than saved — a nameless view cannot be told apart in the list.
  *
  * @returns {void} This function does not return any value.
  */
@@ -98,12 +78,12 @@ function handleCommitRename(): void {
     return;
   }
 
-  updateTag({ tagUuid: props.tag.uuid, label });
+  updateSmartView({ uuid: props.view.uuid, label });
 }
 
 /**
  * Handles keys inside the rename input, and keeps every one of them from reaching the row: the row
- * treats Enter and Space as "select this tag", which would otherwise swallow the space bar.
+ * treats Enter and Space as "select this view", which would otherwise swallow the space bar.
  *
  * @param {KeyboardEvent} event - The keydown event.
  * @returns {void} This function does not return any value.
@@ -127,19 +107,12 @@ function handleRenameKeydown(event: KeyboardEvent): void {
       role="link"
       tabindex="0"
       :aria-current="props.isActive ? 'true' : undefined"
-      :title="`Show everything tagged ${props.tag.label}`"
+      :title="`Show everything matching ${props.view.label}`"
       @click="emit('select')"
       @keydown.enter.self="emit('select')"
       @keydown.space.self="emit('select')"
     >
-      <button
-        type="button"
-        class="tag-dot flex-shrink-0"
-        :style="{ backgroundColor: color }"
-        :title="`Change the colour of ${props.tag.label}`"
-        :aria-label="`Change the colour of ${props.tag.label}`"
-        @click.stop="handleOpenColorPopover"
-      ></button>
+      <i :class="[props.isActive ? SMART_VIEW_ICON_ACTIVE : SMART_VIEW_ICON, 'flex-shrink-0']" />
 
       <input
         v-if="isRenaming"
@@ -147,7 +120,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         v-model="renameDraft"
         class="rename-input text-sm flex-grow-1 min-w-0"
         spellcheck="false"
-        :aria-label="`Rename ${props.tag.label}`"
+        :aria-label="`Rename ${props.view.label}`"
         @blur="handleCommitRename"
         @keydown="handleRenameKeydown"
       />
@@ -156,12 +129,11 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         role="button"
         tabindex="0"
         class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap select-none"
-        :style="{ color: props.isActive ? color : 'inherit' }"
         @dblclick="startRename"
         @keydown.enter="startRename"
         @keydown.space="startRename"
       >
-        {{ props.tag.label }}
+        {{ props.view.label }}
       </span>
 
       <Button
@@ -171,15 +143,13 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         text
         rounded
         size="small"
-        :title="`More options for ${props.tag.label}`"
-        :aria-label="`More options for ${props.tag.label}`"
+        :title="`More options for ${props.view.label}`"
+        :aria-label="`More options for ${props.view.label}`"
         @click.stop="handleOpenMenu"
       />
     </div>
 
     <Menu ref="menu" :model="menuItems" popup dismissable close-on-escape />
-
-    <TagColorPopover ref="color-popover" v-model:color="color" />
   </li>
 </template>
 
@@ -207,20 +177,6 @@ function handleRenameKeydown(event: KeyboardEvent): void {
   &:hover .row-action,
   &:focus-within .row-action {
     opacity: 1;
-  }
-}
-
-.tag-dot {
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 0.1s;
-
-  &:hover {
-    transform: scale(1.3);
   }
 }
 

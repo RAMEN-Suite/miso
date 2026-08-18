@@ -210,7 +210,7 @@ defineExpose({ sync });
 
     <IconField>
       <InputIcon class="pi pi-search search-icon" />
-      <InputText v-model="search" size="small" placeholder="Search..." class="w-full" />
+      <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />
     </IconField>
 
     <div class="rules flex flex-column gap-2">

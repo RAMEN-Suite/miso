@@ -1,23 +1,26 @@
 <script setup lang="ts">
-import { InputText, Button, useDialog } from "primevue";
+import { InputText, Button, SplitButton, useDialog } from "primevue";
 import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
 import {
   FilterRule,
   FilterSpec,
+  FilterTarget,
   HierarchyEntry,
   HierarchyScope,
   HierarchyNode,
   Level,
   LevelState,
   NodeDto,
+  PropertyConfig,
 } from "../models/types";
+import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
 import Menu from "primevue/menu";
 import FilterPopover from "./FilterPopover.vue";
-import { computed, useTemplateRef, watch, WritableComputedRef } from "vue";
+import { computed, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
 import { useAppStore } from "../store/app";
 import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";
@@ -34,7 +37,7 @@ const props = defineProps<{
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
 const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
 
@@ -73,6 +76,7 @@ const searchInput: WritableComputedRef<string> = computed({
 
 const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
 const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
+const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
@@ -178,6 +182,17 @@ watch(scope, () => fetchFirstPage(), { immediate: true });
 
 const debouncedFetchFirstPage = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
 
+// PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons
+// (see the same workaround in AnnotationButton.vue), so the width is set on the DOM node directly.
+onMounted(() => {
+  const dropdownButton: HTMLButtonElement | null = sortButton.value?.$el.querySelector(".p-splitbutton-dropdown") ?? null;
+
+  if (dropdownButton) {
+    dropdownButton.style.width = "15px";
+    dropdownButton.style.padding = "1px";
+  }
+});
+
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
@@ -268,6 +283,47 @@ async function handleChangeSortOrderClick(): Promise<void> {
   await fetchFirstPage();
 }
 
+const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
+  { label: "Alphabetically", value: "distinct" },
+  ...getAllCollectionConfigFields()
+    .filter((config: PropertyConfig, index: number, all: PropertyConfig[]) => {
+      return config?.name && all.findIndex((other: PropertyConfig) => other.name === config.name) === index;
+    })
+    .toSorted((a: PropertyConfig, b: PropertyConfig) => a.name.localeCompare(b.name))
+    .map((property: PropertyConfig) => ({ label: property.name, value: property.name })),
+]);
+
+const sortTargetKey = computed<string>(() => targetKey(levels.value[props.index]?.query.sort.target ?? { kind: "distinct" }));
+
+const sortMenuItems = computed<MenuItem[]>(() =>
+  sortTargetOptions.value.map((option) => ({
+    label: option.label,
+    icon: sortTargetKey.value === option.value ? "pi pi-check" : undefined,
+    title: option.value === "distinct" ? "Sort alphabetically" : `Sort by ${option.label}`,
+    command: () => handleSortTargetChange(option.value),
+  })),
+);
+
+/**
+ * Switches what this column is sorted by and refetches the first page.
+ *
+ * @param {string} key - The chosen option's value: "distinct", or a property name.
+ * @returns {void} This function does not return a value.
+ */
+async function handleSortTargetChange(key: string): Promise<void> {
+  const level: Level | undefined = levels.value[props.index];
+
+  if (!level) {
+    return;
+  }
+
+  const target: FilterTarget = key === "distinct" ? { kind: "distinct" } : { kind: "property", field: key };
+
+  level.query.sort = { ...level.query.sort, target };
+
+  await fetchFirstPage();
+}
+
 function handleItemSelected(uuid: string): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
@@ -328,11 +384,16 @@ function endResize(): void {
         <i v-if="hasActiveFilters" class="pi pi-filter-fill" />
         <i v-else class="pi pi-filter" />
       </Button>
-      <Button
+      <SplitButton
+        ref="sort-button"
         size="small"
         severity="secondary"
-        :icon="`pi pi-sort-alpha-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
-        title="Change sort"
+        :icon="`pi pi-sort-amount-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
+        :model="sortMenuItems"
+        class="flex-shrink-0"
+        :button-props="{ title: 'Change sort direction' }"
+        :menu-button-props="{ title: 'Choose what to sort by' }"
+        :pt="{ pcMenu: { itemLink: ({ context }) => ({ title: context.item.title }) } }"
         @click="handleChangeSortOrderClick"
       />
     </div>

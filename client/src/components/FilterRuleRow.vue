@@ -140,7 +140,7 @@ const defaultProps = {
   size: "small",
   "append-to": "self",
   class: "w-full",
-};
+} as const;
 </script>
 
 <template>

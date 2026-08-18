@@ -149,6 +149,7 @@ function toDate(value: unknown): Date | null {
       placeholder="Field"
       size="small"
       class="target"
+      append-to="self"
       @update:model-value="handleTargetChange"
     />
     <label :for="`target-${row.id}`" class="sr-only"></label>
@@ -161,6 +162,7 @@ function toDate(value: unknown): Date | null {
       placeholder="Condition"
       size="small"
       class="comparator"
+      append-to="self"
       @update:model-value="handleComparatorChange"
     />
     <label :for="`comparator-${row.id}`" class="sr-only"></label>
@@ -172,6 +174,7 @@ function toDate(value: unknown): Date | null {
             :model-value="toDate(boundAt(0))"
             size="small"
             placeholder="From"
+            append-to="self"
             @update:model-value="setBound(0, ($event as Date)?.toISOString() ?? null)"
           />
           <DatePicker
@@ -179,6 +182,7 @@ function toDate(value: unknown): Date | null {
             :model-value="toDate(boundAt(1))"
             size="small"
             placeholder="To"
+            append-to="self"
             @update:model-value="setBound(1, ($event as Date)?.toISOString() ?? null)"
           />
           <template v-else>
@@ -204,6 +208,7 @@ function toDate(value: unknown): Date | null {
           size="small"
           placeholder="Any"
           class="w-full"
+          append-to="self"
           @update:model-value="setValue($event)"
         />
         <Select
@@ -214,6 +219,7 @@ function toDate(value: unknown): Date | null {
           placeholder="Any"
           class="w-full"
           show-clear
+          append-to="self"
           @update:model-value="setValue($event)"
         />
         <DatePicker
@@ -222,6 +228,7 @@ function toDate(value: unknown): Date | null {
           size="small"
           placeholder="Date"
           class="w-full"
+          append-to="self"
           @update:model-value="setValue(($event as Date)?.toISOString() ?? null)"
         />
         <InputNumber
@@ -245,6 +252,7 @@ function toDate(value: unknown): Date | null {
           placeholder="Any"
           class="w-full"
           show-clear
+          append-to="self"
           @update:model-value="setValue($event)"
         />
         <InputText

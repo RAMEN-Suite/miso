@@ -1,6 +1,8 @@
 import { computed, EffectScope, effectScope, readonly, ref, watch } from "vue";
 import {
   CollectionNode,
+  FilterRule,
+  FilterSpec,
   HierarchyEntry,
   HierarchyPath,
   HierarchyNode,
@@ -13,9 +15,11 @@ import {
   NodeDto,
   NodeStatusObject,
   AnnotationNode,
+  PropertyConfig,
 } from "../models/types";
 import { useAppStore } from "./app";
 import { useGuidelinesStore } from "./guidelines";
+import { useSmartViewsStore } from "./smartViews";
 import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
@@ -38,7 +42,8 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
-    const { getAvailableCollectionLabels, getAvailableContentLabels } = useGuidelinesStore();
+    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+    const { getSmartViewFilters } = useSmartViewsStore();
 
     const levels = ref<Level[]>([]);
     const focus = ref<FocusData | null>(null);
@@ -113,6 +118,41 @@ function createStore() {
     }
 
     /**
+     * Create the query a level starts on by combining the default query with an optional filter preset if the
+     * hierarchy root is of kind `smartView`.
+     *
+     * The first column under a `smartView` root starts on that view's stored preset; every other level
+     * starts unfiltered. This is the place where the decision of "no filtering" is made — for smart views, it means "reset back
+     * to the preset", while for other roots it means "apply default filtering".
+     *
+     * @param {number} index - The level the query is for.
+     * @returns {LevelQuery} A fresh query
+     */
+    function createQueryForLevel(index: number): LevelQuery {
+      const defaults: LevelQuery = createDefaultQuery();
+
+      if (index !== 0 || root.value.kind !== "smartView") {
+        return defaults;
+      }
+
+      const preset: FilterSpec | null = getSmartViewFilters(root.value.uuid);
+
+      if (!preset?.length) {
+        return defaults;
+      }
+
+      // Important: A preset outlives the guidelines it was written against - If the guidelines change, the preset
+      // might be stale/invalid. This is a safe guard to only apply rules that are still valid.
+      const validProperties = new Set<string>(getAllCollectionConfigFields().map((config: PropertyConfig) => config.name));
+
+      const filters: FilterSpec = preset.filter(
+        (rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field),
+      );
+
+      return { ...defaults, filters };
+    }
+
+    /**
      * The fetch state of a level that has not been fetched yet.
      *
      * Called when a new level is created or an existing one is cleared in {@linkcode updateLevels}.
@@ -161,7 +201,7 @@ function createStore() {
             entries: [],
             activeItem: null,
             parentUuid: null,
-            query: createDefaultQuery(),
+            query: createQueryForLevel(levels.value.length),
             state: createEmptyState(),
           });
         }
@@ -191,7 +231,7 @@ function createStore() {
           entries: [],
           activeItem: null,
           parentUuid: childParentUuid,
-          query: createDefaultQuery(),
+          query: createQueryForLevel(levels.value.length),
           state: createEmptyState(),
         });
       }
@@ -207,7 +247,9 @@ function createStore() {
     }
 
     /**
-     * Resets one level's filters and sort back to the defaults.
+     * Resets one level's filters and sort back to what it started on. Under a smart-view root that is
+     * the view's preset for the first column, not an unfiltered listing — see
+     * {@linkcode createQueryForLevel}.
      *
      * @param {number} index - The level to reset.
      * @returns {void} This function does not return a value.
@@ -216,7 +258,7 @@ function createStore() {
       const level: Level | undefined = levels.value[index];
 
       if (level) {
-        level.query = createDefaultQuery();
+        level.query = createQueryForLevel(index);
       }
     }
 
@@ -326,6 +368,7 @@ function createStore() {
       focus,
       root: readonly(root),
       clearSelection,
+      createDefaultQuery,
       findEntryInHierarchy,
       initialize,
       resetQuery,

@@ -2,19 +2,29 @@
 import { computed, DeepReadonly, ref, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import Button from "primevue/button";
+import ConfirmDialog from "primevue/confirmdialog";
+import { useConfirm } from "primevue/useconfirm";
+import { useDialog } from "primevue/usedialog";
 import { useTagsStore } from "../store/tags";
+import { useSmartViewsStore } from "../store/smartViews";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useAppStore } from "../store/app";
 import CreateTagPopover from "./CreateTagPopover.vue";
 import TagItem from "./TagItem.vue";
-import { Tag } from "../models/types";
+import SmartViewModal from "./SmartViewModal.vue";
+import SmartViewItem from "./SmartViewItem.vue";
+import { SmartView, Tag } from "../models/types";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 600;
 
 const { tags, deleteTag } = useTagsStore();
+const { smartViews, deleteSmartView } = useSmartViewsStore();
 const { root, canNavigate, setRoot } = useHierarchyStore();
-const { addToastMessage } = useAppStore();
+const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
+
+const confirm: ReturnType<typeof useConfirm> = useConfirm();
+const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const createTagPopover = useTemplateRef<InstanceType<typeof CreateTagPopover>>("tag-popover");
 
@@ -111,6 +121,111 @@ function handleDeleteTag(tag: DeepReadonly<Tag>): void {
 }
 
 /**
+ * Checks whether a smart view is the active listing.
+ *
+ * @param {string} uuid - The view UUID.
+ * @returns {boolean} Whether that view is currently displayed.
+ */
+function isSmartViewActive(uuid: string): boolean {
+  return root.value.kind === "smartView" && root.value.uuid === uuid;
+}
+
+/**
+ * Switches the columns to a smart view: the first column lists the top of the hierarchy, narrowed by
+ * the view's stored filter preset. Everything below behaves as it does under the database root.
+ *
+ * @param {string} uuid - The view UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectSmartView(uuid: string): void {
+  if (!canNavigate.value) {
+    showUnsavedChangesWarning();
+    return;
+  }
+
+  if (isSmartViewActive(uuid)) {
+    return;
+  }
+
+  setRoot({ kind: "smartView", uuid });
+}
+
+/**
+ * Opens the create/edit form.
+ *
+ * @param {DeepReadonly<SmartView>} view - The view to edit. Omitted when creating.
+ * @returns {void} This function does not return any value.
+ */
+function handleOpenSmartViewModal(view?: DeepReadonly<SmartView>): void {
+  if (!canNavigate.value) {
+    showUnsavedChangesWarning();
+    return;
+  }
+
+  createModalInstance(
+    dialog.open(SmartViewModal, {
+      props: {
+        modal: true,
+        header: view ? `Edit Smart View "${view.label}"` : "Create a new Smart View",
+        style: { width: "560px" },
+      },
+      data: { viewUuid: view?.uuid ?? null },
+      emits: {
+        onSaved: handleSmartViewSaved,
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
+}
+
+/**
+ * Re-applies a view that was just saved (both created or updated).
+ *
+ * @param {string} uuid - The saved view's UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleSmartViewSaved(uuid: string): void {
+  if (!isSmartViewActive(uuid)) {
+    return;
+  }
+
+  // A fresh object MUST be passed: `root` holds a ref, so re-assigning the identical one would not
+  // trigger a (maybe necessary) refetch
+  setRoot({ kind: "smartView", uuid });
+}
+
+/**
+ * Asks before deleting a view. Smart views are more complex to rebuild and might be stored on the server
+ * in the future, so deleting them would affect all users.
+ *
+ * @param {DeepReadonly<SmartView>} view - The view to delete.
+ * @returns {void} This function does not return any value.
+ */
+function handleDeleteSmartView(view: DeepReadonly<SmartView>): void {
+  if (!canNavigate.value) {
+    showUnsavedChangesWarning();
+    return;
+  }
+
+  confirm.require({
+    header: "Delete view",
+    message: `Delete the view "${view.label}"? The nodes it lists are not affected.`,
+    icon: "pi pi-exclamation-triangle",
+    rejectProps: { label: "Cancel", severity: "secondary", autofocus: true },
+    acceptProps: { label: "Delete", severity: "danger" },
+    accept: () => {
+      const wasActive: boolean = isSmartViewActive(view.uuid);
+
+      deleteSmartView(view.uuid);
+
+      if (wasActive) {
+        setRoot({ kind: "database" });
+      }
+    },
+  });
+}
+
+/**
  * Warns that the current edit has to be resolved before the listing can be switched.
  *
  * @returns {void} This function does not return any value.
@@ -162,6 +277,34 @@ useEventListener(window, "mouseup", () => {
           </ul>
         </nav>
 
+        <div class="views-header flex align-items-center justify-content-between gap-2">
+          <h4 class="m-0 font-normal">Views</h4>
+          <Button
+            icon="pi pi-plus"
+            severity="secondary"
+            text
+            rounded
+            size="small"
+            title="Create a new view"
+            aria-label="Create a new view"
+            @click="handleOpenSmartViewModal()"
+          />
+        </div>
+
+        <p v-if="smartViews.length === 0" class="m-0 text-sm font-italic opacity-70">No views yet.</p>
+
+        <ul v-else class="nav-list flex flex-column gap-1 list-none p-0 m-0">
+          <SmartViewItem
+            v-for="view in smartViews"
+            :key="view.uuid"
+            :view="view"
+            :is-active="isSmartViewActive(view.uuid)"
+            @select="handleSelectSmartView(view.uuid)"
+            @edit="handleOpenSmartViewModal(view)"
+            @delete="handleDeleteSmartView(view)"
+          />
+        </ul>
+
         <div class="tags-header flex align-items-center justify-content-between gap-2">
           <h4 class="m-0 font-normal">Tags</h4>
           <Button
@@ -200,6 +343,9 @@ useEventListener(window, "mouseup", () => {
     ></div>
 
     <CreateTagPopover ref="tag-popover" />
+
+    <!-- ConfirmationService is registered app-wide, but the dialog it drives has to be mounted somewhere -->
+    <ConfirmDialog />
   </aside>
 </template>
 

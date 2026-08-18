@@ -294,7 +294,14 @@ export interface LevelState {
  * `"tag"` lists the nodes carrying one client-side tag, which may sit anywhere in the graph.
  * Every column below the first shows `PART_OF` children regardless of the root.
  */
-export type HierarchyRoot = { kind: "database" } | { kind: "tag"; uuid: string };
+export type HierarchyRoot =
+  | { kind: "database" }
+  | { kind: "tag"; uuid: string }
+  /**
+   * Same set and fetching mechanism as `database`, but seeds the first column with the {@linkcode SmartView}'s
+   * stored filter preset.
+   */
+  | { kind: "smartView"; uuid: string };
 
 /**
  * Which set of nodes a hierarchy listing is drawn from.
@@ -480,6 +487,22 @@ export interface SemanticBlockRange {
   endPos: number;
   type: string;
   uuid: string;
+}
+
+/**
+ * A user-defined view: a named filter preset held in the browser. Selecting one lists the top of the
+ * hierarchy pre-filtered by {@linkcode SmartView.config}. Unlike a {@linkcode Tag} it references no
+ * nodes at all — membership is decided by the filters on every request, so it never goes stale.
+ */
+export interface SmartView {
+  uuid: string;
+  label: string;
+  appearance?: {
+    icon?: string;
+  };
+  config: {
+    filters: FilterSpec;
+  };
 }
 
 export interface StandoffAnnotation {

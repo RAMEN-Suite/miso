@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import Breadcrumb from "primevue/breadcrumb";
 import { HierarchyPath } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
@@ -7,6 +7,7 @@ import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
 
 const props = defineProps<{
+  home?: MenuItem;
   path: HierarchyPath;
 }>();
 
@@ -14,12 +15,17 @@ const emit = defineEmits(["itemClicked", "homeClicked"]);
 
 const LABEL_MAX_LENGTH: number = 30;
 
-const home = ref<MenuItem>({
-  icon: "pi pi-home",
-  command: () => emit("homeClicked"),
-});
+interface BreadcrumbMenuItem extends MenuItem {
+  color?: string;
+}
 
-const breadcrumbItems = computed<MenuItem[]>(() =>
+const home = computed<BreadcrumbMenuItem>(() => ({
+  icon: "pi pi-home",
+  ...(props.home && { ...props.home }),
+  command: () => emit("homeClicked"),
+}));
+
+const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
   props.path.map((item, index) => {
     const data = item.node.data as { label?: string; text?: string };
     const itemLabel: string = data.label ?? data.text ?? "";
@@ -52,8 +58,16 @@ const breadcrumbItems = computed<MenuItem[]>(() =>
             title: context.item.title,
           };
         },
-        itemLink: {
-          class: ['gap-2'],
+        itemLink: ({ context }) => {
+          return {
+            class: ['gap-2'],
+            style: context.item.color ? { color: context.item.color } : undefined,
+          };
+        },
+        itemIcon: ({ context }) => {
+          return {
+            style: context.item.color ? { color: context.item.color } : undefined,
+          };
         },
       }"
     >

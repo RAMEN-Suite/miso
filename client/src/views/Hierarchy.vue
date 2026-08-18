@@ -9,9 +9,31 @@ import FocusPane from "../components/FocusPane.vue";
 import { onBeforeRouteLeave } from "vue-router";
 import { useAppStore } from "../store/app";
 import PageOverlay from "../components/PageOverlay.vue";
+import { MenuItem } from "primevue/menuitem";
+import { computed, DeepReadonly } from "vue";
+import { useSmartViewsStore } from "../store/smartViews.ts";
+import { SmartView, Tag } from "../models/types.ts";
+import { useTagsStore } from "../store/tags.ts";
+import { normalizeTagColor } from "../config/tags";
 
 const { addToastMessage } = useAppStore();
-const { canNavigate, levels, path, clearSelection, initialize, updatePath } = useHierarchyStore();
+const { canNavigate, levels, path, root, clearSelection, initialize, updatePath } = useHierarchyStore();
+const { getSmartView } = useSmartViewsStore();
+const { getTag } = useTagsStore();
+
+const breadcrumbHome = computed<MenuItem>(() => {
+  if (root.value.kind === "database") {
+    return { icon: "pi pi-home" };
+  } else if (root.value.kind === "smartView") {
+    const view: SmartView | null = getSmartView(root.value.uuid);
+
+    return { icon: "pi pi-folder", label: view?.label ?? "" };
+  } else {
+    const tag: DeepReadonly<Tag> | null = getTag(root.value.uuid);
+
+    return { icon: "pi pi-tag", label: tag?.label ?? "", color: normalizeTagColor(tag?.appearance?.color) };
+  }
+});
 
 initialize();
 
@@ -60,6 +82,7 @@ function showUnsavedChangesWarning() {
       <div class="main flex-grow-1 flex flex-column">
         <div class="breadcrumb-bar flex align-items-center gap-1 pl-1">
           <HierarchyBreadcrumbs
+            :home="breadcrumbHome"
             :path="path"
             class="flex-grow-1 min-w-0"
             @item-clicked="handleBreadcrumbItemClick"

@@ -38,7 +38,9 @@ const selectedTarget = computed<string>(() => targetKey(row.value.target));
 /** The guideline config behind the chosen target. Absent for `distinct`, which is always text. */
 const config = computed<PropertyConfig | undefined>(() =>
   row.value.target.kind === "property"
-    ? props.properties.find((property: PropertyConfig) => property.name === row.value.target.field)
+    ? props.properties.find(
+        (property: PropertyConfig) => property.name === (row.value.target as { kind: "property"; field: string }).field,
+      )
     : undefined,
 );
 

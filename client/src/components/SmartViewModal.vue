@@ -14,9 +14,7 @@ if (!dialogRef) {
   throw new Error("dialogRef not provided - component must be used inside a DynamicDialog");
 }
 
-const emit = defineEmits<{
-  (e: "saved", uuid: string): void;
-}>();
+const emit = defineEmits<(e: "saved", uuid: string) => void>();
 
 const { smartViews, getSmartView, getSmartViewFilters, createSmartView, updateSmartView } = useSmartViewsStore();
 const { createDefaultQuery } = useHierarchyStore();
@@ -81,14 +79,15 @@ function close(): void {
   <form class="view-form flex flex-column gap-3" @submit.prevent="handleSubmit">
     <div class="flex flex-column gap-1">
       <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-      <label for="smart-view-label" class="text-sm font-semibold">Label</label>
+      <label for="smart-view-label" class="text-sm font-semibold">Name</label>
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- too many workarounds to satisfy linter -->
       <InputText
         id="smart-view-label"
         v-model="label"
         size="small"
         spellcheck="false"
-        placeholder="e.g. Unfinished chapters"
-        autocomplete="off"
+        placeholder='e.g. "French letters"'
+        title="Add a name for this smart view"
         autofocus
       />
       <!-- eslint-enable vuejs-accessibility/label-has-for -->

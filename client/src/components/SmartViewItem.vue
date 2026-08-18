@@ -14,11 +14,7 @@ const props = defineProps<{
   isActive: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: "select"): void;
-  (e: "edit"): void;
-  (e: "delete"): void;
-}>();
+const emit = defineEmits<(e: "select" | "edit" | "delete") => void>();
 
 const { updateSmartView } = useSmartViewsStore();
 

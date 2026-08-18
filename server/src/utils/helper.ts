@@ -188,15 +188,18 @@ function parseHierarchyScope(raw: unknown): HierarchyScope {
 /**
  * Reads the sort direction out of a request.
  *
- * Deliberately forgiving: anything that is not explicitly `desc` falls back to `asc`. A wrong direction
- * shows the same listing in the wrong order which the user sees immediately and fixes with one click. No further
- * error throwing/handling is needed
+ * Deliberately forgiving: anything that is not explicitly `desc` falls back to `asc`, but is logged to the console.
+ * A wrong direction shows the same listing in the wrong order which the user sees immediately and fixes with one click.
  *
- * @param {unknown} dir - The `dir` value from the request body.
+ * @param {unknown} order - The `order` value from the request body.
  * @returns {"asc" | "desc"} The normalized direction, defaulting to `asc`.
  */
-export function parseSortDirection(dir: unknown): "asc" | "desc" {
-  if (dir === "desc" || dir === "DESC") {
+export function parseSortDirection(order: unknown): "asc" | "desc" {
+  if (typeof order !== "string" || order === "") {
+    console.error(`Invalid sort direction "${String(order)}"`);
+  }
+
+  if (order === "desc" || order === "DESC") {
     return "desc";
   } else {
     return "asc";
@@ -226,7 +229,7 @@ export function parseHierarchyQuery(req: Request, properties: Map<string, Proper
   const scope: HierarchyScope = parseHierarchyScope(body.scope);
   const filters: FilterSpec = parseFilterSpec(body.filters, properties);
   const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
-  const order: "asc" | "desc" = parseSortDirection(body.dir);
+  const order: "asc" | "desc" = parseSortDirection(body.order);
   const limit: number = parsePaginationLimit(body.limit);
 
   const cursor: string | null = (body.cursor as string) || null;

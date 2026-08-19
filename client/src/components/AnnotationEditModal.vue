@@ -20,15 +20,21 @@ if (!dialogRef) {
 const route: ReturnType<typeof useRoute> = useRoute();
 const { getAnnotationConfig, getAnnotationFields } = useGuidelinesStore();
 
+/** Must be passed - contains the annotation data to be edited */
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
-const config: AnnotationType | undefined = getAnnotationConfig(annotation.value.node.data.type);
-const propertyFields: PropertyConfig[] = getAnnotationFields(annotation.value.node.data.type);
+
+/** Optional as a hack - collection annotations load the config before, text annotations do it inside the modal */
+const config: AnnotationType = dialogRef.value.data.config ?? getAnnotationConfig(annotation.value.node.data.type);
+
+/** Optional as a hack - collection annotations load the fields before, text annotations do it inside the modal */
+const propertyFields: PropertyConfig[] =
+  dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type);
 
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
 
-watch(() => route.path, closeModal);
-
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
+
+watch(() => route.path, closeModal);
 
 function handleUpdateClick(): void {
   if (annotation.value.meta.status !== "created") {

@@ -4,6 +4,8 @@ import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
 import {
+  Annotation,
+  AnnotationNode,
   AnnotationType,
   CollectionNode,
   CollectionFocus,
@@ -25,6 +27,7 @@ import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
 import AnnotationButton from "./AnnotationButton.vue";
+import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
@@ -106,12 +109,22 @@ function checkValidity(): boolean {
   return true;
 }
 
-function setAnnotationDeleted(uuid: string): void {
+function findAnnotationByUuid(uuid: string): NodeStatusObject | undefined {
   const found: NodeStatusObject | undefined = temporaryWorkData.value.annotations.find((a) => a.node.data.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
 
+    return;
+  }
+
+  return found;
+}
+
+function setAnnotationDeleted(uuid: string): void {
+  const found: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+
+  if (!found) {
     return;
   }
 
@@ -153,8 +166,69 @@ function handleDiscardChanges(): void {
   setMode("view");
 }
 
-function handleRemoveAnnotation(event: MouseEvent, uuid: string): void {
+function handleRemoveAnnotation(uuid: string): void {
   setAnnotationDeleted(uuid);
+}
+
+/**
+ * Opens the {@linkcode AnnotationEditModal} for a Collection annotation.
+ *
+ * @param {string} uuid - UUID of the annotation in `temporaryWorkData.annotations`.
+ * @returns {void} This function does not return any value.
+ */
+function handleEditAnnotation(uuid: string): void {
+  const annotation: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+
+  if (!annotation) {
+    return;
+  }
+
+  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
+
+  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+  const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
+
+  createModalInstance(
+    dialog.open(AnnotationEditModal, {
+      props: {
+        modal: true,
+        closable: true,
+        closeOnEscape: true,
+        header: `Edit ${annotation.node.data.type} annotation`,
+        style: { width: "28rem" },
+        pt: {
+          pcCloseButton: { root: { title: "Close" } },
+        },
+      },
+      data: { annotation, config, propertyFields },
+      emits: {
+        onSubmit: (updated: Annotation) => {
+          updateAnnotationData(uuid, updated);
+          destroyModalInstance();
+        },
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
+}
+
+/**
+ * Writes the data edited in the {@linkcode AnnotationEditModal} back into the Collection annotation.
+ *
+ * @param {string} uuid - UUID of the annotation in `temporaryWorkData.annotations`.
+ * @param {Annotation} updated - The annotation data as returned by the modal.
+ * @returns {void} This function does not return any value.
+ */
+function updateAnnotationData(uuid: string, updated: Annotation): void {
+  const target: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+
+  if (!target) {
+    return;
+  }
+
+  target.node.data = updated.node.data;
+  target.connectedNodes = updated.connectedNodes;
+  target.meta.status = target.meta.status === "created" ? "created" : "modified";
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
@@ -413,20 +487,27 @@ function showMessage(result: "success" | "error", error?: Error) {
             <FormPropertiesSection
               v-model="annotation.node.data"
               :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
-              :mode="mode"
+              mode="view"
             />
 
-            <AnnotationReferencesSection v-model="annotation.connectedNodes" :mode="mode" />
+            <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
 
-            <div class="action-buttons flex justify-content-center">
+            <div v-if="mode === 'edit'" class="action-buttons flex justify-content-center gap-1">
               <Button
-                v-if="mode === 'edit'"
+                title="Edit annotation"
+                severity="contrast"
+                icon="pi pi-pencil"
+                size="small"
+                :style="{ width: '25px', height: '25px' }"
+                @click="handleEditAnnotation(annotation.node.data.uuid)"
+              />
+              <Button
                 title="Remove annotation from Collection"
                 severity="danger"
                 icon="pi pi-trash"
                 size="small"
                 :style="{ width: '25px', height: '25px' }"
-                @click="handleRemoveAnnotation($event, annotation.node.data.uuid)"
+                @click="handleRemoveAnnotation(annotation.node.data.uuid)"
               />
             </div>
             <ConfirmPopup></ConfirmPopup>

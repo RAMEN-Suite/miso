@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import EditorAnnotationForm from "./EditorAnnotationForm.vue";
+import EditorAnnotationPreviewCard from "./EditorAnnotationPreviewCard.vue";
 import { useFilterStore } from "../store/filter.ts";
 import { Annotation } from "../models/types.ts";
 import Badge from "primevue/badge";
@@ -55,7 +55,7 @@ const annotationsInSelection = computed<Annotation[]>(() => {
     </div>
     <div class="annotation-list flex-grow-1 overflow-y-auto p-1">
       <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">
-        <EditorAnnotationForm v-if="[...selectedOptions].includes(annotation.node.data.type)" :annotation="annotation" />
+        <EditorAnnotationPreviewCard v-if="[...selectedOptions].includes(annotation.node.data.type)" :annotation="annotation" />
         <div v-if="annotation.node.data.type === 'paragraph'">Paragraph</div>
       </template>
     </div>

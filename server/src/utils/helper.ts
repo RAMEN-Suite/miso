@@ -94,20 +94,29 @@ export function getPagination(req: Request): Record<string, any> {
 }
 
 /**
- * Parses a uuid from a request body.
+ * Parses a uuid from the given request source, trying each key in order.
  *
- * @param {Request} req - The express request object.
+ * Used as generic uuid parser to read from both params and body.
+ *
+ * @param {Record<string, unknown>} source - The object to read the uuid from. Currently only `req.params` or `req.body`
+ * @param {string[]} keys - The keys to try, in order.
  * @returns {string} The parsed uuid.
- * @throws {ValidationError} If the `uuid` field is missing or malformed.
+ * @throws {ValidationError} If none of the keys yield a non-empty string.
  */
-export function parseUuid(req: Request): string {
-  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+export function parseUuidFrom(source: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value: unknown = source[key];
 
-  if (typeof body.uuid !== "string" || body.uuid === "") {
-    throw new ValidationError("`uuid` is required.");
+    if (Array.isArray(value)) {
+      throw new ValidationError("`uuid` can not be an array");
+    }
+
+    if (typeof value === "string" && value !== "") {
+      return value;
+    }
   }
 
-  return body.uuid;
+  throw new ValidationError("`uuid` is required.");
 }
 
 /**
@@ -135,7 +144,7 @@ export function parseNodeStatusObject(req: Request): NodeStatusObject {
  * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
  */
 export function parseCreateNodePayload(req: Request): { uuid: string; data: NodeStatusObject } {
-  const uuid: string = parseUuid(req);
+  const uuid: string = parseUuidFrom(req.body, ["uuid"]);
   const data: NodeStatusObject = parseNodeStatusObject(req);
 
   return { uuid, data };

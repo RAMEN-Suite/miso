@@ -3,14 +3,14 @@ import characterRoutes from "./characters.routes.js";
 import annotationRoutes from "./annotations.routes.js";
 import TextService from "../services/text.service.js";
 import { TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
+import { parseUuidFrom } from "../utils/helper.js";
 
 const router: Router = express.Router({ mergeParams: true });
 
 const textService: TextService = new TextService();
 
-// GET /texts/:textUuid
 router.get("/:textUuid", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = req.params.textUuid; // This is the specific text UUID
+  const textUuid: string = parseUuidFrom(req.params, ["textUuid"]);
 
   try {
     const text: TextAccessObject = await textService.getExtendedTextByUuid(textUuid);
@@ -22,7 +22,7 @@ router.get("/:textUuid", async (req: Request, res: Response, next: NextFunction)
 });
 
 router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = req.params.uuid;
+  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
   const data: TextUpdateDto = req.body;
 
   try {

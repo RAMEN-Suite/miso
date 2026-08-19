@@ -2,13 +2,14 @@ import express, { NextFunction, Request, Response, Router } from "express";
 import CharacterService from "../services/character.service.js";
 import ICharacter from "../models/ICharacter.js";
 import { Character } from "../models/types.js";
+import { parseUuidFrom } from "../utils/helper.js";
 
 const router: Router = express.Router({ mergeParams: true });
 
 const characterService: CharacterService = new CharacterService();
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = req.params.textUuid;
+  const textUuid: string = parseUuidFrom(req.params, ["textUuid", "collectionUuid"]);
 
   try {
     const characters: Character[] = await characterService.getCharacters(textUuid);
@@ -20,7 +21,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = req.params.textUuid;
+  const textUuid: string = parseUuidFrom(req.params, ["textUuid", "collectionUuid"]);
 
   const { uuidStart, uuidEnd, characters, text } = req.body;
 

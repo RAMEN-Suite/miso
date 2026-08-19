@@ -15,6 +15,14 @@ const router: Router = express.Router();
  * @returns {void} This function does not return any value.
  */
 function handleRedirect(req: Request, res: Response, next: NextFunction): void {
+  if (!req.params.toolName) {
+    throw new ValidationError("Missing tool name");
+  }
+
+  if (typeof req.params.toolName !== "string") {
+    throw new ValidationError("Malformed tool name");
+  }
+
   try {
     const baseUrl: string = getToolUrl(req.params.toolName);
 

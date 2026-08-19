@@ -3,7 +3,7 @@ import HierarchyService from "../services/hierarchy.service.js";
 import GuidelinesService from "../services/guidelines.service.js";
 import { IGuidelines } from "../models/IGuidelines.js";
 import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult, PropertyConfig } from "../models/types.js";
-import { parseCreateNodePayload, parseHierarchyQuery, parseUuid } from "../utils/helper.js";
+import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
@@ -71,7 +71,7 @@ router.post("/nodes", async (req: Request, res: Response, next: NextFunction) =>
 });
 
 router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = parseUuid(req);
+  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
 
   try {
     const ancestryPaths: NodeAncestry[] = await hierarchyService.getAncestry(uuid);
@@ -83,7 +83,7 @@ router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunc
 });
 
 router.delete("/nodes/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = parseUuid(req);
+  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
 
   try {
     const node: NodeDto<HierarchyNode> = await hierarchyService.deleteNode(uuid);

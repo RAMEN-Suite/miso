@@ -196,13 +196,19 @@ defineExpose({ sync });
 </script>
 
 <template>
-  <div class="editor flex flex-column gap-1">
-    <div v-for="group in labelGroups" :key="group.base" class="group flex gap-2 flex-wrap">
-      <div v-for="label in group.additional" :key="label" class="flex align-items-center gap-2">
-        <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" />
-        <i :class="resolveNodeIcon([group.base, label])" />
+  <div class="editor flex flex-column gap-2">
+    <div v-for="group in labelGroups" :key="group.base" class="group flex gap-1 flex-wrap">
+      <div
+        v-for="label in group.additional"
+        :key="label"
+        class="node-label-checkbox-container flex align-items-center gap-2"
+        :title="`${selectedLabels.includes(label) ? 'Deselect' : 'Select'} ${label}`"
+      >
+        <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" :style="{ display: 'none' }" />
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-        <label :for="`${instanceId}-${label}`" class="cursor-pointer">{{ label }}</label>
+        <label :for="`${instanceId}-${label}`" class="flex gap-1 align-items-center"
+          ><i :class="resolveNodeIcon([group.base, label])" /><span>{{ label }}</span></label
+        >
       </div>
     </div>
 
@@ -239,12 +245,45 @@ defineExpose({ sync });
 </template>
 
 <style scoped>
-label {
-  cursor: pointer;
-}
-
 .search-icon {
   top: 50%;
   transform: translateY(-50%);
+}
+
+.node-label-checkbox-container {
+  --dark-green: var(--p-button-primary-background);
+  --middle-green: var(--p-button-primary-hover-background);
+  --light-green: var(--p-button-text-success-active-background);
+
+  --bg: transparent;
+  --ring: 1px solid var(--dark-green);
+
+  background: var(--bg);
+  outline: var(--ring);
+  border-radius: 5px;
+  padding: 0.25rem 0.5rem;
+  user-select: none;
+  transition: all 0.2s;
+
+  &,
+  & :deep(*) {
+    cursor: pointer;
+  }
+
+  &:has(input:checked) {
+    --bg: var(--dark-green);
+
+    &:hover {
+      --bg: var(--middle-green);
+    }
+  }
+
+  &:not(:has(input:checked)) {
+    --ring: 1px solid #6be0bb;
+
+    &:hover {
+      --bg: var(--light-green);
+    }
+  }
 }
 </style>

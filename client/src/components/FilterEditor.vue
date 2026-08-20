@@ -215,7 +215,7 @@ defineExpose({ sync });
     <hr />
 
     <IconField>
-      <InputIcon class="pi pi-search search-icon" />
+      <InputIcon class="pi pi-search" />
       <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />
     </IconField>
 
@@ -245,11 +245,6 @@ defineExpose({ sync });
 </template>
 
 <style scoped>
-.search-icon {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
 .node-label-checkbox-container {
   --dark-green: var(--p-button-primary-background);
   --middle-green: var(--p-button-primary-hover-background);

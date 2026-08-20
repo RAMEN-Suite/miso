@@ -132,6 +132,13 @@ onStartTyping(() => {
       class="searchbar h-3rem"
       variant="filled"
       :title="placeHolder"
+      :pt="{
+        pcInputText: {
+          root: {
+            autofocus: true,
+          },
+        },
+      }"
       @complete="handleSearchInputChange($event.query)"
       @option-select="handleResultItemSelect($event.value)"
     >

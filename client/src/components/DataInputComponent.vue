@@ -5,6 +5,7 @@ import InputText from "primevue/inputtext";
 import Select from "primevue/select";
 import Textarea from "primevue/textarea";
 import InputDate from "./InputDate.vue";
+import { Checkbox } from "primevue";
 
 const modelValue = defineModel<any>();
 const props = defineProps<{
@@ -86,13 +87,12 @@ const maxLength: number | null | undefined = props.config.maxLength;
   <div v-else-if="config.type === 'time'">
     <InputDate v-model="modelValue" :config="config" :mode="mode" />
   </div>
-  <input
+  <Checkbox
     v-else-if="config.type === 'boolean'"
     v-model="modelValue"
-    type="checkbox"
     :name="config.name ?? 'Booelan value without name :/'"
     :disabled="!config.editable || mode === 'view'"
-    class="m-2"
+    binary
   />
   <div v-else class="default-field" :style="{ backgroundColor: '#ffb1c0', borderRadius: '5px' }">
     {{ modelValue }}

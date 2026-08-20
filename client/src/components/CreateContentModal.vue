@@ -98,7 +98,7 @@ async function handleSubmit() {
 
 <template>
   <div class="container flex flex-column gap-3">
-    <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Add some text" />
+    <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Add some text" autofocus />
     <div class="flex justify-content-center gap-2">
       <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="pi pi-plus" @click="handleSubmit" />
     </div>

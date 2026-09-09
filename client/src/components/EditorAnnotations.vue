@@ -3,7 +3,6 @@ import { computed, ComputedRef, ref, watch } from "vue";
 import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize, toggleTextHightlighting } from "../utils/helper/helper";
 import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
-import Button from "primevue/button";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -90,28 +89,6 @@ nodes.value.forEach((node) => {
   expandedKeys.value[node.key] = true;
 });
 
-function expandAll(): void {
-  for (const node of nodes.value) {
-    expandNode(node);
-  }
-
-  expandedKeys.value = { ...expandedKeys.value };
-}
-
-function collapseAll(): void {
-  expandedKeys.value = {};
-}
-
-function expandNode(node: TreeNode): void {
-  if (node.children?.length) {
-    expandedKeys.value[node.key] = true;
-
-    for (const child of node.children) {
-      expandNode(child);
-    }
-  }
-}
-
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
   const annotationUuid: string | undefined = (event.target as HTMLElement).dataset.annotationUuid;
 
@@ -138,17 +115,6 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
     <template #toggleicon="{ collapsed }">
       <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
-    <div class="collapse-buttons">
-      <Button type="button" icon="pi pi-plus" size="small" label="Expand All" title="Expand annotation tree" @click="expandAll" />
-      <Button
-        type="button"
-        icon="pi pi-minus"
-        size="small"
-        label="Collapse All"
-        title="Collapse annotation tree"
-        @click="collapseAll"
-      />
-    </div>
     <div class="tree">
       <div class="flex justify-center">
         <Tree

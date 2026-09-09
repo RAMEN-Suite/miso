@@ -5,7 +5,6 @@ import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
 import {
   Annotation,
-  AnnotationNode,
   AnnotationType,
   CollectionNode,
   CollectionFocus,
@@ -18,9 +17,7 @@ import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, p
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
-import ConfirmPopup from "primevue/confirmpopup";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
-import Panel from "primevue/panel";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
@@ -60,6 +57,20 @@ const temporaryWorkData = ref<CollectionFocus | null>(null);
 const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
+
+const expandedAnnotationUuids = ref<Set<string>>(new Set());
+
+function isAnnotationExpanded(uuid: string): boolean {
+  return expandedAnnotationUuids.value.has(uuid);
+}
+
+function toggleAnnotationExpanded(uuid: string): void {
+  if (expandedAnnotationUuids.value.has(uuid)) {
+    expandedAnnotationUuids.value.delete(uuid);
+  } else {
+    expandedAnnotationUuids.value.add(uuid);
+  }
+}
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels) : [];
@@ -433,7 +444,6 @@ function showMessage(result: "success" | "error", error?: Error) {
           <span v-else class="label-text" data-placeholder="No label provided">
             {{ temporaryWorkData.collection.node.data.label }}
           </span>
-          <i v-if="mode === 'edit'" class="pi pi-pencil label-edit-icon" aria-hidden="true"></i>
         </h3>
       </div>
       <div class="content">
@@ -449,69 +459,62 @@ function showMessage(result: "success" | "error", error?: Error) {
             />
           </div>
 
-          <Panel
-            v-for="(annotation, index) in temporaryWorkData.annotations"
+          <div
+            v-for="annotation in temporaryWorkData.annotations"
+            v-show="annotation.meta.status !== 'deleted'"
             :key="annotation.node.data.uuid"
-            class="annotation-form mb-3"
+            class="annotation-card mb-3"
             :data-annotation-uuid="annotation.node.data.uuid"
-            toggleable
-            :collapsed="true"
-            :toggle-button-props="{
-              severity: 'secondary',
-              title: 'Toggle full view',
-              rounded: true,
-              text: true,
-            }"
-            :pt="{
-              root: {
-                style: {
-                  display: temporaryWorkData.annotations[index].meta.status === 'deleted' ? 'none' : 'block',
-                },
-              },
-            }"
           >
-            <template #header>
+            <div class="annotation-card-header">
               <div class="flex items-center gap-1 align-items-center flex-grow-1">
                 <div class="icon-container">
                   <AnnotationTypeIcon :annotation-type="annotation.node.data.type" />
                 </div>
-                <div class="annotation-type-container">
-                  <span class="font-bold">{{ annotation.node.data.type }}</span>
-                </div>
+                <span class="font-bold">{{ annotation.node.data.type }}</span>
+                <NodeStatusBadge :status="annotation.meta.status" />
               </div>
-              <NodeStatusBadge :status="annotation.meta.status" />
-            </template>
-            <template #toggleicon="{ collapsed }">
-              <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
-            </template>
-            <FormPropertiesSection
-              v-model="annotation.node.data"
-              :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
-              mode="view"
-            />
-
-            <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
-
-            <div v-if="mode === 'edit'" class="action-buttons flex justify-content-center gap-1">
+              <div class="action-buttons" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }">
+                <Button
+                  title="Edit annotation"
+                  severity="contrast"
+                  icon="pi pi-pencil"
+                  size="small"
+                  :style="{ width: '25px', height: '25px' }"
+                  @click="handleEditAnnotation(annotation.node.data.uuid)"
+                />
+                <Button
+                  title="Remove annotation from Collection"
+                  severity="danger"
+                  icon="pi pi-trash"
+                  size="small"
+                  :style="{ width: '25px', height: '25px' }"
+                  @click="handleRemoveAnnotation(annotation.node.data.uuid)"
+                />
+              </div>
               <Button
-                title="Edit annotation"
-                severity="contrast"
-                icon="pi pi-pencil"
+                :icon="`pi pi-chevron-${isAnnotationExpanded(annotation.node.data.uuid) ? 'up' : 'down'}`"
+                severity="secondary"
+                title="Toggle full view"
+                rounded
+                text
                 size="small"
-                :style="{ width: '25px', height: '25px' }"
-                @click="handleEditAnnotation(annotation.node.data.uuid)"
-              />
-              <Button
-                title="Remove annotation from Collection"
-                severity="danger"
-                icon="pi pi-trash"
-                size="small"
-                :style="{ width: '25px', height: '25px' }"
-                @click="handleRemoveAnnotation(annotation.node.data.uuid)"
+                @click.stop="toggleAnnotationExpanded(annotation.node.data.uuid)"
               />
             </div>
-            <ConfirmPopup></ConfirmPopup>
-          </Panel>
+
+            <div v-show="isAnnotationExpanded(annotation.node.data.uuid)" class="annotation-card-body">
+              <FormPropertiesSection
+                v-model="annotation.node.data"
+                :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
+                mode="view"
+              />
+
+              <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
+            </div>
+
+            <div class="annotation-card-footer" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }"></div>
+          </div>
         </div>
         <div class="properties-pane">
           <form ref="form">
@@ -581,8 +584,30 @@ function showMessage(result: "success" | "error", error?: Error) {
   outline: 1px solid grey;
 }
 
-.annotation-form {
-  border: 1px solid grey;
+.annotation-card {
+  border: 1px solid var(--p-primary-color);
+  border-radius: var(--p-border-radius-md, 6px);
+  overflow: hidden;
+  background: var(--p-panel-background);
+}
+
+.annotation-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  user-select: none;
+}
+
+.annotation-card-body {
+  padding: 0.75rem;
+}
+
+.annotation-card-footer {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  justify-content: center;
 }
 
 .edit-pane-container,
@@ -598,7 +623,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 
 .label-section {
   --label-field-background: var(--p-inputtext-background);
-  --label-field-border: var(--p-inputtext-border-color);
+  --label-field-border: var(gray);
   --label-field-border-hover: var(--p-inputtext-hover-border-color);
   --label-field-radius: var(--p-inputtext-border-radius);
   --label-placeholder-color: var(--p-inputtext-placeholder-color);

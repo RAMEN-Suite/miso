@@ -3,7 +3,6 @@ import { computed } from "vue";
 import EditorAnnotationPreviewCard from "./EditorAnnotationPreviewCard.vue";
 import { useFilterStore } from "../store/filter.ts";
 import { Annotation } from "../models/types.ts";
-import Badge from "primevue/badge";
 import { useTiptapStore } from "../store/tiptap.ts";
 import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration.ts";
 import { DecorationSet } from "@tiptap/pm/view";
@@ -51,7 +50,6 @@ const annotationsInSelection = computed<Annotation[]>(() => {
   <div class="annotation-details-panel h-full flex flex-column overflow-y-auto">
     <div class="header flex align-items-center gap-2 my-4">
       <h3 class="m-0">Annotations</h3>
-      <Badge :value="annotationsInSelection.length" severity="contrast" />
     </div>
     <div class="annotation-list flex-grow-1 overflow-y-auto p-1">
       <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">

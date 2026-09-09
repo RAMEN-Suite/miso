@@ -15,7 +15,7 @@ import { useTiptapStore } from "../store/tiptap";
 import { useValidateTextSelection } from "../composables/useValidateTextSelection";
 import { Selection } from "@tiptap/pm/state";
 import Button from "primevue/button";
-import SplitButton from "primevue/splitbutton";
+import Select from "primevue/select";
 import TableInsertPopover from "./TableInsertPopover.vue";
 import TieredMenu from "primevue/tieredmenu";
 import { MenuItem, MenuItemCommandEvent } from "primevue/menuitem";
@@ -27,15 +27,12 @@ import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
 import { HEADING_LEVELS } from "../config/editor.ts";
 
+/** A block is either a paragraph or one of the existing heading levels. */
+type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
+
 const { isValid: isSelectionValid } = useValidateTextSelection();
-const {
-  groupedAnnotationTypes,
-  annotationHasConstraints,
-  getAnnotationConfig,
-  getStructuralAnnotationConfig,
-  getAnnotationRole,
-  isZeroPoint,
-} = useGuidelinesStore();
+const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, getAnnotationRole, isZeroPoint } =
+  useGuidelinesStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
 const { tiptap, annotations } = useTiptapStore();
@@ -52,6 +49,45 @@ const selectedCategory = ref<string>("");
 const semanticBlockTypes = computed<AnnotationType[]>(() =>
   (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRole(t.type) === "semanticBlock"),
 );
+
+const blockTypeOptions: { label: string; value: BlockTypeValue }[] = [
+  { label: "Paragraph", value: "paragraph" },
+  ...HEADING_LEVELS.map((level: (typeof HEADING_LEVELS)[number]) => ({ label: `Heading ${level}`, value: level })),
+];
+
+/**
+ * Block type at the editor caret position.
+ *
+ * Used to drive the block type Select. `null` when the caret sits in neither a paragraph nor a heading.
+ */
+const currentBlockType = computed<BlockTypeValue | null>({
+  get: () => {
+    const activeLevel: (typeof HEADING_LEVELS)[number] | undefined = HEADING_LEVELS.find((level) =>
+      tiptap.value?.isActive("heading", { level }),
+    );
+
+    if (activeLevel) {
+      return activeLevel;
+    }
+
+    if (tiptap.value?.isActive("paragraph")) {
+      return "paragraph";
+    }
+
+    return null;
+  },
+  set: (value: BlockTypeValue | null) => {
+    if (value === null) {
+      return;
+    }
+
+    if (value === "paragraph") {
+      tiptap.value?.chain().focus().setNode("paragraph").run();
+    } else {
+      tiptap.value?.chain().focus().setNode("heading", { level: value }).run();
+    }
+  },
+});
 
 watchEffect(() => {
   if (!selectedCategory.value && annotationCategories.value.length > 0) {
@@ -160,15 +196,6 @@ function openTableMenu(event: Event): void {
   tableMenuItems.value = buildTableMenuItems();
   tableMenu.value?.toggle(event);
 }
-
-// Dropdown model for the headings SplitButton — one entry per level, each toggling that heading.
-const headingMenuItems = computed<MenuItem[]>(() =>
-  HEADING_LEVELS.map((level) => ({
-    label: `Heading ${level}`,
-    class: tiptap.value?.isActive("heading", { level }) ? "is-active" : undefined,
-    command: () => tiptap.value?.chain().focus().toggleHeading({ level }).run(),
-  })),
-);
 
 /**
  * Checks if the annotation type is enabled by verifying if it is included in the selected options. If not, an `ShortcutError` is thrown.
@@ -355,22 +382,14 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       }"
     >
       <TabPanel value="structure">
-        <div class="flex flex-wrap gap-3">
-          <Button
-            v-tooltip.hover.top="{ value: 'paragraph', showDelay: 50 }"
-            severity="secondary"
-            icon="pi pi-align-justify"
-            :class="{ 'is-active': tiptap?.isActive('paragraph') }"
-            @click="tiptap?.chain().focus().setNode('paragraph').run()"
-          >
-          </Button>
-          <SplitButton
-            v-tooltip.hover.top="{ value: 'heading', showDelay: 50 }"
-            label="H1"
-            severity="secondary"
-            :model="headingMenuItems"
-            :class="{ 'is-active': tiptap?.isActive('heading', { level: 1 }) }"
-            @click="tiptap?.chain().focus().toggleHeading({ level: 1 }).run()"
+        <div class="buttons flex flex-wrap align-items-center gap-3">
+          <Select
+            v-model="currentBlockType"
+            class="block-type-select"
+            :options="blockTypeOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="Block type"
           />
           <Button
             v-tooltip.hover.top="{ value: 'list', showDelay: 50 }"
@@ -450,5 +469,10 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
+  padding-top: 5px;
+}
+
+.block-type-select {
+  min-width: 9rem;
 }
 </style>

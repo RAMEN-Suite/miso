@@ -105,8 +105,7 @@ const addMenuItems: MenuItem[] = [
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
 /**
- * Whether anything in the filter popover currently narrows the listing (currently, search inputs are not considered,
- * only node labels and property-based filters).
+ * Whether anything in the filter popover currently narrows the listing.
  */
 const hasActiveFilters = computed<boolean>(() => {
   const selectedLabels: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "labels")?.conditions[0]
@@ -116,7 +115,17 @@ const hasActiveFilters = computed<boolean>(() => {
     return true;
   }
 
-  return filters.value.some((rule: FilterRule) => rule.target.kind === "property" && rule.conditions.length > 0);
+  for (const rule of filters.value) {
+    if (rule.target.kind === "property" && rule.conditions.length > 0) {
+      return true;
+    }
+
+    if (rule.target.kind === "distinct" && rule.conditions[0]?.value !== "") {
+      return true;
+    }
+  }
+
+  return false;
 });
 
 const column = useTemplateRef<HTMLDivElement>("column");

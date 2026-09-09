@@ -30,6 +30,7 @@ function openExportModal(): void {
     outlined
     class="h-2rem mr-1"
     title="Export JSON"
+    disabled
     @click="openExportModal"
   ></Button>
 </template>

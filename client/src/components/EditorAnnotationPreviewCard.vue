@@ -286,7 +286,8 @@ function updateData(updated: Annotation): void {
       <div class="action-buttons flex gap-1 justify-content-center">
         <Button
           title="Edit annotation"
-          severity="contrast"
+          severity="secondary"
+          outlined
           icon="pi pi-pencil"
           size="small"
           :style="{ width: '25px', height: '25px' }"
@@ -295,6 +296,7 @@ function updateData(updated: Annotation): void {
         <Button
           title="Delete annotation"
           severity="danger"
+          outlined
           icon="pi pi-trash"
           size="small"
           :style="{ width: '25px', height: '25px' }"

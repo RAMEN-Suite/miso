@@ -517,10 +517,11 @@ function showMessage(result: "success" | "error", error?: Error) {
                 <span class="font-bold">{{ annotation.node.data.type }}</span>
                 <NodeStatusBadge :status="annotation.meta.status" />
               </div>
-              <div class="action-buttons" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }">
+              <div class="action-buttons flex gap-1" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }">
                 <Button
                   title="Edit annotation"
-                  severity="contrast"
+                  severity="secondary"
+                  outlined
                   icon="pi pi-pencil"
                   size="small"
                   :style="{ width: '25px', height: '25px' }"
@@ -529,6 +530,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                 <Button
                   title="Remove annotation from Collection"
                   severity="danger"
+                  outlined
                   icon="pi pi-trash"
                   size="small"
                   :style="{ width: '25px', height: '25px' }"

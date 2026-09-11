@@ -25,6 +25,10 @@ const shouldBeDisplayed = computed<boolean>(() => {
 
   return true;
 });
+
+function handleAddTextClick(): void {
+  emit("textAdded", props.text);
+}
 </script>
 
 <template>

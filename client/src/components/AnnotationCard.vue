@@ -2,10 +2,9 @@
 import { AnnotationNode, NodeStatus, NodeStatusObject } from "../models/types";
 import Button from "primevue/button";
 import { Popover } from "primevue";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
 import NodeTag from "./NodeTag.vue";
-import { capitalize, useTemplateRef } from "vue";
+import NodePropertiesTable from "./NodePropertiesTable.vue";
+import { useTemplateRef } from "vue";
 import { filterDefaultLabels } from "../utils/helper/helper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 
@@ -18,10 +17,6 @@ const node = defineModel<NodeStatusObject<AnnotationNode>>({ required: true });
 const infoIcon = useTemplateRef("info-icon");
 
 const filteredLabels: string[] = filterDefaultLabels(node.value.node.nodeLabels);
-
-const tableData = Object.entries(node.value.node.data).map(([property, value]) => {
-  return { property, value };
-});
 
 function handleRemoveNode(): void {
   setNodeStatus("removed");
@@ -80,26 +75,7 @@ function togglePopover(event: MouseEvent): void {
         },
       }"
     >
-      <DataTable
-        :value="tableData"
-        scrollable
-        scroll-height="flex"
-        resizable-columns
-        row-hover
-        table-style="table-layout: fixed;"
-        size="small"
-      >
-        <Column field="property" header="Property">
-          <template #body="{ data }">
-            <span>{{ capitalize(data["property"]) }}</span>
-          </template>
-        </Column>
-        <Column field="value" header="Value">
-          <template #body="{ data }">
-            <span style="white-space: normal">{{ data["value"] }}</span>
-          </template>
-        </Column>
-      </DataTable>
+      <NodePropertiesTable :data="node!.node.data" />
 
       <pre>
         {{ JSON.stringify(node!, null, 2) }}

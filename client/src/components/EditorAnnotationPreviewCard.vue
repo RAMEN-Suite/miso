@@ -7,7 +7,7 @@ import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
-import FormPropertiesSection from "./FormPropertiesSection.vue";
+import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -226,7 +226,7 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div v-show="!isCollapsed" class="annotation-card-body">
-      <FormPropertiesSection v-model="workingData.node.data" :fields="propertyFields" mode="view" />
+      <NodePropertiesTable :data="workingData.node.data" :fields="propertyFields" />
       <AnnotationReferencesSection v-model="workingData.connectedNodes" mode="view" />
     </div>
 

@@ -18,7 +18,7 @@ import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
-import FormPropertiesSection from "./FormPropertiesSection.vue";
+import NodePropertiesTable from "./NodePropertiesTable.vue";
 import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
@@ -504,10 +504,9 @@ function showMessage(result: "success" | "error", error?: Error) {
             </div>
 
             <div v-show="isAnnotationExpanded(annotation.node.data.uuid)" class="annotation-card-body">
-              <FormPropertiesSection
-                v-model="annotation.node.data"
+              <NodePropertiesTable
+                :data="annotation.node.data"
                 :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
-                mode="view"
               />
 
               <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />

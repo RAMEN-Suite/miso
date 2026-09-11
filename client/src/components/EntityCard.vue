@@ -2,10 +2,9 @@
 import { EntityNode, NodeStatus, NodeStatusObject } from "../models/types";
 import Button from "primevue/button";
 import { Popover } from "primevue";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
 import NodeCardHeader from "./NodeCardHeader.vue";
-import { capitalize, useTemplateRef } from "vue";
+import NodePropertiesTable from "./NodePropertiesTable.vue";
+import { useTemplateRef } from "vue";
 
 const props = defineProps<{
   mode: "edit" | "view";
@@ -47,10 +46,6 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
 
   window.open(`/api/tools/tori/entity/${node.value.node.data.uuid}`, "_blank", "noopener noreferrer");
 }
-
-const tableData = Object.entries(node.value.node.data).map(([property, value]) => {
-  return { property, value };
-});
 </script>
 
 <template>
@@ -87,26 +82,7 @@ const tableData = Object.entries(node.value.node.data).map(([property, value]) =
         },
       }"
     >
-      <DataTable
-        :value="tableData"
-        scrollable
-        scroll-height="flex"
-        resizable-columns
-        row-hover
-        table-style="table-layout: fixed;"
-        size="small"
-      >
-        <Column field="property" header="Property">
-          <template #body="{ data }">
-            <span>{{ capitalize(data["property"]) }}</span>
-          </template>
-        </Column>
-        <Column field="value" header="Value">
-          <template #body="{ data }">
-            <span style="white-space: normal">{{ data["value"] }}</span>
-          </template>
-        </Column>
-      </DataTable>
+      <NodePropertiesTable :data="node!.node.data" />
     </Popover>
   </div>
 </template>

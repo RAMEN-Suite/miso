@@ -29,6 +29,7 @@ const severity = computed<string>(() => {
 
 <template>
   <Tag
+    v-if="props.status !== 'unchanged'"
     :value="capital"
     :title="htmlTitle"
     :severity="severity"

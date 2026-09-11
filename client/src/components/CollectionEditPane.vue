@@ -23,7 +23,8 @@ import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
-import AnnotationButton from "./AnnotationButton.vue";
+import TieredMenu from "primevue/tieredmenu";
+import { MenuItem } from "primevue/menuitem";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -83,6 +84,44 @@ const availableCollectionLabels = computed(getAvailableCollectionLabels);
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
   getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
 );
+
+const SHOW_ANNOTATION_SUBTYPES: boolean = true;
+
+const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotation-menu");
+
+const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
+  return availabeAnnotationTypes.value
+    .toSorted((a, b) => a.type.localeCompare(b.type))
+    .map((type: AnnotationType) => {
+      const subTypeOptions: (string | number)[] = SHOW_ANNOTATION_SUBTYPES
+        ? getCollectionAnnotationFields(temporaryWorkData.value?.collection.node.nodeLabels ?? [], type.type).find(
+            (field) => field.name === "subType",
+          )?.options ?? []
+        : [];
+
+      if (subTypeOptions.length === 0) {
+        return {
+          label: type.type,
+          annotationType: type.type,
+          command: () => handleAnnotationButtonClick({ type: type.type }),
+        };
+      }
+
+      return {
+        label: type.type,
+        annotationType: type.type,
+        items: subTypeOptions.map((option: string | number) => ({
+          label: option.toString(),
+          annotationType: option,
+          command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
+        })),
+      };
+    });
+});
+
+function openAnnotationMenu(event: Event): void {
+  annotationMenu.value?.toggle(event);
+}
 
 watch(
   () => props.focus.collection.node.data.uuid,
@@ -441,15 +480,26 @@ function showMessage(result: "success" | "error", error?: Error) {
       </div>
       <div class="content">
         <div class="annotations-pane">
-          <div v-if="mode === 'edit'" class="annotation-button-pane flex flex-wrap gap-3 py-3">
-            <AnnotationButton
-              v-for="type in availabeAnnotationTypes"
-              :key="type.type"
-              :type="type.type"
-              :disabled="false"
-              :config="getCollectionAnnotationConfig(temporaryWorkData.collection.node.nodeLabels, type.type)"
-              @clicked="handleAnnotationButtonClick($event)"
+          <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane py-3">
+            <Button
+              label="Add annotation"
+              icon="pi pi-plus"
+              severity="secondary"
+              size="small"
+              aria-haspopup="true"
+              @click="openAnnotationMenu($event)"
             />
+            <TieredMenu ref="annotation-menu" :model="annotationMenuItems" popup>
+              <template #item="{ item, props: itemProps, hasSubmenu }">
+                <a class="annotation-menu-item flex align-items-center gap-2" v-bind="itemProps.action">
+                  <span class="annotation-menu-icon">
+                    <AnnotationTypeIcon :annotation-type="item.annotationType" />
+                  </span>
+                  <span>{{ item.label }}</span>
+                  <i v-if="hasSubmenu" class="pi pi-angle-right ml-auto"></i>
+                </a>
+              </template>
+            </TieredMenu>
           </div>
 
           <div
@@ -504,8 +554,6 @@ function showMessage(result: "success" | "error", error?: Error) {
 
               <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
             </div>
-
-            <div class="annotation-card-footer" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }"></div>
           </div>
         </div>
         <div class="properties-pane">
@@ -660,5 +708,16 @@ function showMessage(result: "success" | "error", error?: Error) {
 .icon-container {
   width: 20px;
   height: 20px;
+}
+
+.annotation-menu-item {
+  line-height: 1.4;
+}
+
+.annotation-menu-icon {
+  display: block;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 </style>

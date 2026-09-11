@@ -29,7 +29,7 @@ import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
-import { resolveNodeIcon } from "../config/icons.ts";
+import NodeIcon from "./NodeIcon.vue";
 
 const props = defineProps<{
   focus: CollectionFocus;
@@ -429,7 +429,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
-          <i :class="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)" />
+          <NodeIcon :node-labels="temporaryWorkData.collection.node.nodeLabels" />
           <span
             v-if="mode === 'edit'"
             v-contenteditable="temporaryWorkData.collection.node.data.label"

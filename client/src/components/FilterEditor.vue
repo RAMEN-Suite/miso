@@ -9,7 +9,7 @@ import { useGuidelinesStore } from "../store/guidelines";
 import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec, PropertyConfig } from "../models/types";
 import { availableComparators, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
 import FilterRuleRow from "./FilterRuleRow.vue";
-import { resolveNodeIcon } from "../config/icons.ts";
+import NodeIcon from "./NodeIcon.vue";
 
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
 
@@ -207,7 +207,7 @@ defineExpose({ sync });
         <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" :style="{ display: 'none' }" />
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
         <label :for="`${instanceId}-${label}`" class="flex gap-1 align-items-center"
-          ><i :class="resolveNodeIcon([group.base, label])" /><span>{{ label }}</span></label
+          ><NodeIcon :node-labels="[group.base, label]" /><span>{{ label }}</span></label
         >
       </div>
     </div>

@@ -16,7 +16,7 @@ import {
 } from "../models/types";
 import { useAppStore } from "../store/app";
 import { onStartTyping } from "@vueuse/core";
-import { resolveNodeIcon } from "../config/icons.ts";
+import NodeIcon from "./NodeIcon.vue";
 
 const props = defineProps<{
   baseNodeLabel: ReferenceNodeLabel;
@@ -38,8 +38,6 @@ const isSearchActive = ref<boolean>(false);
 const placeHolder = computed<string>(() => {
   return `Search ${props.additionalNodeLabel}`;
 });
-
-const nodeIcon = computed<string>(() => resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel]));
 
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
 const resultPagination = ref<PaginationData>();
@@ -120,7 +118,7 @@ onStartTyping(() => {
 <template>
   <InputGroup>
     <InputGroupAddon class="w-3rem" :title="`Searching ${props.additionalNodeLabel} nodes`">
-      <i :class="nodeIcon"></i>
+      <NodeIcon :node-labels="[props.baseNodeLabel, props.additionalNodeLabel]" />
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
@@ -148,19 +146,19 @@ onStartTyping(() => {
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">
           <div class="result-item">
-            <i :class="resolveNodeIcon(option.nodeLabels)" />
+            <NodeIcon :node-labels="option.nodeLabels" />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Entity'">
           <div class="result-item">
-            <i :class="resolveNodeIcon(option.nodeLabels)" />
+            <NodeIcon :node-labels="option.nodeLabels" />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Content'">
           <div class="result-item">
-            <i :class="resolveNodeIcon(option.nodeLabels)" />
+            <NodeIcon :node-labels="option.nodeLabels" />
             <span :title="option.data">{{ option.data?.text.slice(0, PREVIEW_CHARACTER_SIZE) }}</span>
           </div>
         </template>

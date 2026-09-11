@@ -29,6 +29,7 @@ import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
+import CollectionLabelInput from "./CollectionLabelInput.vue";
 import NodeIcon from "./NodeIcon.vue";
 
 const props = defineProps<{
@@ -73,7 +74,9 @@ function toggleAnnotationExpanded(uuid: string): void {
 }
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
-  return guidelines.value ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels) : [];
+  return guidelines.value
+    ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
+    : [];
 });
 
 const availableCollectionLabels = computed(getAvailableCollectionLabels);
@@ -412,7 +415,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 
 <template>
   <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-column align-items-center p-2">
-    <div class="main flex-grow-1 flex flex-column w-full">
+    <div class="main flex-grow-1 flex flex-column gap-1 w-full">
       <div class="buttons flex justify-content-end gap-1">
         <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
         <Button
@@ -430,17 +433,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
           <NodeIcon :node-labels="temporaryWorkData.collection.node.nodeLabels" />
-          <span
-            v-if="mode === 'edit'"
-            v-contenteditable="temporaryWorkData.collection.node.data.label"
-            class="label-text"
-            contenteditable="true"
-            role="textbox"
-            aria-multiline="false"
-            data-placeholder="No label provided"
-            title="Click to edit the label"
-            @input="(e) => (temporaryWorkData.collection.node.data.label = (e.target as HTMLSpanElement).innerText.trim())"
-          ></span>
+          <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
           <span v-else class="label-text" data-placeholder="No label provided">
             {{ temporaryWorkData.collection.node.data.label }}
           </span>
@@ -621,13 +614,6 @@ function showMessage(result: "success" | "error", error?: Error) {
 }
 
 .label-section {
-  --label-field-background: var(--p-inputtext-background);
-  --label-field-border: var(gray);
-  --label-field-border-hover: var(--p-inputtext-hover-border-color);
-  --label-field-radius: var(--p-inputtext-border-radius);
-  --label-placeholder-color: var(--p-inputtext-placeholder-color);
-  --label-accent: var(--p-primary-color);
-
   line-break: auto;
   min-height: 3rem;
   flex-shrink: 0;
@@ -647,30 +633,13 @@ function showMessage(result: "success" | "error", error?: Error) {
 }
 
 .label-text {
+  --label-placeholder-color: var(--p-inputtext-placeholder-color);
+  --label-field-radius: var(--p-inputtext-border-radius);
+
+  font-weight: bold;
   padding: 0.25rem 0.5rem;
   border: 1px solid transparent;
   border-radius: var(--label-field-radius);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-
-.label-text[contenteditable="true"] {
-  border-style: dashed;
-  border-color: var(--label-field-border);
-  background: var(--label-field-background);
-  cursor: text;
-}
-
-.label-text[contenteditable="true"]:hover,
-.label-text:focus {
-  border-style: solid;
-  border-color: var(--label-field-border-hover);
-}
-
-.label-text:focus {
-  outline: none;
-  box-shadow: var(--box-shadow-focus);
 }
 
 /* The placeholder lives in CSS, so it can never be mistaken for the value and saved */
@@ -679,20 +648,6 @@ function showMessage(result: "success" | "error", error?: Error) {
   color: var(--label-placeholder-color);
   font-style: italic;
   font-weight: normal;
-}
-
-.label-edit-icon {
-  font-size: 0.75rem;
-  opacity: 0.55;
-  transition:
-    color 0.2s,
-    opacity 0.2s;
-}
-
-.label-heading:hover .label-edit-icon,
-.label-text:focus + .label-edit-icon {
-  color: var(--label-accent);
-  opacity: 1;
 }
 
 .content {

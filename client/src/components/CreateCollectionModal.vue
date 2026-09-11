@@ -4,6 +4,7 @@ import Button from "primevue/button";
 import { useRoute } from "vue-router";
 import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
+import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createCollectionNode } from "../utils/helper/helper";
@@ -31,7 +32,7 @@ const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
 const isLoading = ref<boolean>(false);
 const newCollectionNode = ref<CollectionNode>(createCollectionNode());
 const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
-const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value));
+const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
 
 const inputIsValid = computed<boolean>(() => newCollectionNode.value.data.label.trim().length > 0);
 
@@ -94,7 +95,9 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="container flex flex-column gap-3">
+  <div class="container flex flex-column gap-3 py-2">
+    <CollectionLabelInput v-model:label="newCollectionNode.data.label" :placeholder="`Provide a ${additionalNodeLabel} label`" />
+
     <div class="flex flex-column gap-1">
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
     </div>

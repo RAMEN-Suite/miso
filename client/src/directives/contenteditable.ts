@@ -1,6 +1,5 @@
 import type { DirectiveBinding, ObjectDirective } from "vue";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in the function documentation
-import CollectionEditPane from "../components/CollectionEditPane.vue";
 
 /**
  * Directive for a contenteditable element whose text is bound to reactive state (e.g. via an
@@ -13,8 +12,6 @@ import CollectionEditPane from "../components/CollectionEditPane.vue";
  * 3. That state change re-renders the component, and `updated` below runs - but since the DOM
  *    was already updated natively in step 1, it must not blindly overwrite it (see below). This prevents
  *    the caret to jump to the start.
- *
- * Currently only used for the collection label in {@link CollectionEditPane}.
  */
 export const contenteditable: ObjectDirective<HTMLElement> = {
   mounted(el: HTMLElement, binding: DirectiveBinding): void {

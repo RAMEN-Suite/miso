@@ -7,11 +7,11 @@ const props = defineProps<{
   nodeLabels: string[];
 }>();
 
-const nodeLabels = computed<string[]>(() => filterBaseNodeLabel(props.nodeLabels));
+const additionalNodeLabels = computed<string>(() => filterBaseNodeLabel(props.nodeLabels).join(", "));
 </script>
 
 <template>
-  <i :class="resolveNodeIcon(nodeLabels)" :title="nodeLabels.join(', ')" />
+  <i :class="resolveNodeIcon(props.nodeLabels)" v-tooltip.hover.top="{ value: additionalNodeLabels, showDelay: 50 }" />
 </template>
 
 <style scoped></style>

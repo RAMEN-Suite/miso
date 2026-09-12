@@ -375,7 +375,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       }"
     >
       <TabPanel value="structure">
-        <div class="buttons flex flex-wrap align-items-center gap-3">
+        <div class="buttons flex flex-wrap align-items-center gap-1">
           <Select
             v-model="currentBlockType"
             class="block-type-select"
@@ -399,6 +399,29 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
             :class="{ 'is-active': tiptap?.isActive('table') }"
             @click="openTableMenu($event)"
           >
+          </Button>
+          <Button
+            v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
+            severity="secondary"
+            @click="tiptap?.chain().focus().setHardBreak().run()"
+          >
+            <template #icon>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="1em"
+                height="1em"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20 5v6a2 2 0 0 1-2 2H6" />
+                <path d="M10 9l-4 4 4 4" />
+              </svg>
+            </template>
           </Button>
         </div>
       </TabPanel>

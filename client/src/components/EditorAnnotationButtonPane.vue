@@ -245,13 +245,6 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
             closeOnEscape: true,
             dismissableMask: true,
             style: { width: "25rem", height: "35rem" },
-            pt: {
-              content: {
-                style: {
-                  flexGrow: 1,
-                },
-              },
-            },
           },
           data: {
             annotation: newAnnotationTemplate,

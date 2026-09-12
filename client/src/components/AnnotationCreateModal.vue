@@ -6,7 +6,6 @@ import FormPropertiesSection from "./FormPropertiesSection.vue";
 import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import AnnotationAnnotationsSection from "./AnnotationAnnotationsSection.vue";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { checkAnnotationValidity } from "../utils/helper/helper.ts";
 
@@ -25,8 +24,13 @@ const emit = defineEmits<{
 const { getAnnotationConfig, getAnnotationFields } = useGuidelinesStore();
 
 const annotationTemplate: Annotation = dialogRef.value.data.annotation;
-const config: AnnotationType = getAnnotationConfig(annotationTemplate.node.data.type);
-const propertyFields: PropertyConfig[] = getAnnotationFields(annotationTemplate.node.data.type);
+/**
+ * Optional: Collection annotations pass these in, text annotations resolve them here.
+ * Necessary hack, TODO: Will be resolved as soon as Nori Export is implemented
+ */
+const config: AnnotationType = dialogRef.value.data.config ?? getAnnotationConfig(annotationTemplate.node.data.type);
+const propertyFields: PropertyConfig[] =
+  dialogRef.value.data.propertyFields ?? getAnnotationFields(annotationTemplate.node.data.type);
 
 const asyncOperationRunning = ref<boolean>(false);
 
@@ -58,7 +62,6 @@ function handleSubmitClick(): void {
     <div v-if="annotationTemplate" class="content mb-2">
       <FormPropertiesSection v-model="annotationTemplate.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotationTemplate.connectedNodes" mode="edit" />
-      <AnnotationAnnotationsSection v-model="annotationTemplate.connectedNodes" mode="edit" />
     </div>
 
     <div class="footer flex justify-content-center gap-2">

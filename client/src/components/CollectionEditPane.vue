@@ -26,6 +26,7 @@ import ValidationError from "../utils/errors/validation.error";
 import TieredMenu from "primevue/tieredmenu";
 import { MenuItem } from "primevue/menuitem";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
+import AnnotationCreateModal from "./AnnotationCreateModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
@@ -44,6 +45,7 @@ const form = useTemplateRef<HTMLFormElement>("form");
 
 const {
   guidelines,
+  annotationHasConstraints,
   getCollectionAnnotationFields,
   getCollectionAnnotationConfig,
   getCollectionConfigFields,
@@ -199,13 +201,48 @@ function enrichCollectionData(): void {
   });
 }
 
-function handleAnnotationButtonClick(data: { type: string; subType?: string | number }) {
-  const newAnnotation: NodeStatusObject = createAnnotation({
-    ...data,
-    nodeLabels: temporaryWorkData.value.collection.node.nodeLabels,
-  });
+function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
+  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
+  const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
+  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
 
-  temporaryWorkData.value.annotations.push(newAnnotation);
+  // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
+  if (annotationHasConstraints(config) || true) {
+    openAnnotationCreateModal(newAnnotation, config, getCollectionAnnotationFields(nodeLabels, data.type));
+  } else {
+    temporaryWorkData.value.annotations.push(newAnnotation);
+  }
+}
+
+/**
+ * Opens the {@linkcode AnnotationCreateModal} for a new Collection annotation. Adds it to the Collection on submit only.
+ *
+ * @param {Annotation} annotation - The annotation template to fill in.
+ * @param {AnnotationType} config - The Collection-scoped annotation config.
+ * @param {PropertyConfig[]} propertyFields - The Collection-scoped property fields.
+ * @returns {void} This function does not return any value.
+ */
+function openAnnotationCreateModal(annotation: Annotation, config: AnnotationType, propertyFields: PropertyConfig[]): void {
+  createModalInstance(
+    dialog.open(AnnotationCreateModal, {
+      props: {
+        modal: true,
+        closable: false,
+        closeOnEscape: true,
+        dismissableMask: true,
+        style: { width: "25rem", height: "35rem" },
+      },
+      data: { annotation, config, propertyFields },
+      emits: {
+        onSubmit: (created: Annotation) => {
+          temporaryWorkData.value.annotations.push(created);
+
+          destroyModalInstance();
+        },
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
 }
 
 function handleClickEditButton(): void {

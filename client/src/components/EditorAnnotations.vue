@@ -118,6 +118,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
     <div class="tree">
       <div class="flex justify-center">
         <Tree
+          v-if="nodes.length > 0"
           v-model:expanded-keys="expandedKeys"
           :value="nodes"
           selection-mode="single"

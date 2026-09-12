@@ -26,10 +26,10 @@ const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 /** Optional as a hack - collection annotations load the config before, text annotations do it inside the modal */
 const config: AnnotationType = dialogRef.value.data.config ?? getAnnotationConfig(annotation.value.node.data.type);
 
-/** Optional as a hack - collection annotations load the fields before, text annotations do it inside the modal */
-const propertyFields: PropertyConfig[] =
-  dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type);
-
+// TODO: Filter directly in methods. Must be done in several places. Done when Nori export is implemented
+const propertyFields: PropertyConfig[] = (
+  (dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type)) as PropertyConfig[]
+).filter((f) => f.visible);
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();

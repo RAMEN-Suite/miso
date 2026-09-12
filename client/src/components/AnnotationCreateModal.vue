@@ -29,8 +29,10 @@ const annotationTemplate: Annotation = dialogRef.value.data.annotation;
  * Necessary hack, TODO: Will be resolved as soon as Nori Export is implemented
  */
 const config: AnnotationType = dialogRef.value.data.config ?? getAnnotationConfig(annotationTemplate.node.data.type);
-const propertyFields: PropertyConfig[] =
-  dialogRef.value.data.propertyFields ?? getAnnotationFields(annotationTemplate.node.data.type);
+// TODO: Filter directly in methods. Must be done in several places. Done when Nori export is implemented
+const propertyFields: PropertyConfig[] = (
+  (dialogRef.value.data.propertyFields ?? getAnnotationFields(annotationTemplate.node.data.type)) as PropertyConfig[]
+).filter((f) => f.visible);
 
 const asyncOperationRunning = ref<boolean>(false);
 

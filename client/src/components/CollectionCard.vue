@@ -94,11 +94,16 @@ function togglePopover(event: MouseEvent): void {
   border-radius: 5px;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
+  transition: background-color 0.2s ease;
 
   & button {
     width: 1rem;
     height: 1rem;
     padding: 10px;
+  }
+
+  &:hover {
+    background-color: var(--p-button-secondary-background);
   }
 }
 </style>

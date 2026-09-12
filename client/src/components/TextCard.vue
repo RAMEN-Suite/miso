@@ -82,6 +82,7 @@ function setNodeStatus(status: NodeStatus): void {
   border-radius: 5px;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
+  transition: background-color 0.2s ease;
 
   &.is-created {
     cursor: auto;
@@ -91,6 +92,10 @@ function setNodeStatus(status: NodeStatus): void {
     width: 1rem;
     height: 1rem;
     padding: 10px;
+  }
+
+  &:hover {
+    background-color: var(--p-button-secondary-background);
   }
 }
 </style>

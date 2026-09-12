@@ -18,7 +18,6 @@ import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
-import NodePropertiesTable from "./NodePropertiesTable.vue";
 import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import AppError from "../utils/errors/app.error";
@@ -28,11 +27,10 @@ import { MenuItem } from "primevue/menuitem";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
 import AnnotationCreateModal from "./AnnotationCreateModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
-import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import NodeStatusBadge from "./NodeStatusBadge.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import NodeIcon from "./NodeIcon.vue";
+import CollectionAnnotationNote from "./CollectionAnnotationNote.vue";
 
 const props = defineProps<{
   focus: CollectionFocus;
@@ -61,20 +59,6 @@ const temporaryWorkData = ref<CollectionFocus | null>(null);
 const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
 
 const asyncOperationRunning = ref<boolean>(false);
-
-const expandedAnnotationUuids = ref<Set<string>>(new Set());
-
-function isAnnotationExpanded(uuid: string): boolean {
-  return expandedAnnotationUuids.value.has(uuid);
-}
-
-function toggleAnnotationExpanded(uuid: string): void {
-  if (expandedAnnotationUuids.value.has(uuid)) {
-    expandedAnnotationUuids.value.delete(uuid);
-  } else {
-    expandedAnnotationUuids.value.add(uuid);
-  }
-}
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value
@@ -164,8 +148,8 @@ function checkValidity(): boolean {
   return true;
 }
 
-function findAnnotationByUuid(uuid: string): NodeStatusObject | undefined {
-  const found: NodeStatusObject | undefined = temporaryWorkData.value.annotations.find((a) => a.node.data.uuid === uuid);
+function findAnnotationByUuid(uuid: string): Annotation | undefined {
+  const found: Annotation | undefined = temporaryWorkData.value?.annotations.find((a) => a.node.data.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
@@ -177,7 +161,7 @@ function findAnnotationByUuid(uuid: string): NodeStatusObject | undefined {
 }
 
 function setAnnotationDeleted(uuid: string): void {
-  const found: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+  const found: Annotation | undefined = findAnnotationByUuid(uuid);
 
   if (!found) {
     return;
@@ -267,7 +251,7 @@ function handleRemoveAnnotation(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(uuid: string): void {
-  const annotation: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+  const annotation: Annotation | undefined = findAnnotationByUuid(uuid);
 
   if (!annotation) {
     return;
@@ -310,7 +294,7 @@ function handleEditAnnotation(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function updateAnnotationData(uuid: string, updated: Annotation): void {
-  const target: NodeStatusObject | undefined = findAnnotationByUuid(uuid);
+  const target: Annotation | undefined = findAnnotationByUuid(uuid);
 
   if (!target) {
     return;
@@ -516,13 +500,24 @@ function showMessage(result: "success" | "error", error?: Error) {
         </h3>
       </div>
       <div class="content">
-        <div class="annotations-pane">
-          <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane py-3">
+        <div class="annotations-pane flex flex-wrap align-items-center gap-1 mb-4">
+          <template v-for="(annotation, index) in temporaryWorkData.annotations" :key="annotation.node.data.uuid">
+            <CollectionAnnotationNote
+              v-if="annotation.meta.status !== 'deleted'"
+              v-model="temporaryWorkData.annotations[index]"
+              :mode="mode"
+              :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
+              @edit="handleEditAnnotation(annotation.node.data.uuid)"
+              @remove="handleRemoveAnnotation(annotation.node.data.uuid)"
+            />
+          </template>
+          <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button
-              label="Add annotation"
               icon="pi pi-plus"
               severity="secondary"
+              outlined
               size="small"
+              title="Add new annotation"
               aria-haspopup="true"
               @click="openAnnotationMenu($event)"
             />
@@ -537,62 +532,6 @@ function showMessage(result: "success" | "error", error?: Error) {
                 </a>
               </template>
             </TieredMenu>
-          </div>
-
-          <div
-            v-for="annotation in temporaryWorkData.annotations"
-            v-show="annotation.meta.status !== 'deleted'"
-            :key="annotation.node.data.uuid"
-            class="annotation-card mb-3"
-            :data-annotation-uuid="annotation.node.data.uuid"
-          >
-            <div class="annotation-card-header">
-              <div class="flex items-center gap-1 align-items-center flex-grow-1">
-                <div class="icon-container">
-                  <AnnotationTypeIcon :annotation-type="annotation.node.data.type" />
-                </div>
-                <span class="font-bold">{{ annotation.node.data.type }}</span>
-                <NodeStatusBadge :status="annotation.meta.status" />
-              </div>
-              <div class="action-buttons flex gap-1" :style="{ visibility: mode === 'edit' ? 'visible' : 'hidden' }">
-                <Button
-                  title="Edit annotation"
-                  severity="secondary"
-                  outlined
-                  icon="pi pi-pencil"
-                  size="small"
-                  :style="{ width: '25px', height: '25px' }"
-                  @click="handleEditAnnotation(annotation.node.data.uuid)"
-                />
-                <Button
-                  title="Remove annotation from Collection"
-                  severity="danger"
-                  outlined
-                  icon="pi pi-trash"
-                  size="small"
-                  :style="{ width: '25px', height: '25px' }"
-                  @click="handleRemoveAnnotation(annotation.node.data.uuid)"
-                />
-              </div>
-              <Button
-                :icon="`pi pi-chevron-${isAnnotationExpanded(annotation.node.data.uuid) ? 'up' : 'down'}`"
-                severity="secondary"
-                title="Toggle full view"
-                rounded
-                text
-                size="small"
-                @click.stop="toggleAnnotationExpanded(annotation.node.data.uuid)"
-              />
-            </div>
-
-            <div v-show="isAnnotationExpanded(annotation.node.data.uuid)" class="annotation-card-body">
-              <NodePropertiesTable
-                :data="annotation.node.data"
-                :fields="getCollectionAnnotationFields(temporaryWorkData.collection.node.nodeLabels, annotation.node.data.type)"
-              />
-
-              <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
-            </div>
           </div>
         </div>
         <div class="properties-pane">
@@ -663,32 +602,6 @@ function showMessage(result: "success" | "error", error?: Error) {
   outline: 1px solid grey;
 }
 
-.annotation-card {
-  border: 1px solid var(--p-primary-color);
-  border-radius: var(--p-border-radius-md, 6px);
-  overflow: hidden;
-  background: var(--p-panel-background);
-}
-
-.annotation-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  user-select: none;
-}
-
-.annotation-card-body {
-  padding: 0.75rem;
-}
-
-.annotation-card-footer {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  justify-content: center;
-}
-
 .edit-pane-container,
 .edit-pane-container * {
   position: relative;
@@ -742,11 +655,6 @@ function showMessage(result: "success" | "error", error?: Error) {
   flex-grow: 1;
   overflow-y: auto;
   scrollbar-gutter: stable;
-}
-
-.icon-container {
-  width: 20px;
-  height: 20px;
 }
 
 .annotation-menu-item {

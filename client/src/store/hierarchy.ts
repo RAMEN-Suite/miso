@@ -1,5 +1,6 @@
 import { computed, EffectScope, effectScope, readonly, ref, watch } from "vue";
 import {
+  Annotation,
   CollectionNode,
   FilterRule,
   FilterSpec,
@@ -81,7 +82,7 @@ function createStore() {
           return {
             kind: "collection",
             collection: createNodeStatusObjectFromRawData(collection) as NodeStatusObject<CollectionNode>,
-            annotations: annotations.map((a: NodeDto<AnnotationNode>) => createNodeStatusObjectFromRawData(a)),
+            annotations: annotations.map((a: NodeDto<AnnotationNode>) => createNodeStatusObjectFromRawData(a) as Annotation),
           };
         } finally {
           isFetchingFocus.value = false;

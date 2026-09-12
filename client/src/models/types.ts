@@ -315,7 +315,7 @@ export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: 
 export interface CollectionFocus {
   kind: "collection";
   collection: NodeStatusObject<CollectionNode>;
-  annotations: NodeStatusObject[];
+  annotations: Annotation[];
 }
 
 /** Focus-pane data for a Content: the node itself, shown read-only. */

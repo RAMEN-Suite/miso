@@ -287,19 +287,19 @@ function updateData(updated: Annotation): void {
         <Button
           title="Edit annotation"
           severity="secondary"
-          outlined
+          variant="text"
           icon="pi pi-pencil"
           size="small"
-          :style="{ width: '25px', height: '25px' }"
+          :style="{ width: '20px', height: '20px' }"
           @click="handleEditAnnotation"
         />
         <Button
           title="Delete annotation"
           severity="danger"
-          outlined
+          variant="text"
           icon="pi pi-trash"
           size="small"
-          :style="{ width: '25px', height: '25px' }"
+          :style="{ width: '20px', height: '20px' }"
           @click="handleDeleteAnnotation"
         />
       </div>

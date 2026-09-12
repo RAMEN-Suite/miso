@@ -486,13 +486,7 @@ function endResize(): void {
   position: absolute;
   right: 0.75rem;
   bottom: 0.75rem;
-  opacity: 0.55;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: opacity 0.15s ease;
-
-  &:hover,
-  &:focus-visible {
-    opacity: 1;
-  }
+  transition: all 0.15s ease;
 }
 </style>

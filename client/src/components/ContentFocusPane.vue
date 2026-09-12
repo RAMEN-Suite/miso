@@ -8,6 +8,7 @@ import { useDialog } from "primevue";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
+import { ellipsize } from "../utils/helper/helper.ts";
 
 const props = defineProps<{
   focus: ContentFocus;
@@ -86,7 +87,7 @@ function updateView() {
       </div>
 
       <div class="content-preview">
-        <p class="preview-text">{{ contentNode.data.text.slice(0, 500) }}</p>
+        <p class="preview-text">{{ ellipsize(contentNode.data.text, 500) }}</p>
       </div>
     </div>
 

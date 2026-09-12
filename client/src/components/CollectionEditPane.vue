@@ -560,7 +560,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       </div>
     </div>
 
-    <div class="buttons flex justify-content-center gap-2">
+    <div class="buttons flex justify-content-center gap-2 mt-2">
       <Button
         v-if="mode === 'view'"
         icon="pi pi-pencil"

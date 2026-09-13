@@ -14,6 +14,7 @@ import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
+import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 const nodes = defineModel<NodeStatusObject[]>({ required: true });
 
@@ -68,9 +69,7 @@ function startAddingNode(baseNodeLabel: ReferenceNodeLabel, params: { additional
   createModalInstance(
     dialog.open(AddNodeModal, {
       props: {
-        modal: true,
-        closable: true,
-        closeOnEscape: true,
+        ...BASE_MODAL_PROPS,
         style: { width: "40rem", height: "30rem" },
         closeButtonProps: {
           severity: "secondary",
@@ -80,6 +79,7 @@ function startAddingNode(baseNodeLabel: ReferenceNodeLabel, params: { additional
         },
         header: `Add ${params.additionalNodeLabel}`,
         pt: {
+          ...BASE_MODAL_PROPS.pt,
           headerActions: { style: "margin-left: auto" },
         },
       },

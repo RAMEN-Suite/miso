@@ -6,6 +6,7 @@ import type { Annotation, SemanticBlockRange } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { Menu } from "primevue";
 import { collectSemanticBlocks } from "../utils/helper/tiptapHelper";
@@ -234,14 +235,8 @@ function handleDetailsClick(line: PositionedLine): void {
   createModalInstance(
     dialog.open(AnnotationEditModal, {
       props: {
-        modal: true,
-        closable: true,
-        closeOnEscape: true,
+        ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
-        style: { width: "28rem" },
-        pt: {
-          pcCloseButton: { root: { title: "Close" } },
-        },
       },
 
       data: { annotation },

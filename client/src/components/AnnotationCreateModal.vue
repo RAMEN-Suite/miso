@@ -44,10 +44,6 @@ function closeModal(): void {
   dialogRef?.value.close();
 }
 
-function handleCancelClick(): void {
-  closeModal();
-}
-
 function handleSubmitClick(): void {
   closeModal();
 
@@ -56,25 +52,13 @@ function handleSubmitClick(): void {
 </script>
 
 <template>
-  <div class="container flex flex-column">
-    <h2 class="w-full m-0 text-center">
-      Add new <span class="font-italic">{{ annotationTemplate.node.data.type }}</span> Annotation
-    </h2>
-
-    <div v-if="annotationTemplate" class="content mb-2">
+  <div class="container flex flex-column gap-3 annotation-create-modal">
+    <div class="content">
       <FormPropertiesSection v-model="annotationTemplate.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotationTemplate.connectedNodes" mode="edit" />
     </div>
 
-    <div class="footer flex justify-content-center gap-2">
-      <Button
-        type="button"
-        label="Cancel"
-        icon="pi pi-times"
-        title="Cancel"
-        severity="secondary"
-        @click="handleCancelClick"
-      ></Button>
+    <div class="footer flex justify-content-center gap-2 w-full">
       <Button
         :disabled="!inputIsValid"
         type="submit"
@@ -90,7 +74,8 @@ function handleSubmitClick(): void {
 </template>
 
 <style scoped>
-.container {
+.annotation-create-modal {
+  padding: 0.25rem;
   height: 100%;
 }
 
@@ -98,5 +83,10 @@ function handleSubmitClick(): void {
   overflow-y: auto;
   scrollbar-gutter: stable;
   flex-grow: 1;
+}
+
+.icon-container {
+  width: 20px;
+  height: 20px;
 }
 </style>

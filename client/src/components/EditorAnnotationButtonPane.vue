@@ -26,6 +26,7 @@ import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
 import { HEADING_LEVELS } from "../config/editor.ts";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
@@ -240,11 +241,8 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
       createModalInstance(
         dialog.open(AnnotationCreateModal, {
           props: {
-            modal: true,
-            closable: false,
-            closeOnEscape: true,
-            dismissableMask: true,
-            style: { width: "25rem", height: "35rem" },
+            ...ANNOTATION_MODAL_PROPS,
+            header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,

@@ -28,6 +28,7 @@ import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
+import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 const props = defineProps<{
   index: number;
@@ -216,7 +217,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
   createModalInstance(
     dialog.open(modalComponent, {
       props: {
-        modal: true,
+        ...BASE_MODAL_PROPS,
         header: `Create new ${params.additionalNodeLabel}`,
         style: { width: "420px" },
       },

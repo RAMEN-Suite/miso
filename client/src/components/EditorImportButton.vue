@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import Button from "primevue/button";
 import { useDialog } from "primevue";
+import { BASE_MODAL_PROPS } from "../config/modals";
 import ImportModal from "./ImportModal.vue";
 import { useAppStore } from "../store/app";
 
@@ -17,9 +18,7 @@ function openImportModal(): void {
   createModalInstance(
     dialog.open(ImportModal, {
       props: {
-        modal: true,
-        closable: false,
-        closeOnEscape: false,
+        ...BASE_MODAL_PROPS,
         style: { width: "30rem" },
       },
       onClose: () => destroyModalInstance(),

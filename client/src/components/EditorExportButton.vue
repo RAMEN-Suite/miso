@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from "primevue/button";
 import { useDialog } from "primevue";
+import { BASE_MODAL_PROPS } from "../config/modals";
 import { useAppStore } from "../store/app";
 import ExportModal from "./ExportModal.vue";
 
@@ -12,9 +13,7 @@ function openExportModal(): void {
   createModalInstance(
     dialog.open(ExportModal, {
       props: {
-        modal: true,
-        closable: false,
-        closeOnEscape: false,
+        ...BASE_MODAL_PROPS,
         style: { width: "30rem" },
       },
       onClose: () => destroyModalInstance(),

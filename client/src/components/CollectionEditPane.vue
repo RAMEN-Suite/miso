@@ -17,6 +17,7 @@ import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, p
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
+import { ANNOTATION_MODAL_PROPS, BASE_MODAL_PROPS } from "../config/modals";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useAppStore } from "../store/app";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
@@ -210,11 +211,8 @@ function openAnnotationCreateModal(annotation: Annotation, config: AnnotationTyp
   createModalInstance(
     dialog.open(AnnotationCreateModal, {
       props: {
-        modal: true,
-        closable: false,
-        closeOnEscape: true,
-        dismissableMask: true,
-        style: { width: "25rem", height: "35rem" },
+        ...ANNOTATION_MODAL_PROPS,
+        header: `Add new ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
       },
       data: { annotation, config, propertyFields },
       emits: {
@@ -265,14 +263,8 @@ function handleEditAnnotation(uuid: string): void {
   createModalInstance(
     dialog.open(AnnotationEditModal, {
       props: {
-        modal: true,
-        closable: true,
-        closeOnEscape: true,
+        ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${annotation.node.data.type} annotation`,
-        style: { width: "28rem" },
-        pt: {
-          pcCloseButton: { root: { title: "Close" } },
-        },
       },
       data: { annotation, config, propertyFields },
       emits: {
@@ -379,9 +371,7 @@ function handleDeleteColletion(): void {
   createModalInstance(
     dialog.open(NodeDeleteModal, {
       props: {
-        modal: true,
-        closable: false,
-        closeOnEscape: false,
+        ...BASE_MODAL_PROPS,
         showHeader: false,
         style: { width: "25rem" },
       },

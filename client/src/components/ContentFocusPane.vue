@@ -5,6 +5,7 @@ import { ContentFocus } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
+import { BASE_MODAL_PROPS } from "../config/modals";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
@@ -27,9 +28,7 @@ function handleDeleteContent(): void {
   createModalInstance(
     dialog.open(NodeDeleteModal, {
       props: {
-        modal: true,
-        closable: false,
-        closeOnEscape: false,
+        ...BASE_MODAL_PROPS,
         showHeader: false,
         style: { width: "25rem" },
       },

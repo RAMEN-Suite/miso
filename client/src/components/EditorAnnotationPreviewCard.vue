@@ -5,6 +5,7 @@ import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
@@ -70,14 +71,8 @@ function handleEditAnnotation(): void {
   createModalInstance(
     dialog.open(AnnotationEditModal, {
       props: {
-        modal: true,
-        closable: true,
-        closeOnEscape: true,
+        ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${workingData.value.node.data.subType ?? workingData.value.node.data.type} annotation`,
-        style: { width: "28rem" },
-        pt: {
-          pcCloseButton: { root: { title: "Close" } },
-        },
       },
 
       data: { annotation: workingData.value },

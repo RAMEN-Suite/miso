@@ -5,6 +5,7 @@ import Button from "primevue/button";
 import ConfirmDialog from "primevue/confirmdialog";
 import { useConfirm } from "primevue/useconfirm";
 import { useDialog } from "primevue/usedialog";
+import { BASE_MODAL_PROPS } from "../config/modals";
 import { useTagsStore } from "../store/tags";
 import { useSmartViewsStore } from "../store/smartViews";
 import { useHierarchyStore } from "../store/hierarchy";
@@ -165,7 +166,7 @@ function handleOpenSmartViewModal(view?: DeepReadonly<SmartView>): void {
   createModalInstance(
     dialog.open(SmartViewModal, {
       props: {
-        modal: true,
+        ...BASE_MODAL_PROPS,
         header: view ? `Edit Smart View "${view.label}"` : "Create a new Smart View",
         style: { width: "560px" },
       },

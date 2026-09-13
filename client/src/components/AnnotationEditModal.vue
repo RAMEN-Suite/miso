@@ -6,7 +6,6 @@ import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { Ref } from "vue";
@@ -52,20 +51,14 @@ function closeModal(): void {
 
 <template>
   <div class="container flex flex-column gap-3 annotation-edit-modal">
-    <div class="flex items-center gap-2">
-      <div class="icon-container">
-        <AnnotationTypeIcon :annotation-type="annotation.node.data.subType ?? annotation.node.data.type" />
-      </div>
-      <span class="font-bold">{{ annotation.node.data.subType ?? annotation.node.data.type }}</span>
-    </div>
-
     <div class="content">
       <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="edit" />
     </div>
-  </div>
-  <div class="footer flex justify-content-center gap-2 mt-4 w-full">
-    <Button :disabled="!inputIsValid" label="Update" icon="pi pi-check" title="Update annotation" @click="handleUpdateClick" />
+
+    <div class="footer flex justify-content-center gap-2 w-full">
+      <Button :disabled="!inputIsValid" label="Update" icon="pi pi-check" title="Update annotation" @click="handleUpdateClick" />
+    </div>
   </div>
 </template>
 

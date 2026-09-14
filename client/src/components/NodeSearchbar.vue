@@ -39,14 +39,26 @@ const placeHolder = computed<string>(() => {
   return `Search ${props.additionalNodeLabel}`;
 });
 
+/**
+ * The text currently shown in the input field. Must be kept separate since the
+ * searchParams.searchInput value is updated asynchronously via debounde which
+ * would lead to a laggy input on typing^.
+ */
+const visibleSearchInput = ref<string>("");
+
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
 const resultPagination = ref<PaginationData>();
+
+/** Guards against out-of-order responses overwriting the results of a newer search. */
+let latestRequestId: number = 0;
 
 watch(searchParams, handleSearchParamsChange, {
   deep: true,
 });
 
 function resetSearch(): void {
+  visibleSearchInput.value = "";
+  fetchedItems.value = [];
   resetSearchParams();
   resetPagination();
   setIsSearchActive(false);
@@ -95,13 +107,17 @@ function replaceData(data: (CollectionNode | EntityNode | TextNode)[]) {
 }
 
 async function handleSearchParamsChange() {
+  const requestId: number = ++latestRequestId;
   const { data, pagination } = await fetchData();
+
+  if (requestId !== latestRequestId) {
+    return;
+  }
 
   pagination.offset = (pagination.offset ?? 0) + data.length;
 
   replaceData(data);
   setPagination(pagination);
-  resetPagination();
 }
 
 const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
@@ -123,7 +139,7 @@ onStartTyping(() => {
     <AutoComplete
       ref="searchbar"
       :class="isSearchActive ? 'active' : 'inactive'"
-      :model-value="searchParams.searchInput"
+      v-model="visibleSearchInput"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
       input-class="w-full"

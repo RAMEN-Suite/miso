@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, toRef } from "vue";
+import { computed, ref } from "vue";
 import { useEditorStore } from "../store/editor.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
@@ -23,25 +23,33 @@ const props = defineProps<{
   annotation: NodeStatusObject<AnnotationNode>;
 }>();
 
-const initialData = toRef<NodeStatusObject<AnnotationNode>>(cloneDeep(props.annotation));
-const workingData = ref<NodeStatusObject<AnnotationNode>>(cloneDeep(props.annotation));
-
 const dialog = useDialog();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { tiptap, annotations } = useTiptapStore();
+const { tiptap, annotations, initialAnnotations } = useTiptapStore();
+
+/** Last saved state of the annotation. `undefined` if the annotation was not saved yet. */
+const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
+  initialAnnotations.value?.get(props.annotation.node.data.uuid),
+);
+
+/** Current state of the annotation. Falls back to the prop in case the entry was removed from the store. */
+const currentData = computed<NodeStatusObject<AnnotationNode>>(
+  () => annotations.value?.get(props.annotation.node.data.uuid) ?? props.annotation,
+);
+
 const { isRedrawMode, redrawMode } = useEditorStore();
 const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
 
-const config: AnnotationType = getAnnotationConfig(workingData.value.node.data.type);
+const config: AnnotationType = getAnnotationConfig(currentData.value.node.data.type);
 // TODO: Maybe give whole config instead of only fields...?
-const propertyFields: PropertyConfig[] = getAnnotationFields(workingData.value.node.data.type);
+const propertyFields: PropertyConfig[] = getAnnotationFields(currentData.value.node.data.type);
 
 const isCollapsed = ref<boolean>(true);
 const previewText = computed<string>(() => {
-  const sliced: string = workingData.value.node.data.text?.slice(0, 10);
+  const sliced: string = currentData.value.node.data.text?.slice(0, 10);
 
-  return workingData.value.node.data.text?.length >= 10 ? sliced + "..." : workingData.value.node.data.text;
+  return currentData.value.node.data.text?.length >= 10 ? sliced + "..." : currentData.value.node.data.text;
 });
 
 /* eslint-disable -- Will be needed when redraw modes is re-implemented */
@@ -51,14 +59,14 @@ const redrawButtonTitle = computed<string>(() => (isRedrawMode.value ? "Cancel r
 function handleDeleteAnnotation(): void {
   // Do NOT set status to 'deleted'or change the store in any way - this is determined during save preprocessing
   // when checked what annotations are in the document
-  const annoEntry: Annotation | undefined = annotations.value?.get(workingData.value.node.data.uuid);
+  const annoEntry: Annotation | undefined = annotations.value?.get(currentData.value.node.data.uuid);
 
   if (!annoEntry) {
     return;
   }
 
   // TODO: Include removing zero point annotations
-  tiptap.value?.commands.removeAnnotationDecoration(workingData.value.node);
+  tiptap.value?.commands.removeAnnotationDecoration(currentData.value.node);
 }
 
 /**
@@ -68,14 +76,20 @@ function handleDeleteAnnotation(): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(): void {
+  const entry: Annotation | undefined = annotations.value?.get(currentData.value.node.data.uuid);
+
+  if (!entry) {
+    return;
+  }
+
   createModalInstance(
     dialog.open(AnnotationEditModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${workingData.value.node.data.subType ?? workingData.value.node.data.type} annotation`,
+        header: `Edit ${currentData.value.node.data.subType ?? currentData.value.node.data.type} annotation`,
       },
 
-      data: { annotation: workingData.value },
+      data: { annotation: entry },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateData(updated);
@@ -91,7 +105,7 @@ function handleRedraw(): void {
   // if (isRedrawMode.value) {
   //   toggleRedrawMode({ direction: 'off', cause: 'cancel' });
   // } else {
-  //   toggleRedrawMode({ direction: 'on', annotationUuid: workingData.node.data.uuid });
+  //   toggleRedrawMode({ direction: 'on', annotationUuid: currentData.node.data.uuid });
   // }
 }
 
@@ -122,7 +136,7 @@ function handleSpyClick() {
 
   let range: Range | null = null;
 
-  const uuid: string = workingData.value.node.data.uuid;
+  const uuid: string = currentData.value.node.data.uuid;
   const renderType: "range" | "zeroPoint" = getAnnotationBehaviour(config.type) === "zeroPoint" ? "zeroPoint" : "range";
 
   if (renderType === "range") {
@@ -138,7 +152,7 @@ function handleSpyClick() {
   }
 
   if (!range) {
-    console.error(`Annotation with uuid ${workingData.value.node.data.uuid} not found`);
+    console.error(`Annotation with uuid ${currentData.value.node.data.uuid} not found`);
     return;
   }
 
@@ -162,37 +176,36 @@ function toggleCollapsed(newState?: boolean): void {
  * @returns {void} This function does not return any value.
  */
 function updateData(updated: Annotation): void {
-  const newData: NodeStatusObject<AnnotationNode> = cloneDeep(updated);
-
-  // Set status field depeding on whether the annotation freshly created
-  if (initialData.value.meta.status === "created") {
-    newData.meta.status = "created";
-  } else {
-    newData.meta.status = "modified";
-  }
-
-  const uuid: string = workingData.value.node.data.uuid;
+  const uuid: string = currentData.value.node.data.uuid;
   const entry: NodeStatusObject<AnnotationNode> | undefined = annotations.value?.get(uuid);
 
   if (!entry) {
     return;
   }
 
-  workingData.value = newData;
-  initialData.value = cloneDeep(newData);
+  const newData: NodeStatusObject<AnnotationNode> = cloneDeep(updated);
+
+  // Annotations which are not part of the last saved state are not persisted yet and therefore still "created"
+  if (!initialData.value) {
+    newData.meta.status = "created";
+  } else {
+    newData.meta.status = "modified";
+  }
+
+  // currentData/initialData are derived from the store, so updating the store is sufficient
   annotations.value?.set(uuid, newData);
 }
 </script>
 
 <template>
-  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-3" :data-annotation-uuid="workingData.node.data.uuid">
+  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-3" :data-annotation-uuid="currentData.node.data.uuid">
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 align-items-center flex-grow-1">
         <div class="icon-container">
-          <AnnotationTypeIcon :annotation-type="workingData.node.data.subType ?? workingData.node.data.type" />
+          <AnnotationTypeIcon :annotation-type="currentData.node.data.subType ?? currentData.node.data.type" />
         </div>
-        <span class="font-bold">{{ workingData.node.data.subType ?? workingData.node.data.type }}</span>
-        <span class="font-italic text-xs text-color-secondary" :title="workingData.node.data.text">
+        <span class="font-bold">{{ currentData.node.data.subType ?? currentData.node.data.type }}</span>
+        <span class="font-italic text-xs text-color-secondary" :title="currentData.node.data.text">
           {{ previewText }}
         </span>
         <div
@@ -221,8 +234,8 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div v-show="!isCollapsed" class="annotation-card-body">
-      <NodePropertiesTable :data="workingData.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection v-model="workingData.connectedNodes" mode="view" />
+      <NodePropertiesTable :data="currentData.node.data" :fields="propertyFields" />
+      <AnnotationReferencesSection :model-value="currentData.connectedNodes" mode="view" />
     </div>
 
     <div class="annotation-card-footer">

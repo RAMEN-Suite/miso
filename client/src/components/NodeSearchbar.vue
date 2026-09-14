@@ -49,6 +49,8 @@ const visibleSearchInput = ref<string>("");
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
 const resultPagination = ref<PaginationData>();
 
+const isLoading = ref<boolean>(false);
+
 /** Guards against out-of-order responses overwriting the results of a newer search. */
 let latestRequestId: number = 0;
 
@@ -108,16 +110,25 @@ function replaceData(data: (CollectionNode | EntityNode | TextNode)[]) {
 
 async function handleSearchParamsChange() {
   const requestId: number = ++latestRequestId;
-  const { data, pagination } = await fetchData();
+  isLoading.value = true;
 
-  if (requestId !== latestRequestId) {
-    return;
+  try {
+    const { data, pagination } = await fetchData();
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+
+    pagination.offset = (pagination.offset ?? 0) + data.length;
+
+    replaceData(data);
+    setPagination(pagination);
+  } finally {
+    // Only the newest request can end the loading state
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
   }
-
-  pagination.offset = (pagination.offset ?? 0) + data.length;
-
-  replaceData(data);
-  setPagination(pagination);
 }
 
 const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
@@ -142,6 +153,7 @@ onStartTyping(() => {
       v-model="visibleSearchInput"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
+      :loading="isLoading"
       input-class="w-full"
       class="searchbar h-3rem"
       variant="filled"
@@ -150,6 +162,11 @@ onStartTyping(() => {
         pcInputText: {
           root: {
             autofocus: true,
+          },
+        },
+        loader: {
+          style: {
+            zIndex: 1,
           },
         },
       }"

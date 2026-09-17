@@ -50,6 +50,7 @@ function handleItemSelect(): void {
     role="treeitem"
     tabindex="0"
     :class="{ active: props.isActive, selected: props.entry.meta.isSelected, collection: isCollection, content: !isCollection }"
+    :data-node-uuid="props.entry.data.node.data.uuid"
     :title="title"
     :aria-selected="props.entry.meta.isSelected"
     @click="handleItemSelect"

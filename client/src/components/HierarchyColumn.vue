@@ -20,7 +20,7 @@ import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
 import Menu from "primevue/menu";
 import FilterPopover from "./FilterPopover.vue";
-import { computed, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
+import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
 import { useAppStore } from "../store/app";
 import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";
@@ -223,7 +223,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
       },
       data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel },
       emits: {
-        onSuccess: (created: NodeDto<HierarchyNode>) => {
+        onSuccess: async (created: NodeDto<HierarchyNode>) => {
           if (!created) {
             return;
           }
@@ -236,11 +236,23 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
 
           setMode("view");
           destroyModalInstance();
+
+          scrollElementIntoView(created.node.data.uuid);
         },
       },
       onClose: destroyModalInstance,
     }),
   );
+}
+
+async function scrollElementIntoView(uuid: string) {
+  await nextTick();
+
+  const el: HTMLDivElement | null = document.querySelector(`[data-node-uuid="${uuid}"]`);
+
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth" });
+  }
 }
 
 function toggleAddMenu(event: Event): void {

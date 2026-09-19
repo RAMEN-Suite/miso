@@ -822,7 +822,7 @@ watch(
     <LoadingSpinner />
   </PageOverlay>
   <EditorError v-else-if="isValidText === false" :uuid="textUuid" />
-  <div v-else class="container flex h-full">
+  <div v-else class="page-container flex h-full">
     <PageOverlay v-if="asyncOperationRunning">
       <LoadingSpinner />
     </PageOverlay>
@@ -831,8 +831,8 @@ watch(
       v-if="redrawMode?.direction === 'on'"
       :style="{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 'var(--z-index-overlay)' }"
     >
-      <div class="flex justify-content-center pt-4">
-        <Message class="text-center w-6" severity="info" icon="pi pi-info-circle">
+      <div class="flex justify-center pt-6">
+        <Message class="text-center w-1/2" severity="info" icon="pi pi-info-circle">
           <p><strong>Edit annotated text</strong></p>
           <p>Select the new text that should belong to this annotation.</p>
           <p>
@@ -855,7 +855,7 @@ watch(
       :sidebar-is-collapsed="sidebars['left'].isCollapsed === true"
       @toggle-sidebar="toggleSidebar"
     />
-    <section class="main flex flex-column flex-grow-1 px-3 pb-0 pt-3" :style="{ width: mainWidth + 'px' }">
+    <section class="main flex flex-col grow px-4 pb-0 pt-4" :style="{ width: mainWidth + 'px' }">
       <EditorHeader ref="labelInputRef" />
       <EditorAnnotationButtonPane />
       <SemanticBlockLines />

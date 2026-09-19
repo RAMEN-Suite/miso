@@ -20,7 +20,7 @@ async function goHome(): Promise<void> {
 </script>
 
 <template>
-  <div class="error-container flex flex-column justify-content-center align-items-center gap-4">
+  <div class="error-container flex flex-col justify-center items-center gap-6">
     <h2>404</h2>
     <div class="text">The page you requested does not exist :/</div>
     <div class="flex gap-2">

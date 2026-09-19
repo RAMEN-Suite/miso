@@ -77,20 +77,20 @@ function showUnsavedChangesWarning() {
 <template>
   <div class="page flex h-full">
     <HierarchySidebar />
-    <div class="container flex flex-column flex-grow-1 min-w-0 h-full">
+    <div class="page-container flex flex-col grow min-w-0 h-full">
       <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
-      <div class="main flex-grow-1 flex flex-column">
-        <div class="breadcrumb-bar flex align-items-center gap-1 pl-1">
+      <div class="main grow flex flex-col">
+        <div class="breadcrumb-bar flex items-center gap-1 pl-1">
           <HierarchyBreadcrumbs
             :home="breadcrumbHome"
             :path="path"
-            class="flex-grow-1 min-w-0"
+            class="grow min-w-0"
             @item-clicked="handleBreadcrumbItemClick"
             @home-clicked="handleBreadcrumbHomeClick"
           />
         </div>
 
-        <div class="edit-area flex-grow-1">
+        <div class="edit-area grow">
           <Splitter
             class="h-full gap-2"
             :pt="{
@@ -128,7 +128,7 @@ function showUnsavedChangesWarning() {
 </template>
 
 <style scoped>
-.container {
+.page-container {
   outline: 1px solid green;
 
   .main,

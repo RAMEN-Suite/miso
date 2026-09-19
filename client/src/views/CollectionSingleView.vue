@@ -66,16 +66,16 @@ async function handlePathClick(ancestry: NodeAncestry): Promise<void> {
 }
 </script>
 <template>
-  <div v-if="hasChoice" class="container text-center">
+  <div v-if="hasChoice" class="page-container text-center">
     <h2>Collection "{{ collection?.node.data.label }}"</h2>
 
     <p>This collection is part of {{ ancestryPaths.length }} hierarchies. Select one of them:</p>
 
-    <div class="collection-path-pane flex flex-column align-items-center">
+    <div class="collection-path-pane flex flex-col items-center">
       <Card
         v-for="(path, i) in ancestryPaths"
         :key="i"
-        class="path cursor-pointer mb-4"
+        class="path cursor-pointer mb-6"
         title="Open collection in this path"
         role="link"
         tabindex="0"
@@ -87,7 +87,7 @@ async function handlePathClick(ancestry: NodeAncestry): Promise<void> {
         @keydown.enter="handlePathClick(path)"
       >
         <template #content>
-          <div class="flex justify-content-center">
+          <div class="flex justify-center">
             <HierarchyBreadcrumbs :path="path" />
           </div>
         </template>

@@ -32,7 +32,7 @@ function openImportModal(): void {
     icon="pi pi-file-import"
     severity="secondary"
     outlined
-    class="h-2rem mr-1"
+    class="h-8 mr-1"
     title="Import JSON"
     :disabled="editorContainsText"
     @click="openImportModal"

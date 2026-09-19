@@ -373,7 +373,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       }"
     >
       <TabPanel value="structure">
-        <div class="buttons flex flex-wrap align-items-center gap-1">
+        <div class="buttons flex flex-wrap items-center gap-1">
           <Select
             v-model="currentBlockType"
             class="block-type-select"

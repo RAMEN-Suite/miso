@@ -254,14 +254,14 @@ useEventListener(window, "mouseup", () => {
 </script>
 
 <template>
-  <aside class="sidebar flex flex-shrink-0 h-full" :style="{ width: width + 'px' }">
-    <div class="sidebar-body flex flex-column flex-grow-1 min-w-0 overflow-y-auto">
-      <div class="sidebar-content flex flex-column gap-3 p-3">
+  <aside class="sidebar flex shrink-0 h-full" :style="{ width: width + 'px' }">
+    <div class="sidebar-body flex flex-col grow min-w-0 overflow-y-auto">
+      <div class="sidebar-content flex flex-col gap-4 p-4">
         <nav aria-label="Collection navigation">
-          <ul class="nav-list flex flex-column gap-1 list-none p-0 m-0">
+          <ul class="nav-list flex flex-col gap-1 list-none p-0 m-0">
             <li>
               <div
-                class="nav-item flex align-items-center gap-2 p-2"
+                class="nav-item flex items-center gap-2 p-2"
                 :class="{ active: isDatabaseActive }"
                 role="link"
                 tabindex="0"
@@ -271,14 +271,14 @@ useEventListener(window, "mouseup", () => {
                 @keydown.enter.prevent="handleSelectDatabase"
                 @keydown.space.prevent="handleSelectDatabase"
               >
-                <i class="pi pi-folder flex-shrink-0" />
+                <i class="pi pi-folder shrink-0" />
                 <span class="text-sm">Data</span>
               </div>
             </li>
           </ul>
         </nav>
 
-        <div class="views-header flex align-items-center justify-content-between gap-2">
+        <div class="views-header flex items-center justify-between gap-2">
           <h4 class="m-0 font-normal">Views</h4>
           <Button
             icon="pi pi-plus"
@@ -292,9 +292,9 @@ useEventListener(window, "mouseup", () => {
           />
         </div>
 
-        <p v-if="smartViews.length === 0" class="m-0 text-sm font-italic opacity-70">No views yet.</p>
+        <p v-if="smartViews.length === 0" class="m-0 text-sm italic opacity-70">No views yet.</p>
 
-        <ul v-else class="nav-list flex flex-column gap-1 list-none p-0 m-0">
+        <ul v-else class="nav-list flex flex-col gap-1 list-none p-0 m-0">
           <SmartViewItem
             v-for="view in smartViews"
             :key="view.uuid"
@@ -306,7 +306,7 @@ useEventListener(window, "mouseup", () => {
           />
         </ul>
 
-        <div class="tags-header flex align-items-center justify-content-between gap-2">
+        <div class="tags-header flex items-center justify-between gap-2">
           <h4 class="m-0 font-normal">Tags</h4>
           <Button
             icon="pi pi-plus"
@@ -320,9 +320,9 @@ useEventListener(window, "mouseup", () => {
           />
         </div>
 
-        <p v-if="tags.length === 0" class="m-0 text-sm font-italic opacity-70">No tags yet.</p>
+        <p v-if="tags.length === 0" class="m-0 text-sm italic opacity-70">No tags yet.</p>
 
-        <ul v-else class="nav-list flex flex-column gap-1 list-none p-0 m-0">
+        <ul v-else class="nav-list flex flex-col gap-1 list-none p-0 m-0">
           <TagItem
             v-for="tag in tags"
             :key="tag.uuid"
@@ -336,7 +336,7 @@ useEventListener(window, "mouseup", () => {
     </div>
 
     <div
-      class="resizer flex-shrink-0"
+      class="resizer shrink-0"
       :class="{ active: isResizing }"
       role="button"
       tabindex="0"

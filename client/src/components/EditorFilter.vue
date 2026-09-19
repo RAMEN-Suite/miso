@@ -48,12 +48,12 @@ function toggleDropdown(): void {
     <Card v-if="!isCollapsed" id="overlay_menu" class="dropdown absolute w-full z-1">
       <template #content>
         <div class="dropwn-header">
-          <div class="buttons flex gap-1 mb-2 align-items-center">
+          <div class="buttons flex gap-1 mb-2 items-center">
             <Button label="Select all" title="Select all options" size="small" @click="selectAllOptions" />
             <Button label="Reset to default" title="Reset to default options" size="small" @click="selectDefaultOptions" />
           </div>
         </div>
-        <div class="container flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <div v-for="(annotationTypes, category) in groupedAndSortedAnnotationTypes" :key="category" class="group">
             <template v-if="category !== 'structure'">
               <div class="name font-semibold">

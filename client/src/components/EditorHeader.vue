@@ -6,7 +6,7 @@ import EditorExportButton from "./EditorExportButton.vue";
 
 <template>
   <div class="header">
-    <div class="header-buttons flex justify-content-end mb-2">
+    <div class="header-buttons flex justify-end mb-2">
       <div class="flex">
         <EditorHistoryButton action="undo" />
         <EditorHistoryButton action="redo" />

@@ -28,9 +28,9 @@ function handleNodeSelect() {
 </script>
 
 <template>
-  <div class="flex align-items-center gap-2">
+  <div class="flex items-center gap-2">
     <div
-      class="type-container ml-1 flex align-items-center gap-3 flex-grow-1"
+      class="type-container ml-1 flex items-center gap-4 grow"
       tabindex="0"
       role="button"
       @click="handleNodeSelect"
@@ -38,7 +38,7 @@ function handleNodeSelect() {
       @keydown.space.prevent="handleNodeSelect"
     >
       <span> {{ displayedLabel }} </span>
-      <small :title="props.item.data.text" class="font-italic">
+      <small :title="props.item.data.text" class="italic">
         {{ displayedText }}
       </small>
     </div>

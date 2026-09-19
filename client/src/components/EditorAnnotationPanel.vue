@@ -47,11 +47,11 @@ const annotationsInSelection = computed<Annotation[]>(() => {
 </script>
 
 <template>
-  <div class="annotation-details-panel h-full flex flex-column overflow-y-auto">
-    <div class="header flex align-items-center gap-2 my-4">
+  <div class="annotation-details-panel h-full flex flex-col overflow-y-auto">
+    <div class="header flex items-center gap-2 my-6">
       <h3 class="m-0">Annotations</h3>
     </div>
-    <div class="annotation-list flex-grow-1 overflow-y-auto p-1">
+    <div class="annotation-list grow overflow-y-auto p-1">
       <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">
         <EditorAnnotationPreviewCard v-if="[...selectedOptions].includes(annotation.node.data.type)" :annotation="annotation" />
         <div v-if="annotation.node.data.type === 'paragraph'">Paragraph</div>

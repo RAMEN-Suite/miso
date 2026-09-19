@@ -198,14 +198,14 @@ function updateData(updated: Annotation): void {
 </script>
 
 <template>
-  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-3" :data-annotation-uuid="currentData.node.data.uuid">
+  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-4" :data-annotation-uuid="currentData.node.data.uuid">
     <div class="annotation-card-header">
-      <div class="flex items-center gap-1 align-items-center flex-grow-1">
+      <div class="flex items-center gap-1 grow">
         <div class="icon-container">
           <AnnotationTypeIcon :annotation-type="currentData.node.data.subType ?? currentData.node.data.type" />
         </div>
         <span class="font-bold">{{ currentData.node.data.subType ?? currentData.node.data.type }}</span>
-        <span class="font-italic text-xs text-color-secondary" :title="currentData.node.data.text">
+        <span class="italic text-xs text-(color:--p-text-muted-color)" :title="currentData.node.data.text">
           {{ previewText }}
         </span>
         <div
@@ -239,7 +239,7 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div class="annotation-card-footer">
-      <!-- <div class="edit-buttons flex justify-content-center align-items-center">
+      <!-- <div class="edit-buttons flex justify-center items-center">
         <Button
           icon="pi pi-angle-left"
           size="small"
@@ -291,7 +291,7 @@ function updateData(updated: Annotation): void {
           :style="{ width: '20px', height: '20px' }"
         />
       </div> -->
-      <div class="action-buttons flex gap-1 justify-content-center">
+      <div class="action-buttons flex gap-1 justify-center">
         <Button
           title="Edit annotation"
           severity="secondary"

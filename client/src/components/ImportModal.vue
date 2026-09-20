@@ -142,7 +142,7 @@ function closeModal(): void {
         />
         <FileUpload v-else ref="fileupload" name="import" :file-limit="1" :multiple="false" accept=".json,.txt">
           <template #header="{ chooseCallback }">
-            <div class="flex justify-content-center w-full">
+            <div class="flex justify-center w-full">
               <Button
                 v-if="!inputIsValid"
                 label="Browse files"
@@ -158,9 +158,9 @@ function closeModal(): void {
             <div
               v-for="(file, index) of files"
               :key="file.name + file.type + file.size"
-              class="flex justify-content-between align-items-center h-2rem"
+              class="flex justify-between items-center h-8"
             >
-              <div class="flex gap-4">
+              <div class="flex gap-6">
                 <div class="font-semibold">
                   {{ file.name }}
                 </div>
@@ -180,9 +180,9 @@ function closeModal(): void {
           </template>
 
           <template #empty>
-            <div class="flex flex-column align-items-center justify-center">
-              <p class="mt-0 mb-4 font-italic">or</p>
-              <p class="m-0 p-3 h-6rem border-round-lg drop-area flex justify-content-center gap-2 align-items-center">
+            <div class="flex flex-col items-center justify-center">
+              <p class="mt-0 mb-6 italic">or</p>
+              <p class="m-0 p-4 h-24 rounded-xl drop-area flex justify-center gap-2 items-center">
                 <i class="pi pi-file-arrow-up" style="font-size: 1rem" />
                 <span> Drag and drop files to here to upload.</span>
               </p>
@@ -190,21 +190,21 @@ function closeModal(): void {
           </template>
         </FileUpload>
       </div>
-      <div class="button-container flex justify-content-center gap-2 mt-2">
+      <div class="button-container flex justify-center gap-2 mt-2">
         <Button type="button" label="Cancel" title="Cancel" severity="secondary" @click="handleCancelClick"></Button>
         <Button type="submit" label="Import" title="Import JSON" :disabled="!inputIsValid"></Button>
       </div>
     </form>
   </div>
-  <div v-else-if="currentStep === 'importing'" class="card flex flex-column align-items-center gap-4">
+  <div v-else-if="currentStep === 'importing'" class="card flex flex-col items-center gap-6">
     <span> Importing data... </span>
     <ProgressBar mode="indeterminate" style="height: 5px; width: 100%"></ProgressBar>
   </div>
-  <div v-else class="flex flex-column align-items-center">
+  <div v-else class="flex flex-col items-center">
     <Message icon="pi pi-check" class="my-2 w-full" severity="success">
       <div class="info">
         Text imported successfully
-        <ul class="m-0 pl-5">
+        <ul class="m-0 pl-12">
           <li class="list-disc">{{ totalCharacters.length.toLocaleString() }} characters</li>
           <li class="list-disc">{{ totalAnnotations.length.toLocaleString() }} annotations</li>
         </ul>
@@ -214,7 +214,7 @@ function closeModal(): void {
       Currently, the text is dangling (not saved in the database). You can edit the text, but to get a better performance, save
       the text and reload the page.
     </Message>
-    <Button type="button" label="Ok" severity="contrast" class="w-3 mt-4" @click="handleFinishClick"></Button>
+    <Button type="button" label="Ok" severity="contrast" class="w-1/4 mt-6" @click="handleFinishClick"></Button>
   </div>
 </template>
 

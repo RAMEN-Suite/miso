@@ -23,7 +23,7 @@ function handleCancel(): void {
 </script>
 
 <template>
-  <div class="editor-button-container flex justify-content-center gap-3 p-3">
+  <div class="editor-button-container flex justify-center gap-4 p-4">
     <Button aria-label="Save changes" title="Save changes" @click="handleSave">Save</Button>
     <Button severity="secondary" title="Discard changes" aria-label="Cancel changes" @click="handleCancel">Cancel</Button>
     <Button v-if="isDevelopment" aria-label="Log doc" title="Log doc" severity="info" @click="handleLogJson">JSON</Button>

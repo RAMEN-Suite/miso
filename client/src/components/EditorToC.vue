@@ -28,7 +28,7 @@ function handleNodeClick(node: ToCItem) {
 
 <template>
   <Panel
-    class="toc-container mb-3"
+    class="toc-container mb-4"
     toggleable
     :toggle-button-props="{
       severity: 'secondary',

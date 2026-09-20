@@ -148,7 +148,7 @@ const defaultProps = {
 <template>
   <!-- eslint-disable vuejs-accessibility/form-control-has-label -- Eslint config does not recognize PrimeVue's component -->
   <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-  <div class="rule flex align-items-center gap-1">
+  <div class="rule flex items-center gap-1">
     <Select
       :model-value="selectedTarget"
       :options="targetOptions"
@@ -269,7 +269,7 @@ const defaultProps = {
       text
       size="small"
       title="Remove this rule"
-      class="flex-shrink-0"
+      class="shrink-0"
       @click="emit('remove')"
     />
   </div>

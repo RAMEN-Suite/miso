@@ -122,7 +122,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
 <template>
   <li>
     <div
-      class="nav-item flex align-items-center gap-2 p-1"
+      class="nav-item flex items-center gap-2 p-1"
       :class="{ active: props.isActive }"
       role="link"
       tabindex="0"
@@ -134,7 +134,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
     >
       <button
         type="button"
-        class="tag-dot flex-shrink-0"
+        class="tag-dot shrink-0"
         :style="{ backgroundColor: color }"
         :title="`Change the colour of ${props.tag.label}`"
         :aria-label="`Change the colour of ${props.tag.label}`"
@@ -145,7 +145,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         v-if="isRenaming"
         :ref="focusRenameInput"
         v-model="renameDraft"
-        class="rename-input text-sm flex-grow-1 min-w-0"
+        class="rename-input text-sm grow min-w-0"
         spellcheck="false"
         :aria-label="`Rename ${props.tag.label}`"
         @blur="handleCommitRename"
@@ -155,7 +155,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         v-else
         role="button"
         tabindex="0"
-        class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap select-none"
+        class="text-sm grow min-w-0 text-ellipsis overflow-hidden whitespace-nowrap select-none"
         :style="{ color: props.isActive ? color : 'inherit' }"
         @dblclick="startRename"
         @keydown.enter="startRename"

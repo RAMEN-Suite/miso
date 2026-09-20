@@ -68,10 +68,10 @@ defineExpose({ toggle });
 
 <template>
   <Popover ref="popover" @show="handleShow">
-    <div class="panel flex flex-column gap-1 p-2">
+    <div class="panel flex flex-col gap-1 p-2">
       <FilterEditor ref="editor" :filters="filters" @change="draft = $event" />
 
-      <div class="footer flex justify-content-between">
+      <div class="footer flex justify-between">
         <Button
           label="Clear all"
           icon="pi pi-filter-slash"

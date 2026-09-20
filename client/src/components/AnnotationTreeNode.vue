@@ -18,7 +18,7 @@ const childCount = computed<number>(
   <div class="annotation-tree-node" :data-mode="props.mode">
     <AnnotationCard v-model="node" mode="view" />
 
-    <p v-if="childCount > 0" class="nested-hint text-color-secondary text-xs">
+    <p v-if="childCount > 0" class="nested-hint text-(color:--p-text-muted-color) text-xs">
       <span class="pi pi-sitemap"></span>
       {{ childCount }} nested node{{ childCount === 1 ? "" : "s" }} - tree view coming soon
     </p>

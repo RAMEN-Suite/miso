@@ -7,14 +7,14 @@ const attrs: ReturnType<typeof useAttrs> = useAttrs();
 
 <template>
   <Teleport to="body">
-    <div class="container w-screen h-screen" v-bind="attrs">
+    <div class="page-overlay w-screen h-screen" v-bind="attrs">
       <slot> </slot>
     </div>
   </Teleport>
 </template>
 
 <style scoped>
-.container {
+.page-overlay {
   position: absolute;
   top: 0;
   left: 0;

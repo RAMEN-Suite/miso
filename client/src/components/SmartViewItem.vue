@@ -102,7 +102,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
 <template>
   <li>
     <div
-      class="nav-item flex align-items-center gap-2 p-1"
+      class="nav-item flex items-center gap-2 p-1"
       :class="{ active: props.isActive }"
       role="link"
       tabindex="0"
@@ -112,13 +112,13 @@ function handleRenameKeydown(event: KeyboardEvent): void {
       @keydown.enter.self="emit('select')"
       @keydown.space.self="emit('select')"
     >
-      <i :class="[props.isActive ? SMART_VIEW_ICON_ACTIVE : SMART_VIEW_ICON, 'flex-shrink-0']" />
+      <i :class="[props.isActive ? SMART_VIEW_ICON_ACTIVE : SMART_VIEW_ICON, 'shrink-0']" />
 
       <input
         v-if="isRenaming"
         :ref="focusRenameInput"
         v-model="renameDraft"
-        class="rename-input text-sm flex-grow-1 min-w-0"
+        class="rename-input text-sm grow min-w-0"
         spellcheck="false"
         :aria-label="`Rename ${props.view.label}`"
         @blur="handleCommitRename"
@@ -128,7 +128,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
         v-else
         role="button"
         tabindex="0"
-        class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap select-none"
+        class="text-sm grow min-w-0 text-ellipsis overflow-hidden whitespace-nowrap select-none"
         @dblclick="startRename"
         @keydown.enter="startRename"
         @keydown.space="startRename"

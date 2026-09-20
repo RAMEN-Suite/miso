@@ -196,17 +196,17 @@ defineExpose({ sync });
 </script>
 
 <template>
-  <div class="editor flex flex-column gap-2">
+  <div class="editor flex flex-col gap-2">
     <div v-for="group in labelGroups" :key="group.base" class="group flex gap-1 flex-wrap">
       <div
         v-for="label in group.additional"
         :key="label"
-        class="node-label-checkbox-container flex align-items-center gap-2"
+        class="node-label-checkbox-container flex items-center gap-2"
         :title="`${selectedLabels.includes(label) ? 'Deselect' : 'Select'} ${label}`"
       >
         <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" :style="{ display: 'none' }" />
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-        <label :for="`${instanceId}-${label}`" class="flex gap-1 align-items-center"
+        <label :for="`${instanceId}-${label}`" class="flex gap-1 items-center"
           ><NodeIcon :node-labels="[group.base, label]" /><span>{{ label }}</span></label
         >
       </div>
@@ -219,7 +219,7 @@ defineExpose({ sync });
       <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />
     </IconField>
 
-    <div class="rules flex flex-column gap-2">
+    <div class="rules flex flex-col gap-2">
       <FilterRuleRow
         v-for="(row, index) in rows"
         :key="row.id"
@@ -228,7 +228,7 @@ defineExpose({ sync });
         @remove="removeRow(row.id)"
       />
 
-      <div class="flex justify-content-center">
+      <div class="flex justify-center">
         <Button
           label="Add rule"
           icon="pi pi-plus"

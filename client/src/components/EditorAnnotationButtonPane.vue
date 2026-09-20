@@ -41,6 +41,10 @@ const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content"
 
 const selectedTab = ref<"annotations" | "structure">("structure");
 
+const tabProps = {
+  pt: { root: { class: "px-3! py-2!" } },
+} as const;
+
 const annotationCategories = computed(() =>
   Object.entries(groupedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
 );
@@ -357,9 +361,11 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
 <template>
   <Tabs v-model:value="selectedTab">
     <TabList>
-      <Tab value="structure" title="Structure elements (paragraphs, lists, tables etc.)">Document</Tab>
-      <Tab value="semanticBlocks" title="Labels for structure elements (opener, closer, salute etc.)">Block labels</Tab>
-      <Tab value="annotations" title="Annotations (persons, places, transcriptions)">Annotations</Tab>
+      <Tab value="structure" title="Structure elements (paragraphs, lists, tables etc.)" v-bind="tabProps">Document</Tab>
+      <Tab value="semanticBlocks" title="Labels for structure elements (opener, closer, salute etc.)" v-bind="tabProps"
+        >Block labels</Tab
+      >
+      <Tab value="annotations" title="Annotations (persons, places, transcriptions)" v-bind="tabProps">Annotations</Tab>
     </TabList>
     <TabPanels
       :pt="{
@@ -373,7 +379,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       }"
     >
       <TabPanel value="structure">
-        <div class="buttons flex flex-wrap align-items-center gap-1">
+        <div class="buttons flex flex-wrap items-center gap-1">
           <Select
             v-model="currentBlockType"
             class="block-type-select"
@@ -443,7 +449,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       <TabPanel value="annotations">
         <Tabs v-model:value="selectedCategory">
           <TabList>
-            <Tab v-for="[category, types] in annotationCategories" :key="category" :value="category">
+            <Tab v-for="[category, types] in annotationCategories" :key="category" :value="category" v-bind="tabProps">
               {{ capitalize(category) }} ({{ types.length }})
             </Tab>
           </TabList>

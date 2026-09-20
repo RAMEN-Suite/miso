@@ -45,7 +45,7 @@ function handleItemSelect(): void {
 
 <template>
   <div
-    class="container p-1"
+    class="hierarchy-item p-1"
     draggable="true"
     role="treeitem"
     tabindex="0"
@@ -57,9 +57,9 @@ function handleItemSelect(): void {
     @keydown.enter="handleItemSelect"
     @keydown.space.prevent="handleItemSelect"
   >
-    <div class="body flex align-items-center gap-2">
-      <i :class="icon" class="node-icon flex-shrink-0" />
-      <div class="text-and-labels flex-grow-1 min-w-0">
+    <div class="body flex items-center gap-2">
+      <i :class="icon" class="node-icon shrink-0" />
+      <div class="text-and-labels grow min-w-0">
         <div class="label" :class="{ 'font-bold': isCollection }">
           {{ displayText }}
         </div>
@@ -67,13 +67,13 @@ function handleItemSelect(): void {
       <div class="tags flex">
         <span v-for="color in tagColors" :key="color" class="tag-dot" :style="{ backgroundColor: color }"></span>
       </div>
-      <i v-if="isCollection" class="pi pi-angle-right chevron flex-shrink-0" />
+      <i v-if="isCollection" class="pi pi-angle-right chevron shrink-0" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.container {
+.hierarchy-item {
   border-bottom: 1px solid grey;
   cursor: pointer;
 
@@ -96,7 +96,6 @@ function handleItemSelect(): void {
 
 .content .label {
   color: hsl(0, 0%, 40%);
-  font-weight: normal;
 }
 
 .label {

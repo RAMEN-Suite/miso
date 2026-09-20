@@ -26,7 +26,7 @@ function handleRemoveClick(): void {
 </script>
 
 <template>
-  <div class="button-pane flex justify-content-between">
+  <div class="button-pane flex justify-between">
     <div class="node-labels-pane flex">
       <NodeTag v-for="label in filteredLabels" :key="label" class="test mr-1" :content="label" :type="baseNodeLabel" />
     </div>

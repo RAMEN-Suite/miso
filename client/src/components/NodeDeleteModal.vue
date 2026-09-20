@@ -81,12 +81,12 @@ function handleCancelClick(): void {
 
 <template>
   <div class="content text-center mb-2">
-    <p>
+    <p class="my-4">
       {{ deleteMessage }}
     </p>
   </div>
 
-  <div class="button-container flex justify-content-center gap-2">
+  <div class="button-container flex justify-center gap-2">
     <Button
       type="submit"
       label="Yes, delete"

@@ -76,8 +76,8 @@ function close(): void {
 </script>
 
 <template>
-  <form class="view-form flex flex-column gap-3" @submit.prevent="handleSubmit">
-    <div class="flex flex-column gap-1">
+  <form class="view-form flex flex-col gap-4" @submit.prevent="handleSubmit">
+    <div class="flex flex-col gap-1">
       <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
       <label for="smart-view-label" class="text-sm font-semibold">Name</label>
       <!-- eslint-disable vuejs-accessibility/no-autofocus -- too many workarounds to satisfy linter -->
@@ -92,18 +92,18 @@ function close(): void {
       />
       <!-- eslint-enable vuejs-accessibility/label-has-for -->
 
-      <small v-if="hasDuplicateLabel" class="duplicate-hint flex align-items-center gap-1">
+      <small v-if="hasDuplicateLabel" class="duplicate-hint flex items-center gap-1">
         <i class="pi pi-exclamation-circle" />
         <span>A view with this label already exists.</span>
       </small>
     </div>
 
-    <div class="flex flex-column gap-2">
+    <div class="flex flex-col gap-2">
       <span class="text-sm font-semibold">Filters</span>
       <FilterEditor :filters="initialFilters" @change="draft = $event" />
     </div>
 
-    <div class="flex justify-content-end gap-2">
+    <div class="flex justify-end gap-2">
       <Button type="button" label="Cancel" severity="secondary" size="small" @click="close" />
       <Button type="submit" :label="editedUuid ? 'Save' : 'Create'" :disabled="!isValid" size="small" />
     </div>

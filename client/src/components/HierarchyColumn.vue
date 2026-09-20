@@ -391,7 +391,7 @@ function endResize(): void {
 </script>
 
 <template>
-  <div v-if="levels[props.index]" ref="column" class="column flex flex-column p-1">
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1">
     <div class="header flex gap-1">
       <InputText
         v-model="searchInput"
@@ -402,7 +402,7 @@ function endResize(): void {
         title="Filter by label or text"
         @update:model-value="debouncedFetchFirstPage"
       />
-      <Button size="small" severity="secondary" title="Filter the listing" class="flex-shrink-0" @click="toggleFilterPopover">
+      <Button size="small" severity="secondary" title="Filter the listing" class="shrink-0" @click="toggleFilterPopover">
         <i v-if="hasActiveFilters" class="pi pi-filter-fill" />
         <i v-else class="pi pi-filter" />
       </Button>
@@ -412,7 +412,7 @@ function endResize(): void {
         severity="secondary"
         :icon="`pi pi-sort-amount-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
         :model="sortMenuItems"
-        class="flex-shrink-0"
+        class="shrink-0"
         :button-props="{ title: 'Change sort direction' }"
         :menu-button-props="{ title: 'Choose what to sort by' }"
         :pt="{ pcMenu: { itemLink: ({ context }) => ({ title: context.item.title }) } }"
@@ -444,7 +444,7 @@ function endResize(): void {
       <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems" :popup="true" />
     </div>
     <div class="footer">
-      <div class="count text-xs text-right pr-3">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
+      <div class="count text-xs text-right pr-4">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
     </div>
   </div>
   <div ref="resizer" class="resizer" title="Hold down mouse and drag to resize column">

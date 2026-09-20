@@ -58,7 +58,7 @@ function handleDeleteItem(itemIndex: number): void {
 
 <template>
   <div class="w-full">
-    <div v-for="(_, index) in modelValue" class="flex gap-1 align-items-center">
+    <div v-for="(_, index) in modelValue" class="flex gap-1 items-center">
       <DataInputComponent v-model="modelValue[index]" :config="props.config.items" :mode="props.mode" />
       <Button
         v-if="isEditable"
@@ -74,7 +74,7 @@ function handleDeleteItem(itemIndex: number): void {
     </div>
     <Button
       v-if="isEditable"
-      class="mt-2 w-full h-2rem"
+      class="mt-2 w-full h-8"
       icon="pi pi-plus"
       size="small"
       severity="secondary"

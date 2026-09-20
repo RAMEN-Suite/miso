@@ -94,7 +94,7 @@ function handleResultItemSelect(item: SearchResult): void {
       :class="isSearchActive ? 'active' : 'inactive'"
       :placeholder="`Search for text`"
       :suggestions="textSearchObject.fetchedItems"
-      class="searchbar h-2rem"
+      class="searchbar h-8"
       variant="filled"
       title="Enter search term"
       @complete="searchTextMatches($event.query)"
@@ -102,7 +102,7 @@ function handleResultItemSelect(item: SearchResult): void {
       @blur="isSearchActive = textSearchObject.searchStr === '' ? false : true"
     >
       <template v-if="textSearchObject.fetchedItems.length > 0" #header>
-        <div class="font-medium px-3 py-2">{{ textSearchObject.fetchedItems.length }} Results</div>
+        <div class="font-medium px-4 py-2">{{ textSearchObject.fetchedItems.length }} Results</div>
       </template>
       <template #option="slotProps">
         <span :title="slotProps.option.match" v-html="slotProps.option.html"></span>

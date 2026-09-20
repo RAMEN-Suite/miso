@@ -54,7 +54,7 @@ function closeModal(): void {
 <template>
   <h2 class="w-full text-center m-0">Export as Standoff JSON</h2>
 
-  <div class="flex flex-column gap-3 mt-3">
+  <div class="flex flex-col gap-4 mt-4">
     <Message v-for="msg of errorMessages" :key="msg.id" :severity="msg.severity" closable>
       {{ msg.content }}
     </Message>
@@ -67,7 +67,7 @@ function closeModal(): void {
     <Message v-if="status !== 'error'" icon="pi pi-info-circle" class="my-2 w-full" severity="info">
       <div class="info">
         You are going to export
-        <ul class="m-0 pl-5">
+        <ul class="m-0 pl-12">
           <li class="list-disc">{{ totalCharacters.length.toLocaleString() }} characters</li>
           <li class="list-disc">{{ totalAnnotations.length.toLocaleString() }} annotations</li>
         </ul>
@@ -77,7 +77,7 @@ function closeModal(): void {
 
     <Textarea v-model="jsonToExport" rows="10" class="w-full" readonly spellcheck="false" placeholder="No data to export." />
 
-    <div class="flex justify-content-center gap-2">
+    <div class="flex justify-center gap-2">
       <ButtonGroup>
         <Button
           :label="copyLabel"

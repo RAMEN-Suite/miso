@@ -144,7 +144,7 @@ onStartTyping(() => {
 
 <template>
   <InputGroup>
-    <InputGroupAddon class="w-3rem" :title="`Searching ${props.additionalNodeLabel} nodes`">
+    <InputGroupAddon class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
       <NodeIcon :node-labels="[props.baseNodeLabel, props.additionalNodeLabel]" />
     </InputGroupAddon>
     <AutoComplete
@@ -155,7 +155,7 @@ onStartTyping(() => {
       :suggestions="fetchedItems"
       :loading="isLoading"
       input-class="w-full"
-      class="searchbar h-3rem"
+      class="searchbar h-12"
       variant="filled"
       :title="placeHolder"
       :pt="{
@@ -174,7 +174,7 @@ onStartTyping(() => {
       @option-select="handleResultItemSelect($event.value)"
     >
       <template v-if="fetchedItems.length > 0" #header>
-        <div class="font-medium px-3 py-2">{{ fetchedItems.length }} Results</div>
+        <div class="font-medium px-4 py-2">{{ fetchedItems.length }} Results</div>
       </template>
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">

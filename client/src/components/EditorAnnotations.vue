@@ -100,7 +100,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
 
 <template>
   <Panel
-    class="annotations-container mb-3"
+    class="annotations-container mb-4"
     toggleable
     :toggle-button-props="{
       severity: 'secondary',
@@ -131,7 +131,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
                 {{ capitalize(slotProps.node.label!) }} [{{ slotProps.node.annotationCount }}]
               </div>
             </div>
-            <div v-else-if="slotProps.node.type === 'type'" class="flex align-items-center">
+            <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
               <div class="icon-container">
                 <AnnotationTypeIcon :annotation-type="slotProps.node.label" />
               </div>

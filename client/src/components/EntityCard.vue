@@ -75,7 +75,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
       ref="info-icon"
       :pt="{
         root: {
-          class: 'w-25rem',
+          class: 'w-100',
           style: {
             zIndex: 'var(--z-index-max)',
           },

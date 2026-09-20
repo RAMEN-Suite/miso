@@ -51,7 +51,7 @@ function handleAddTextClick(): void {
   >
     <template #title>
       <div class="header">
-        <div class="button-pane flex justify-content-end align-items-center">
+        <div class="button-pane flex justify-end items-center">
           <NodeStatusBadge :status="props.text.meta.status" :style="{ marginRight: 'auto' }" />
         </div>
         <div class="node-labels-container">
@@ -65,9 +65,9 @@ function handleAddTextClick(): void {
     </template>
 
     <template #footer>
-      <div class="flex justify-content-center gap-2">
+      <div class="flex justify-center gap-2">
         <Button
-          class="w-2"
+          class="w-1/6"
           icon="pi pi-check"
           :disabled="isEmptyDraft"
           :title="isEmptyDraft ? 'Enter a text first' : 'Confirm new text'"

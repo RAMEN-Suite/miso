@@ -68,7 +68,7 @@ function setButtonStylingManually(): void {
     }
 
     // When there is no background image AND the annotation has a SplitButton component, the width is set to 'auto'
-    // with the primeflex utility class 'w-auto'.
+    // with the tailwind utility class 'w-auto'.
     if (!hasBackgroundImage) {
       const splitButtonElm: HTMLButtonElement = buttonElm.value.$el.querySelector("button.p-splitbutton-button");
 
@@ -141,7 +141,7 @@ function handleClick(dropdownOption?: string | number): void {
     </template>
 
     <template #item="{ label }">
-      <div class="flex p-1 gap-1 align-items-center select-none cursor-pointer">
+      <div class="flex p-1 gap-1 items-center select-none cursor-pointer">
         <span :style="{ display: 'block', width: '20px', height: '20px' }">
           <AnnotationTypeIcon :annotation-type="label as string" />
         </span>

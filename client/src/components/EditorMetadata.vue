@@ -37,7 +37,7 @@ watch(
 <template>
   <Panel
     header="Metadata"
-    class="metadata-container mb-3"
+    class="metadata-container mb-4"
     toggleable
     collapsed
     :toggle-button-props="{
@@ -50,8 +50,8 @@ watch(
     <template #toggleicon="{ collapsed }">
       <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
-    <div class="mb-3">
-      <div class="flex align-items-center gap-3">
+    <div class="mb-4">
+      <div class="flex items-center gap-4">
         <InputText
           id="uuid"
           :disabled="true"
@@ -66,6 +66,7 @@ watch(
           size="small"
           aria-label="Copy UUID"
           title="Copy UUID"
+          class="w-8! h-8!"
           @click="handleCopy"
         />
       </div>
@@ -76,7 +77,7 @@ watch(
       <template #toggleicon="{ collapsed }">
         <span :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></span>
       </template>
-      <div class="flex justify-content-center align-items-center">
+      <div class="flex justify-center items-center">
         <template v-for="path in paths">
           <HierarchyBreadcrumbs :path="path" />
         </template>

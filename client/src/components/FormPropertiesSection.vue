@@ -16,7 +16,7 @@ const props = defineProps<{
 <template>
   <Fieldset legend="Properties">
     <form>
-      <div v-for="field in fields" v-show="field.visible" :key="field.name" class="flex align-items-center gap-3 mb-3">
+      <div v-for="field in fields" v-show="field.visible" :key="field.name" class="flex items-center gap-4 mb-4">
         <label :for="field.name" class="form-label font-semibold">{{ camelCaseToTitleCase(field.name) }} </label>
         <DataInputGroup v-if="field.type === 'array'" v-model="properties[field.name]" :config="field" :mode="props.mode" />
         <DataInputComponent v-else v-model="properties[field.name]" :config="field" :mode="props.mode" autofocus />

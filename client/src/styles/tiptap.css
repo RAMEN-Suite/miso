@@ -23,6 +23,20 @@
 .tiptap-editor-pane {
   width: 100%;
 
+  /* ------------------ RESETS ------------------ */
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  ol,
+  ul {
+    all: revert;
+  }
+
   /* ------------------ TABLES ------------------ */
 
   table {
@@ -84,6 +98,7 @@
     cursor: ew-resize;
     cursor: col-resize;
   }
+
   /* ------------------ LISTS ------------------ */
 
   ul,

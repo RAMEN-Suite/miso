@@ -52,13 +52,13 @@ function handleSubmitClick(): void {
 </script>
 
 <template>
-  <div class="container flex flex-column gap-3 annotation-create-modal">
+  <div class="flex flex-col gap-4 annotation-create-modal">
     <div class="content">
       <FormPropertiesSection v-model="annotationTemplate.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotationTemplate.connectedNodes" mode="edit" />
     </div>
 
-    <div class="footer flex justify-content-center gap-2 w-full">
+    <div class="footer flex justify-center gap-2 w-full">
       <Button
         :disabled="!inputIsValid"
         type="submit"

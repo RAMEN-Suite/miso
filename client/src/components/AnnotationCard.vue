@@ -33,7 +33,7 @@ function togglePopover(event: MouseEvent): void {
 
 <template>
   <div class="node-card-container">
-    <div class="button-pane flex justify-content-between">
+    <div class="button-pane flex justify-between">
       <div class="node-labels-pane flex">
         <NodeTag v-for="label in filteredLabels" :key="label" class="test mr-1" :content="label" type="Annotation" />
         <div class="icon-container">
@@ -68,7 +68,7 @@ function togglePopover(event: MouseEvent): void {
       ref="info-icon"
       :pt="{
         root: {
-          class: 'w-25rem overflow-y-scroll',
+          class: 'w-100 overflow-y-scroll',
           style: {
             zIndex: 'var(--z-index-max)',
           },

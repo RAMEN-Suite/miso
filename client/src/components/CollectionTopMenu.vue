@@ -2,7 +2,7 @@
 
 <template>
   <div class="top-menu">
-    <div class="button-pane flex justify-content-end p-1"></div>
+    <div class="button-pane flex justify-end p-1"></div>
   </div>
 </template>
 

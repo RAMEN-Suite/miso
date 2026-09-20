@@ -68,7 +68,7 @@ function setButtonStylingManually(): void {
     }
 
     // When there is no background image AND the annotation has a SplitButton component, the width is set to 'auto'
-    // with the primeflex utility class 'w-auto'.
+    // with the tailwind utility class 'w-auto'.
     if (!hasBackgroundImage) {
       const splitButtonElm: HTMLButtonElement = buttonElm.value.$el.querySelector("button.p-splitbutton-button");
 

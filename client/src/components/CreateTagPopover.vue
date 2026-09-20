@@ -106,7 +106,7 @@ function handleSubmit(): void {
     :auto-z-index="false"
     :pt="{
       root: {
-        class: 'w-20rem',
+        class: 'w-80',
         style: {
           zIndex: 'var(--z-index-max)',
         },
@@ -114,8 +114,8 @@ function handleSubmit(): void {
     }"
     @show="handleShow"
   >
-    <form class="tag-form flex flex-column gap-3" @submit.prevent="handleSubmit">
-      <div class="flex flex-column gap-1">
+    <form class="tag-form flex flex-col gap-4" @submit.prevent="handleSubmit">
+      <div class="flex flex-col gap-1">
         <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
         <label for="tag-label" class="text-sm font-semibold">Label</label>
         <InputText
@@ -129,15 +129,15 @@ function handleSubmit(): void {
         />
         <!-- eslint-enable vuejs-accessibility/label-has-for -->
 
-        <small v-if="hasDuplicateLabel" class="duplicate-hint flex align-items-center gap-1">
+        <small v-if="hasDuplicateLabel" class="duplicate-hint flex items-center gap-1">
           <i class="pi pi-exclamation-circle" />
           <span>A tag with this label already exists.</span>
         </small>
       </div>
 
-      <div class="flex flex-column gap-2">
+      <div class="flex flex-col gap-2">
         <span class="text-sm font-semibold">Colour</span>
-        <div class="flex align-items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
           <button
             v-for="presetColor in TAG_COLORS"
             :key="presetColor"
@@ -163,7 +163,7 @@ function handleSubmit(): void {
         </div>
       </div>
 
-      <div class="flex justify-content-end gap-2">
+      <div class="flex justify-end gap-2">
         <Button type="button" label="Cancel" severity="secondary" size="small" @click="close" />
         <Button type="submit" label="Create" :disabled="!isValid" size="small" />
       </div>

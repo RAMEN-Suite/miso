@@ -13,7 +13,7 @@ const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === 
 </script>
 
 <template>
-  <div v-if="isFetchingFocus" class="w-full h-full flex justify-content-center align-items-center">
+  <div v-if="isFetchingFocus" class="w-full h-full flex justify-center items-center">
     <ProgressSpinner
       style="width: 80px; height: 80px"
       stroke-width="2"
@@ -27,7 +27,7 @@ const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === 
   <CollectionEditPane v-else-if="collectionFocus" :focus="collectionFocus" />
   <ContentFocusPane v-else-if="contentFocus" :focus="contentFocus" />
 
-  <div v-else class="w-full h-full flex justify-content-center align-items-center font-italic">
+  <div v-else class="w-full h-full flex justify-center items-center italic">
     <div class="text-center">
       <p>No node selected</p>
     </div>

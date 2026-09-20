@@ -47,7 +47,7 @@ function handleSelect(value: string): void {
 
 <template>
   <Popover ref="popover" :auto-z-index="false" :pt="{ root: { style: { zIndex: 'var(--z-index-max)' } } }">
-    <div class="flex align-items-center gap-2 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap">
       <button
         v-for="presetColor in TAG_COLORS"
         :key="presetColor"

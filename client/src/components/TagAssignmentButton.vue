@@ -43,27 +43,27 @@ function handleTagToggle(tagUuid: string): void {
     :auto-z-index="false"
     :pt="{
       root: {
-        class: 'w-18rem',
+        class: 'w-72',
         style: {
           zIndex: 'var(--z-index-max)',
         },
       },
     }"
   >
-    <div v-if="tags.length === 0" class="text-sm font-italic text-center">No tags yet. Create one in the sidebar.</div>
+    <div v-if="tags.length === 0" class="text-sm italic text-center">No tags yet. Create one in the sidebar.</div>
 
-    <ul v-else class="tag-list flex flex-column gap-1 list-none p-0 m-0">
+    <ul v-else class="tag-list flex flex-col gap-1 list-none p-0 m-0">
       <li v-for="tag in tags" :key="tag.uuid">
         <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-        <label :for="`tag-${tag.uuid}`" class="tag-item flex align-items-center gap-2 p-2 border-round cursor-pointer">
+        <label :for="`tag-${tag.uuid}`" class="tag-item flex items-center gap-2 p-2 rounded-md cursor-pointer">
           <Checkbox
             :model-value="assignedTags.includes(tag.uuid)"
             binary
             :input-id="`tag-${tag.uuid}`"
             @update:model-value="handleTagToggle(tag.uuid)"
           />
-          <span class="tag-dot flex-shrink-0" :style="{ backgroundColor: normalizeTagColor(tag.appearance?.color) }" />
-          <span class="text-sm flex-grow-1 min-w-0 text-overflow-ellipsis overflow-hidden white-space-nowrap">
+          <span class="tag-dot shrink-0" :style="{ backgroundColor: normalizeTagColor(tag.appearance?.color) }" />
+          <span class="text-sm grow min-w-0 text-ellipsis overflow-hidden whitespace-nowrap">
             {{ tag.label }}
           </span>
         </label>
@@ -71,7 +71,7 @@ function handleTagToggle(tagUuid: string): void {
       </li>
     </ul>
 
-    <div class="disclaimer mt-3 text-xs font-italic flex align-items-center gap-2">
+    <div class="disclaimer mt-4 text-xs italic flex items-center gap-2">
       <i class="pi pi-exclamation-circle"></i>
       <span>Tags are stored in your browser. If you change your device, they won't be available there.</span>
     </div>

@@ -464,9 +464,9 @@ function showMessage(result: "success" | "error", error?: Error) {
 </script>
 
 <template>
-  <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-column align-items-center p-2">
-    <div class="main flex-grow-1 flex flex-column gap-1 w-full">
-      <div class="buttons flex justify-content-end gap-1">
+  <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-col items-center p-2">
+    <div class="main grow flex flex-col gap-1 w-full">
+      <div class="buttons flex justify-end gap-1">
         <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
         <Button
           as="a"
@@ -490,7 +490,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         </h3>
       </div>
       <div class="content">
-        <div class="annotations-pane flex flex-wrap align-items-center gap-1 mb-4">
+        <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
           <template v-for="(annotation, index) in temporaryWorkData.annotations" :key="annotation.node.data.uuid">
             <CollectionAnnotationNote
               v-if="annotation.meta.status !== 'deleted'"
@@ -513,7 +513,7 @@ function showMessage(result: "success" | "error", error?: Error) {
             />
             <TieredMenu ref="annotation-menu" :model="annotationMenuItems" popup>
               <template #item="{ item, props: itemProps, hasSubmenu }">
-                <a class="annotation-menu-item flex align-items-center gap-2" v-bind="itemProps.action">
+                <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
                     <AnnotationTypeIcon :annotation-type="item.annotationType" />
                   </span>
@@ -527,9 +527,9 @@ function showMessage(result: "success" | "error", error?: Error) {
         <div class="properties-pane">
           <form ref="form">
             <div v-for="field in collectionFields" :key="field.name" class="input-container">
-              <div class="flex align-items-center gap-3 mb-3">
+              <div class="flex items-center gap-4 mb-4">
                 <!-- eslint-disable vuejs-accessibility/label-has-for -- No id as component prop currently -->
-                <label :for="field.name" class="w-10rem font-semibold">{{ capitalize(field.name) }} </label>
+                <label :for="field.name" class="w-40 font-semibold">{{ capitalize(field.name) }} </label>
                 <DataInputGroup
                   v-if="field.type === 'array'"
                   v-model="temporaryWorkData.collection.node.data[field.name]"
@@ -550,7 +550,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       </div>
     </div>
 
-    <div class="buttons flex justify-content-center gap-2 mt-2">
+    <div class="buttons flex justify-center gap-2 mt-2">
       <Button
         v-if="mode === 'view'"
         icon="pi pi-pencil"

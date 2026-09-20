@@ -95,21 +95,21 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="container flex flex-column gap-3 py-2">
+  <div class="modal-container flex flex-col gap-4 py-2">
     <CollectionLabelInput v-model:label="newCollectionNode.data.label" :placeholder="`Provide a ${additionalNodeLabel} label`" />
 
-    <div class="flex flex-column gap-1">
+    <div class="flex flex-col gap-1">
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
     </div>
 
-    <div class="flex justify-content-center gap-2">
+    <div class="flex justify-center gap-2">
       <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="pi pi-plus" @click="handleSubmit" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.container {
+.modal-container {
   min-width: 350px;
 }
 </style>

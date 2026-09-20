@@ -75,13 +75,13 @@ function updateView() {
 </script>
 
 <template>
-  <div class="content-focus-pane h-full flex flex-column align-items-center p-2">
-    <div class="main flex-grow-1 flex flex-column w-full">
-      <div class="buttons flex justify-content-end gap-1">
+  <div class="content-focus-pane h-full flex flex-col items-center p-2">
+    <div class="main grow flex flex-col w-full">
+      <div class="buttons flex justify-end gap-1">
         <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
       </div>
 
-      <div class="label-section flex align-items-center justify-content-center gap-2">
+      <div class="label-section flex items-center justify-center gap-2">
         <i :class="icon" />
       </div>
 
@@ -90,7 +90,7 @@ function updateView() {
       </div>
     </div>
 
-    <div class="buttons flex justify-content-center gap-2 pt-2">
+    <div class="buttons flex justify-center gap-2 pt-2">
       <Button
         as="a"
         :href="editorUrl"

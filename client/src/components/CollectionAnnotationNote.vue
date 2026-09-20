@@ -37,7 +37,7 @@ function handleToggleView(event: MouseEvent): void {
 <template>
   <div class="note" :data-annotation-uuid="annotation.node.data.uuid">
     <div class="header">
-      <div class="flex items-center gap-1 align-items-center flex-grow-1">
+      <div class="flex items-center gap-1 grow">
         <div class="icon-container">
           <AnnotationTypeIcon :annotation-type="annotation.node.data.subType ?? annotation.node.data.type" />
         </div>
@@ -82,7 +82,7 @@ function handleToggleView(event: MouseEvent): void {
       ref="popover"
       :pt="{
         root: {
-          class: 'w-25rem',
+          class: 'w-100',
           style: {
             zIndex: 'var(--z-index-max)',
           },

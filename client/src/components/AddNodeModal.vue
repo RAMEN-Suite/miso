@@ -99,7 +99,7 @@ function closeModal(): void {
 </script>
 
 <template>
-  <div class="container">
+  <div class="modal-container">
     <template v-if="currentStep === 'choosing'">
       <NodeSearchbar
         :base-node-label="baseNodeLabel"
@@ -128,7 +128,7 @@ function closeModal(): void {
       <CollectionCard v-if="baseNodeLabel === 'Collection'" :model-value="nodeAsCollection" mode="view" />
       <TextCard v-if="baseNodeLabel === 'Content'" :model-value="nodeAsText" mode="view" />
       <EntityCard v-if="baseNodeLabel === 'Entity'" :model-value="nodeAsEntity" mode="view" />
-      <div class="flex justify-content-center gap-2 mt-4 w-full">
+      <div class="flex justify-center gap-2 mt-6 w-full">
         <Button label="Add" icon="pi pi-plus" @click="handleFinishClick" />
         <Button label="Go back" icon="pi pi-arrow-left" severity="secondary" @click="handleGoBack" />
       </div>
@@ -138,7 +138,7 @@ function closeModal(): void {
 
 <style scoped>
 /* The dialog has a fixed height, so the searchbar plus the draft area need to stay scrollable */
-.container {
+.modal-container {
   height: 100%;
   overflow-y: auto;
 }

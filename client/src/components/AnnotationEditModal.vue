@@ -50,13 +50,13 @@ function closeModal(): void {
 </script>
 
 <template>
-  <div class="container flex flex-column gap-3 annotation-edit-modal">
+  <div class="flex flex-col gap-4 annotation-edit-modal">
     <div class="content">
       <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="edit" />
     </div>
 
-    <div class="footer flex justify-content-center gap-2 w-full">
+    <div class="footer flex justify-center gap-2 w-full">
       <Button :disabled="!inputIsValid" label="Update" icon="pi pi-check" title="Update annotation" @click="handleUpdateClick" />
     </div>
   </div>

@@ -19,9 +19,9 @@ const width: ComputedRef<number> = computed(() => (sidebarIsCollapsed.value ? 0 
 
 const arrowDirection: ComputedRef<string> = computed(() => {
   if (position === "left") {
-    return sidebarIsCollapsed.value ? "pi pi-arrow-right" : "pi pi-arrow-left";
+    return sidebarIsCollapsed.value ? "icon-arrow-right" : "icon-arrow-left";
   } else {
-    return sidebarIsCollapsed.value ? "pi pi-arrow-left" : "pi pi-arrow-right";
+    return sidebarIsCollapsed.value ? "icon-arrow-left" : "icon-arrow-right";
   }
 });
 

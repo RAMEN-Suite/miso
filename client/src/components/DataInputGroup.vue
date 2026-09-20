@@ -66,7 +66,7 @@ function handleDeleteItem(itemIndex: number): void {
         :style="{ width: '1rem', height: '1rem', padding: '10px' }"
         severity="danger"
         outlined
-        icon="pi pi-times"
+        icon="icon-x"
         size="small"
         :disabled="modelValue?.length <= (minItems || 0)"
         @click="handleDeleteItem(index)"
@@ -75,7 +75,7 @@ function handleDeleteItem(itemIndex: number): void {
     <Button
       v-if="isEditable"
       class="mt-2 w-full h-8"
-      icon="pi pi-plus"
+      icon="icon-plus"
       size="small"
       severity="secondary"
       label="Add item"

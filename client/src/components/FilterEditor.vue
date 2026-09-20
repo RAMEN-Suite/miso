@@ -215,7 +215,7 @@ defineExpose({ sync });
     <hr />
 
     <IconField>
-      <InputIcon class="pi pi-search" />
+      <InputIcon class="icon-search" />
       <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />
     </IconField>
 
@@ -231,7 +231,7 @@ defineExpose({ sync });
       <div class="flex justify-center">
         <Button
           label="Add rule"
-          icon="pi pi-plus"
+          icon="icon-plus"
           title="Add new filter rule"
           severity="info"
           text

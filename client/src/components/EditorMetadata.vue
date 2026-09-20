@@ -48,7 +48,7 @@ watch(
     }"
   >
     <template #toggleicon="{ collapsed }">
-      <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
+      <i :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
     <div class="mb-4">
       <div class="flex items-center gap-4">
@@ -61,7 +61,7 @@ watch(
           spellcheck="false"
         />
         <Button
-          icon="pi pi-copy"
+          icon="icon-copy"
           severity="secondary"
           size="small"
           aria-label="Copy UUID"
@@ -75,7 +75,7 @@ watch(
 
     <Fieldset legend="Ancestry path" toggleable>
       <template #toggleicon="{ collapsed }">
-        <span :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></span>
+        <span :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></span>
       </template>
       <div class="flex justify-center items-center">
         <template v-for="path in paths">

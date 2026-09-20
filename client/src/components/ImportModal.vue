@@ -106,7 +106,7 @@ function closeModal(): void {
 <template>
   <h2 v-if="currentStep === null || currentStep === 'validating'" class="w-full text-center m-0">Select JSON to import</h2>
   <div v-if="currentStep === null || currentStep === 'validating'" class="choose-panel">
-    <Message v-if="editorContainsText" severity="warn" icon="pi pi-exclamation-circle" class="w-full my-2" closable>
+    <Message v-if="editorContainsText" severity="warn" icon="icon-alert-circle" close-icon="icon-x" class="w-full my-2" closable>
       Careful: This document already contains text that will be lost after the import has finished.
     </Message>
     <ButtonGroup class="w-full flex mb-2">
@@ -146,7 +146,7 @@ function closeModal(): void {
               <Button
                 v-if="!inputIsValid"
                 label="Browse files"
-                icon="pi pi-plus"
+                icon="icon-plus"
                 severity="contrast"
                 title="Choose file to import (.json or .txt)"
                 :disabled="inputIsValid"
@@ -183,7 +183,7 @@ function closeModal(): void {
             <div class="flex flex-col items-center justify-center">
               <p class="mt-0 mb-6 italic">or</p>
               <p class="m-0 p-4 h-24 rounded-xl drop-area flex justify-center gap-2 items-center">
-                <i class="pi pi-file-arrow-up" style="font-size: 1rem" />
+                <i class="icon-file-up" style="font-size: 1rem" />
                 <span> Drag and drop files to here to upload.</span>
               </p>
             </div>
@@ -201,7 +201,7 @@ function closeModal(): void {
     <ProgressBar mode="indeterminate" style="height: 5px; width: 100%"></ProgressBar>
   </div>
   <div v-else class="flex flex-col items-center">
-    <Message icon="pi pi-check" class="my-2 w-full" severity="success">
+    <Message icon="icon-check" class="my-2 w-full" severity="success">
       <div class="info">
         Text imported successfully
         <ul class="m-0 pl-12">
@@ -210,7 +210,7 @@ function closeModal(): void {
         </ul>
       </div>
     </Message>
-    <Message icon="pi pi-info-circle" class="my-2 w-full" severity="info">
+    <Message icon="icon-info" class="my-2 w-full" severity="info">
       Currently, the text is dangling (not saved in the database). You can edit the text, but to get a better performance, save
       the text and reload the page.
     </Message>

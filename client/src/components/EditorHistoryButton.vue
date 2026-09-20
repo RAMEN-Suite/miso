@@ -20,7 +20,7 @@ function handleClick(): void {
 
 <template>
   <Button
-    icon="pi pi-undo"
+    icon="icon-undo-2"
     aria-label="Home"
     severity="secondary"
     :class="`w-8! h-8! btn-${props.action}`"

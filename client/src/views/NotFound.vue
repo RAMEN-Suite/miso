@@ -24,8 +24,8 @@ async function goHome(): Promise<void> {
     <h2>404</h2>
     <div class="text">The page you requested does not exist :/</div>
     <div class="flex gap-2">
-      <Button v-if="hasHistory" icon="pi pi-arrow-left" label="Go back" @click="goBack" />
-      <Button icon="pi pi-home" label="Go to home" @click="goHome" />
+      <Button v-if="hasHistory" icon="icon-arrow-left" label="Go back" @click="goBack" />
+      <Button icon="icon-home" label="Go to home" @click="goHome" />
     </div>
   </div>
 </template>

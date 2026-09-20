@@ -135,16 +135,16 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Insert table",
       title: "Insert table",
-      icon: "pi pi-table",
+      icon: "icon-table",
       command: (e: MenuItemCommandEvent) => tablePopover.value?.toggle(e.originalEvent),
     },
-    { label: "Delete table", icon: "pi pi-trash", command: () => runTableCommand((c) => c.deleteTable()) },
+    { label: "Delete table", icon: "icon-trash-2", command: () => runTableCommand((c) => c.deleteTable()) },
 
     { separator: true },
     {
       label: "Add",
       title: "Add row or column",
-      icon: "pi pi-plus",
+      icon: "icon-plus",
       disabled: !inTable,
       items: [
         { label: "Row above", title: "Add row above", command: () => runTableCommand((c) => c.addRowBefore()) },
@@ -156,7 +156,7 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Remove",
       title: "Remove row or column",
-      icon: "pi pi-minus",
+      icon: "icon-minus",
       disabled: !inTable,
       items: [
         { label: "Delete row", title: "Delete row", command: () => runTableCommand((c) => c.deleteRow()) },
@@ -166,7 +166,7 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Merge / Split",
       title: "Merge or split cells",
-      icon: "pi pi-arrows-h",
+      icon: "icon-move-horizontal",
       disabled: !inTable,
       items: [
         { label: "Merge cells", title: "Merge cells", command: () => runTableCommand((c) => c.mergeCells()) },
@@ -177,7 +177,7 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Header",
       title: "Toggle header row or column",
-      icon: "pi pi-list",
+      icon: "icon-list",
       disabled: !inTable,
       items: [
         { label: "Toggle header row", title: "Toggle header row", command: () => runTableCommand((c) => c.toggleHeaderRow()) },
@@ -391,14 +391,14 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
           <Button
             v-tooltip.hover.top="{ value: 'list', showDelay: 50 }"
             severity="secondary"
-            icon="pi pi-list"
+            icon="icon-list"
             :class="{ 'is-active': tiptap?.isActive('bulletList') }"
             @click="tiptap?.chain().focus().toggleBulletList().run()"
           ></Button>
           <Button
             v-tooltip.hover.top="{ value: 'table', showDelay: 50 }"
             severity="secondary"
-            icon="pi pi-table"
+            icon="icon-table"
             aria-haspopup="true"
             :class="{ 'is-active': tiptap?.isActive('table') }"
             @click="openTableMenu($event)"
@@ -408,24 +408,8 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
             v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
             severity="secondary"
             @click="tiptap?.chain().focus().setHardBreak().run()"
+            icon="icon-text-wrap"
           >
-            <template #icon>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                width="1em"
-                height="1em"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M20 5v6a2 2 0 0 1-2 2H6" />
-                <path d="M10 9l-4 4 4 4" />
-              </svg>
-            </template>
           </Button>
         </div>
       </TabPanel>

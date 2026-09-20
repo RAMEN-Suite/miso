@@ -116,7 +116,7 @@ function closeModal(): void {
         <Button
           v-else
           :label="`Create new ${additionalNodeLabel}`"
-          icon="pi pi-plus"
+          icon="icon-plus"
           severity="secondary"
           class="w-full"
           :title="`Create a new ${additionalNodeLabel} node`"
@@ -129,8 +129,8 @@ function closeModal(): void {
       <TextCard v-if="baseNodeLabel === 'Content'" :model-value="nodeAsText" mode="view" />
       <EntityCard v-if="baseNodeLabel === 'Entity'" :model-value="nodeAsEntity" mode="view" />
       <div class="flex justify-center gap-2 mt-6 w-full">
-        <Button label="Add" icon="pi pi-plus" @click="handleFinishClick" />
-        <Button label="Go back" icon="pi pi-arrow-left" severity="secondary" @click="handleGoBack" />
+        <Button label="Add" icon="icon-plus" @click="handleFinishClick" />
+        <Button label="Go back" icon="icon-arrow-left" severity="secondary" @click="handleGoBack" />
       </div>
     </template>
   </div>

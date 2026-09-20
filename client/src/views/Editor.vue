@@ -832,11 +832,11 @@ watch(
       :style="{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 'var(--z-index-overlay)' }"
     >
       <div class="flex justify-center pt-6">
-        <Message class="text-center w-1/2" severity="info" icon="pi pi-info-circle">
+        <Message class="text-center w-1/2" severity="info" icon="icon-info">
           <p><strong>Edit annotated text</strong></p>
           <p>Select the new text that should belong to this annotation.</p>
           <p>
-            To cancel the operation, click the <i class="pi pi-times-circle"></i> button in the annotation panel on the right or
+            To cancel the operation, click the <i class="icon-x-circle"></i> button in the annotation panel on the right or
             press <kbd>Esc</kbd>.
           </p>
         </Message>

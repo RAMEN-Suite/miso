@@ -6,8 +6,8 @@ import { MenuItem } from "primevue/menuitem";
 import { useSmartViewsStore } from "../store/smartViews";
 import { SmartView } from "../models/types";
 
-const SMART_VIEW_ICON: string = "pi pi-folder";
-const SMART_VIEW_ICON_ACTIVE: string = "pi pi-folder";
+const SMART_VIEW_ICON: string = "icon-folder";
+const SMART_VIEW_ICON_ACTIVE: string = "icon-folder";
 
 const props = defineProps<{
   view: DeepReadonly<SmartView>;
@@ -24,8 +24,8 @@ const isRenaming = ref<boolean>(false);
 const renameDraft = ref<string>("");
 
 const menuItems: MenuItem[] = [
-  { label: "Edit", icon: "pi pi-pencil", command: () => emit("edit") },
-  { label: "Delete", icon: "pi pi-trash", command: () => emit("delete") },
+  { label: "Edit", icon: "icon-pencil", command: () => emit("edit") },
+  { label: "Delete", icon: "icon-trash-2", command: () => emit("delete") },
 ];
 
 function handleOpenMenu(event: Event): void {
@@ -138,7 +138,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
 
       <Button
         class="row-action"
-        icon="pi pi-ellipsis-v"
+        icon="icon-ellipsis-vertical"
         severity="secondary"
         text
         rounded

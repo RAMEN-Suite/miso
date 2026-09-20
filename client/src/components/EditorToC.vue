@@ -41,7 +41,7 @@ function handleNodeClick(node: ToCItem) {
       <div class="header font-bold">Table of Contents</div>
     </template>
     <template #toggleicon="{ collapsed }">
-      <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
+      <i :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
     <div class="table-of-contents">
       <template v-if="tiptap">
@@ -85,10 +85,10 @@ function handleNodeClick(node: ToCItem) {
           >
             <template #nodetoggleicon="{ node, expanded }">
               <template v-if="node.children?.length !== 0">
-                <i :class="`pi pi-chevron-${expanded ? 'down' : 'right'}`"></i>
+                <i :class="`icon-chevron-${expanded ? 'down' : 'right'}`"></i>
               </template>
               <template v-else>
-                <i class="pi pi-minus"></i>
+                <i class="icon-minus"></i>
               </template>
             </template>
             <template #default="slotProps">

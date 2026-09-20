@@ -23,15 +23,15 @@ const { getTag } = useTagsStore();
 
 const breadcrumbHome = computed<MenuItem>(() => {
   if (root.value.kind === "database") {
-    return { icon: "pi pi-home" };
+    return { icon: "home" };
   } else if (root.value.kind === "smartView") {
     const view: SmartView | null = getSmartView(root.value.uuid);
 
-    return { icon: "pi pi-folder", label: view?.label ?? "" };
+    return { icon: "folder", label: view?.label ?? "" };
   } else {
     const tag: DeepReadonly<Tag> | null = getTag(root.value.uuid);
 
-    return { icon: "pi pi-tag", label: tag?.label ?? "", color: normalizeTagColor(tag?.appearance?.color) };
+    return { icon: "tag", label: tag?.label ?? "", color: normalizeTagColor(tag?.appearance?.color) };
   }
 });
 

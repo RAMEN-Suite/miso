@@ -93,7 +93,7 @@ function close(): void {
       <!-- eslint-enable vuejs-accessibility/label-has-for -->
 
       <small v-if="hasDuplicateLabel" class="duplicate-hint flex items-center gap-1">
-        <i class="pi pi-exclamation-circle" />
+        <i class="icon-alert-circle" />
         <span>A view with this label already exists.</span>
       </small>
     </div>

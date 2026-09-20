@@ -15,14 +15,9 @@ function toggle(event: PointerEvent): void {
 </script>
 
 <template>
-  <Button
-    icon="pi pi-cog"
-    severity="secondary"
-    aria-label="View settings"
-    title="View settings"
-    class="w-8! h-8! ml-1"
-    @click="toggle"
-  />
+  <Button severity="secondary" aria-label="View settings" title="View settings" class="w-8! h-8! ml-1" @click="toggle">
+    <i class="icon-settings"></i>
+  </Button>
   <Popover ref="popover">
     <div class="flex flex-col gap-4 p-2" style="min-width: 16rem">
       <span class="font-bold">Document structures</span>

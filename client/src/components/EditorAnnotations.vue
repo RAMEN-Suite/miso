@@ -113,7 +113,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
       <div class="header font-bold">Annotations [{{ displayedAnnotations.length }}]</div>
     </template>
     <template #toggleicon="{ collapsed }">
-      <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
+      <i :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
     <div class="tree">
       <div class="flex justify-center">
@@ -125,6 +125,9 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
           :meta-key-selection="false"
           class="w-full"
         >
+          <template #nodetoggleicon="{ expanded }">
+            <i :class="`icon-chevron-${expanded ? 'down' : 'right'}`"></i>
+          </template>
           <template #default="slotProps">
             <div v-if="slotProps.node.type === 'category'">
               <div class="name-container ml-2 font-bold">
@@ -132,7 +135,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
               </div>
             </div>
             <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
-              <div class="icon-container">
+              <div class="annotation-type-icon-container">
                 <AnnotationTypeIcon :annotation-type="slotProps.node.label" />
               </div>
               <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children.length }}]</div>
@@ -173,7 +176,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
   font-style: italic;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 15px;
   height: 15px;
 }

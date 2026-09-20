@@ -53,7 +53,7 @@ const previewText = computed<string>(() => {
 });
 
 /* eslint-disable -- Will be needed when redraw modes is re-implemented */
-const redrawButtonicon = computed<string>(() => (redrawMode.value?.direction === "on" ? "pi pi-times" : "pi pi-pencil"));
+const redrawButtonicon = computed<string>(() => (redrawMode.value?.direction === "on" ? "icon-x" : "icon-pencil"));
 const redrawButtonTitle = computed<string>(() => (isRedrawMode.value ? "Cancel redraw operation" : "Redraw annotation"));
 
 function handleDeleteAnnotation(): void {
@@ -201,7 +201,7 @@ function updateData(updated: Annotation): void {
   <div :id="props.annotation.node.data.uuid" class="annotation-card mb-4" :data-annotation-uuid="currentData.node.data.uuid">
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
-        <div class="icon-container">
+        <div class="annotation-type-icon-container">
           <AnnotationTypeIcon :annotation-type="currentData.node.data.subType ?? currentData.node.data.type" />
         </div>
         <span class="font-bold">{{ currentData.node.data.subType ?? currentData.node.data.type }}</span>
@@ -209,7 +209,7 @@ function updateData(updated: Annotation): void {
           {{ previewText }}
         </span>
         <div
-          class="spy pi pi-eye cursor-pointer"
+          class="spy icon-eye cursor-pointer"
           title="Show annotated text"
           role="button"
           tabindex="0"
@@ -223,7 +223,7 @@ function updateData(updated: Annotation): void {
         ></div>
       </div>
       <Button
-        :icon="`pi pi-chevron-${isCollapsed ? 'down' : 'up'}`"
+        :icon="`icon-chevron-${isCollapsed ? 'down' : 'up'}`"
         severity="secondary"
         title="Toggle full view"
         rounded
@@ -241,7 +241,7 @@ function updateData(updated: Annotation): void {
     <div class="annotation-card-footer">
       <!-- <div class="edit-buttons flex justify-center items-center">
         <Button
-          icon="pi pi-angle-left"
+          icon="icon-chevron-left"
           size="small"
           severity="secondary"
           rounded
@@ -251,7 +251,7 @@ function updateData(updated: Annotation): void {
           :style="{ width: '20px', height: '20px' }"
         />
         <Button
-          icon="pi pi-angle-right"
+          icon="icon-chevron-right"
           size="small"
           severity="secondary"
           rounded
@@ -261,7 +261,7 @@ function updateData(updated: Annotation): void {
           :style="{ width: '20px', height: '20px' }"
         />
         <Button
-          icon="pi pi-plus"
+          icon="icon-plus"
           size="small"
           severity="secondary"
           rounded
@@ -271,7 +271,7 @@ function updateData(updated: Annotation): void {
           :style="{ width: '20px', height: '20px' }"
         />
         <Button
-          icon="pi pi-minus"
+          icon="icon-minus"
           size="small"
           severity="secondary"
           rounded
@@ -296,7 +296,7 @@ function updateData(updated: Annotation): void {
           title="Edit annotation"
           severity="secondary"
           variant="text"
-          icon="pi pi-pencil"
+          icon="icon-pencil"
           size="small"
           :style="{ width: '20px', height: '20px' }"
           @click="handleEditAnnotation"
@@ -305,7 +305,7 @@ function updateData(updated: Annotation): void {
           title="Delete annotation"
           severity="danger"
           variant="text"
-          icon="pi pi-trash"
+          icon="icon-trash-2"
           size="small"
           :style="{ width: '20px', height: '20px' }"
           @click="handleDeleteAnnotation"
@@ -347,7 +347,7 @@ function updateData(updated: Annotation): void {
   justify-content: center;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 20px;
   height: 20px;
 }

@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Breadcrumb from "primevue/breadcrumb";
-import { HierarchyPath } from "../models/types";
+import { HierarchyPath, IconSpecInput } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
+import AppIcon from "./AppIcon.vue";
+
+/**
+ * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ */
+interface BreadcrumbMenuItem extends Omit<MenuItem, "icon"> {
+  icon?: IconSpecInput;
+  color?: string;
+}
 
 const props = defineProps<{
-  home?: MenuItem;
+  home?: BreadcrumbMenuItem;
   path: HierarchyPath;
 }>();
 
@@ -15,12 +24,8 @@ const emit = defineEmits(["itemClicked", "homeClicked"]);
 
 const LABEL_MAX_LENGTH: number = 30;
 
-interface BreadcrumbMenuItem extends MenuItem {
-  color?: string;
-}
-
 const home = computed<BreadcrumbMenuItem>(() => ({
-  icon: "pi pi-home",
+  icon: "home",
   ...(props.home && { ...props.home }),
   command: () => emit("homeClicked"),
 }));
@@ -45,8 +50,8 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
 <template>
   <div class="breadcrumbs-section p-1">
     <Breadcrumb
-      :home="home"
-      :model="breadcrumbItems"
+      :home="home as MenuItem"
+      :model="breadcrumbItems as MenuItem[]"
       :pt="{
         root: {
           style: {
@@ -64,13 +69,14 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
             style: context.item.color ? { color: context.item.color } : undefined,
           };
         },
-        itemIcon: ({ context }) => {
-          return {
-            style: context.item.color ? { color: context.item.color } : undefined,
-          };
-        },
       }"
     >
+      <template #itemicon="{ item }">
+        <AppIcon :spec="(item as BreadcrumbMenuItem).icon" />
+      </template>
+      <template #separator>
+        <i class="icon-chevron-right" aria-hidden="true"></i>
+      </template>
     </Breadcrumb>
   </div>
 </template>

@@ -62,7 +62,7 @@ function handleSubmitClick(): void {
       <Button
         :disabled="!inputIsValid"
         type="submit"
-        icon="pi pi-plus"
+        icon="icon-plus"
         label="Add"
         title="Add annotation"
         severity="primary"
@@ -85,7 +85,7 @@ function handleSubmitClick(): void {
   flex-grow: 1;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 20px;
   height: 20px;
 }

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Button from "primevue/button";
-import { ContentFocus } from "../models/types";
+import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
-import { IconSpec } from "../models/IconSpec";
 import AppIcon from "./AppIcon.vue";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";

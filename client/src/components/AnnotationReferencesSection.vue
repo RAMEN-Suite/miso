@@ -4,7 +4,7 @@ import Fieldset from "primevue/fieldset";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import { CollectionNode, EntityNode, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
+import { CollectionNode, EntityNode, IconSpecInput, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
 import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
@@ -14,7 +14,16 @@ import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
+import AppIcon from "./AppIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
+
+/**
+ * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ */
+interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
+  icon?: IconSpecInput;
+  items?: NodeMenuItem[];
+}
 
 const nodes = defineModel<NodeStatusObject[]>({ required: true });
 
@@ -37,9 +46,9 @@ const entityLabels: string[] = [...new Set(getAvailableEntityLabels())].toSorted
  *
  * @param {ReferenceNodeLabel} baseNodeLabel - The base node label of the group.
  * @param {string[]} additionalNodeLabels - The domain labels available for that base node label.
- * @returns {MenuItem} The menu group for the given base node label.
+ * @returns {NodeMenuItem} The menu group for the given base node label.
  */
-function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLabels: string[]): MenuItem {
+function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLabels: string[]): NodeMenuItem {
   return {
     label: baseNodeLabel,
     items: additionalNodeLabels
@@ -52,7 +61,7 @@ function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLab
   };
 }
 
-const addMenuItems: MenuItem[] = [
+const addMenuItems: NodeMenuItem[] = [
   createAddMenuGroup("Collection", collectionLabels),
   createAddMenuGroup("Content", contentLabels),
   createAddMenuGroup("Entity", entityLabels),
@@ -155,7 +164,7 @@ function handleAddNodeClick(event: PointerEvent): void {
       v-if="props.mode === 'edit'"
       type="button"
       label="Add Reference"
-      icon="pi pi-plus"
+      icon="icon-plus"
       class="w-full"
       severity="secondary"
       aria-haspopup="true"
@@ -163,7 +172,11 @@ function handleAddNodeClick(event: PointerEvent): void {
       title="Add new reference"
       @click="handleAddNodeClick"
     />
-    <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems" :popup="true" />
+    <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]" :popup="true">
+      <template #itemicon="{ item }">
+        <AppIcon :spec="(item as NodeMenuItem).icon" />
+      </template>
+    </Menu>
   </Fieldset>
 </template>
 

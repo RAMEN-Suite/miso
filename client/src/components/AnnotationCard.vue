@@ -36,7 +36,7 @@ function togglePopover(event: MouseEvent): void {
     <div class="button-pane flex justify-between">
       <div class="node-labels-pane flex">
         <NodeTag v-for="label in filteredLabels" :key="label" class="test mr-1" :content="label" type="Annotation" />
-        <div class="icon-container">
+        <div class="annotation-type-icon-container">
           <AnnotationTypeIcon :annotation-type="node!.node.data.subType ?? node!.node.data.type" />
         </div>
         <div class="annotation-type-container">
@@ -47,7 +47,7 @@ function togglePopover(event: MouseEvent): void {
 
       <Button
         :class="props.mode === 'view' ? 'invisible' : ''"
-        icon="pi pi-times"
+        icon="icon-x"
         size="small"
         severity="danger"
         title="Remove annotation"
@@ -56,7 +56,7 @@ function togglePopover(event: MouseEvent): void {
       ></Button>
     </div>
     <Button
-      icon="pi pi-info-circle"
+      icon="icon-info"
       size="small"
       severity="secondary"
       class="ml-2"
@@ -102,7 +102,7 @@ function togglePopover(event: MouseEvent): void {
     }
   }
 
-  .icon-container {
+  .annotation-type-icon-container {
     width: 20px;
     height: 20px;
   }

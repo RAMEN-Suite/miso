@@ -489,6 +489,41 @@ export interface SemanticBlockRange {
   uuid: string;
 }
 
+/** An icon from the bundled Lucide set. */
+export interface LucideIconSpec {
+  kind: "lucide";
+  /** Name of the lucide icon, in kebab-case (e.g. `folder-open`) */
+  name: string;
+}
+
+/** An icon loaded from an external URL. */
+export interface UrlIconSpec {
+  kind: "url";
+  /** URL of the icon. */
+  url: string;
+  /** Optional alt text. When omitted the icon is treated as decorative. */
+  alt?: string;
+}
+
+/** Raw inline SVG markup. */
+export interface SvgIconSpec {
+  kind: "svg";
+  /** Raw SVG markup. */
+  svg: string;
+}
+
+/**
+ * Canonical description of a single icon.
+ *
+ * Deliberately free of any node/annotation specifics, so the same shape can describe icons for node
+ * labels, annotation types or anything else that becomes configurable later. Normalized from the
+ * shorthand by `normalizeIconSpec` in `src/config/icons.ts`.
+ */
+export type IconSpec = LucideIconSpec | UrlIconSpec | SvgIconSpec;
+
+/** What a configuration may write: the canonical object form, or a bare Lucide name as shorthand. */
+export type IconSpecInput = IconSpec | string;
+
 /**
  * A user-defined view: a named filter preset held in the browser. Selecting one lists the top of the
  * hierarchy pre-filtered by {@linkcode SmartView.config}. Unlike a {@linkcode Tag} it references no

@@ -10,6 +10,7 @@ import {
   HierarchyEntry,
   HierarchyScope,
   HierarchyNode,
+  IconSpecInput,
   Level,
   LevelState,
   NodeDto,
@@ -28,7 +29,16 @@ import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
+import AppIcon from "./AppIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
+
+/**
+ * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ */
+interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
+  icon?: IconSpecInput;
+  items?: NodeMenuItem[];
+}
 
 const props = defineProps<{
   index: number;
@@ -82,10 +92,10 @@ const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
 
-const addMenuItems: MenuItem[] = [
+const addMenuItems: NodeMenuItem[] = [
   {
     label: "Collection",
-    icon: "pi pi-folder",
+    icon: "folder",
     items: collectionLabels.map((l) => ({
       label: l,
       icon: resolveNodeIcon(["Collection"]),
@@ -94,7 +104,7 @@ const addMenuItems: MenuItem[] = [
   },
   {
     label: "Content",
-    icon: "pi pi-file",
+    icon: "file",
     items: contentLabels.map((l) => ({
       label: l,
       icon: resolveNodeIcon(["Content"]),
@@ -320,7 +330,7 @@ const sortTargetKey = computed<string>(() => targetKey(levels.value[props.index]
 const sortMenuItems = computed<MenuItem[]>(() =>
   sortTargetOptions.value.map((option) => ({
     label: option.label,
-    icon: sortTargetKey.value === option.value ? "pi pi-check" : undefined,
+    icon: sortTargetKey.value === option.value ? "icon-check" : undefined,
     title: option.value === "distinct" ? "Sort alphabetically" : `Sort by ${option.label}`,
     command: () => handleSortTargetChange(option.value),
   })),
@@ -403,14 +413,14 @@ function endResize(): void {
         @update:model-value="debouncedFetchFirstPage"
       />
       <Button size="small" severity="secondary" title="Filter the listing" class="shrink-0" @click="toggleFilterPopover">
-        <i v-if="hasActiveFilters" class="pi pi-filter-fill" />
-        <i v-else class="pi pi-filter" />
+        <i class="icon-filter" :class="{ 'filter-active': hasActiveFilters }" />
       </Button>
       <SplitButton
         ref="sort-button"
         size="small"
         severity="secondary"
-        :icon="`pi pi-sort-amount-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}`"
+        dropdown-icon="icon-chevron-down"
+        :icon="`icon-arrow-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}-narrow-wide`"
         :model="sortMenuItems"
         class="shrink-0"
         :button-props="{ title: 'Change sort direction' }"
@@ -430,18 +440,22 @@ function endResize(): void {
           ></HierarchyItem>
         </template>
         <div v-if="state.isLoading && entries.length > 0" class="text-center" title="More data are loading...">
-          <span class="pi pi-spin pi-spinner"></span>
+          <span class="icon-loader-circle animate-spin"></span>
         </div>
       </div>
       <Button
         v-if="canCreateNodes"
         class="add-button"
         severity="secondary"
-        icon="pi pi-plus"
+        icon="icon-plus"
         title="Add Collection or Content"
         @click="toggleAddMenu"
       />
-      <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems" :popup="true" />
+      <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]" :popup="true">
+        <template #itemicon="{ item }">
+          <AppIcon :spec="(item as NodeMenuItem).icon" />
+        </template>
+      </Menu>
     </div>
     <div class="footer">
       <div class="count text-xs text-right pr-4">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
@@ -478,6 +492,10 @@ function endResize(): void {
 
 .header > * {
   min-width: 0;
+}
+
+.filter-active {
+  color: var(--p-primary-color);
 }
 
 .content-wrapper {

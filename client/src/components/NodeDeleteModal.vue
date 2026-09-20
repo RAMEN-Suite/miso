@@ -81,7 +81,7 @@ function handleCancelClick(): void {
 
 <template>
   <div class="content text-center mb-2">
-    <p>
+    <p class="my-4">
       {{ deleteMessage }}
     </p>
   </div>

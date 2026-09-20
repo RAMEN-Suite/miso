@@ -66,6 +66,7 @@ watch(
           size="small"
           aria-label="Copy UUID"
           title="Copy UUID"
+          class="w-8! h-8!"
           @click="handleCopy"
         />
       </div>

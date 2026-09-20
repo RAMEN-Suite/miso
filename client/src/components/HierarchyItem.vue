@@ -96,7 +96,6 @@ function handleItemSelect(): void {
 
 .content .label {
   color: hsl(0, 0%, 40%);
-  font-weight: normal;
 }
 
 .label {

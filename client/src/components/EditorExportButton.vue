@@ -27,7 +27,7 @@ function openExportModal(): void {
     icon="pi pi-file-export"
     severity="secondary"
     outlined
-    class="h-8 mr-1"
+    class="w-8! h-8! mr-1"
     title="Export JSON"
     disabled
     @click="openExportModal"

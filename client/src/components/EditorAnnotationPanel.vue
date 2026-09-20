@@ -49,7 +49,7 @@ const annotationsInSelection = computed<Annotation[]>(() => {
 <template>
   <div class="annotation-details-panel h-full flex flex-col overflow-y-auto">
     <div class="header flex items-center gap-2 my-6">
-      <h3 class="m-0">Annotations</h3>
+      <h3 class="m-0 font-bold">Annotations</h3>
     </div>
     <div class="annotation-list grow overflow-y-auto p-1">
       <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">

@@ -20,7 +20,7 @@ function toggle(event: PointerEvent): void {
     severity="secondary"
     aria-label="View settings"
     title="View settings"
-    class="w-8 h-8 ml-1"
+    class="w-8! h-8! ml-1"
     @click="toggle"
   />
   <Popover ref="popover">
@@ -34,18 +34,12 @@ function toggle(event: PointerEvent): void {
 
       <span class="font-bold">Block decorations</span>
 
-      <div
-        class="flex items-center justify-between gap-4"
-        title="Toggle outlines for document blocks (paragraphs, lists)"
-      >
+      <div class="flex items-center justify-between gap-4" title="Toggle outlines for document blocks (paragraphs, lists)">
         <label for="deco-outline">Show block outlines</label>
         <ToggleSwitch v-model="settings.blockDecorations.outline" input-id="deco-outline" />
       </div>
 
-      <div
-        class="flex items-center justify-between gap-4"
-        title="Display block names (paragraphs, lists) on top of each block"
-      >
+      <div class="flex items-center justify-between gap-4" title="Display block names (paragraphs, lists) on top of each block">
         <label for="deco-base">Show block names</label>
         <ToggleSwitch v-model="settings.blockDecorations.baseType" input-id="deco-base" />
       </div>

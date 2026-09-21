@@ -11,7 +11,6 @@ import { contenteditable } from "./directives/contenteditable";
 import "../src/styles/style.css";
 import "../src/styles/tiptap.css";
 import "../src/styles/variables.css";
-import "primeicons/primeicons.css";
 
 const app = createApp(App);
 

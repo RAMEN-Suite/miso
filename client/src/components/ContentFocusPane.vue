@@ -3,7 +3,7 @@ import { computed } from "vue";
 import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
-import RAMENIcon from "./RAMENIcon.vue";
+import RAMENIcon from "./RAMENNodeIconIcon.vue";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import { BASE_MODAL_PROPS } from "../config/modals";

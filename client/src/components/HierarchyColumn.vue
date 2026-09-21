@@ -29,7 +29,7 @@ import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
-import RAMENIcon from "./RAMENIcon.vue";
+import RAMENIcon from "./RAMENNodeIconIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**

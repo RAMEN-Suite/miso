@@ -5,7 +5,7 @@ import { HierarchyPath, IconSpec } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
-import RAMENIcon from "./RAMENIcon.vue";
+import RAMENIcon from "./RAMENNodeIconIcon.vue";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.

@@ -14,7 +14,7 @@ import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
-import RAMENIcon from "./RAMENIcon.vue";
+import RAMENIcon from "./RAMENNodeIconIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**

@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { resolveNodeIcon } from "../config/icons";
 import { filterBaseNodeLabel } from "../utils/helper/helper";
-import RAMENIcon from "./RAMENIcon.vue";
+import RAMENIcon from "./RAMENNodeIconIcon.vue";
 
 const props = defineProps<{
   nodeLabels: string[];

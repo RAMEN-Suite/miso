@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { HierarchyEntry, IconSpec } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
-import AppIcon from "./AppIcon.vue";
+import RAMENIcon from "./RAMENIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 
@@ -59,7 +59,7 @@ function handleItemSelect(): void {
     @keydown.space.prevent="handleItemSelect"
   >
     <div class="body flex items-center gap-2">
-      <AppIcon :spec="icon" class="node-icon shrink-0" />
+      <RAMENIcon :spec="icon" class="node-icon shrink-0" />
       <div class="text-and-labels grow min-w-0">
         <div class="label" :class="{ 'font-bold': isCollection }">
           {{ displayText }}

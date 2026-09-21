@@ -5,7 +5,6 @@ import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
-import AppIcon from "./AppIcon.vue";
 
 const props = defineProps<{
   nodeUuid: string;
@@ -37,7 +36,7 @@ function handleTagToggle(tagUuid: string): void {
     :title="isTagged ? `Tagged with ${assignedTags.length} tag(s)` : 'Add a tag'"
     @click="handleButtonClick"
   >
-    <AppIcon name="tags" />
+    <i class="icon-tag"></i>
   </Button>
 
   <Popover

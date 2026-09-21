@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue";
+import { useTemplateRef } from "vue";
 import Fieldset from "primevue/fieldset";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import { CollectionNode, EntityNode, IconSpecInput, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
+import { CollectionNode, EntityNode, IconSpec, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
 import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
@@ -14,14 +14,14 @@ import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
-import AppIcon from "./AppIcon.vue";
+import RAMENIcon from "./RAMENIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
  */
 interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
-  icon?: IconSpecInput;
+  icon?: IconSpec;
   items?: NodeMenuItem[];
 }
 
@@ -174,7 +174,7 @@ function handleAddNodeClick(event: PointerEvent): void {
     />
     <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]" :popup="true">
       <template #itemicon="{ item }">
-        <AppIcon :spec="(item as NodeMenuItem).icon" />
+        <RAMENIcon :spec="(item as NodeMenuItem).icon" />
       </template>
     </Menu>
   </Fieldset>

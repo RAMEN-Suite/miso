@@ -3,7 +3,7 @@ import { computed } from "vue";
 import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
-import AppIcon from "./AppIcon.vue";
+import RAMENIcon from "./RAMENIcon.vue";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import { BASE_MODAL_PROPS } from "../config/modals";
@@ -83,7 +83,7 @@ function updateView() {
       </div>
 
       <div class="label-section flex items-center justify-center gap-2">
-        <AppIcon :spec="icon" />
+        <RAMENIcon :spec="icon" />
       </div>
 
       <div class="content-preview">

@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Breadcrumb from "primevue/breadcrumb";
-import { HierarchyPath, IconSpecInput } from "../models/types";
+import { HierarchyPath, IconSpec } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
-import AppIcon from "./AppIcon.vue";
+import RAMENIcon from "./RAMENIcon.vue";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ *
+ * `icon` is either a plain icon class (`"icon-home"`) for icons chosen in code, or an {@link IconSpec}
+ * for node icons, which can come from project configuration.
  */
 interface BreadcrumbMenuItem extends Omit<MenuItem, "icon"> {
-  icon?: IconSpecInput;
+  icon?: string | IconSpec;
   color?: string;
 }
 
@@ -25,7 +28,7 @@ const emit = defineEmits(["itemClicked", "homeClicked"]);
 const LABEL_MAX_LENGTH: number = 30;
 
 const home = computed<BreadcrumbMenuItem>(() => ({
-  icon: "home",
+  icon: "icon-home",
   ...(props.home && { ...props.home }),
   command: () => emit("homeClicked"),
 }));
@@ -72,7 +75,8 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
       }"
     >
       <template #itemicon="{ item }">
-        <AppIcon :spec="(item as BreadcrumbMenuItem).icon" />
+        <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
+        <RAMENIcon v-else :spec="(item as BreadcrumbMenuItem).icon" />
       </template>
       <template #separator>
         <i class="icon-chevron-right" aria-hidden="true"></i>

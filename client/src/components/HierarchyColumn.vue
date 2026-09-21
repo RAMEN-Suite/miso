@@ -10,7 +10,7 @@ import {
   HierarchyEntry,
   HierarchyScope,
   HierarchyNode,
-  IconSpecInput,
+  IconSpec,
   Level,
   LevelState,
   NodeDto,
@@ -29,14 +29,17 @@ import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
-import AppIcon from "./AppIcon.vue";
+import RAMENIcon from "./RAMENIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ *
+ * `icon` is either a plain icon class (`"icon-folder"`) for icons chosen in code, or an {@link IconSpec}
+ * for node icons, which can come from project configuration.
  */
 interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
-  icon?: IconSpecInput;
+  icon?: string | IconSpec;
   items?: NodeMenuItem[];
 }
 
@@ -95,7 +98,7 @@ const contentLabels: string[] = getAvailableContentLabels().toSorted();
 const addMenuItems: NodeMenuItem[] = [
   {
     label: "Collection",
-    icon: "folder",
+    icon: "icon-folder",
     items: collectionLabels.map((l) => ({
       label: l,
       icon: resolveNodeIcon(["Collection"]),
@@ -104,7 +107,7 @@ const addMenuItems: NodeMenuItem[] = [
   },
   {
     label: "Content",
-    icon: "file",
+    icon: "icon-file",
     items: contentLabels.map((l) => ({
       label: l,
       icon: resolveNodeIcon(["Content"]),
@@ -453,7 +456,8 @@ function endResize(): void {
       />
       <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]" :popup="true">
         <template #itemicon="{ item }">
-          <AppIcon :spec="(item as NodeMenuItem).icon" />
+          <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
+          <RAMENIcon v-else :spec="(item as NodeMenuItem).icon" />
         </template>
       </Menu>
     </div>

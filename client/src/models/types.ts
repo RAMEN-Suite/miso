@@ -227,6 +227,20 @@ export interface HistoryRecord {
   };
 }
 
+/**
+ * Description of an icon that can be injected by the configuration to describe annotation types,
+ * RAMEN node refinements etc.
+ *
+ * Can be configured in different ways, e.g. as a Lucide icon name, a URL, or a SVG icon.
+ */
+export type IconSpec = LucideIconSpec | UrlIconSpec | SvgIconSpec;
+
+/**
+ * What a configuration may write: the full object form, or a bare Lucide name as shorthand.
+ * Used to allow users to write `icon: "folder-open"` instead of `icon: { kind: "lucide", name: "folder-open" }`.
+ */
+export type IconSpecInput = IconSpec | string;
+
 export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
@@ -286,6 +300,13 @@ export interface LevelState {
   isLoading: boolean;
   /** False until the first page has been fetched */
   initialized: boolean;
+}
+
+/** An icon from the Lucide set. */
+export interface LucideIconSpec {
+  kind: "lucide";
+  /** Name of the lucide icon, in kebab-case (e.g. `folder-open`) */
+  name: string;
 }
 
 /**
@@ -489,41 +510,6 @@ export interface SemanticBlockRange {
   uuid: string;
 }
 
-/** An icon from the bundled Lucide set. */
-export interface LucideIconSpec {
-  kind: "lucide";
-  /** Name of the lucide icon, in kebab-case (e.g. `folder-open`) */
-  name: string;
-}
-
-/** An icon loaded from an external URL. */
-export interface UrlIconSpec {
-  kind: "url";
-  /** URL of the icon. */
-  url: string;
-  /** Optional alt text. When omitted the icon is treated as decorative. */
-  alt?: string;
-}
-
-/** Raw inline SVG markup. */
-export interface SvgIconSpec {
-  kind: "svg";
-  /** Raw SVG markup. */
-  svg: string;
-}
-
-/**
- * Canonical description of a single icon.
- *
- * Deliberately free of any node/annotation specifics, so the same shape can describe icons for node
- * labels, annotation types or anything else that becomes configurable later. Normalized from the
- * shorthand by `normalizeIconSpec` in `src/config/icons.ts`.
- */
-export type IconSpec = LucideIconSpec | UrlIconSpec | SvgIconSpec;
-
-/** What a configuration may write: the canonical object form, or a bare Lucide name as shorthand. */
-export type IconSpecInput = IconSpec | string;
-
 /**
  * A user-defined view: a named filter preset held in the browser. Selecting one lists the top of the
  * hierarchy pre-filtered by {@linkcode SmartView.config}. Unlike a {@linkcode Tag} it references no
@@ -552,6 +538,13 @@ export interface StandoffAnnotation {
 export interface StandoffJson {
   annotations: StandoffAnnotation[];
   text: string;
+}
+
+/** Raw inline SVG markup. */
+export interface SvgIconSpec {
+  kind: "svg";
+  /** Raw SVG markup. */
+  svg: string;
 }
 
 export type TextNode = Node<IText>;
@@ -616,4 +609,11 @@ export interface Tag {
 export interface TagEntry {
   uuid: string;
   createdAt: string; // ISO 8601 string
+}
+
+/** An icon loaded from an external URL. */
+export interface UrlIconSpec {
+  kind: "url";
+  /** URL of the icon. */
+  url: string;
 }

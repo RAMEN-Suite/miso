@@ -7,7 +7,7 @@ const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-ma
 /** Default icons specs for each RAMEN base node label. */
 export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
   Collection: { kind: "lucide", name: "folder" },
-  Content: { kind: "lucide", name: "file" },
+  Content: { kind: "lucide", name: "file-text" },
   Annotation: { kind: "lucide", name: "pencil" },
   Entity: { kind: "lucide", name: "user" },
   Character: { kind: "lucide", name: "square" },
@@ -21,7 +21,13 @@ export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
  * TODO: Currently empty. When icons become user-configurable (via guidelines/config), this map is populated
  * from there and {@link resolveNodeIcon} picks it up without any other change.
  */
-export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {};
+export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
+  Event: { kind: "lucide", name: "calendar-days" },
+  Person: { kind: "lucide", name: "user" },
+  Place: { kind: "lucide", name: "map-pinned" },
+  Role: { kind: "lucide", name: "award" },
+  Thing: { kind: "lucide", name: "box" },
+};
 
 /**
  * Normalizes the possible icon configurations (lucide icon name, raw SVG or external URL) into the canonical {@link IconSpec}.

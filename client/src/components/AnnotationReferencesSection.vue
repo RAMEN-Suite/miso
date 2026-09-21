@@ -54,7 +54,7 @@ function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLab
     items: additionalNodeLabels
       .map((additionalNodeLabel: string) => ({
         label: additionalNodeLabel,
-        icon: resolveNodeIcon([baseNodeLabel]),
+        icon: resolveNodeIcon([baseNodeLabel, additionalNodeLabel]),
         command: () => startAddingNode(baseNodeLabel, { additionalNodeLabel }),
       }))
       .toSorted(),

@@ -98,19 +98,19 @@ const contentLabels: string[] = getAvailableContentLabels().toSorted();
 const addMenuItems: NodeMenuItem[] = [
   {
     label: "Collection",
-    icon: "icon-folder",
+    icon: resolveNodeIcon(["Collection"]),
     items: collectionLabels.map((l) => ({
       label: l,
-      icon: resolveNodeIcon(["Collection"]),
+      icon: resolveNodeIcon(["Collection", l]),
       command: () => openCreateModal("Collection", { additionalNodeLabel: l }),
     })),
   },
   {
     label: "Content",
-    icon: "icon-file",
+    icon: resolveNodeIcon(["Content"]),
     items: contentLabels.map((l) => ({
       label: l,
-      icon: resolveNodeIcon(["Content"]),
+      icon: resolveNodeIcon(["Content", l]),
       command: () => openCreateModal("Content", { additionalNodeLabel: l }),
     })),
   },

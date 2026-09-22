@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { EntityNode, NodeStatus, NodeStatusObject } from "../models/types";
+import { EntityNode, NodeStatusObject } from "../models/types";
 import Button from "primevue/button";
 import { Popover } from "primevue";
-import NodeCardHeader from "./NodeCardHeader.vue";
+import NodeCard from "./NodeCard.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
-import { useTemplateRef } from "vue";
+import { computed, useTemplateRef } from "vue";
+import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -22,57 +23,33 @@ const node = defineModel<NodeStatusObject<EntityNode>>({ required: true });
 
 const infoIcon = useTemplateRef("info-icon");
 
-function handleRemoveNode(): void {
-  if (node.value.meta.status === "added") {
-    emit("remove-node");
-  } else {
-    setNodeStatus("removed");
-  }
-}
-
-function setNodeStatus(status: NodeStatus): void {
-  node.value.meta.status = status;
-}
+const htmlTitle = computed<string>(() => {
+  return `Open ${filterBaseNodeLabel(node.value.node.nodeLabels).join(", ")} in external tool`;
+});
 
 function togglePopover(event: MouseEvent): void {
   infoIcon.value?.toggle(event);
 }
-
-/**
- * Handles a click event on the Card component, which will open the corresponding entity in the tool
- * that manages Entities. The URL is resolved server-side.
- *
- * @param {PointerEvent | KeyboardEvent} event - The click or enter/space key event.
- * @returns {void} This function does not return any value.
- */
-function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
-  if ((event.target as HTMLElement).closest("button")) {
-    return;
-  }
-
-  window.open(`/api/tools/tori/entity/${node.value.node.data.uuid}`, "_blank", "noopener noreferrer");
-}
 </script>
 
 <template>
-  <div
-    class="node-card-container"
-    title="Open entity in external tool"
-    tabindex="0"
-    role="link"
-    @click="handleSelectContainer"
-    @keydown.enter="handleSelectContainer"
-    @keydown.space.prevent="handleSelectContainer"
+  <!-- Opens the entity in the tool that manages Entities. The URL is resolved server-side. -->
+  <NodeCard
+    v-model:node="node"
+    :mode="props.mode"
+    :show-badge="props.showBadge"
+    :href="`/api/tools/tori/entity/${node.node.data.uuid}`"
+    :title="htmlTitle"
+    @remove-node="emit('remove-node')"
   >
-    <NodeCardHeader :node="node!" :mode="props.mode" :show-badge="props.showBadge" @remove="handleRemoveNode" />
-    <span>
-      {{ node!.node.data.label }}
+    <span class="wrap-break-word min-w-0">
+      {{ node.node.data.label }}
     </span>
     <Button
       icon="icon-info"
       size="small"
       severity="secondary"
-      class="ml-2"
+      class="shrink-0"
       title="Click to show preview of entity data"
       @click="togglePopover"
     ></Button>
@@ -88,28 +65,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
         },
       }"
     >
-      <NodePropertiesTable :data="node!.node.data" />
+      <NodePropertiesTable :data="node.node.data" />
     </Popover>
-  </div>
+  </NodeCard>
 </template>
-
-<style scoped>
-.node-card-container {
-  cursor: pointer;
-  border: 1px solid gray;
-  border-radius: 5px;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
-  transition: background-color 0.2s ease;
-
-  & button {
-    width: 1rem;
-    height: 1rem;
-    padding: 10px;
-  }
-
-  &:hover {
-    background-color: var(--p-button-secondary-background);
-  }
-}
-</style>

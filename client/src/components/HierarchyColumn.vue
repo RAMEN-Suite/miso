@@ -29,7 +29,7 @@ import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
-import RAMENIcon from "./RAMENNodeIconIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**
@@ -457,7 +457,7 @@ function endResize(): void {
       <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]" :popup="true">
         <template #itemicon="{ item }">
           <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
-          <RAMENIcon v-else :spec="(item as NodeMenuItem).icon" />
+          <RAMENNodeIcon v-else :spec="(item as NodeMenuItem).icon" />
         </template>
       </Menu>
     </div>

@@ -5,7 +5,7 @@ import { HierarchyPath, IconSpec } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
-import RAMENIcon from "./RAMENNodeIconIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
@@ -76,7 +76,7 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
     >
       <template #itemicon="{ item }">
         <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
-        <RAMENIcon v-else :spec="(item as BreadcrumbMenuItem).icon" />
+        <RAMENNodeIcon v-else :spec="(item as BreadcrumbMenuItem).icon" />
       </template>
       <template #separator>
         <i class="icon-chevron-right" aria-hidden="true"></i>

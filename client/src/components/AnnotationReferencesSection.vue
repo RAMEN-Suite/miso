@@ -14,7 +14,7 @@ import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
-import RAMENIcon from "./RAMENNodeIconIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
 
 /**
@@ -174,7 +174,7 @@ function handleAddNodeClick(event: PointerEvent): void {
     />
     <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]" :popup="true">
       <template #itemicon="{ item }">
-        <RAMENIcon :spec="(item as NodeMenuItem).icon" />
+        <RAMENNodeIcon :spec="(item as NodeMenuItem).icon" />
       </template>
     </Menu>
   </Fieldset>

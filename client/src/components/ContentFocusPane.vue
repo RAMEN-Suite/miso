@@ -3,7 +3,7 @@ import { computed } from "vue";
 import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
-import RAMENIcon from "./RAMENNodeIconIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import { BASE_MODAL_PROPS } from "../config/modals";
@@ -83,7 +83,7 @@ function updateView() {
       </div>
 
       <div class="label-section flex items-center justify-center gap-2">
-        <RAMENIcon
+        <RAMENNodeIcon
           :spec="icon"
           v-tooltip.hover.top="{ value: filterBaseNodeLabel(contentNode.nodeLabels).join(', '), showDelay: 50 }"
         />

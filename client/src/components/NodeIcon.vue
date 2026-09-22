@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { resolveNodeIcon } from "../config/icons";
 import { filterBaseNodeLabel } from "../utils/helper/helper";
-import RAMENIcon from "./RAMENNodeIconIcon.vue";
+import RAMENNodeIconIcon from "./RAMENNodeIcon.vue";
 
 const props = defineProps<{
   nodeLabels: string[];
@@ -12,7 +12,10 @@ const additionalNodeLabels = computed<string>(() => filterBaseNodeLabel(props.no
 </script>
 
 <template>
-  <RAMENIcon :spec="resolveNodeIcon(props.nodeLabels)" v-tooltip.hover.top="{ value: additionalNodeLabels, showDelay: 50 }" />
+  <RAMENNodeIconIcon
+    :spec="resolveNodeIcon(props.nodeLabels)"
+    v-tooltip.hover.top="{ value: additionalNodeLabels, showDelay: 50 }"
+  />
 </template>
 
 <style scoped></style>

@@ -7,7 +7,7 @@ import TextCard from "./TextCard.vue";
 import { CollectionNode, EntityNode, IconSpec, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
 import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
 import Button from "primevue/button";
-import Menu from "primevue/menu";
+import FilterableMenu from "./FilterableMenu.vue";
 import { MenuItem } from "primevue/menuitem";
 import AddNodeModal from "./AddNodeModal.vue";
 import { useAppStore } from "../store/app";
@@ -35,7 +35,7 @@ const { createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEntityLabels } = useGuidelinesStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
-const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
+const menu = useTemplateRef<InstanceType<typeof FilterableMenu>>("menu");
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
@@ -51,13 +51,11 @@ const entityLabels: string[] = [...new Set(getAvailableEntityLabels())].toSorted
 function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, additionalNodeLabels: string[]): NodeMenuItem {
   return {
     label: baseNodeLabel,
-    items: additionalNodeLabels
-      .map((additionalNodeLabel: string) => ({
-        label: additionalNodeLabel,
-        icon: resolveNodeIcon([baseNodeLabel, additionalNodeLabel]),
-        command: () => startAddingNode(baseNodeLabel, { additionalNodeLabel }),
-      }))
-      .toSorted(),
+    items: additionalNodeLabels.map((additionalNodeLabel: string) => ({
+      label: additionalNodeLabel,
+      icon: resolveNodeIcon([baseNodeLabel, additionalNodeLabel]),
+      command: () => startAddingNode(baseNodeLabel, { additionalNodeLabel }),
+    })),
   };
 }
 
@@ -172,11 +170,11 @@ function handleAddNodeClick(event: PointerEvent): void {
       title="Add new reference"
       @click="handleAddNodeClick"
     />
-    <Menu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]" :popup="true">
+    <FilterableMenu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]">
       <template #itemicon="{ item }">
         <RAMENNodeIcon :spec="(item as NodeMenuItem).icon" />
       </template>
-    </Menu>
+    </FilterableMenu>
   </Fieldset>
 </template>
 

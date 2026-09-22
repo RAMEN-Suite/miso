@@ -19,7 +19,7 @@ import {
 import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
 import { useGuidelinesStore } from "../store/guidelines";
-import Menu from "primevue/menu";
+import FilterableMenu from "./FilterableMenu.vue";
 import FilterPopover from "./FilterPopover.vue";
 import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
 import { useAppStore } from "../store/app";
@@ -88,7 +88,7 @@ const searchInput: WritableComputedRef<string> = computed({
   },
 });
 
-const addMenu = useTemplateRef<InstanceType<typeof Menu>>("add-menu");
+const addMenu = useTemplateRef<InstanceType<typeof FilterableMenu>>("add-menu");
 const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
 const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 
@@ -454,12 +454,12 @@ function endResize(): void {
         title="Add Collection or Content"
         @click="toggleAddMenu"
       />
-      <Menu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]" :popup="true">
+      <FilterableMenu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]">
         <template #itemicon="{ item }">
           <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
           <RAMENNodeIcon v-else :spec="(item as NodeMenuItem).icon" />
         </template>
-      </Menu>
+      </FilterableMenu>
     </div>
     <div class="footer">
       <div class="count text-xs text-right pr-4">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>

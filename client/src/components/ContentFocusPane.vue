@@ -10,7 +10,7 @@ import { BASE_MODAL_PROPS } from "../config/modals";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
-import { ellipsize } from "../utils/helper/helper.ts";
+import { ellipsize, filterBaseNodeLabel } from "../utils/helper/helper.ts";
 
 const props = defineProps<{
   focus: ContentFocus;
@@ -83,7 +83,10 @@ function updateView() {
       </div>
 
       <div class="label-section flex items-center justify-center gap-2">
-        <RAMENIcon :spec="icon" />
+        <RAMENIcon
+          :spec="icon"
+          v-tooltip.hover.top="{ value: filterBaseNodeLabel(contentNode.nodeLabels).join(', '), showDelay: 50 }"
+        />
       </div>
 
       <div class="content-preview">

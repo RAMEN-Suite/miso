@@ -12,10 +12,10 @@ import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationEditModal from "./AnnotationEditModal.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
-import { cloneDeep } from "../utils/helper/helper.ts";
+import { cloneDeep, ellipsize } from "../utils/helper/helper.ts";
 import { Range } from "../models/types.ts";
 import { findDecorationBoundariesByUuid, findNodeBoundariesByUuid } from "../utils/helper/tiptapHelper.ts";
-import { DecorationSet } from "@tiptap/pm/view";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration.ts";
 import { useAppStore } from "../store/app.ts";
 
@@ -46,10 +46,25 @@ const config: AnnotationType = getAnnotationConfig(currentData.value.node.data.t
 const propertyFields: PropertyConfig[] = getAnnotationFields(currentData.value.node.data.type);
 
 const isCollapsed = ref<boolean>(true);
-const previewText = computed<string>(() => {
-  const sliced: string = currentData.value.node.data.text?.slice(0, 10);
 
-  return currentData.value.node.data.text?.length >= 10 ? sliced + "..." : currentData.value.node.data.text;
+const previewText = computed<string>(() => {
+  if (!tiptap.value) {
+    return "";
+  }
+
+  const decorations: DecorationSet = ANNOTATION_DECORATION_KEY.getState(tiptap.value.view.state)?.all ?? DecorationSet.empty;
+
+  const decoration: Decoration | undefined = decorations.find(
+    undefined,
+    undefined,
+    (spec) => spec._uuid === currentData.value.node.data.uuid,
+  )[0];
+
+  const { from, to } = decoration;
+
+  const annotatedText: string = tiptap.value?.state.doc.textBetween(from, to) ?? "";
+
+  return ellipsize(annotatedText, 10);
 });
 
 /* eslint-disable -- Will be needed when redraw modes is re-implemented */

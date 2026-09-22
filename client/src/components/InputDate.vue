@@ -21,7 +21,7 @@ const showTime: boolean = dateType === "date-time" || dateType === "time";
 const timeOnly: boolean = dateType === "time";
 const dateFormat: string | undefined = dateType !== "time" ? "yy-mm-dd" : undefined;
 const inputPlaceholder: string = getDefaultPlaceholder();
-const inputIconClass: string = timeOnly ? "pi pi-clock" : "pi pi-calendar";
+const inputIconClass: string = timeOnly ? "icon-clock" : "icon-calendar";
 
 /**
  * Pads a number with leading zeros to ensure it is at least two digits.

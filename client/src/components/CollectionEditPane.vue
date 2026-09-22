@@ -13,7 +13,14 @@ import {
   NodeDto,
   NodeStatusObject,
 } from "../models/types";
-import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
+import {
+  capitalize,
+  cloneDeep,
+  filterBaseNodeLabel,
+  getDefaultValueForProperty,
+  setNodeTreeStatus,
+  pruneDeletedNodes,
+} from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -30,7 +37,8 @@ import AnnotationCreateModal from "./AnnotationCreateModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
-import NodeIcon from "./NodeIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+import { resolveNodeIcon } from "../config/icons";
 import CollectionAnnotationNote from "./CollectionAnnotationNote.vue";
 
 const props = defineProps<{
@@ -474,7 +482,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           target="_blank"
           rel="noopener"
           severity="secondary"
-          icon="pi pi-external-link"
+          icon="icon-external-link"
           size="small"
           title="View collection on website"
         />
@@ -482,7 +490,14 @@ function showMessage(result: "success" | "error", error?: Error) {
 
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
-          <NodeIcon :node-labels="temporaryWorkData.collection.node.nodeLabels" />
+          <RAMENNodeIcon
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :size="30"
+            v-tooltip.hover.top="{
+              value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
+              showDelay: 50,
+            }"
+          />
           <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
           <span v-else class="label-text" data-placeholder="No label provided">
             {{ temporaryWorkData.collection.node.data.label }}
@@ -503,7 +518,7 @@ function showMessage(result: "success" | "error", error?: Error) {
           </template>
           <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button
-              icon="pi pi-plus"
+              icon="icon-plus"
               severity="secondary"
               outlined
               size="small"
@@ -518,7 +533,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                     <AnnotationTypeIcon :annotation-type="item.annotationType" />
                   </span>
                   <span>{{ item.label }}</span>
-                  <i v-if="hasSubmenu" class="pi pi-angle-right ml-auto"></i>
+                  <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>
                 </a>
               </template>
             </TieredMenu>
@@ -553,7 +568,7 @@ function showMessage(result: "success" | "error", error?: Error) {
     <div class="buttons flex justify-center gap-2 mt-2">
       <Button
         v-if="mode === 'view'"
-        icon="pi pi-pencil"
+        icon="icon-pencil"
         title="Edit collection"
         severity="contrast"
         @click="handleClickEditButton"
@@ -561,7 +576,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       <Button
         v-if="mode === 'view'"
         :disabled="asyncOperationRunning"
-        icon="pi pi-trash"
+        icon="icon-trash-2"
         title="Delete collection"
         severity="danger"
         @click="handleDeleteColletion"
@@ -570,7 +585,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         v-if="mode === 'edit'"
         :loading="asyncOperationRunning"
         label="Save"
-        icon="pi pi-save"
+        icon="icon-save"
         title="Save changes"
         @click="handleApplyChanges"
       ></Button>
@@ -578,7 +593,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         v-if="mode === 'edit'"
         :disabled="asyncOperationRunning"
         label="Cancel"
-        icon="pi pi-times"
+        icon="icon-x"
         title="Cancel changes"
         severity="secondary"
         @click="handleDiscardChanges"

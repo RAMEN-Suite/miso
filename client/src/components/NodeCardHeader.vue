@@ -33,7 +33,7 @@ function handleRemoveClick(): void {
     <NodeStatusBadge :status="node.meta.status" />
     <Button
       :class="props.mode === 'view' ? 'invisible' : ''"
-      icon="pi pi-times"
+      icon="icon-x"
       size="small"
       severity="danger"
       title="Remove node"

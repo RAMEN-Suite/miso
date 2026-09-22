@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Button from "primevue/button";
-import { ContentFocus } from "../models/types";
+import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useAppStore } from "../store/app.ts";
 import { useDialog } from "primevue";
 import { BASE_MODAL_PROPS } from "../config/modals";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
-import { ellipsize } from "../utils/helper/helper.ts";
+import { ellipsize, filterBaseNodeLabel } from "../utils/helper/helper.ts";
 
 const props = defineProps<{
   focus: ContentFocus;
@@ -20,7 +21,7 @@ const { asyncOperationRunning, levels, mode, path, updatePath, setMode } = useHi
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const contentNode = computed(() => props.focus.content.node);
-const icon = computed<string>(() => resolveNodeIcon(contentNode.value.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
 
 const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
 
@@ -82,7 +83,11 @@ function updateView() {
       </div>
 
       <div class="label-section flex items-center justify-center gap-2">
-        <i :class="icon" />
+        <RAMENNodeIcon
+          :spec="icon"
+          :size="30"
+          v-tooltip.hover.top="{ value: filterBaseNodeLabel(contentNode.nodeLabels).join(', '), showDelay: 50 }"
+        />
       </div>
 
       <div class="content-preview">
@@ -97,14 +102,14 @@ function updateView() {
         target="_blank"
         rel="noopener noreferrer"
         label="Open in Editor"
-        icon="pi pi-external-link"
+        icon="icon-external-link"
         severity="contrast"
         title="Open this Content in the Editor"
       />
       <Button
         v-if="mode === 'view'"
         :disabled="asyncOperationRunning"
-        icon="pi pi-trash"
+        icon="icon-trash-2"
         title="Delete collection"
         severity="danger"
         @click="handleDeleteContent"

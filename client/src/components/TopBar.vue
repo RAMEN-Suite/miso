@@ -10,13 +10,13 @@ const appsMenu = useTemplateRef<InstanceType<typeof Menu>>("appsMenu");
 const appItems: MenuItem[] = [
   {
     label: "Tori",
-    icon: "pi pi-wrench",
+    icon: "icon-wrench",
     url: "/api/tools/tori",
     target: "_blank",
   },
   {
     label: "Shoyu",
-    icon: "pi pi-wrench",
+    icon: "icon-wrench",
     url: "/api/tools/shoyu",
     target: "_blank",
   },
@@ -31,13 +31,13 @@ function toggleAppsMenu(event: PointerEvent): void {
   <header class="top-bar flex justify-between items-center gap-2 p-1">
     <nav class="flex items-center gap-2">
       <RouterLink to="/">
-        <Button icon="pi pi-home" aria-label="Home" class="w-8! h-8!" title="Go to overview"></Button>
+        <Button icon="icon-home" aria-label="Home" class="w-8! h-8!" title="Go to overview"></Button>
       </RouterLink>
     </nav>
     <div class="flex items-center gap-2">
       <EditorSettingsButton />
       <Button
-        icon="pi pi-ellipsis-v"
+        icon="icon-grip"
         severity="secondary"
         aria-label="Open apps"
         aria-haspopup="true"

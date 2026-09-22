@@ -6,6 +6,12 @@ import { AnnotationType } from "../models/types";
 export const FETCH_DELAY: number = 300;
 
 /**
+ * Prefix for lucide icon names. Is combined with the icon name
+ * to form the full Lucide icon name (e.g. `icon-folder`).
+ */
+export const LUCIDE_ICON_PREFIX = "icon-" as const;
+
+/**
  * Configurations of built-in structural annotation types. Is combined with the project-specifig configuration
  * on load, so these types can be overridden.
  */

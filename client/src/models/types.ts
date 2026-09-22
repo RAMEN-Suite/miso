@@ -227,6 +227,20 @@ export interface HistoryRecord {
   };
 }
 
+/**
+ * Description of an icon that can be injected by the configuration to describe annotation types,
+ * RAMEN node refinements etc.
+ *
+ * Can be configured in different ways, e.g. as a Lucide icon name, a URL, or a SVG icon.
+ */
+export type IconSpec = LucideIconSpec | UrlIconSpec | SvgIconSpec;
+
+/**
+ * What a configuration may write: the full object form, or a bare Lucide name as shorthand.
+ * Used to allow users to write `icon: "folder-open"` instead of `icon: { kind: "lucide", name: "folder-open" }`.
+ */
+export type IconSpecInput = IconSpec | string;
+
 export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
@@ -286,6 +300,13 @@ export interface LevelState {
   isLoading: boolean;
   /** False until the first page has been fetched */
   initialized: boolean;
+}
+
+/** An icon from the Lucide set. */
+export interface LucideIconSpec {
+  kind: "lucide";
+  /** Name of the lucide icon, in kebab-case (e.g. `folder-open`) */
+  name: string;
 }
 
 /**
@@ -519,6 +540,13 @@ export interface StandoffJson {
   text: string;
 }
 
+/** Raw inline SVG markup. */
+export interface SvgIconSpec {
+  kind: "svg";
+  /** Raw SVG markup. */
+  svg: string;
+}
+
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
@@ -581,4 +609,11 @@ export interface Tag {
 export interface TagEntry {
   uuid: string;
   createdAt: string; // ISO 8601 string
+}
+
+/** An icon loaded from an external URL. */
+export interface UrlIconSpec {
+  kind: "url";
+  /** URL of the icon. */
+  url: string;
 }

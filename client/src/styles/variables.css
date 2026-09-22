@@ -6,4 +6,5 @@
 
   /* Other */
   --box-shadow-focus: 0 0 0 0.25rem var(--color-focus);
+  --icon-size: 1;
 }

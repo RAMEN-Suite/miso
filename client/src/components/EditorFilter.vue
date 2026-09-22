@@ -38,7 +38,7 @@ function toggleDropdown(): void {
     <Button
       type="button"
       class="w-full"
-      icon="pi pi-filter-fill"
+      icon="icon-filter"
       label="Filter"
       :title="isCollapsed ? 'Show filter pane' : 'Hide filter pane'"
       :badge="badgeContent"

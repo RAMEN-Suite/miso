@@ -8,6 +8,7 @@ export const BASE_MODAL_PROPS = {
   closable: true,
   closeOnEscape: true,
   dismissableMask: false,
+  closeIcon: "icon-x",
   pt: {
     pcCloseButton: { root: { title: "Close" } },
   },

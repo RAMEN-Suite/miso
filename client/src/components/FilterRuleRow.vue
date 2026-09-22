@@ -264,7 +264,7 @@ const defaultProps = {
     </div>
 
     <Button
-      icon="pi pi-times"
+      icon="icon-x"
       severity="danger"
       text
       size="small"

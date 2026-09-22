@@ -24,8 +24,8 @@ const isRenaming = ref<boolean>(false);
 const renameDraft = ref<string>("");
 
 const menuItems: MenuItem[] = [
-  { label: "Rename", icon: "pi pi-pencil", command: startRename },
-  { label: "Delete", icon: "pi pi-trash", command: () => emit("delete") },
+  { label: "Rename", icon: "icon-pencil", command: startRename },
+  { label: "Delete", icon: "icon-trash-2", command: () => emit("delete") },
 ];
 
 /**
@@ -166,7 +166,7 @@ function handleRenameKeydown(event: KeyboardEvent): void {
 
       <Button
         class="row-action"
-        icon="pi pi-ellipsis-v"
+        icon="icon-ellipsis-vertical"
         severity="secondary"
         text
         rounded

@@ -38,7 +38,7 @@ function handleToggleView(event: MouseEvent): void {
   <div class="note" :data-annotation-uuid="annotation.node.data.uuid">
     <div class="header">
       <div class="flex items-center gap-1 grow">
-        <div class="icon-container">
+        <div class="annotation-type-icon-container">
           <AnnotationTypeIcon :annotation-type="annotation.node.data.subType ?? annotation.node.data.type" />
         </div>
         <span class="font-bold">{{ annotation.node.data.subType ?? annotation.node.data.type }}</span>
@@ -47,7 +47,7 @@ function handleToggleView(event: MouseEvent): void {
       <div class="action-buttons flex">
         <Button
           ref="view-button"
-          icon="pi pi-info-circle"
+          icon="icon-info"
           severity="secondary"
           variant="text"
           size="small"
@@ -57,7 +57,7 @@ function handleToggleView(event: MouseEvent): void {
         />
         <Button
           v-if="props.mode === 'edit'"
-          icon="pi pi-pencil"
+          icon="icon-pencil"
           severity="secondary"
           variant="text"
           size="small"
@@ -67,7 +67,7 @@ function handleToggleView(event: MouseEvent): void {
         />
         <Button
           v-if="props.mode === 'edit'"
-          icon="pi pi-trash"
+          icon="icon-trash-2"
           severity="danger"
           variant="text"
           size="small"
@@ -112,7 +112,7 @@ function handleToggleView(event: MouseEvent): void {
   gap: 5px;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 20px;
   height: 20px;
 }

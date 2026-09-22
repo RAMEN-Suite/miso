@@ -1,35 +1,86 @@
-import { BaseNodeLabel } from "../models/types";
+import { BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
 import { filterDefaultLabels } from "../utils/helper/helper";
 
-/**
- * Default icons for each RAMEN base node label. Used across the hierarchy view (columns,
- * breadcrumbs, focus pane) to give nodes recognisable, type-distinct icons.
- */
-export const BASE_NODE_ICONS: Record<BaseNodeLabel, string> = {
-  Collection: "pi pi-folder",
-  Content: "pi pi-file",
-  Annotation: "pi pi-pencil",
-  Entity: "pi pi-user",
-  Character: "pi pi-stop",
+/** Used when a node matches none of the known base labels. */
+const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
+
+/** Default icons specs for each RAMEN base node label. */
+export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
+  Collection: { kind: "lucide", name: "folder" },
+  Content: { kind: "lucide", name: "file-text" },
+  Annotation: { kind: "lucide", name: "pencil" },
+  Entity: { kind: "lucide", name: "user" },
+  Character: { kind: "lucide", name: "square" },
 };
 
 /**
- * Project overrides keyed by additional (domain) node label, e.g. `{ Letter: "pi pi-envelope" }`.
+ * Map for refined RAMEN node icons (e.g.`{ Letter: { kind: "lucide", name: "mail" } }`).
  *
- * Currently empty. When icons become user-configurable (via guidelines/config), this map is populated
+ * Icon specifications Can be a base string (which leas to an Lucide icon name) or an {@link IconSpec} object.
+ *
+ * TODO: Currently empty. When icons become user-configurable (via guidelines/config), this map is populated
  * from there and {@link resolveNodeIcon} picks it up without any other change.
  */
-export const NODE_ICONS_BY_LABEL: Record<string, string> = {};
+export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
+  Event: { kind: "lucide", name: "calendar-days" },
+  Person: { kind: "lucide", name: "user" },
+  Place: { kind: "lucide", name: "map-pinned" },
+  Role: { kind: "lucide", name: "award" },
+  Thing: { kind: "lucide", name: "box" },
+};
+
+/**
+ * Normalizes the possible icon configurations (lucide icon name, raw SVG or external URL) into the canonical {@link IconSpec}.
+ *
+ * @param {IconSpecInput | undefined} input - The raw value, e.g. from a configuration file.
+ * @returns {IconSpec | null} The normalized spec, or `null` when the input is missing or malformed.
+ */
+export function normalizeIconSpec(input: IconSpecInput | undefined): IconSpec | null {
+  if (input === undefined || input === null) {
+    return null;
+  }
+
+  if (typeof input === "string") {
+    const name: string = input.trim();
+
+    if (name === "") {
+      return null;
+    }
+
+    return { kind: "lucide", name };
+  }
+
+  if (typeof input !== "object") {
+    console.warn("Invalid icon spec, ignoring:", input);
+    return null;
+  }
+
+  if (input.kind === "lucide" && typeof input.name === "string" && input.name.trim() !== "") {
+    return { kind: "lucide", name: input.name.trim() };
+  }
+
+  if (input.kind === "url" && typeof input.url === "string" && input.url.trim() !== "") {
+    return { kind: "url", url: input.url.trim() };
+  }
+
+  if (input.kind === "svg" && typeof input.svg === "string" && input.svg.trim() !== "") {
+    return { kind: "svg", svg: input.svg };
+  }
+
+  console.warn("Invalid icon spec, ignoring:", input);
+
+  return null;
+}
 
 /**
  * Resolves the icon for a node from its labels.
  *
- * Projects will be able to override the RAMEN bse node's icons. Defaults to a generic "file" icon.
+ * Projects will be able to override the RAMEN base node's icons. Defaults to a generic "file" icon.
  *
  * @param {string[]} nodeLabels - The node's full label list.
- * @returns {string} A PrimeIcons class string (e.g. `"pi pi-folder"`).
+ * @returns {IconSpec} The icon to render, for example `{ kind: "lucide", name: "folder" }`.
  */
-export function resolveNodeIcon(nodeLabels: string[]): string {
+export function resolveNodeIcon(nodeLabels: string[]): IconSpec {
   const additionalLabels: string[] = filterDefaultLabels(nodeLabels);
 
   for (const label of additionalLabels) {
@@ -54,5 +105,5 @@ export function resolveNodeIcon(nodeLabels: string[]): string {
     return BASE_NODE_ICONS.Annotation;
   }
 
-  return "pi pi-file";
+  return FALLBACK_NODE_ICON;
 }

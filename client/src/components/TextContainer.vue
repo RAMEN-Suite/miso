@@ -68,7 +68,7 @@ function handleAddTextClick(): void {
       <div class="flex justify-center gap-2">
         <Button
           class="w-1/6"
-          icon="pi pi-check"
+          icon="icon-check"
           :disabled="isEmptyDraft"
           :title="isEmptyDraft ? 'Enter a text first' : 'Confirm new text'"
           @click.stop="handleAddTextClick"

@@ -57,7 +57,7 @@ function closeModal(): void {
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">
-      <Button :disabled="!inputIsValid" label="Update" icon="pi pi-check" title="Update annotation" @click="handleUpdateClick" />
+      <Button :disabled="!inputIsValid" label="Update" icon="icon-check" title="Update annotation" @click="handleUpdateClick" />
     </div>
   </div>
 </template>
@@ -74,7 +74,7 @@ function closeModal(): void {
   flex-grow: 1;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 20px;
   height: 20px;
 }

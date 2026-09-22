@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "lucide-static/font/lucide.css";
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -49,6 +50,17 @@ kbd {
 
 .card {
   padding: 2em;
+}
+
+/*
+   Base box for every Lucide font icon, mirroring what PrimeIcons' `.pi` used to provide. 
+   Needed because the properties are not set by lucide and would therefore be
+   falsely inherited.
+ */
+[class^="icon-"],
+[class*=" icon-"] {
+  display: inline-block;
+  line-height: var(--icon-size);
 }
 
 #app {

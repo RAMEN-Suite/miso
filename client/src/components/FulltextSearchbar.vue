@@ -112,7 +112,7 @@ function handleResultItemSelect(item: SearchResult): void {
       v-if="!isSearchActive"
       severity="secondary"
       size="small"
-      icon="pi pi-search"
+      icon="icon-search"
       title="Open search bar"
       @click="setIsSearchActive(true)"
     />
@@ -120,7 +120,7 @@ function handleResultItemSelect(item: SearchResult): void {
       v-if="isSearchActive"
       severity="secondary"
       size="small"
-      icon="pi pi-times"
+      icon="icon-x"
       title="Reset search"
       @click="resetSearch"
     />

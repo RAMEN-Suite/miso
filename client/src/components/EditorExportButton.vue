@@ -24,7 +24,7 @@ function openExportModal(): void {
 
 <template>
   <Button
-    icon="pi pi-file-export"
+    icon="icon-file-output"
     severity="secondary"
     outlined
     class="w-8! h-8! mr-1"

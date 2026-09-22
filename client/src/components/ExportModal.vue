@@ -26,7 +26,7 @@ const totalAnnotations = ref([]);
 const textHasUnsavedChanges = hasUnsavedChanges();
 
 const copyLabel = computed<string>(() => (status.value === "copied" ? "Copied!" : "Copy"));
-const copyIcon = computed<string>(() => (status.value === "copied" ? "pi pi-check" : "pi pi-copy"));
+const copyIcon = computed<string>(() => (status.value === "copied" ? "icon-check" : "icon-copy"));
 
 watch(() => route.path, closeModal);
 
@@ -59,12 +59,12 @@ function closeModal(): void {
       {{ msg.content }}
     </Message>
 
-    <Message v-if="textHasUnsavedChanges" severity="warn" icon="pi pi-exclamation-circle" class="w-full my-2" closable>
+    <Message v-if="textHasUnsavedChanges" severity="warn" icon="icon-alert-circle" close-icon="icon-x" class="w-full my-2" closable>
       When there are unsaved changes, they will not be exported. Please save your work before exporting to ensure everything is
       exported correctly.
     </Message>
 
-    <Message v-if="status !== 'error'" icon="pi pi-info-circle" class="my-2 w-full" severity="info">
+    <Message v-if="status !== 'error'" icon="icon-info" class="my-2 w-full" severity="info">
       <div class="info">
         You are going to export
         <ul class="m-0 pl-12">
@@ -89,7 +89,7 @@ function closeModal(): void {
         />
         <Button
           label="Download"
-          icon="pi pi-download"
+          icon="icon-download"
           severity="primary"
           title="Download as standoff-export.json"
           :disabled="!jsonToExport"

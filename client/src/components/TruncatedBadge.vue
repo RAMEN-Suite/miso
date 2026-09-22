@@ -7,7 +7,7 @@ const props = defineProps<{
   text: boolean;
 }>();
 
-const icon = computed<string>(() => (props.icon ? "pi pi-exclamation-triangle" : ""));
+const icon = computed<string>(() => (props.icon ? "icon-alert-triangle" : ""));
 const text = computed<string>(() => (props.text ? "Truncated" : ""));
 </script>
 

@@ -115,6 +115,7 @@ function handleClick(dropdownOption?: string | number): void {
     v-else
     ref="buttonElm"
     v-tooltip.hover.top="{ value: props.type, showDelay: 50 }"
+    dropdown-icon="icon-chevron-down"
     severity="secondary"
     outlined
     raised

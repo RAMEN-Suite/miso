@@ -74,13 +74,13 @@ defineExpose({ toggle });
       <div class="footer flex justify-between">
         <Button
           label="Clear all"
-          icon="pi pi-filter-slash"
+          icon="icon-filter-x"
           title="Clear all filters"
           severity="secondary"
           size="small"
           @click="handleClear"
         />
-        <Button label="Apply" icon="pi pi-check" title="Apply filters" severity="primary" size="small" @click="handleApply" />
+        <Button label="Apply" icon="icon-check" title="Apply filters" severity="primary" size="small" @click="handleApply" />
       </div>
     </div>
   </Popover>

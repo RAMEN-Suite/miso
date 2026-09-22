@@ -63,7 +63,7 @@ function togglePopover(event: MouseEvent): void {
       {{ node!.node.data.label }}
     </span>
     <Button
-      icon="pi pi-info-circle"
+      icon="icon-info"
       size="small"
       severity="secondary"
       class="ml-2"

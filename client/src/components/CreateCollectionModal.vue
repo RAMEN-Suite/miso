@@ -103,7 +103,7 @@ async function handleSubmit() {
     </div>
 
     <div class="flex justify-center gap-2">
-      <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="pi pi-plus" @click="handleSubmit" />
+      <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
     </div>
   </div>
 </template>

@@ -211,7 +211,7 @@ function handleDeleteSmartView(view: DeepReadonly<SmartView>): void {
   confirm.require({
     header: "Delete view",
     message: `Delete the view "${view.label}"? The nodes it lists are not affected.`,
-    icon: "pi pi-exclamation-triangle",
+    icon: "icon-alert-triangle",
     rejectProps: { label: "Cancel", severity: "secondary", autofocus: true },
     acceptProps: { label: "Delete", severity: "danger" },
     accept: () => {
@@ -271,7 +271,7 @@ useEventListener(window, "mouseup", () => {
                 @keydown.enter.prevent="handleSelectDatabase"
                 @keydown.space.prevent="handleSelectDatabase"
               >
-                <i class="pi pi-folder shrink-0" />
+                <i class="icon-folder shrink-0" />
                 <span class="text-sm">Data</span>
               </div>
             </li>
@@ -281,7 +281,7 @@ useEventListener(window, "mouseup", () => {
         <div class="views-header flex items-center justify-between gap-2">
           <h4 class="m-0 font-normal">Views</h4>
           <Button
-            icon="pi pi-plus"
+            icon="icon-plus"
             severity="secondary"
             text
             rounded
@@ -309,7 +309,7 @@ useEventListener(window, "mouseup", () => {
         <div class="tags-header flex items-center justify-between gap-2">
           <h4 class="m-0 font-normal">Tags</h4>
           <Button
-            icon="pi pi-plus"
+            icon="icon-plus"
             severity="secondary"
             text
             rounded
@@ -346,7 +346,8 @@ useEventListener(window, "mouseup", () => {
     <CreateTagPopover ref="tag-popover" />
 
     <!-- ConfirmationService is registered app-wide, but the dialog it drives has to be mounted somewhere -->
-    <ConfirmDialog />
+    <!-- `close-icon` is not a ConfirmDialog prop; it falls through to the Dialog it renders. -->
+    <ConfirmDialog close-icon="icon-x" />
   </aside>
 </template>
 

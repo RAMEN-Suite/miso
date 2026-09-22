@@ -273,13 +273,13 @@ function buildMenuItems(line: PositionedLine): void {
       items: [
         {
           label: "Edit",
-          icon: "pi pi-pencil",
+          icon: "icon-pencil",
           title: "Show and edit details",
           command: () => handleDetailsClick(line),
         },
         {
           label: "Delete",
-          icon: "pi pi-trash",
+          icon: "icon-trash-2",
           title: "Delete annotation",
           command: () => handleDeleteClick(line),
         },

@@ -29,7 +29,7 @@ function openImportModal(): void {
 
 <template>
   <Button
-    icon="pi pi-file-import"
+    icon="icon-file-input"
     severity="secondary"
     outlined
     class="w-8! h-8! mr-1"

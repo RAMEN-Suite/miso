@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { HierarchyEntry } from "../models/types";
+import { HierarchyEntry, IconSpec } from "../models/types";
 import { ellipsize } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 
@@ -18,7 +19,7 @@ const { entryIndex, tags } = useTagsStore();
 const PREVIEW_LENGTH: number = 80;
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
-const icon = computed<string>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
 const tagColors = computed<string[]>(() => {
   const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
 
@@ -58,7 +59,7 @@ function handleItemSelect(): void {
     @keydown.space.prevent="handleItemSelect"
   >
     <div class="body flex items-center gap-2">
-      <i :class="icon" class="node-icon shrink-0" />
+      <RAMENNodeIcon :spec="icon" class="node-icon shrink-0" />
       <div class="text-and-labels grow min-w-0">
         <div class="label" :class="{ 'font-bold': isCollection }">
           {{ displayText }}
@@ -88,10 +89,6 @@ function handleItemSelect(): void {
   &.selected {
     background-color: var(--p-highlight-background, hsl(210, 80%, 90%));
   }
-}
-
-.node-icon {
-  font-size: 0.9rem;
 }
 
 .content .label {

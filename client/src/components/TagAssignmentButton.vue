@@ -31,12 +31,13 @@ function handleTagToggle(tagUuid: string): void {
   <Button
     type="button"
     severity="secondary"
-    icon="pi pi-tags"
     size="small"
+    class="w-8! h-8!"
     :title="isTagged ? `Tagged with ${assignedTags.length} tag(s)` : 'Add a tag'"
-    :pt="{ icon: { style: isTagged ? { color: 'var(--p-primary-color)' } : {} } }"
     @click="handleButtonClick"
-  />
+  >
+    <i class="icon-tag"></i>
+  </Button>
 
   <Popover
     ref="popover"
@@ -72,7 +73,7 @@ function handleTagToggle(tagUuid: string): void {
     </ul>
 
     <div class="disclaimer mt-4 text-xs italic flex items-center gap-2">
-      <i class="pi pi-exclamation-circle"></i>
+      <i class="icon-alert-circle"></i>
       <span>Tags are stored in your browser. If you change your device, they won't be available there.</span>
     </div>
   </Popover>

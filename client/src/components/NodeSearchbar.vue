@@ -16,7 +16,9 @@ import {
 } from "../models/types";
 import { useAppStore } from "../store/app";
 import { onStartTyping } from "@vueuse/core";
-import NodeIcon from "./NodeIcon.vue";
+import { resolveNodeIcon } from "../config/icons";
+import { filterBaseNodeLabel } from "../utils/helper/helper";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const props = defineProps<{
   baseNodeLabel: ReferenceNodeLabel;
@@ -145,7 +147,7 @@ onStartTyping(() => {
 <template>
   <InputGroup>
     <InputGroupAddon class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
-      <NodeIcon :node-labels="[props.baseNodeLabel, props.additionalNodeLabel]" />
+      <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
@@ -179,19 +181,28 @@ onStartTyping(() => {
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">
           <div class="result-item">
-            <NodeIcon :node-labels="option.nodeLabels" />
+            <RAMENNodeIcon
+              :spec="resolveNodeIcon(option.nodeLabels)"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+            />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Entity'">
           <div class="result-item">
-            <NodeIcon :node-labels="option.nodeLabels" />
+            <RAMENNodeIcon
+              :spec="resolveNodeIcon(option.nodeLabels)"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+            />
             <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Content'">
           <div class="result-item">
-            <NodeIcon :node-labels="option.nodeLabels" />
+            <RAMENNodeIcon
+              :spec="resolveNodeIcon(option.nodeLabels)"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+            />
             <span :title="option.data">{{ option.data?.text.slice(0, PREVIEW_CHARACTER_SIZE) }}</span>
           </div>
         </template>

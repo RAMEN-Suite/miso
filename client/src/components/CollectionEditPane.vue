@@ -13,7 +13,14 @@ import {
   NodeDto,
   NodeStatusObject,
 } from "../models/types";
-import { capitalize, cloneDeep, getDefaultValueForProperty, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
+import {
+  capitalize,
+  cloneDeep,
+  filterBaseNodeLabel,
+  getDefaultValueForProperty,
+  setNodeTreeStatus,
+  pruneDeletedNodes,
+} from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -30,7 +37,8 @@ import AnnotationCreateModal from "./AnnotationCreateModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
-import NodeIcon from "./NodeIcon.vue";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+import { resolveNodeIcon } from "../config/icons";
 import CollectionAnnotationNote from "./CollectionAnnotationNote.vue";
 
 const props = defineProps<{
@@ -482,7 +490,13 @@ function showMessage(result: "success" | "error", error?: Error) {
 
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
-          <NodeIcon :node-labels="temporaryWorkData.collection.node.nodeLabels" />
+          <RAMENNodeIcon
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            v-tooltip.hover.top="{
+              value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
+              showDelay: 50,
+            }"
+          />
           <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
           <span v-else class="label-text" data-placeholder="No label provided">
             {{ temporaryWorkData.collection.node.data.label }}

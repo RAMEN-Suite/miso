@@ -125,9 +125,9 @@ function closeModal(): void {
       </template>
     </template>
     <template v-if="currentStep === 'finishing'">
-      <CollectionCard v-if="baseNodeLabel === 'Collection'" :model-value="nodeAsCollection" mode="view" />
-      <TextCard v-if="baseNodeLabel === 'Content'" :model-value="nodeAsText" mode="view" />
-      <EntityCard v-if="baseNodeLabel === 'Entity'" :model-value="nodeAsEntity" mode="view" />
+      <CollectionCard v-if="baseNodeLabel === 'Collection'" :model-value="nodeAsCollection" mode="view" :show-badge="false" />
+      <TextCard v-if="baseNodeLabel === 'Content'" :model-value="nodeAsText" mode="view" :show-badge="false" />
+      <EntityCard v-if="baseNodeLabel === 'Entity'" :model-value="nodeAsEntity" mode="view" :show-badge="false" />
       <div class="flex justify-center gap-2 mt-6 w-full">
         <Button label="Add" icon="icon-plus" @click="handleFinishClick" />
         <Button label="Go back" icon="icon-arrow-left" severity="secondary" @click="handleGoBack" />

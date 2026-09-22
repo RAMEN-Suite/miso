@@ -3,9 +3,15 @@ import { computed } from "vue";
 import NodeCardHeader from "./NodeCardHeader.vue";
 import { TextNode, NodeStatusObject, NodeStatus } from "../models/types";
 
-const props = defineProps<{
-  mode: "edit" | "view";
-}>();
+const props = withDefaults(
+  defineProps<{
+    mode: "edit" | "view";
+    showBadge?: boolean;
+  }>(),
+  {
+    showBadge: true,
+  },
+);
 
 const emit = defineEmits<(e: "remove-node") => void>();
 
@@ -68,7 +74,7 @@ function setNodeStatus(status: NodeStatus): void {
     @keydown.enter="handleSelectContainer"
     @keydown.space.prevent="handleSelectContainer"
   >
-    <NodeCardHeader :node="node!" :mode="props.mode" @remove="handleRemoveNode" />
+    <NodeCardHeader :node="node!" :mode="props.mode" :show-badge="props.showBadge" @remove="handleRemoveNode" />
     <div class="text-xs">
       {{ displayedText }}
     </div>

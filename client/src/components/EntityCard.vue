@@ -6,9 +6,15 @@ import NodeCardHeader from "./NodeCardHeader.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import { useTemplateRef } from "vue";
 
-const props = defineProps<{
-  mode: "edit" | "view";
-}>();
+const props = withDefaults(
+  defineProps<{
+    mode: "edit" | "view";
+    showBadge?: boolean;
+  }>(),
+  {
+    showBadge: true,
+  },
+);
 
 const emit = defineEmits<(e: "remove-node") => void>();
 
@@ -58,7 +64,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
     @keydown.enter="handleSelectContainer"
     @keydown.space.prevent="handleSelectContainer"
   >
-    <NodeCardHeader :node="node!" :mode="props.mode" @remove="handleRemoveNode" />
+    <NodeCardHeader :node="node!" :mode="props.mode" :show-badge="props.showBadge" @remove="handleRemoveNode" />
     <span>
       {{ node!.node.data.label }}
     </span>

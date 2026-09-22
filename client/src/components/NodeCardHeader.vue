@@ -5,10 +5,16 @@ import { filterDefaultLabels, getBaseNodeLabel } from "../utils/helper/helper";
 import { BaseNodeLabel, NodeStatusObject } from "../models/types";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 
-const props = defineProps<{
-  mode: "edit" | "view";
-  node: NodeStatusObject;
-}>();
+const props = withDefaults(
+  defineProps<{
+    mode: "edit" | "view";
+    node: NodeStatusObject;
+    showBadge?: boolean;
+  }>(),
+  {
+    showBadge: true,
+  },
+);
 
 const emit = defineEmits<(e: "remove") => void>();
 
@@ -30,7 +36,7 @@ function handleRemoveClick(): void {
     <div class="node-labels-pane flex">
       <NodeTag v-for="label in filteredLabels" :key="label" class="test mr-1" :content="label" :type="baseNodeLabel" />
     </div>
-    <NodeStatusBadge :status="node.meta.status" />
+    <NodeStatusBadge v-if="props.showBadge" :status="node.meta.status" />
     <Button
       :class="props.mode === 'view' ? 'invisible' : ''"
       icon="icon-x"

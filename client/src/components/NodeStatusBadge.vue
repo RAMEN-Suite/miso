@@ -4,9 +4,15 @@ import { NodeStatus } from "../models/types";
 import { Tag } from "primevue";
 import { capitalize } from "../utils/helper/helper";
 
-const props = defineProps<{
-  status: NodeStatus;
-}>();
+const props = withDefaults(
+  defineProps<{
+    status: NodeStatus;
+    badgeStyle?: "character" | "dot";
+  }>(),
+  {
+    badgeStyle: "character",
+  },
+);
 
 const capital = computed<string>(() => props.status.charAt(0).toUpperCase());
 const htmlTitle = computed<string>(() => capitalize(props.status));
@@ -30,17 +36,26 @@ const severity = computed<string>(() => {
 <template>
   <Tag
     v-if="props.status !== 'unchanged'"
-    :value="capital"
+    :class="`tag-${props.badgeStyle}`"
+    :value="props.badgeStyle === 'character' ? capital : ''"
     :title="htmlTitle"
     :severity="severity"
-    :style="{
-      fontSize: '0.7rem',
-      padding: '2px 4px',
-      lineHeight: '100%',
-      width: '16px',
-      height: '16px',
-    }"
   />
 </template>
 
-<style scoped></style>
+<style scoped>
+.tag-character {
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  line-height: 100%;
+  width: 16px;
+  height: 16px;
+}
+
+.tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  padding: 0;
+}
+</style>

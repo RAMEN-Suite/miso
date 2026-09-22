@@ -85,6 +85,7 @@ function updateView() {
       <div class="label-section flex items-center justify-center gap-2">
         <RAMENNodeIcon
           :spec="icon"
+          :size="30"
           v-tooltip.hover.top="{ value: filterBaseNodeLabel(contentNode.nodeLabels).join(', '), showDelay: 50 }"
         />
       </div>

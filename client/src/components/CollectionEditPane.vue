@@ -492,6 +492,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         <h3 class="label-heading" aria-label="Collection label">
           <RAMENNodeIcon
             :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :size="30"
             v-tooltip.hover.top="{
               value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,

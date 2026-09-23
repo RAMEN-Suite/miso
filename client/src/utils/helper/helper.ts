@@ -242,6 +242,46 @@ export function createTextNode(params?: { additionalNodeLabels: string[] }): Tex
 }
 
 /**
+ * Creates a new Entity object with default values.
+ *
+ * There are no guidelines for Entities yet, so a new Entity only consists of a UUID and an (empty) label.
+ *
+ * @param {Object} params - The optional parameters for the new node.
+ * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.
+ *   Defaults to none, leaving the node with the base label only.
+ * @return {EntityNode} A new Entity object with default values.
+ */
+export function createEntityNode(params?: { additionalNodeLabels: string[] }): EntityNode {
+  return {
+    nodeLabels: ["Entity", ...(params?.additionalNodeLabels ?? [])],
+    data: {
+      uuid: crypto.randomUUID(),
+      label: "",
+    },
+  };
+}
+
+/**
+ * Creates a new, not yet persisted Entity node wrapped in a node status object, ready to be filled in by the user.
+ *
+ * The node is marked as "created" so that the backend creates it once the parent node is saved.
+ *
+ * @param {Object} params - The optional parameters for the new node.
+ * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.
+ *   Defaults to none, leaving the node with the base label only.
+ * @return {NodeStatusObject<EntityNode>} A new Entity node status object with default values.
+ */
+export function createEntityNodeStatusObject(params?: { additionalNodeLabels: string[] }): NodeStatusObject<EntityNode> {
+  const entityNode: NodeStatusObject<EntityNode> = createNodeStatusObjectFromRawData(
+    createNodeDtoFromNode(createEntityNode({ additionalNodeLabels: params?.additionalNodeLabels ?? [] })),
+  ) as NodeStatusObject<EntityNode>;
+
+  entityNode.meta.status = "created";
+
+  return entityNode;
+}
+
+/**
  * Creates a new, not yet persisted Content node wrapped in a node status object, ready to be filled in by the user.
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.

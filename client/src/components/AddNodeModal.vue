@@ -10,7 +10,8 @@ import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
 import TextContainer from "./TextContainer.vue";
 import EntityCard from "./EntityCard.vue";
-import { createContentNodeStatusObject } from "../utils/helper/helper";
+import EntityContainer from "./EntityContainer.vue";
+import { createContentNodeStatusObject, createEntityNodeStatusObject } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -39,8 +40,9 @@ const nodeAsCollection = computed(() => (nodeToAdd.value ?? undefined) as NodeSt
 const nodeAsText = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<TextNode> | undefined);
 const nodeAsEntity = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<EntityNode> | undefined);
 
-const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content");
-const draftNode = ref<NodeStatusObject<TextNode> | null>(null);
+const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content" || baseNodeLabel === "Entity");
+const draftText = ref<NodeStatusObject<TextNode> | null>(null);
+const draftEntity = ref<NodeStatusObject<EntityNode> | null>(null);
 
 watch(() => route.path, closeModal);
 
@@ -66,26 +68,46 @@ function handleSearchItemSelected(item: CollectionNode | TextNode | EntityNode) 
 }
 
 function handleStartDraft(): void {
-  draftNode.value = createContentNodeStatusObject({ additionalNodeLabels: [additionalNodeLabel] });
+  if (baseNodeLabel === "Entity") {
+    draftEntity.value = createEntityNodeStatusObject({ additionalNodeLabels: [additionalNodeLabel] });
+  } else {
+    draftText.value = createContentNodeStatusObject({ additionalNodeLabels: [additionalNodeLabel] });
+  }
 }
 
 function handleDiscardDraft(): void {
-  draftNode.value = null;
+  draftText.value = null;
+  draftEntity.value = null;
 }
 
 /**
- * Takes over the finished draft node as the node to add.
+ * Takes over the finished draft Content node as the node to add.
  *
  * @param {NodeStatusObject<TextNode>} newNode - The drafted Content node.
  * @returns {void} This function does not return any value.
  */
-function handleDraftConfirmed(newNode: NodeStatusObject<TextNode>): void {
+function handleTextDraftConfirmed(newNode: NodeStatusObject<TextNode>): void {
   newNode.node.data.text = newNode.node.data.text.replace(/(\r\n|\n|\r)/g, " ");
 
   setNode(newNode);
   setPipelineStep("finishing");
 
-  draftNode.value = null;
+  draftText.value = null;
+}
+
+/**
+ * Takes over the finished draft Entity node as the node to add.
+ *
+ * @param {NodeStatusObject<EntityNode>} newNode - The drafted Entity node.
+ * @returns {void} This function does not return any value.
+ */
+function handleEntityDraftConfirmed(newNode: NodeStatusObject<EntityNode>): void {
+  newNode.node.data.label = newNode.node.data.label.trim();
+
+  setNode(newNode);
+  setPipelineStep("finishing");
+
+  draftEntity.value = null;
 }
 
 function handleGoBack(): void {
@@ -112,7 +134,18 @@ function closeModal(): void {
           <span class="text-sm">or create a new one</span>
         </Divider>
 
-        <TextContainer v-if="draftNode" :text="draftNode" @text-added="handleDraftConfirmed" @text-removed="handleDiscardDraft" />
+        <TextContainer
+          v-if="draftText"
+          :text="draftText"
+          @text-added="handleTextDraftConfirmed"
+          @text-removed="handleDiscardDraft"
+        />
+        <EntityContainer
+          v-else-if="draftEntity"
+          :entity="draftEntity"
+          @entity-added="handleEntityDraftConfirmed"
+          @entity-discarded="handleDiscardDraft"
+        />
         <Button
           v-else
           :label="`Create new ${additionalNodeLabel}`"

@@ -4,10 +4,10 @@ import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
-import { EntityNode, NodeStatusObject } from "../models/types";
+import { EntityNode, NodeStatusObject } from "../models/types.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
-import { resolveNodeIcon } from "../config/icons";
-import { filterBaseNodeLabel } from "../utils/helper/helper";
+import { resolveNodeIcon } from "../config/icons.ts";
+import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
 
 const props = defineProps<{
   entity: NodeStatusObject<EntityNode>;
@@ -55,11 +55,19 @@ function handleDiscardClick(): void {
         />
         <Button
           type="submit"
+          size="small"
           icon="icon-check"
           :disabled="isEmptyDraft"
           :title="isEmptyDraft ? 'Enter a label first' : 'Confirm new entity'"
         />
-        <Button type="button" icon="icon-x" severity="secondary" title="Discard new entity" @click="handleDiscardClick" />
+        <Button
+          type="button"
+          size="small"
+          icon="icon-x"
+          severity="secondary"
+          title="Discard new entity"
+          @click="handleDiscardClick"
+        />
       </InputGroup>
     </div>
   </form>

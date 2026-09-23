@@ -8,9 +8,9 @@ import { NodeStatusObject, CollectionNode, TextNode, EntityNode, ReferenceNodeLa
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import TextContainer from "./TextContainer.vue";
+import TextDraftContainer from "./TextDraftContainer.vue";
 import EntityCard from "./EntityCard.vue";
-import EntityContainer from "./EntityContainer.vue";
+import EntityDraftContainer from "./EntityDraftContainer.vue";
 import { createContentNodeStatusObject, createEntityNodeStatusObject } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
@@ -134,13 +134,13 @@ function closeModal(): void {
           <span class="text-sm">or create a new one</span>
         </Divider>
 
-        <TextContainer
+        <TextDraftContainer
           v-if="draftText"
           :text="draftText"
           @text-added="handleTextDraftConfirmed"
-          @text-removed="handleDiscardDraft"
+          @text-discarded="handleDiscardDraft"
         />
-        <EntityContainer
+        <EntityDraftContainer
           v-else-if="draftEntity"
           :entity="draftEntity"
           @entity-added="handleEntityDraftConfirmed"

@@ -31,6 +31,7 @@ import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { BASE_MODAL_PROPS } from "../config/modals.ts";
+import LoadingSpinner from "./LoadingSpinner.vue";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
@@ -158,6 +159,14 @@ const entries: WritableComputedRef<HierarchyEntry[]> = computed({
   },
 });
 
+const isLoading = computed<boolean>(() => state.value.isLoading);
+
+/**
+ * Whether a first page fetch is in flight - either because the column is loading for the first time
+ * or because the query changed and the data need to be re-assembled.
+ */
+const isReloading = computed<boolean>(() => state.value.isLoading && state.value.cursor === null);
+
 /**
  * Which set of nodes this column lists (db hierarchy, tags etc.). Only the first column depends on the active root — every
  * column below it always shows the `PART_OF` children of the item selected in the previous one.
@@ -198,7 +207,7 @@ useEventListener(window, "mouseup", endResize);
 
 useInfiniteScroll(scrollPane, fetchNextPage, {
   distance: 25,
-  canLoadMore: () => hasMore.value && !state.value.isLoading,
+  canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
 watch(scope, () => fetchFirstPage(), { immediate: true });
@@ -434,7 +443,8 @@ function endResize(): void {
     </div>
     <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
-      <div ref="scroll-pane" class="content">
+      <LoadingSpinner v-if="isReloading" :size="40" color="grey" />
+      <div ref="scroll-pane" class="content" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
@@ -442,7 +452,7 @@ function endResize(): void {
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>
-        <div v-if="state.isLoading && entries.length > 0" class="text-center" title="More data are loading...">
+        <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
           <span class="icon-loader-circle animate-spin"></span>
         </div>
       </div>
@@ -515,6 +525,12 @@ function endResize(): void {
   flex-grow: 1;
   scrollbar-width: thin;
   scrollbar-gutter: stable;
+}
+
+/* Stale listing shown behind the column wide spinner while the column refetches */
+.is-stale {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .add-button {

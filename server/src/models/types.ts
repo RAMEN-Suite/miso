@@ -49,9 +49,7 @@ export type AnnotationType = {
   defaultSelected: boolean;
   isSeparator?: boolean;
   isZeroPoint?: boolean;
-  hasAdditionalTexts?: boolean;
   hasEntities?: boolean;
-  entityNodes?: string[];
   properties?: PropertyConfig[];
   shortcut: string[];
   text: string;

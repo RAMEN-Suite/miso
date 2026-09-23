@@ -68,9 +68,7 @@ export interface AnnotationType {
   defaultSelected: boolean; // Miso
   /** @deprecated Use `behaviour: "zeroPoint"`. Kept as a legacy input the normalization derives from. */
   isZeroPoint?: boolean; // Miso and Nori
-  hasAdditionalTexts?: boolean; // Derived from Nori
   hasEntities?: boolean; // Derived from Nori
-  entityNodes?: string[]; // Derived from Nori
   properties?: PropertyConfig[]; // Nori
   shortcut: string[]; // Miso
   text: string; // Miso

@@ -162,7 +162,7 @@ export default class HierarchyService {
         return `MATCH (parent:Collection {uuid: $parentUuid})<-[:PART_OF]-(n:Collection|Content)`;
       }
       case "top": {
-        return `MATCH (n:Collection|Content) WHERE NOT EXISTS { (:Collection)<-[:PART_OF]-(n) }`;
+        return `MATCH (n:Collection|Content) WHERE NOT EXISTS { ()<-[:PART_OF]-(n) }`;
       }
       case "uuids": {
         return `UNWIND $uuids AS scopeUuid

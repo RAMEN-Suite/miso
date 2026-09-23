@@ -443,7 +443,7 @@ function endResize(): void {
     </div>
     <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
-      <LoadingSpinner v-if="isReloading" :size="40" color="grey" />
+      <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
       <div ref="scroll-pane" class="content" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem

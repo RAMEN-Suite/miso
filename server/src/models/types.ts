@@ -86,14 +86,6 @@ export type Character = {
   annotations: AnnotationReference[];
 };
 
-export type CharacterPostData = {
-  characters: ICharacter[];
-  text: string;
-  textUuid: string;
-  uuidEnd: string;
-  uuidStart: string;
-};
-
 export type CollectionNode = Node<ICollection>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
@@ -195,15 +187,6 @@ export type CollectionPostData = {
   initialData: CollectionAccessObject;
 };
 
-export type CollectionPreview = {
-  collection: CollectionNode;
-  nodeCounts: {
-    annotations: number;
-    texts: number;
-    collections: number;
-  };
-};
-
 /** Object for specifying relationship between two nodes. Used during preprocessing data before updating Text nodes */
 export type EdgeDescriptor = {
   type: BaseRelationshipType;
@@ -216,11 +199,6 @@ export type EntityNode = Node<IEntity>;
 export type FaviconResponse = {
   contentType: string;
   data: Buffer;
-};
-
-export type MalformedAnnotation = {
-  reason: "indexOutOfBounds" | "unconfiguredType";
-  data: StandoffAnnotation;
 };
 
 export type Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> = {
@@ -300,19 +278,6 @@ export type PropertyConfig = {
 export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
 
 export type PropertyConfigStringTemplate = "input" | "textarea";
-
-export type StandoffAnnotation = {
-  [key: string]: string | number | boolean;
-  start: number;
-  end: number;
-  text: string;
-  type: string;
-};
-
-export type StandoffJson = {
-  annotations: StandoffAnnotation[];
-  text: string;
-};
 
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default

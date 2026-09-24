@@ -151,47 +151,9 @@ export interface Character {
   annotations: AnnotationReference[];
 }
 
-export interface CharacterPostData {
-  characters: ICharacter[];
-  text: string;
-  textUuid: string;
-  uuidEnd: string;
-  uuidStart: string;
-}
-
 export type CollectionNode = Node<ICollection>;
 
-export interface CollectionAccessObject {
-  annotations: NodeDto<AnnotationNode>[];
-  collection: NodeDto<CollectionNode>;
-  texts: NodeDto<TextNode>[];
-}
-
-export interface CollectionAccessStatusObject {
-  collection: NodeStatusObject<CollectionNode>;
-  texts: NodeStatusObject<TextNode>[];
-  annotations: NodeStatusObject[];
-}
-
-export type CollectionCreationData = CollectionAccessObject & {
-  parentCollection: CollectionNode | null;
-};
-
 export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
-
-export interface CollectionPostData {
-  data: CollectionAccessObject;
-  initialData: CollectionAccessObject;
-}
-
-export interface CollectionPreview {
-  collection: CollectionNode;
-  nodeCounts: {
-    annotations: number;
-    texts: number;
-    collections: number;
-  };
-}
 
 export interface EditorSettings {
   blockDecorations: {
@@ -211,19 +173,6 @@ export interface NodeSearchParams {
 }
 
 export type EntityNode = Node<IEntity>;
-
-export type HistoryStack = HistoryRecord[];
-
-export interface HistoryRecord {
-  caretPosition: string | null;
-  timestamp: Date;
-  data: {
-    afterEndCharacter: Character | null;
-    annotations: Annotation[];
-    beforeStartCharacter: Character | null;
-    characters: Character[];
-  };
-}
 
 /**
  * Description of an icon that can be injected by the configuration to describe annotation types,
@@ -561,12 +510,6 @@ export interface TextAccessObject {
 export interface TextUpdateDto {
   text: NodeStatusObject<TextNode>;
   annotations: Annotation[];
-}
-
-export interface TextOperationResult {
-  leftBoundary?: string | null;
-  rightBoundary?: string | null;
-  changeSet?: Character[];
 }
 
 export type ToCItem = TreeNode & {

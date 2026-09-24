@@ -314,34 +314,6 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
   };
 }
 
-export function createExtendedStandoffObject(standoffObject: { text: string; annotations: NodeDto[] }): {
-  text: string;
-  annotations: NodeDto[];
-} {
-  const extended = cloneDeep(standoffObject);
-
-  if (extended.annotations.find((a) => a.node.data.type === "paragraph")) {
-    return extended;
-  }
-
-  extended.annotations.push({
-    node: {
-      nodeLabels: ["Annotation"],
-      data: {
-        text: standoffObject.text,
-        startIndex: 0,
-        uuid: crypto.randomUUID(),
-        subType: "",
-        endIndex: standoffObject.text.length - 1,
-        type: "paragraph",
-      },
-    },
-    connectedNodes: [],
-  });
-
-  return extended;
-}
-
 /**
  * Returns a list of all labels that are not one of the RAMEN base node labels.
  *
@@ -511,81 +483,6 @@ export function formatFileSize(bytes: number): string {
   return `${formattedSize} ${sizes[i]}`;
 }
 
-export function getCharacterUuidFromSpan(span: HTMLSpanElement | Element | null): string | null {
-  return span?.id ?? null;
-}
-
-/**
- * Determines the outer boundary elements and their UUIDs of a given range.
- * The function extracts the start and end span elements using `getRangeBoundaries`,
- * then identifies the span elements immediately before the start and after the end
- * of the range, if they exist. It returns these outer span elements and their corresponding
- * UUIDs.
- *
- * @param {Range} range - A Range object representing the selected or highlighted text.
- * @returns {Object} An object containing `leftSpan` and `rightSpan`, which are the
- * HTML span elements immediately before and after the range, respectively, as well as
- * `leftUuid` and `rightUuid`, which are the UUIDs of these span elements.
- */
-export function getOuterRangeBoundaries(range: Range): {
-  leftSpan: HTMLSpanElement | null;
-  rightSpan: HTMLSpanElement | null;
-  leftUuid: string | null;
-  rightUuid: string | null;
-} {
-  const { startSpan, endSpan } = getRangeBoundaries(range);
-
-  const leftSpan: HTMLSpanElement | null = (startSpan?.previousElementSibling as HTMLSpanElement) ?? null;
-  const rightSpan: HTMLSpanElement | null = (endSpan?.nextElementSibling as HTMLSpanElement) ?? null;
-
-  const leftUuid: string | null = leftSpan?.id ?? null;
-  const rightUuid: string | null = rightSpan?.id ?? null;
-
-  return {
-    leftSpan,
-    rightSpan,
-    leftUuid,
-    rightUuid,
-  };
-}
-
-/**
- * Get the HTML span elements that the user wants to annotate. If selection is of type 'Range', all spans between
- * the range's start and end container are returned. If selection is of type 'Caret', the span elements to the left and right
- * of the caret are returned (this is the case for zero-point annotations). The `isSelectionValid` function takes care of the existence
- * of previous and next elements.
- *
- * @returns {HTMLSpanElement[]} An array of HTML span elements to annotate.
- */
-export function getSpansToAnnotate(): HTMLSpanElement[] {
-  const { range, type } = getSelectionData();
-  let spans: HTMLSpanElement[] = [];
-
-  if (type === "Range") {
-    const firstSpan: HTMLSpanElement = getParentCharacterSpan(range.startContainer);
-    const lastSpan: HTMLSpanElement = getParentCharacterSpan(range.endContainer);
-    spans = findSpansWithinBoundaries(firstSpan, lastSpan);
-  }
-
-  if (type === "Caret") {
-    const referenceSpanElement: HTMLSpanElement = getParentCharacterSpan(range.startContainer);
-    let leftSpan: HTMLSpanElement;
-    let rightSpan: HTMLSpanElement;
-
-    if (range.startOffset === 0) {
-      leftSpan = referenceSpanElement.previousElementSibling as HTMLSpanElement;
-      rightSpan = referenceSpanElement;
-    } else {
-      leftSpan = referenceSpanElement;
-      rightSpan = referenceSpanElement.nextElementSibling as HTMLSpanElement;
-    }
-
-    spans = [leftSpan, rightSpan];
-  }
-
-  return spans;
-}
-
 /**
  * Returns the ProseMirror document positions that correspond to the top and bottom edges
  * of the editor's scroll container (i.e. the currently visible range of the document).
@@ -623,55 +520,6 @@ export function getVisibleDocRange(editorView: EditorView): { from: number; to: 
   return { from, to };
 }
 
-/**
- * Finds all HTML span elements between two given span elements. Used for iterating over the DOM when the selection is of type 'Range'.
- *
- * @param {HTMLSpanElement} firstChar The first span element to include in the result.
- * @param {HTMLSpanElement} lastChar The last span element to include in the result.
- *
- * @returns {HTMLSpanElement[]} An array of all span elements between (and including) the given `firstChar` and `lastChar`.
- */
-export function findSpansWithinBoundaries(firstChar: HTMLSpanElement, lastChar: HTMLSpanElement): HTMLSpanElement[] {
-  const spans: HTMLSpanElement[] = [];
-  let current: HTMLSpanElement = firstChar;
-
-  while (current && current !== lastChar) {
-    spans.push(current);
-    current = current.nextElementSibling as HTMLSpanElement;
-  }
-
-  spans.push(lastChar);
-
-  return spans;
-}
-
-/**
- * Extracts the start and end span elements from a given Range, if possible, and returns an object with two properties,
- * `startSpan` and `endSpan`, which contain the start and end span elements, respectively.
- *
- * Both can be `null` if the range covers the whole text container div (this is the case when all text is selected with Ctrl + A).
- *
- * @param {Range} range A Range object.
- * @returns {Object} An object with two properties, `startSpan` and `endSpan`, which contain the start and end span elements or `null`, respectively.
- */
-export function getRangeBoundaries(range: Range): {
-  startSpan: HTMLSpanElement | null;
-  endSpan: HTMLSpanElement | null;
-} {
-  let startReferenceSpanElement: HTMLSpanElement | null = null;
-  let endReferenceSpanElement: HTMLSpanElement | null = null;
-
-  if (isEditorElement(range.startContainer) && isEditorElement(range.endContainer)) {
-    startReferenceSpanElement = (range.startContainer as HTMLDivElement).firstElementChild as HTMLSpanElement;
-    endReferenceSpanElement = (range.endContainer as HTMLDivElement).lastElementChild as HTMLSpanElement;
-  } else {
-    startReferenceSpanElement = getParentCharacterSpan(range.startContainer);
-    endReferenceSpanElement = getParentCharacterSpan(range.endContainer);
-  }
-
-  return { startSpan: startReferenceSpanElement, endSpan: endReferenceSpanElement };
-}
-
 // TODO: These functions should actually check the node, not the status object...refactor later
 export function isEntityNode(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
   return node.node.nodeLabels.includes("Entity");
@@ -690,43 +538,6 @@ export function isContentNode(node: NodeStatusObject): node is NodeStatusObject<
 }
 
 /**
- * Checks if the given node is the text container element with id "text".
- *
- * @param {Node} node - The node to check.
- * @return {boolean} Returns true if the node is the text container element, false otherwise.
- */
-export function isEditorElement(node: Node): boolean {
-  return node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).id === "text";
-}
-
-/**
- * Returns the HTMLSpanElement that is the parent of the given node if it is a text node, or the element itself if it is a span element.
- * Used for getting and setting selection ranges during input handling.
- *
- * @param {Node} node - The node for which to find the parent character span (if it is not a span element itself)
- * @return {HTMLSpanElement} The parent span element of the given node (or the node itself)
- */
-export function getParentCharacterSpan(node: Node): HTMLSpanElement {
-  if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "SPAN") {
-    return node as HTMLSpanElement;
-  } else if (node.nodeType === Node.TEXT_NODE) {
-    return node.parentElement as HTMLSpanElement;
-  }
-
-  throw new Error("The provided node is neither a text node nor a span element.");
-}
-
-/**
- * Determines if the given character is a word boundary, for example whitespace or punctuation.
- *
- * @param {string} char - The character to check.
- * @returns {boolean} True if the character is a word boundary, false otherwise.
- */
-export function isWordBoundary(char: string): boolean {
-  return /\s/.test(char) || /[.,!?;:(){}[\]"']/g.test(char);
-}
-
-/**
  * Removes formatting characters from the input text.
  *
  * @param {string} text - The text containing formatting characters.
@@ -735,47 +546,6 @@ export function isWordBoundary(char: string): boolean {
 export function removeFormatting(text: string): string {
   const plainText: string = text.replace(/\r\n?|\n/g, "");
   return plainText;
-}
-
-/**
- * Retrieves relevant data from the Selection object of the current window.
- *
- * @return {Object} An object containing the Selection object itself, the Range object, and the type of the selection ('Caret', 'Range', 'None').
- */
-export function getSelectionData(): { selection: Selection; range: Range; type: string } {
-  const selection: Selection = window.getSelection();
-  const range: Range | null = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-  const type: string = selection.type;
-
-  return { selection, range, type };
-}
-
-/**
- * Determines if the caret is before the first character in the editor. Used for determining where to execute the insert/delete operation.
- *
- * @param {HTMLSpanElement} characterSpan - The HTMLSpanElement representing the character span.
- * @param {Ref<HTMLDivElement>} editorElm - The ref to the editor element.
- * @return {boolean} True if the caret is before the first character, false otherwise.
- */
-export function isCaretAtBeginning(characterSpan: HTMLSpanElement, editorElm: Ref<HTMLDivElement>): boolean {
-  const { range } = getSelectionData();
-  return characterSpan === editorElm.value.firstElementChild && range.startOffset === 0;
-}
-
-/**
- * Determines if the caret is after the last character in the editor.
- * Used for determining where to execute the insert/delete operation.
- *
- * @param {HTMLSpanElement} characterSpan - The HTMLSpanElement representing the character span.
- * @param {Ref<HTMLDivElement>} editorElm - The ref to the editor element.
- * @return {boolean} True if the caret is after the last character, false otherwise.
- */
-export function isCaretAtEnd(characterSpan: HTMLSpanElement, editorElm: Ref<HTMLDivElement>): boolean {
-  const { range } = getSelectionData();
-  const lastChild = editorElm.value.lastElementChild;
-
-  // Check if the current span is the last element and caret is at its end
-  return characterSpan === lastChild && range.startOffset === 1;
 }
 
 /**

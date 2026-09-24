@@ -17,10 +17,8 @@
   "dependencies": {
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.3.3",
-    "@tiptap/extension-bold": "^3.21.0",
     "@tiptap/extension-hard-break": "^3.22.3",
     "@tiptap/extension-invisible-characters": "^3.27.3",
-    "@tiptap/extension-link": "^3.22.0",
     "@tiptap/extension-list": "^3.22.3",
     "@tiptap/extension-table": "^3.22.3",
     "@tiptap/extension-unique-id": "^3.22.3",

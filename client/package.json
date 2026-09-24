@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check src",
-    "format:fix": "prettier --write src"
+    "format:fix": "prettier --write src",
+    "knip": "knip"
   },
   "dependencies": {
     "@primevue/themes": "^4.5.4",
@@ -42,6 +43,7 @@
     "eslint-plugin-vue": "^10.9.2",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "globals": "^17.7.0",
+    "knip": "^6.37.0",
     "prettier": "^3.2.5",
     "typescript": "^5.8.3",
     "vite": "^7.3.1",

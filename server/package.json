@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check src",
-    "format:fix": "prettier --write src"
+    "format:fix": "prettier --write src",
+    "knip": "knip"
   },
   "repository": {
     "type": "git",
@@ -34,10 +35,11 @@
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^20.12.10",
+    "concurrently": "^8.2.2",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
-    "concurrently": "^8.2.2",
+    "knip": "^6.37.0",
     "nodemon": "^3.1.0",
     "prettier": "^3.2.5",
     "typescript": "^5.8.3",

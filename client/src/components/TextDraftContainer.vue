@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ComponentPublicInstance, computed, onMounted, useTemplateRef } from "vue";
+import { ComponentPublicInstance, computed, onMounted, ref, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { NodeStatusObject, TextNode } from "../models/types";
-import { filterBaseNodeLabel } from "../utils/helper/helper";
+import { createContentNodeStatusObject, filterBaseNodeLabel } from "../utils/helper/helper";
 
 const props = defineProps<{
-  text: NodeStatusObject<TextNode>;
+  nodeLabels: string[];
 }>();
 
-const emit = defineEmits<(e: "textAdded" | "textDiscarded", text: NodeStatusObject<TextNode>) => void>();
+const emit = defineEmits<{
+  (e: "textAdded", text: NodeStatusObject<TextNode>): void;
+  (e: "textDiscarded"): void;
+}>();
 
 const textInput = useTemplateRef<ComponentPublicInstance>("text-input");
 
-const additionalNodeLabels = computed<string[]>(() => filterBaseNodeLabel(props.text.node.nodeLabels));
-const isEmptyDraft = computed<boolean>(() => props.text.node.data.text.trim().length === 0);
+const additionalNodeLabels: string[] = filterBaseNodeLabel(props.nodeLabels);
+
+const draft = ref<NodeStatusObject<TextNode>>(createContentNodeStatusObject({ additionalNodeLabels }));
+
+const isEmptyDraft = computed<boolean>(() => draft.value.node.data.text.trim().length === 0);
 
 onMounted(() => {
   textInput.value?.$el?.focus();
@@ -25,22 +31,24 @@ function handleSubmit(): void {
     return;
   }
 
-  emit("textAdded", props.text);
+  draft.value.node.data.text = draft.value.node.data.text.replace(/(\r\n|\n|\r)/g, " ");
+
+  emit("textAdded", draft.value);
 }
 
 function handleDiscardClick(): void {
-  emit("textDiscarded", props.text);
+  emit("textDiscarded");
 }
 </script>
 
 <template>
   <form class="flex flex-col gap-3 my-2 p-4 text-left" @submit.prevent="handleSubmit">
+    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
     <label for="text-value" class="sr-only">Text</label>
-    <!-- The textarea is multi-line, so Enter inserts a newline and the draft is confirmed with the button below -->
     <Textarea
       id="text-value"
       ref="text-input"
-      v-model="text.node.data.text"
+      v-model="draft.node.data.text"
       rows="3"
       auto-resize
       class="w-full"

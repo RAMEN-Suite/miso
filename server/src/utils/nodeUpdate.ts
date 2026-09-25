@@ -13,6 +13,7 @@ import {
 import GuidelinesService from "../services/guidelines.service.js";
 import { toNeo4jTypes } from "./helper.js";
 import { inferRelationship } from "./ramen.js";
+import { createdAtOrNow, stampCreated, stampUpdated, stripSystemProperties } from "./systemProperties.js";
 
 function convertNodeToNeo4jFormat(
   node: EntityNode | AnnotationNode | CollectionNode | ContentNode,
@@ -21,19 +22,23 @@ function convertNodeToNeo4jFormat(
   const guidelineService = new GuidelinesService();
   const fields: PropertyConfig[] = [];
 
+  // System properties are always server-owned. Stripping them here removes any problems
+  // further down the road, since the properties are stamped in by the cypher query.
+  const data: Record<string, any> = stripSystemProperties(node.data);
+
   if (node.nodeLabels.includes("Content") || node.nodeLabels.includes("Entity")) {
-    return node;
+    return { nodeLabels: node.nodeLabels, data };
   } else if (node.nodeLabels.includes("Collection")) {
     fields.push(...guidelineService.getCollectionConfigFieldsFromGuidelines(guidelines, node.nodeLabels));
   } else if (node.nodeLabels.includes("Annotation")) {
     fields.push(...guidelineService.getAnnotationConfigFieldsFromGuidelines(guidelines, (node.data as IAnnotation).type));
   } else {
-    return node;
+    return { nodeLabels: node.nodeLabels, data };
   }
 
   return {
     nodeLabels: node.nodeLabels,
-    data: toNeo4jTypes(node.data, fields),
+    data: toNeo4jTypes(data, fields),
   };
 }
 
@@ -120,6 +125,7 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
 
       CREATE (n)
       SET n = nodeToCreate.data
+      SET ${stampCreated("n")}
       WITH n, nodeToCreate
       CALL apoc.create.addLabels(n, nodeToCreate.nodeLabels) YIELD node
 
@@ -131,7 +137,9 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
       UNWIND $update AS nodeToUpdate
 
       MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.data.uuid})
+      WITH n, nodeToUpdate, ${createdAtOrNow("n")} AS createdAt
       SET n = nodeToUpdate.data
+      SET ${stampUpdated("n", "createdAt")}
       WITH n, nodeToUpdate, labels(n) AS currentLabels
       CALL apoc.create.removeLabels(n, currentLabels) YIELD node
       CALL apoc.create.addLabels(node, nodeToUpdate.nodeLabels) YIELD node AS updatedNode

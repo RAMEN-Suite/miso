@@ -3,6 +3,7 @@ import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase } from "../utils/helper/helper";
 import { PropertyConfig, PropertyConfigDataType } from "../models/types";
 import Fieldset from "primevue/fieldset";
+import { isSystemProperty } from "../config/systemProperties";
 
 const props = defineProps<{
   data: any;
@@ -37,17 +38,19 @@ function formatValue(value: unknown, type?: PropertyConfigDataType): string {
 const rows: ComputedRef<PropertyRow[]> = computed(() => {
   if (props.fields && props.fields.length > 0) {
     return props.fields
-      .filter((field: PropertyConfig) => field.visible)
+      .filter((field: PropertyConfig) => field.visible && !isSystemProperty(field.name))
       .map((field: PropertyConfig) => ({
         name: camelCaseToTitleCase(field.name),
         value: formatValue(props.data?.[field.name], field.type),
       }));
   }
 
-  return Object.entries(props.data ?? {}).map(([name, value]) => ({
-    name: camelCaseToTitleCase(name),
-    value: formatValue(value),
-  }));
+  return Object.entries(props.data ?? {})
+    .filter(([name]) => !isSystemProperty(name))
+    .map(([name, value]) => ({
+      name: camelCaseToTitleCase(name),
+      value: formatValue(value),
+    }));
 });
 </script>
 

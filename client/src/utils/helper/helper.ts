@@ -1,4 +1,3 @@
-import { Ref } from "vue";
 import {
   NodeDto,
   Character,
@@ -461,6 +460,29 @@ export function filterDefaultLabels(nodeLabels: string[]): string[] {
   const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity", "Content"];
 
   return nodeLabels.filter((l) => !baseNodeLabels.includes(l));
+}
+
+/**
+ * Formats an ISO 8601 date string for display in an edit pane as `yyyy.mm.dd HH:MM`, for example
+ * `2024-03-20 14:02`.
+ *
+ * @param {string | undefined} dateString - The date to format. Can be undefined (e.g. optional system properties)
+ * @returns {string} The formatted date, or an empty string if no usable date was given.
+ */
+export function formatEditDateMessage(dateString: string | undefined): string {
+  if (!dateString) {
+    return "";
+  }
+
+  const date: Date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const pad = (value: number): string => String(value).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /**

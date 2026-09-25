@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ComputedRef, ref, useTemplateRef, watch } from "vue";
+import { computed, ComputedRef, readonly, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -20,6 +20,7 @@ import {
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
+  formatEditDateMessage,
 } from "../utils/helper/helper";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -56,7 +57,6 @@ const {
   getCollectionAnnotationFields,
   getCollectionAnnotationConfig,
   getCollectionConfigFields,
-  getAllCollectionConfigFields,
   getAvailableCollectionLabels,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
@@ -74,6 +74,13 @@ const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
     ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
     : [];
 });
+
+const createdAt = readonly(
+  computed<string>(() => formatEditDateMessage(temporaryWorkData.value?.collection.node.data._createdAt)),
+);
+const updatedAt = readonly(
+  computed<string>(() => formatEditDateMessage(temporaryWorkData.value?.collection.node.data._updatedAt)),
+);
 
 const availableCollectionLabels = computed(getAvailableCollectionLabels);
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
@@ -185,9 +192,9 @@ function setAnnotationDeleted(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function enrichCollectionData(): void {
-  const allPossibleFields: PropertyConfig[] = getAllCollectionConfigFields();
+  const fields: PropertyConfig[] = getCollectionConfigFields(temporaryWorkData.value?.collection.node.nodeLabels ?? []);
 
-  allPossibleFields.forEach((field) => {
+  fields.forEach((field) => {
     if (!(field.name in temporaryWorkData.value.collection.node.data)) {
       temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field.type) : null;
     }
@@ -361,6 +368,11 @@ async function handleApplyChanges(): Promise<void> {
 
     transferDataToListItem(result.node.data.uuid, pathIndex, result);
 
+    // Important for update timestamps that were set by the DB transaction
+    if (temporaryWorkData.value) {
+      temporaryWorkData.value.collection.node.data = cloneDeep(result.node.data);
+    }
+
     cleanupDataAfterSave();
 
     initialTemporaryWorkData.value = cloneDeep(temporaryWorkData.value);
@@ -415,45 +427,17 @@ function updateView() {
   setMode("view");
 }
 
-/**
- * Removes any data entries that are not configured according to the current node labels, before saving.
- *
- * @returns {void} This function does not return any value.
- */
-function removeUnnecessaryDataBeforeSave(): void {
-  const configuredFieldNames: string[] = getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).map(
-    (f) => f.name,
-  );
-
-  Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
-    if (!configuredFieldNames.includes(key) && key !== "uuid") {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
-      delete temporaryWorkData.value.collection.node.data[key];
-    }
-  });
-}
-
 function wrapDataInSingleStructure(data: CollectionFocus): NodeStatusObject {
   const { collection, annotations } = data;
 
-  // Collection and its annotations are set to "modified". The status handling could be more
-  // granular, but this keeps things simple (Collections have few annotations, query stays performant)
-  const updatedCollection: NodeStatusObject = { ...collection, meta: { status: "modified" } };
-  const updatedAnnotations: NodeStatusObject[] = annotations.map((a) => {
-    const newStatus = a.meta.status === "unchanged" ? "modified" : a.meta.status;
-
-    return { ...a, meta: { status: newStatus } };
-  });
-
   return {
-    ...updatedCollection,
-    connectedNodes: [...updatedAnnotations],
+    ...collection,
+    meta: { status: "modified" },
+    connectedNodes: [...annotations],
   };
 }
 
 async function updateCollection(): Promise<NodeDto<CollectionNode>> {
-  removeUnnecessaryDataBeforeSave();
-
   const updateObj = wrapDataInSingleStructure(temporaryWorkData.value);
 
   const json = await api.updateCollection(temporaryWorkData.value.collection.node.data.uuid, updateObj);
@@ -562,6 +546,18 @@ function showMessage(result: "success" | "error", error?: Error) {
             </div>
           </form>
         </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1 w-full">
+      <div class="flex">
+        <small class="w-24 shrink-0">Created at:</small>
+        <small>{{ createdAt }}</small>
+      </div>
+
+      <div class="flex">
+        <small class="w-24 shrink-0">Updated at:</small>
+        <small>{{ updatedAt }}</small>
       </div>
     </div>
 

@@ -3,6 +3,7 @@ import ICharacter from "./ICharacter.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
+import type { SystemProperties } from "../utils/systemProperties.js";
 
 export type AdditionalText = {
   annotation: IAnnotation;
@@ -74,7 +75,13 @@ export type AnnotationConfigEntity = {
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
 
-export type BaseNodeData = {
+/**
+ * Properties all RAMEN nodes must have.
+ *
+ * Only `uuid` is enforced. System properties are optional because they are server-owned
+ * and stamped on DB write.
+ */
+export type BaseNodeData = Partial<SystemProperties> & {
   uuid: string;
 };
 

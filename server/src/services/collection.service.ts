@@ -174,8 +174,6 @@ export default class CollectionService {
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
-    console.dir(flat, { depth: null });
-
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
       uuid,
       delete: flat.delete,
@@ -192,7 +190,7 @@ export default class CollectionService {
     }
 
     return {
-      node: updatedNode,
+      node: toNativeTypes(updatedNode) as CollectionNode,
       connectedNodes: [],
     };
   }

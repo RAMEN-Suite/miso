@@ -4,6 +4,7 @@ import ICharacter from "./ICharacter";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
+import type { SystemProperties } from "../config/systemProperties";
 import type { BuiltinEditorAttribute } from "../config/editor";
 import type { AnnotationMapping } from "../config/editor";
 
@@ -133,9 +134,15 @@ export interface TiptapNode {
 
 export type TiptapJson = TiptapNode;
 
-export interface BaseNodeData {
+/**
+ * Properties all RAMEN nodes must have.
+ *
+ * Only `uuid` is enforced. System properties are optional because they are server-owned
+ * and stamped on DB write.
+ */
+export type BaseNodeData = Partial<SystemProperties> & {
   uuid: string;
-}
+};
 
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";

@@ -34,6 +34,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     :invalid="config.required && !modelValue"
     :options="config.options"
     :placeholder="`Select ${config.name}`"
+    size="small"
     class="w-full"
   />
   <InputText
@@ -42,6 +43,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
     :invalid="config.required && !modelValue && modelValue?.trim() === ''"
+    size="small"
     class="w-full"
     spellcheck="false"
     :pt="{ root: { minLength: minLength, maxLength: maxLength } }"
@@ -54,6 +56,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     :invalid="config.required && !modelValue"
     cols="30"
     rows="5"
+    size="small"
     class="w-full"
   />
   <InputNumber
@@ -64,6 +67,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     :invalid="config.required && !modelValue"
     :min="minValue"
     :max="maxValue"
+    size="small"
     show-buttons
   />
   <InputNumber
@@ -76,6 +80,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     :max="maxValue"
     :min-fraction-digits="0"
     :max-fraction-digits="20"
+    size="small"
     show-buttons
   />
   <div v-else-if="config.type === 'date'">
@@ -87,16 +92,23 @@ const maxLength: number | null | undefined = props.config.maxLength;
   <div v-else-if="config.type === 'time'">
     <InputDate v-model="modelValue" :config="config" :mode="mode" />
   </div>
-  <Checkbox
-    v-else-if="config.type === 'boolean'"
-    v-model="modelValue"
-    :name="config.name ?? 'Booelan value without name :/'"
-    :disabled="!config.editable || mode === 'view'"
-    binary
-  />
+  <div v-else-if="config.type === 'boolean'" class="checkbox-field">
+    <Checkbox
+      v-model="modelValue"
+      :name="config.name ?? 'Booelan value without name :/'"
+      :disabled="!config.editable || mode === 'view'"
+      binary
+    />
+  </div>
   <div v-else class="default-field" :style="{ backgroundColor: '#ffb1c0', borderRadius: '5px' }">
     {{ modelValue }}
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.checkbox-field {
+  padding-block: var(--p-inputtext-sm-padding-y);
+  border-block: 1px solid transparent;
+  line-height: normal;
+}
+</style>

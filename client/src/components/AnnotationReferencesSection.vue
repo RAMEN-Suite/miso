@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useTemplateRef } from "vue";
-import Fieldset from "primevue/fieldset";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -134,48 +133,46 @@ function handleAddNodeClick(event: PointerEvent): void {
 </script>
 
 <template>
-  <Fieldset legend="References">
-    <template v-for="(node, index) in nodes" :key="node.node.data.uuid">
-      <template v-if="isNotDeleted(node) && isReference(node)">
-        <EntityCard
-          v-if="isEntityNode(node)"
-          v-model="nodes![index] as NodeStatusObject<EntityNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-        <TextCard
-          v-else-if="isContentNode(node)"
-          v-model="nodes![index] as NodeStatusObject<TextNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-        <CollectionCard
-          v-else-if="isCollectionNode(node)"
-          v-model="nodes![index] as NodeStatusObject<CollectionNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-      </template>
+  <template v-for="(node, index) in nodes" :key="node.node.data.uuid">
+    <template v-if="isNotDeleted(node) && isReference(node)">
+      <EntityCard
+        v-if="isEntityNode(node)"
+        v-model="nodes![index] as NodeStatusObject<EntityNode>"
+        :mode="props.mode"
+        @remove-node="handleRemoveNode(node)"
+      />
+      <TextCard
+        v-else-if="isContentNode(node)"
+        v-model="nodes![index] as NodeStatusObject<TextNode>"
+        :mode="props.mode"
+        @remove-node="handleRemoveNode(node)"
+      />
+      <CollectionCard
+        v-else-if="isCollectionNode(node)"
+        v-model="nodes![index] as NodeStatusObject<CollectionNode>"
+        :mode="props.mode"
+        @remove-node="handleRemoveNode(node)"
+      />
     </template>
+  </template>
 
-    <Button
-      v-if="props.mode === 'edit'"
-      type="button"
-      label="Add Reference"
-      icon="icon-plus"
-      class="w-full"
-      severity="secondary"
-      aria-haspopup="true"
-      aria-controls="references_overlay_menu"
-      title="Add new reference"
-      @click="handleAddNodeClick"
-    />
-    <FilterableMenu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]">
-      <template #itemicon="{ item }">
-        <RAMENNodeIcon :spec="(item as NodeMenuItem).icon" />
-      </template>
-    </FilterableMenu>
-  </Fieldset>
+  <Button
+    v-if="props.mode === 'edit'"
+    type="button"
+    label="Add Reference"
+    icon="icon-plus"
+    class="w-full"
+    severity="secondary"
+    aria-haspopup="true"
+    aria-controls="references_overlay_menu"
+    title="Add new reference"
+    @click="handleAddNodeClick"
+  />
+  <FilterableMenu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]">
+    <template #itemicon="{ item }">
+      <RAMENNodeIcon :spec="(item as NodeMenuItem).icon" />
+    </template>
+  </FilterableMenu>
 </template>
 
 <style scoped></style>

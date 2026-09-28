@@ -14,9 +14,10 @@ import {
   NodeStatusObject,
 } from "../models/types";
 import {
-  capitalize,
+  camelCaseToTitleCase,
   cloneDeep,
   filterBaseNodeLabel,
+  formatPropertyValue,
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
@@ -541,25 +542,36 @@ function showMessage(result: "success" | "error", error?: Error) {
         </div>
         <div class="properties-pane">
           <form ref="form">
-            <div v-for="field in collectionFields" :key="field.name" class="input-container">
-              <div class="flex items-center gap-4 mb-4">
-                <!-- eslint-disable vuejs-accessibility/label-has-for -- No id as component prop currently -->
-                <label :for="field.name" class="w-40 font-semibold">{{ capitalize(field.name) }} </label>
-                <DataInputGroup
-                  v-if="field.type === 'array'"
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <DataInputComponent
-                  v-else
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <!-- eslint-enable vuejs-accessibility/label-has-for -->
-              </div>
-            </div>
+            <table v-if="collectionFields.length > 0" class="properties-table">
+              <tr
+                v-for="field in collectionFields"
+                :key="field.name"
+                class="properties-row"
+                :class="{ 'is-multiline': mode === 'edit' && field.type === 'array' }"
+              >
+                <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
+                <td class="properties-label">
+                  <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+                </td>
+                <td class="properties-value">
+                  <span v-if="mode === 'view'" class="properties-text">{{
+                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field.type)
+                  }}</span>
+                  <DataInputGroup
+                    v-else-if="field.type === 'array'"
+                    v-model="temporaryWorkData.collection.node.data[field.name]"
+                    :config="field"
+                    :mode="mode"
+                  />
+                  <DataInputComponent
+                    v-else
+                    v-model="temporaryWorkData.collection.node.data[field.name]"
+                    :config="field"
+                    :mode="mode"
+                  />
+                </td>
+              </tr>
+            </table>
           </form>
         </div>
       </div>

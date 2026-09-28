@@ -4,6 +4,7 @@ import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helpe
 import { PropertyConfig } from "../models/types";
 
 const props = defineProps<{
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
   data: any;
   fields?: PropertyConfig[];
 }>();

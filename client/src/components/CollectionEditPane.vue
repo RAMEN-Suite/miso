@@ -201,6 +201,7 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
+  // eslint-disable-next-line no-constant-condition -- Safe to delete
   if (annotationHasConstraints(config) || true) {
     openAnnotationCreateModal(newAnnotation, config, getCollectionAnnotationFields(nodeLabels, data.type));
   } else {
@@ -492,12 +493,12 @@ function showMessage(result: "success" | "error", error?: Error) {
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
           <RAMENNodeIcon
-            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
-            :size="30"
             v-tooltip.hover.top="{
               value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :size="30"
           />
           <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
           <span v-else class="label-text" data-placeholder="No label provided">
@@ -549,8 +550,8 @@ function showMessage(result: "success" | "error", error?: Error) {
                 class="properties-row"
                 :class="{ 'is-multiline': mode === 'edit' && field.type === 'array' }"
               >
-                <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
                 <td class="properties-label">
+                  <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
                   <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
                 </td>
                 <td class="properties-value">

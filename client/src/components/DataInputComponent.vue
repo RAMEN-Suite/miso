@@ -7,6 +7,7 @@ import Textarea from "primevue/textarea";
 import InputDate from "./InputDate.vue";
 import { Checkbox } from "primevue";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
 const modelValue = defineModel<any>();
 const props = defineProps<{
   config: Partial<PropertyConfig>;
@@ -26,6 +27,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
 </script>
 
 <template>
+  <!-- eslint-disable vuejs-accessibility/form-control-has-label -- The label is inside the parent component -->
   <Select
     v-if="config.options && isPrimitive"
     v-model="modelValue"

@@ -5,6 +5,7 @@ import { PropertyConfig } from "../models/types";
 import DataInputComponent from "../components/DataInputComponent.vue";
 import DataInputGroup from "../components/DataInputGroup.vue";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
 const properties = defineModel<any>();
 
 const props = defineProps<{
@@ -38,6 +39,7 @@ function displayValue(field: PropertyConfig): string {
       >
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <td class="properties-label">
+          <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
           <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
         </td>
         <td class="properties-value">

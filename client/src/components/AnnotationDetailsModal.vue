@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, Ref, ref, toValue, watch } from "vue";
+import { computed, inject, onMounted, Ref, ref, toValue, useTemplateRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
@@ -34,6 +34,9 @@ const propertyFields: PropertyConfig[] = (
   (dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type)) as PropertyConfig[]
 ).filter((f) => f.visible);
 
+const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
+const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
+
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
@@ -52,13 +55,23 @@ function handleSubmitClick(): void {
 function closeModal(): void {
   dialogRef?.value?.close();
 }
+
+function focusFirstInput(): void {
+  const firstField: Element | null | undefined = propertiesSection.value?.$el.querySelector(
+    'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([tabindex="-1"])',
+  );
+
+  (firstField ?? referencesSection.value?.addButton?.$el)?.setAttribute("autofocus", "");
+}
+
+onMounted(() => focusFirstInput());
 </script>
 
 <template>
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content">
-      <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
-      <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="edit" />
+      <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
+      <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">

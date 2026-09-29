@@ -96,7 +96,11 @@ async function handleSubmit() {
 
 <template>
   <div class="modal-container flex flex-col gap-4 py-2">
-    <CollectionLabelInput v-model:label="newCollectionNode.data.label" :placeholder="`Provide a ${additionalNodeLabel} label`" />
+    <CollectionLabelInput
+      v-model:label="newCollectionNode.data.label"
+      :placeholder="`Provide a ${additionalNodeLabel} label`"
+      autofocus
+    />
 
     <div class="flex flex-col gap-1">
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />

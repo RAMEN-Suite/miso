@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useTemplateRef } from "vue";
+import { ComponentPublicInstance, useTemplateRef } from "vue";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -35,6 +35,9 @@ const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEnt
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const menu = useTemplateRef<InstanceType<typeof FilterableMenu>>("menu");
+const addButton = useTemplateRef<ComponentPublicInstance>("addButton");
+
+defineExpose({ addButton });
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
@@ -158,6 +161,7 @@ function handleAddNodeClick(event: PointerEvent): void {
 
   <Button
     v-if="props.mode === 'edit'"
+    ref="addButton"
     type="button"
     label="Add Reference"
     icon="icon-plus"

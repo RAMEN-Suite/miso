@@ -15,7 +15,7 @@ import {
   TextNode,
 } from "../models/types";
 import { useAppStore } from "../store/app";
-import { onStartTyping } from "@vueuse/core";
+import { onStartTyping, useElementSize } from "@vueuse/core";
 import { resolveNodeIcon } from "../config/icons";
 import { filterBaseNodeLabel } from "../utils/helper/helper";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -34,7 +34,7 @@ const { searchParams, updateSearchParams, resetSearchParams } = useSearchParams(
 
 const emit = defineEmits<(e: "itemSelected", item: CollectionNode | TextNode | EntityNode) => void>();
 
-const PREVIEW_CHARACTER_SIZE: number = 25;
+const PREVIEW_CHARACTER_SIZE: number = 1000;
 
 const isSearchActive = ref<boolean>(false);
 const placeHolder = computed<string>(() => {
@@ -43,8 +43,8 @@ const placeHolder = computed<string>(() => {
 
 /**
  * The text currently shown in the input field. Must be kept separate since the
- * searchParams.searchInput value is updated asynchronously via debounde which
- * would lead to a laggy input on typing^.
+ * searchParams.searchInput value is updated asynchronously via debounce which
+ * would lead to a laggy input on typing.
  */
 const visibleSearchInput = ref<string>("");
 
@@ -59,6 +59,19 @@ let latestRequestId: number = 0;
 watch(searchParams, handleSearchParamsChange, {
   deep: true,
 });
+
+/**
+ * Returns the first characters of given text.
+ *
+ * Used to cap the characters inserted into the DOM as fulltext or title attributes to prevent
+ * performance issues. Visual clipping is handled via CSS `text-overflow: ellipsis`.
+ *
+ * @param text - The text to truncate.
+ * @returns {void} - This function does not return any value.
+ */
+function getPreviewText(text: string | undefined): string {
+  return text?.slice(0, PREVIEW_CHARACTER_SIZE) ?? "";
+}
 
 function resetSearch(): void {
   visibleSearchInput.value = "";
@@ -135,6 +148,8 @@ async function handleSearchParamsChange() {
 
 const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
 
+const { width: searchbarWidth } = useElementSize(searchbar, undefined, { box: "border-box" });
+
 onStartTyping(() => {
   const inputEl: HTMLInputElement | undefined = searchbar.value?.$el.querySelector("input");
 
@@ -160,6 +175,7 @@ onStartTyping(() => {
       class="searchbar h-12"
       variant="filled"
       :title="placeHolder"
+      :overlay-style="{ width: `${searchbarWidth}px`, maxWidth: `${searchbarWidth}px` }"
       :pt="{
         pcInputText: {
           root: {
@@ -185,7 +201,9 @@ onStartTyping(() => {
               :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
             />
-            <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
+            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
+              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            </span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Entity'">
@@ -194,7 +212,9 @@ onStartTyping(() => {
               :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
             />
-            <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
+            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
+              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            </span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Content'">
@@ -203,7 +223,7 @@ onStartTyping(() => {
               :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
             />
-            <span :title="option.data">{{ option.data?.text.slice(0, PREVIEW_CHARACTER_SIZE) }}</span>
+            <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
           </div>
         </template>
       </template>
@@ -216,5 +236,17 @@ onStartTyping(() => {
   display: flex;
   align-items: center;
   gap: 1rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.result-item > :first-child {
+  flex-shrink: 0;
+}
+
+.result-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

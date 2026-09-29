@@ -32,7 +32,7 @@ defineExpose({ toggle });
 
 <template>
   <Popover ref="popover">
-    <div class="flex flex-col gap-4 w-[25rem]">
+    <div class="flex gap-4">
       <div class="flex-auto w-24">
         <label for="columns" class="font-bold block mb-2"> Columns </label>
         <InputNumber v-model="columns" input-id="columns" fluid :min="1" :max="10" show-buttons />

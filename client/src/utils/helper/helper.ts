@@ -484,6 +484,26 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * Formats a raw property value for read-only display. When a field's configured type is known it is used,
+ * otherwise the type is derived from the raw value itself (e.g. for untyped/unconfigured node properties).
+ *
+ * @param {unknown} value - The raw property value.
+ * @param {PropertyConfigDataType} [type] - The configured type of the property, if known.
+ * @returns {string} The formatted, human-readable value.
+ */
+export function formatPropertyValue(value: unknown, type?: PropertyConfigDataType): string {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  if (type === "array" || Array.isArray(value)) {
+    return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
+  }
+
+  return String(value);
+}
+
+/**
  * Returns the ProseMirror document positions that correspond to the top and bottom edges
  * of the editor's scroll container (i.e. the currently visible range of the document).
  *

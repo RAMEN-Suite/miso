@@ -1,28 +1,60 @@
 <script setup lang="ts">
-import { camelCaseToTitleCase } from "../utils/helper/helper";
+import { computed, ComputedRef } from "vue";
+import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
 import { PropertyConfig } from "../models/types";
-import Fieldset from "primevue/fieldset";
 import DataInputComponent from "../components/DataInputComponent.vue";
 import DataInputGroup from "../components/DataInputGroup.vue";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
 const properties = defineModel<any>();
 
 const props = defineProps<{
   fields: PropertyConfig[];
   mode?: "edit" | "view";
 }>();
+
+const isViewMode: ComputedRef<boolean> = computed(() => props.mode === "view");
+
+const visibleFields: ComputedRef<PropertyConfig[]> = computed(() => props.fields.filter((field) => field.visible));
+
+/**
+ * Formats a property for read-only display in the properties table.
+ *
+ * @param {PropertyConfig} field - The property config of the field to display.
+ * @returns {string} The formatted, human-readable value.
+ */
+function displayValue(field: PropertyConfig): string {
+  return formatPropertyValue(properties.value?.[field.name], field.type);
+}
 </script>
 
 <template>
-  <Fieldset legend="Properties">
-    <form>
-      <div v-for="field in fields" v-show="field.visible" :key="field.name" class="flex items-center gap-4 mb-4">
-        <label :for="field.name" class="form-label font-semibold">{{ camelCaseToTitleCase(field.name) }} </label>
-        <DataInputGroup v-if="field.type === 'array'" v-model="properties[field.name]" :config="field" :mode="props.mode" />
-        <DataInputComponent v-else v-model="properties[field.name]" :config="field" :mode="props.mode" autofocus />
-      </div>
-    </form>
-  </Fieldset>
+  <form>
+    <table v-if="visibleFields.length > 0" class="properties-table">
+      <tr
+        v-for="field in visibleFields"
+        :key="field.name"
+        class="properties-row"
+        :class="{ 'is-multiline': !isViewMode && field.type === 'array' }"
+      >
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
+        <td class="properties-label">
+          <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
+          <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+        </td>
+        <td class="properties-value">
+          <span v-if="isViewMode" class="properties-text">{{ displayValue(field) }}</span>
+          <DataInputGroup
+            v-else-if="field.type === 'array'"
+            v-model="properties[field.name]"
+            :config="field"
+            :mode="props.mode"
+          />
+          <DataInputComponent v-else v-model="properties[field.name]" :config="field" :mode="props.mode" />
+        </td>
+      </tr>
+    </table>
+  </form>
 </template>
 
 <style scoped></style>

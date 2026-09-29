@@ -1,0 +1,53 @@
+.properties-table {
+  --properties-cell-padding-y: 0.25rem;
+  --border-color: var(--p-content-border-color);
+  --color-text-muted: var(--p-text-muted-color);
+
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: auto;
+}
+
+.properties-row:not(:last-child) {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.properties-label,
+.properties-value {
+  vertical-align: middle;
+  padding: var(--properties-cell-padding-y) 0;
+}
+
+.properties-label {
+  width: 1px;
+  white-space: nowrap;
+  text-align: left;
+  padding-right: 1rem;
+  color: var(--color-text-muted);
+}
+
+.properties-value > * {
+  vertical-align: middle;
+}
+
+/* TODO: Remove PrimeVue variables */
+.properties-text {
+  display: block;
+  padding: var(--p-inputtext-sm-padding-y) var(--p-inputtext-sm-padding-x);
+  border: 1px solid transparent;
+  font-size: var(--p-inputtext-sm-font-size);
+  line-height: normal;
+  white-space: pre-wrap;
+}
+
+.properties-row.is-multiline .properties-label,
+.properties-row.is-multiline .properties-value {
+  vertical-align: top;
+}
+
+.properties-row.is-multiline .properties-label > label {
+  display: block;
+  padding-block: var(--p-inputtext-sm-padding-y);
+  border-block: 1px solid transparent;
+  line-height: normal;
+}

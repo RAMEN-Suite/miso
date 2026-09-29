@@ -230,6 +230,7 @@ watch(internalDate, (newLocalDate: Date | null) => updateModelValue(newLocalDate
     :icon="inputIconClass"
     :show-seconds="true"
     :placeholder="inputPlaceholder"
+    size="small"
     style="width: 100%"
     :show-on-focus="false"
     :pt="{

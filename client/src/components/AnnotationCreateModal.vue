@@ -83,6 +83,10 @@ function handleSubmitClick(): void {
   overflow-y: auto;
   scrollbar-gutter: stable;
   flex-grow: 1;
+
+  > * {
+    margin-bottom: 2rem;
+  }
 }
 
 .annotation-type-icon-container {

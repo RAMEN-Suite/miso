@@ -14,9 +14,10 @@ import {
   NodeStatusObject,
 } from "../models/types";
 import {
-  capitalize,
+  camelCaseToTitleCase,
   cloneDeep,
   filterBaseNodeLabel,
+  formatPropertyValue,
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
@@ -200,6 +201,7 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
+  // eslint-disable-next-line no-constant-condition -- Safe to delete
   if (annotationHasConstraints(config) || true) {
     openAnnotationCreateModal(newAnnotation, config, getCollectionAnnotationFields(nodeLabels, data.type));
   } else {
@@ -491,12 +493,12 @@ function showMessage(result: "success" | "error", error?: Error) {
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
           <RAMENNodeIcon
-            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
-            :size="30"
             v-tooltip.hover.top="{
               value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :size="30"
           />
           <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
           <span v-else class="label-text" data-placeholder="No label provided">
@@ -541,25 +543,36 @@ function showMessage(result: "success" | "error", error?: Error) {
         </div>
         <div class="properties-pane">
           <form ref="form">
-            <div v-for="field in collectionFields" :key="field.name" class="input-container">
-              <div class="flex items-center gap-4 mb-4">
-                <!-- eslint-disable vuejs-accessibility/label-has-for -- No id as component prop currently -->
-                <label :for="field.name" class="w-40 font-semibold">{{ capitalize(field.name) }} </label>
-                <DataInputGroup
-                  v-if="field.type === 'array'"
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <DataInputComponent
-                  v-else
-                  v-model="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
-                  :mode="mode"
-                />
-                <!-- eslint-enable vuejs-accessibility/label-has-for -->
-              </div>
-            </div>
+            <table v-if="collectionFields.length > 0" class="properties-table">
+              <tr
+                v-for="field in collectionFields"
+                :key="field.name"
+                class="properties-row"
+                :class="{ 'is-multiline': mode === 'edit' && field.type === 'array' }"
+              >
+                <td class="properties-label">
+                  <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
+                  <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+                </td>
+                <td class="properties-value">
+                  <span v-if="mode === 'view'" class="properties-text">{{
+                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field.type)
+                  }}</span>
+                  <DataInputGroup
+                    v-else-if="field.type === 'array'"
+                    v-model="temporaryWorkData.collection.node.data[field.name]"
+                    :config="field"
+                    :mode="mode"
+                  />
+                  <DataInputComponent
+                    v-else
+                    v-model="temporaryWorkData.collection.node.data[field.name]"
+                    :config="field"
+                    :mode="mode"
+                  />
+                </td>
+              </tr>
+            </table>
           </form>
         </div>
       </div>

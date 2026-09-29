@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { CollectionNode, NodeStatusObject } from "../models/types";
 import Button from "primevue/button";
-import { Popover } from "primevue";
 import NodeCard from "./NodeCard.vue";
+import NodePreviewPopover from "./NodePreviewPopover.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import { computed, useTemplateRef } from "vue";
 import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
@@ -21,7 +21,7 @@ const emit = defineEmits<(e: "remove-node") => void>();
 
 const node = defineModel<NodeStatusObject<CollectionNode>>({ required: true });
 
-const infoIcon = useTemplateRef<InstanceType<typeof Popover>>("info-icon");
+const infoIcon = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("info-icon");
 
 const htmlTitle = computed<string>(() => {
   return `Open ${filterBaseNodeLabel(node.value.node.nodeLabels).join(",")} in Editor`;
@@ -53,18 +53,8 @@ function togglePopover(event: MouseEvent): void {
       @click="togglePopover"
     ></Button>
 
-    <Popover
-      ref="info-icon"
-      :pt="{
-        root: {
-          class: 'w-100',
-          style: {
-            zIndex: 'var(--z-index-max)',
-          },
-        },
-      }"
-    >
+    <NodePreviewPopover ref="info-icon">
       <NodePropertiesTable :data="node.node.data" />
-    </Popover>
+    </NodePreviewPopover>
   </NodeCard>
 </template>

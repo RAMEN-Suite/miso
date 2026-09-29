@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import Popover from "primevue/popover";
 import { Annotation, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
+import NodePreviewPopover from "./NodePreviewPopover.vue";
 
 const annotation = defineModel<Annotation>({ required: true });
 
@@ -23,7 +23,7 @@ const emit = defineEmits<{
 
 const { getCollectionAnnotationFields } = useGuidelinesStore();
 
-const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
+const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
 const propertyFields: ComputedRef<PropertyConfig[]> = computed(() =>
   getCollectionAnnotationFields(props.collectionNodeLabels, annotation.value.node.data.type),
@@ -78,20 +78,10 @@ function handleToggleView(event: MouseEvent): void {
       </div>
     </div>
 
-    <Popover
-      ref="popover"
-      :pt="{
-        root: {
-          class: 'w-100',
-          style: {
-            zIndex: 'var(--z-index-max)',
-          },
-        },
-      }"
-    >
+    <NodePreviewPopover ref="popover">
       <NodePropertiesTable :data="annotation.node.data" :fields="propertyFields" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
-    </Popover>
+    </NodePreviewPopover>
   </div>
 </template>
 

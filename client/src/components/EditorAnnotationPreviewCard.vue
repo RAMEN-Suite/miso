@@ -9,7 +9,7 @@ import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
-import AnnotationEditModal from "./AnnotationEditModal.vue";
+import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { cloneDeep, ellipsize } from "../utils/helper/helper.ts";
@@ -85,7 +85,7 @@ function handleDeleteAnnotation(): void {
 }
 
 /**
- * Opens the {@linkcode AnnotationEditModal} for this annotation. The form itself stays read-only -
+ * Opens the {@linkcode AnnotationDetailsModal} for this annotation. The form itself stays read-only -
  * all editing happens in the modal, which works on its own copy and emits the result on "Update".
  *
  * @returns {void} This function does not return any value.
@@ -98,13 +98,13 @@ function handleEditAnnotation(): void {
   }
 
   createModalInstance(
-    dialog.open(AnnotationEditModal, {
+    dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${currentData.value.node.data.subType ?? currentData.value.node.data.type} annotation`,
       },
 
-      data: { annotation: entry },
+      data: { annotation: entry, config, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateData(updated);
@@ -185,7 +185,7 @@ function toggleCollapsed(newState?: boolean): void {
 }
 
 /**
- * Writes the data edited in the {@linkcode AnnotationEditModal} back into the form and the store.
+ * Writes the data edited in the {@linkcode AnnotationDetailsModal} back into the form and the store.
  *
  * @param {Annotation} updated - The annotation data as returned by the modal
  * @returns {void} This function does not return any value.

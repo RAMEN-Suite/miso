@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, toValue, watch } from "vue";
+import { computed, inject, Ref, ref, toValue, watch } from "vue";
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
@@ -8,7 +8,6 @@ import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { Ref } from "vue";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
 
@@ -17,25 +16,31 @@ if (!dialogRef) {
 }
 
 const route: ReturnType<typeof useRoute> = useRoute();
-const { getAnnotationConfig, getAnnotationFields } = useGuidelinesStore();
+const { getAnnotationFields } = useGuidelinesStore();
 
-/** Must be passed - contains the annotation data to be edited */
+const mode: "create" | "edit" = dialogRef.value.data.mode ?? "edit";
+
+const submitButtonConfig = {
+  create: { icon: "icon-plus", label: "Add", title: "Add annotation" },
+  edit: { icon: "icon-check", label: "Update", title: "Update annotation" },
+} as const;
+
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
-/** Optional as a hack - collection annotations load the config before, text annotations do it inside the modal */
-const config: AnnotationType = dialogRef.value.data.config ?? getAnnotationConfig(annotation.value.node.data.type);
+const config: AnnotationType = dialogRef.value.data.config;
 
-// TODO: Filter directly in methods. Must be done in several places. Done when Nori export is implemented
+// TODO: Filter directly in guidelines methods, since this must be done in several places. Done when Nori export is implemented
 const propertyFields: PropertyConfig[] = (
   (dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type)) as PropertyConfig[]
 ).filter((f) => f.visible);
+
 const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 
 watch(() => route.path, closeModal);
 
-function handleUpdateClick(): void {
+function handleSubmitClick(): void {
   if (annotation.value.meta.status !== "created") {
     annotation.value.meta.status = "modified";
   }
@@ -50,20 +55,20 @@ function closeModal(): void {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 annotation-edit-modal">
+  <div class="flex flex-col gap-4 annotation-modal">
     <div class="content">
       <FormPropertiesSection v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="edit" />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">
-      <Button :disabled="!inputIsValid" label="Update" icon="icon-check" title="Update annotation" @click="handleUpdateClick" />
+      <Button :disabled="!inputIsValid" v-bind="submitButtonConfig[mode]" @click="handleSubmitClick" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.annotation-edit-modal {
+.annotation-modal {
   padding: 0.25rem;
   height: 100%;
 }
@@ -76,10 +81,5 @@ function closeModal(): void {
   > * {
     margin-bottom: 2rem;
   }
-}
-
-.annotation-type-icon-container {
-  width: 20px;
-  height: 20px;
 }
 </style>

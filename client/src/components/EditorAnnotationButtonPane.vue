@@ -10,7 +10,7 @@ import ShortcutError from "../utils/errors/shortcut.error";
 import AnnotationRangeError from "../utils/errors/annotationRange.error";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
-import AnnotationCreateModal from "./AnnotationCreateModal.vue";
+import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap";
 import { useValidateTextSelection } from "../composables/useValidateTextSelection";
 import { Selection } from "@tiptap/pm/state";
@@ -243,13 +243,15 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
 
     if (annotationHasConstraints(config)) {
       createModalInstance(
-        dialog.open(AnnotationCreateModal, {
+        dialog.open(AnnotationDetailsModal, {
           props: {
             ...ANNOTATION_MODAL_PROPS,
             header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,
+            config,
+            mode: "create",
           },
           emits: {
             onSubmit: (editedAnnotationData: Annotation) => {

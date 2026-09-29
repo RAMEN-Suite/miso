@@ -33,8 +33,7 @@ import AppError from "../utils/errors/app.error";
 import ValidationError from "../utils/errors/validation.error";
 import TieredMenu from "primevue/tieredmenu";
 import { MenuItem } from "primevue/menuitem";
-import AnnotationEditModal from "./AnnotationEditModal.vue";
-import AnnotationCreateModal from "./AnnotationCreateModal.vue";
+import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
@@ -210,7 +209,7 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
 }
 
 /**
- * Opens the {@linkcode AnnotationCreateModal} for a new Collection annotation. Adds it to the Collection on submit only.
+ * Opens the {@linkcode AnnotationDetailsModal} for a new Collection annotation. Adds it to the Collection on submit only.
  *
  * @param {Annotation} annotation - The annotation template to fill in.
  * @param {AnnotationType} config - The Collection-scoped annotation config.
@@ -219,12 +218,12 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
  */
 function openAnnotationCreateModal(annotation: Annotation, config: AnnotationType, propertyFields: PropertyConfig[]): void {
   createModalInstance(
-    dialog.open(AnnotationCreateModal, {
+    dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
         header: `Add new ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
       },
-      data: { annotation, config, propertyFields },
+      data: { annotation, config, propertyFields, mode: "create" },
       emits: {
         onSubmit: (created: Annotation) => {
           temporaryWorkData.value.annotations.push(created);
@@ -253,7 +252,7 @@ function handleRemoveAnnotation(uuid: string): void {
 }
 
 /**
- * Opens the {@linkcode AnnotationEditModal} for a Collection annotation.
+ * Opens the {@linkcode AnnotationDetailsModal} for a Collection annotation.
  *
  * @param {string} uuid - UUID of the annotation in `temporaryWorkData.annotations`.
  * @returns {void} This function does not return any value.
@@ -271,12 +270,12 @@ function handleEditAnnotation(uuid: string): void {
   const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
 
   createModalInstance(
-    dialog.open(AnnotationEditModal, {
+    dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${annotation.node.data.type} annotation`,
       },
-      data: { annotation, config, propertyFields },
+      data: { annotation, config, propertyFields, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateAnnotationData(uuid, updated);
@@ -289,7 +288,7 @@ function handleEditAnnotation(uuid: string): void {
 }
 
 /**
- * Writes the data edited in the {@linkcode AnnotationEditModal} back into the Collection annotation.
+ * Writes the data edited in the {@linkcode AnnotationDetailsModal} back into the Collection annotation.
  *
  * @param {string} uuid - UUID of the annotation in `temporaryWorkData.annotations`.
  * @param {Annotation} updated - The annotation data as returned by the modal.

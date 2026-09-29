@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
+import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, SemanticBlockRange } from "../models/types";
+import type { Annotation, AnnotationType, SemanticBlockRange } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import AnnotationEditModal from "./AnnotationEditModal.vue";
+import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { Menu } from "primevue";
 import { collectSemanticBlocks } from "../utils/helper/tiptapHelper";
 import { Node } from "@tiptap/pm/model";
@@ -23,6 +24,7 @@ interface PositionedLine {
 
 const { tiptap, semanticBlockRanges } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
+const { getAnnotationConfig } = useGuidelinesStore();
 const dialog = useDialog();
 const { settings } = useEditorSettingsStore();
 const menuItems = ref<MenuItem[]>([]);
@@ -212,7 +214,7 @@ function updateAnnotation(updated: Annotation): void {
 }
 
 /**
- * Opens the {@linkcode AnnotationEditModal} for the given line's semantic block. The
+ * Opens the {@linkcode AnnotationDetailsModal} for the given line's semantic block. The
  * annotation is assembled from the doc attrs (the source of truth); on submit the edited data is
  * written back into the doc via the `updateSemanticBlockData` command (undoable, save reads it).
  *
@@ -232,14 +234,20 @@ function handleDetailsClick(line: PositionedLine): void {
     return;
   }
 
+  const config: AnnotationType | undefined = getAnnotationConfig(annotation.node.data.type);
+
+  if (!config) {
+    throw Error(`Annotation type "${annotation.node.data.type}" is not supported.`);
+  }
+
   createModalInstance(
-    dialog.open(AnnotationEditModal, {
+    dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
         header: `Edit ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
       },
 
-      data: { annotation },
+      data: { annotation, config, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateAnnotation(updated);

@@ -95,7 +95,7 @@ function isCategoryPartiallySelected(types: AnnotationType[]): boolean {
  * @returns {void} This function does not return a value.
  */
 function toggleCategoryCollapse(category: string): void {
-  const updated: Set<string> = new Set(collapsedCategories.value);
+  const updated = new Set<string>(collapsedCategories.value);
 
   if (updated.has(category)) {
     updated.delete(category);
@@ -160,6 +160,7 @@ function toggleCategoryCollapse(category: string): void {
                 rounded
                 @click="toggleCategoryCollapse(category)"
               />
+              <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
                 :for="`filter-category-${category}`"
                 :title="`Toggle all types of category ${category}`"
@@ -179,6 +180,7 @@ function toggleCategoryCollapse(category: string): void {
               </label>
             </div>
             <div v-show="!collapsedCategories.has(category)" class="options flex flex-col">
+              <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
                 v-for="annotationType of annotationTypes"
                 :key="annotationType.type"

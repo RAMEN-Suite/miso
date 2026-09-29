@@ -45,7 +45,7 @@ import { useCreateIndexMaps } from "../composables/useCreateIndexMaps.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import { IAnnotation } from "../models/IAnnotation.ts";
 import EditorToC from "../components/EditorToC.vue";
-import { cloneDeep, setNodeTreeStatus } from "../utils/helper/helper.ts";
+import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "../utils/helper/helper.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -142,7 +142,7 @@ function cleanUpAnnotations(updatedAnnotations: NodeStatusObject[]): void {
       // Can be removed from the map safely
       annotations.value?.delete(a.node.data.uuid);
     } else {
-      // Recursively set all nodes to "unchanged"
+      pruneDeletedNodes(a);
       setNodeTreeStatus(a, "unchanged");
 
       // Update value
@@ -162,8 +162,7 @@ function cleanUpStructureElements(structureElements: NodeStatusObject[]): void {
       // Can be removed from the map safely
       initialStructuralAnnotations.value?.delete(uuid);
     } else {
-      // Recursively set all nodes to "unchanged". Technically, this is currently not necessary
-      // since the structure elements can not have any connected nodes.
+      pruneDeletedNodes(elm);
       setNodeTreeStatus(elm, "unchanged");
 
       // Update value
@@ -836,8 +835,8 @@ watch(
           <p><strong>Edit annotated text</strong></p>
           <p>Select the new text that should belong to this annotation.</p>
           <p>
-            To cancel the operation, click the <i class="icon-x-circle"></i> button in the annotation panel on the right or
-            press <kbd>Esc</kbd>.
+            To cancel the operation, click the <i class="icon-x-circle"></i> button in the annotation panel on the right or press
+            <kbd>Esc</kbd>.
           </p>
         </Message>
       </div>

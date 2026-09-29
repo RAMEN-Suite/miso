@@ -40,24 +40,24 @@ const searchPattern = computed<RegExp | null>(() => {
   return new RegExp(pattern, "i");
 });
 
-/** The groups reduced to the entries matching the query. Groups without any remaining entries are dropped */
+const filteredGroups = computed<MenuItem[][]>(() =>
+  props.model
+    .map((group: MenuItem) => (group.items ?? []).filter((item: MenuItem) => matches(item, searchPattern.value)))
+    .filter((items: MenuItem[]) => items.length > 0),
+);
+
 const filteredModel = computed<MenuItem[]>(() => {
-  const groups: MenuItem[] = props.model
-    .map((group: MenuItem) => ({
-      ...group,
-      items: (group.items ?? []).filter((item: MenuItem) => matches(item, searchPattern.value)),
-    }))
-    .filter((group: MenuItem) => (group.items ?? []).length > 0);
+  const flattened: MenuItem[] = filteredGroups.value.flatMap((items: MenuItem[], index: number) =>
+    index === 0 ? items : [{ separator: true }, ...items],
+  );
 
-  const firstGroup: MenuItem | undefined = groups[0];
+  const [firstItem, ...rest] = flattened;
 
-  if (firstGroup?.items) {
-    const [firstItem, ...rest] = firstGroup.items;
-
-    firstGroup.items = [{ ...firstItem, class: [firstItem.class, "p-focus"] }, ...rest];
+  if (!firstItem) {
+    return [];
   }
 
-  return groups;
+  return [{ ...firstItem, class: [firstItem.class, "p-focus"] }, ...rest];
 });
 
 /**
@@ -71,7 +71,7 @@ function escapeRegExp(value: string): string {
 }
 
 function handleEnter(event: KeyboardEvent): void {
-  const firstItem: MenuItem | undefined = filteredModel.value[0]?.items?.[0];
+  const firstItem: MenuItem | undefined = filteredGroups.value[0]?.[0];
 
   if (!firstItem) {
     return;
@@ -119,7 +119,6 @@ function toggle(event: Event): void {
         class: 'max-h-[min(24rem,40vh)] overflow-y-auto' + ' ' + (filteredModel.length === 0 ? 'hidden!' : ''),
         style: 'scrollbar-width: thin',
       },
-      submenuLabel: { class: 'sticky top-0 z-[1]', style: 'background: var(--p-menu-background)' },
     }"
     @show="handleShow"
     @hide="handleHide"

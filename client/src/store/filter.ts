@@ -1,9 +1,10 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { IGuidelines } from "../models/IGuidelines";
 
 const allOptions = ref<string[]>([]);
 const defaultOptions = ref<string[]>([]);
 const selectedOptions = ref<string[]>([]);
+const areAllOptionsSelected = computed<boolean>(() => selectedOptions.value.length === allOptions.value.length);
 
 /**
  * Store for filtering the displayed annotation types in the editor instance. The store's data are derived from
@@ -28,7 +29,7 @@ export function useFilterStore() {
    * @return {void} This function does not return anything.
    */
   function selectAllOptions(): void {
-    if (selectedOptions.value.length === allOptions.value.length) {
+    if (areAllOptionsSelected.value) {
       selectedOptions.value = [];
     } else {
       selectedOptions.value = [...allOptions.value];
@@ -44,11 +45,30 @@ export function useFilterStore() {
     selectedOptions.value = [...defaultOptions.value];
   }
 
+  /**
+   * Toggles a group of options at once (e.g. all types of a category). If every given option is already selected,
+   * all of them are deselected. Otherwise the missing ones are added to the selection.
+   *
+   * @param {string[]} options - The options to toggle.
+   * @return {void} This function does not return any value.
+   */
+  function toggleOptions(options: string[]): void {
+    const areAllSelected: boolean = options.every((option) => selectedOptions.value.includes(option));
+
+    if (areAllSelected) {
+      selectedOptions.value = selectedOptions.value.filter((option) => !options.includes(option));
+    } else {
+      selectedOptions.value = [...new Set([...selectedOptions.value, ...options])];
+    }
+  }
+
   return {
     allOptions,
+    areAllOptionsSelected,
     selectedOptions,
     initializeFilter,
     selectAllOptions,
     selectDefaultOptions,
+    toggleOptions,
   };
 }

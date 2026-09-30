@@ -10,7 +10,7 @@ import { BASE_MODAL_PROPS } from "../config/modals";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
-import { ellipsize } from "../utils/helper/helper.ts";
+import { ellipsize, getContentLabelText } from "../utils/helper/helper.ts";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = defineProps<{
@@ -23,6 +23,7 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
+const labelText = computed<string>(() => getContentLabelText(contentNode.value.nodeLabels));
 
 const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
 
@@ -83,12 +84,15 @@ function updateView() {
         <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
       </div>
 
-      <div class="label-section flex items-center justify-center gap-2">
-        <RAMENNodeIcon
-          :spec="icon"
-          :size="30"
-          v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
-        />
+      <div class="label-section">
+        <h3 class="label-heading" aria-label="Content label">
+          <RAMENNodeIcon
+            :spec="icon"
+            :size="30"
+            v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
+          />
+          <span v-if="labelText" class="label-text">{{ labelText }}</span>
+        </h3>
       </div>
 
       <div class="content-preview">
@@ -130,8 +134,27 @@ function updateView() {
 }
 
 .label-section {
+  line-break: auto;
   min-height: 3rem;
   flex-shrink: 0;
+  text-align: center;
+  padding: 0 5px;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.label-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.label-text {
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
 }
 
 .content-preview {

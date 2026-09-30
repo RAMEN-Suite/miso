@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { HierarchyEntry, IconSpec } from "../models/types";
-import { ellipsize } from "../utils/helper/helper";
+import { CollectionNode, HierarchyEntry, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
+import { getContentLabelText } from "../utils/helper/helper";
 
 const emit = defineEmits(["itemSelected"]);
 
@@ -16,8 +16,6 @@ const props = defineProps<{
 
 const { entryIndex, tags } = useTagsStore();
 
-const PREVIEW_LENGTH: number = 80;
-
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
 const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
 const tagColors = computed<string[]>(() => {
@@ -26,15 +24,12 @@ const tagColors = computed<string[]>(() => {
   return tagUuids.map((uuid) => normalizeTagColor(tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color));
 });
 
-// A Collection shows its label; a Content shows a single-line preview of its (truncated) text
 const displayText = computed<string>(() => {
-  const data = props.entry.data.node.data as { label?: string; text?: string };
-
   if (isCollection.value) {
-    return data.label ?? "";
+    return (props.entry.data.node as CollectionNode).data.label;
   }
 
-  return ellipsize(data.text ?? "", PREVIEW_LENGTH);
+  return getContentLabelText(props.entry.data.node.nodeLabels);
 });
 
 const title = computed<string>(() => (isCollection.value ? `Open "${displayText.value}"` : `Show preview of this Content`));

@@ -18,7 +18,7 @@ import {
 import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { useGuidelinesStore } from "../../store/guidelines";
-import { createEntityNode, createTextNode } from "../../config/ramen";
+import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
 
 const { getAnnotationType } = useGuidelinesStore();
 
@@ -515,4 +515,19 @@ export function getDefaultValueForProperty(type: PropertyConfigDataType): any {
     default:
       return null;
   }
+}
+
+/**
+ * Returns a display string for a Content node.
+ *
+ * This is currently a hack since multi-level RAMEN refinements are not yet supported.
+ * TODO: Will be fixed as soon as Nori export is implemented.
+ *
+ * @param {string[]} nodeLabels - All node labels of the Content node.
+ * @returns {string} The labels joined with " › " (empty string if none).
+ */
+export function getContentLabelText(nodeLabels: string[]): string {
+  return filterBaseNodeLabels(nodeLabels)
+    .filter((l: string) => l !== "Text")
+    .join(" › ");
 }

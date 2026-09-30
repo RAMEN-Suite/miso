@@ -475,18 +475,22 @@ function showMessage(result: "success" | "error", error?: Error) {
 <template>
   <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
-      <div class="buttons flex justify-end gap-1">
-        <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
-        <Button
-          as="a"
-          :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
-          target="_blank"
-          rel="noopener"
-          severity="secondary"
-          icon="icon-external-link"
-          size="small"
-          title="View collection on website"
-        />
+      <div class="buttons flex justify-between gap-1">
+        <div class="buttons-start flex justify-start gap-1">
+          <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
+        </div>
+        <div class="buttons-end flex justify-end gap-1">
+          <Button
+            as="a"
+            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
+            target="_blank"
+            rel="noopener"
+            severity="secondary"
+            icon="icon-external-link"
+            size="small"
+            title="View collection on website"
+          />
+        </div>
       </div>
 
       <div class="label-section">

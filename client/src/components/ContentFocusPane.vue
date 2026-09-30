@@ -80,8 +80,11 @@ function updateView() {
 <template>
   <div class="content-focus-pane h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col w-full">
-      <div class="buttons flex justify-end gap-1">
-        <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
+      <div class="buttons flex justify-between gap-1">
+        <div class="buttons-start flex justify-start gap-1">
+          <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
+        </div>
+        <div class="buttons-end flex justify-end gap-1"></div>
       </div>
 
       <div class="label-section">

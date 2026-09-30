@@ -16,12 +16,12 @@ import {
 import {
   camelCaseToTitleCase,
   cloneDeep,
-  filterBaseNodeLabel,
   formatPropertyValue,
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
 } from "../utils/helper/helper";
+import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -493,7 +493,7 @@ function showMessage(result: "success" | "error", error?: Error) {
         <h3 class="label-heading" aria-label="Collection label">
           <RAMENNodeIcon
             v-tooltip.hover.top="{
-              value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
+              value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
             :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"

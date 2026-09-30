@@ -5,7 +5,7 @@ import NodeCard from "./NodeCard.vue";
 import NodePreviewPopover from "./NodePreviewPopover.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import { computed, useTemplateRef } from "vue";
-import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
+import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -24,7 +24,7 @@ const node = defineModel<NodeStatusObject<CollectionNode>>({ required: true });
 const infoIcon = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("info-icon");
 
 const htmlTitle = computed<string>(() => {
-  return `Open ${filterBaseNodeLabel(node.value.node.nodeLabels).join(",")} in Editor`;
+  return `Open ${filterBaseNodeLabels(node.value.node.nodeLabels).join(",")} in Editor`;
 });
 
 function togglePopover(event: MouseEvent): void {

@@ -5,7 +5,7 @@ import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
 import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
 import { useAppStore } from "../store/app";
-import { createTextNode } from "../utils/helper/helper";
+import { createTextNode } from "../config/ramen";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");

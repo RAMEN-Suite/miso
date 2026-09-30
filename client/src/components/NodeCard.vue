@@ -5,7 +5,7 @@ import Button from "primevue/button";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
-import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
+import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -24,7 +24,7 @@ const node = defineModel<NodeStatusObject>("node", { required: true });
 const emit = defineEmits<(e: "remove-node") => void>();
 
 const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node.nodeLabels));
-const iconTooltip = computed<string>(() => filterBaseNodeLabel(node.value.node.nodeLabels).join(", "));
+const iconTooltip = computed<string>(() => filterBaseNodeLabels(node.value.node.nodeLabels).join(", "));
 
 const hasVisibleBadge = computed<boolean>(() => props.showBadge && node.value.meta.status !== "unchanged");
 

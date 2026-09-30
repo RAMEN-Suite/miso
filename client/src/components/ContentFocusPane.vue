@@ -10,7 +10,8 @@ import { BASE_MODAL_PROPS } from "../config/modals";
 import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
-import { ellipsize, filterBaseNodeLabel } from "../utils/helper/helper.ts";
+import { ellipsize } from "../utils/helper/helper.ts";
+import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = defineProps<{
   focus: ContentFocus;
@@ -86,7 +87,7 @@ function updateView() {
         <RAMENNodeIcon
           :spec="icon"
           :size="30"
-          v-tooltip.hover.top="{ value: filterBaseNodeLabel(contentNode.nodeLabels).join(', '), showDelay: 50 }"
+          v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
         />
       </div>
 

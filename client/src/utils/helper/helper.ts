@@ -1,4 +1,3 @@
-import { Ref } from "vue";
 import {
   NodeDto,
   Character,
@@ -13,13 +12,13 @@ import {
   CollectionNode,
   ToCItem,
   Annotation,
-  BaseNodeLabel,
   PropertyConfig,
   AnnotationType,
 } from "../../models/types";
 import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { useGuidelinesStore } from "../../store/guidelines";
+import { createEntityNode, createTextNode } from "../../config/ramen";
 
 const { getAnnotationType } = useGuidelinesStore();
 
@@ -204,64 +203,6 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 }
 
 /**
- * Creates a new Collection object with default values.
- *
- * This function is used to generate a new Collection object with default values for the node labels and data properties.
- *
- * @return {CollectionNode} A new Collection object with default values.
- */
-export function createCollectionNode(): CollectionNode {
-  return {
-    nodeLabels: ["Collection"],
-    data: {
-      uuid: crypto.randomUUID(),
-      label: "",
-    },
-  };
-}
-
-/**
- * Creates a new Text object with default values.
- *
- * This function is used to generate a new Text object with default values for the node labels and data properties.
- * The additional (domain) labels are applied on creation so that the node never needs its labels mutated later.
- *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Content" base label.
- *   Defaults to none, leaving the node with the base label only.
- * @return {TextNode} A new Text object with default values.
- */
-export function createTextNode(params?: { additionalNodeLabels: string[] }): TextNode {
-  return {
-    nodeLabels: ["Content", ...(params?.additionalNodeLabels ?? [])],
-    data: {
-      uuid: crypto.randomUUID(),
-      text: "",
-    },
-  };
-}
-
-/**
- * Creates a new Entity object with default values.
- *
- * There are no guidelines for Entities yet, so a new Entity only consists of a UUID and an (empty) label.
- *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.
- *   Defaults to none, leaving the node with the base label only.
- * @return {EntityNode} A new Entity object with default values.
- */
-export function createEntityNode(params?: { additionalNodeLabels: string[] }): EntityNode {
-  return {
-    nodeLabels: ["Entity", ...(params?.additionalNodeLabels ?? [])],
-    data: {
-      uuid: crypto.randomUUID(),
-      label: "",
-    },
-  };
-}
-
-/**
  * Creates a new, not yet persisted Entity node wrapped in a node status object, ready to be filled in by the user.
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.
@@ -312,41 +253,6 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
     node: rawNode,
     connectedNodes: [],
   };
-}
-
-/**
- * Returns a list of all labels that are not one of the RAMEN base node labels.
- *
- * Mainly used for visual purposes (base node labels do not need to be displayed).
- *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {string[]} List of all labels that are not one of the RAMEN base node labels
- */
-export function filterBaseNodeLabel(labels: string[]): string[] {
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity"];
-
-  return labels.filter((l: string) => !baseNodeLabels.includes(l));
-}
-
-/**
- * Returns the RAMEN base node label for a node from its full list of labels.
- *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {BaseNodeLabel} The node's base label
- * @throws {Error} If none of the base labels is present
- */
-export function getBaseNodeLabel(labels: string[]): BaseNodeLabel {
-  if (labels.includes("Entity")) {
-    return "Entity";
-  } else if (labels.includes("Collection")) {
-    return "Collection";
-  } else if (labels.includes("Content")) {
-    return "Content";
-  } else if (labels.includes("Annotation")) {
-    return "Annotation";
-  } else {
-    throw new Error("Node does not have a valid base label");
-  }
 }
 
 /**
@@ -445,25 +351,6 @@ export function ellipsize(text: string, maxLength: number): string {
 }
 
 /**
- * Filters out the RAMEN base node labels (`"Annotation"`, `"Collection"`, `"Content"`, `"Entity"`, `"Text"`)
- * from the given array, returning only the domain-specific labels.
- *
- * This function is mostly used for displaying labels in node previews (e.g. in annotation forms,
- * collection column entries etc.).
- *
- * // TODO: Don't forget to remove the "Text" label.
- *
- * @param {string[]} nodeLabels - The full list of node labels to filter.
- * @returns {string[]} The labels with all base node labels removed.
- */
-export function filterDefaultLabels(nodeLabels: string[]): string[] {
-  // TODO: Remove "Text" check ("Content") is enough. Only kept for legacy reasons :)
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity", "Content"];
-
-  return nodeLabels.filter((l) => !baseNodeLabels.includes(l));
-}
-
-/**
  * Format a file size in bytes into a human-readable string.
  *
  * @param {number} bytes The file size in bytes
@@ -538,23 +425,6 @@ export function getVisibleDocRange(editorView: EditorView): { from: number; to: 
   const to: number = endPos?.pos ?? editorView.state.doc.content.size;
 
   return { from, to };
-}
-
-// TODO: These functions should actually check the node, not the status object...refactor later
-export function isEntityNode(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
-  return node.node.nodeLabels.includes("Entity");
-}
-
-export function isAnnotationNode(node: NodeStatusObject): node is NodeStatusObject<AnnotationNode> {
-  return node.node.nodeLabels.includes("Annotation");
-}
-
-export function isCollectionNode(node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
-  return node.node.nodeLabels.includes("Collection");
-}
-
-export function isContentNode(node: NodeStatusObject): node is NodeStatusObject<TextNode> {
-  return node.node.nodeLabels.includes("Content");
 }
 
 /**

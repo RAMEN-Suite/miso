@@ -21,7 +21,8 @@ import {
 import { useAppStore } from "./app";
 import { useGuidelinesStore } from "./guidelines";
 import { useSmartViewsStore } from "./smartViews";
-import { createNodeStatusObjectFromRawData, getBaseNodeLabel } from "../utils/helper/helper";
+import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { getBaseNodeLabel } from "../config/ramen";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
 

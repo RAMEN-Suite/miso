@@ -4,7 +4,7 @@ import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
 import { CollectionNode, EntityNode, IconSpec, NodeStatusObject, ReferenceNodeLabel, TextNode } from "../models/types";
-import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
+import { isCollectionNode, isContentNode, isEntityNode } from "../config/ramen";
 import Button from "primevue/button";
 import FilterableMenu from "./FilterableMenu.vue";
 import { MenuItem } from "primevue/menuitem";

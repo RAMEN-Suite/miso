@@ -17,7 +17,7 @@ import {
 import { useAppStore } from "../store/app";
 import { onStartTyping, useElementSize } from "@vueuse/core";
 import { resolveNodeIcon } from "../config/icons";
-import { filterBaseNodeLabel } from "../utils/helper/helper";
+import { filterBaseNodeLabels } from "../config/ramen";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const props = defineProps<{
@@ -199,7 +199,7 @@ onStartTyping(() => {
           <div class="result-item">
             <RAMENNodeIcon
               :spec="resolveNodeIcon(option.nodeLabels)"
-              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -210,7 +210,7 @@ onStartTyping(() => {
           <div class="result-item">
             <RAMENNodeIcon
               :spec="resolveNodeIcon(option.nodeLabels)"
-              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -221,7 +221,7 @@ onStartTyping(() => {
           <div class="result-item">
             <RAMENNodeIcon
               :spec="resolveNodeIcon(option.nodeLabels)"
-              v-tooltip.hover.top="{ value: filterBaseNodeLabel(option.nodeLabels).join(', '), showDelay: 50 }"
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
             />
             <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
           </div>

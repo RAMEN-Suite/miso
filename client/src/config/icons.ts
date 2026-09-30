@@ -1,5 +1,5 @@
 import { BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
-import { filterDefaultLabels } from "../utils/helper/helper";
+import { filterBaseNodeLabels } from "./ramen";
 
 /** Used when a node matches none of the known base labels. */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
@@ -81,7 +81,7 @@ export function normalizeIconSpec(input: IconSpecInput | undefined): IconSpec | 
  * @returns {IconSpec} The icon to render, for example `{ kind: "lucide", name: "folder" }`.
  */
 export function resolveNodeIcon(nodeLabels: string[]): IconSpec {
-  const additionalLabels: string[] = filterDefaultLabels(nodeLabels);
+  const additionalLabels: string[] = filterBaseNodeLabels(nodeLabels);
 
   for (const label of additionalLabels) {
     if (NODE_ICONS_BY_LABEL[label]) {

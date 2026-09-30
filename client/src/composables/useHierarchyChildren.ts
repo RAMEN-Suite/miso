@@ -10,7 +10,7 @@ import {
   NodeDto,
   PaginationResult,
 } from "../models/types";
-import { getBaseNodeLabel } from "../utils/helper/helper";
+import { getBaseNodeLabel } from "../config/ramen";
 import ApiError from "../utils/errors/api.error";
 
 export interface UseHierarchyChildrenOptions {

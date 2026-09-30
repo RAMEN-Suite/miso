@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import NodeCard from "./NodeCard.vue";
 import { TextNode, NodeStatusObject } from "../models/types";
-import { filterBaseNodeLabel } from "../utils/helper/helper.ts";
+import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -25,7 +25,7 @@ const displayedText = computed<string>(
 );
 
 const htmlTitle = computed<string>(() => {
-  return `Open ${filterBaseNodeLabel(node.value.node.nodeLabels).join(", ")} in Editor`;
+  return `Open ${filterBaseNodeLabels(node.value.node.nodeLabels).join(", ")} in Editor`;
 });
 
 // A created node does not exist in the database yet, so there is nothing to open in the Editor

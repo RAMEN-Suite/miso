@@ -8,6 +8,7 @@ import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createCollectionNode } from "../config/ramen";
+import { isRequiredValueMissing } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -34,7 +35,11 @@ const newCollectionNode = ref<CollectionNode>(createCollectionNode());
 const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
 const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
 
-const inputIsValid = computed<boolean>(() => newCollectionNode.value.data.label.trim().length > 0);
+const inputIsValid = computed<boolean>(
+  () =>
+    newCollectionNode.value.data.label.trim().length > 0 &&
+    collectionFields.value.every((field) => !isRequiredValueMissing(newCollectionNode.value.data[field.name], field)),
+);
 
 watch(() => route.path, closeModal);
 

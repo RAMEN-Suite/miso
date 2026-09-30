@@ -268,23 +268,7 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
 export function checkAnnotationValidity(annotation: Annotation, config: AnnotationType): boolean {
   const fields: PropertyConfig[] = config.properties ?? [];
 
-  return fields.every((field: PropertyConfig) => {
-    if (!field.required) {
-      return true;
-    }
-
-    const value: unknown = annotation.node.data[field.name];
-
-    if (value === null || value === undefined) {
-      return false;
-    }
-
-    if (field.type === "string" && (value as string).trim().length === 0) {
-      return false;
-    }
-
-    return true;
-  });
+  return fields.every((field: PropertyConfig) => !isRequiredValueMissing(annotation.node.data[field.name], field));
 }
 
 /**
@@ -425,6 +409,35 @@ export function getVisibleDocRange(editorView: EditorView): { from: number; to: 
   const to: number = endPos?.pos ?? editorView.state.doc.content.size;
 
   return { from, to };
+}
+
+/**
+ * Checks whether a required property is left without a usable value.
+ *
+ * Used for input checks in forms.
+ *
+ * @param {unknown} value - The raw property value.
+ * @param {Partial<PropertyConfig>} field - The config of the property the value belongs to.
+ * @return {boolean} Returns `true` if the property is required but has no value, `false` otherwise.
+ */
+export function isRequiredValueMissing(value: unknown, field: Partial<PropertyConfig>): boolean {
+  if (!field?.required) {
+    return false;
+  }
+
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  if (typeof value === "string" && value.trim().length === 0) {
+    return true;
+  }
+
+  if (Array.isArray(value) && value.length === 0) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

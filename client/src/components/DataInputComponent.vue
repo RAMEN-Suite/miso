@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed, ComputedRef } from "vue";
 import { PropertyConfig } from "../models/types";
+import { isRequiredValueMissing } from "../utils/helper/helper";
 import InputNumber from "primevue/inputnumber";
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
@@ -24,6 +26,8 @@ const maxValue: number | null | undefined =
 
 const minLength: number | null | undefined = props.config.minLength;
 const maxLength: number | null | undefined = props.config.maxLength;
+
+const isInvalid: ComputedRef<boolean> = computed(() => isRequiredValueMissing(modelValue.value, props.config));
 </script>
 
 <template>
@@ -33,7 +37,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue"
+    :invalid="isInvalid"
     :options="config.options"
     :placeholder="`Select ${config.name}`"
     size="small"
@@ -44,7 +48,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue && modelValue?.trim() === ''"
+    :invalid="isInvalid"
     size="small"
     class="w-full"
     spellcheck="false"
@@ -55,7 +59,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue"
+    :invalid="isInvalid"
     cols="30"
     rows="5"
     size="small"
@@ -66,7 +70,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue"
+    :invalid="isInvalid"
     :min="minValue"
     :max="maxValue"
     size="small"
@@ -77,7 +81,7 @@ const maxLength: number | null | undefined = props.config.maxLength;
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue"
+    :invalid="isInvalid"
     :min="minValue"
     :max="maxValue"
     :min-fraction-digits="0"

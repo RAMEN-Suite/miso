@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import type { Ref } from "vue";
+import { computed, ref, watch } from "vue";
+import type { ComputedRef, Ref } from "vue";
 import DatePicker from "primevue/datepicker";
 import { PropertyConfig } from "../models/types";
+import { isRequiredValueMissing } from "../utils/helper/helper";
 
 // Accepts ISO string for date/date-time, HH:mm:ss for time, or null
 const dateModelValue = defineModel<string | null>();
@@ -22,6 +23,8 @@ const timeOnly: boolean = dateType === "time";
 const dateFormat: string | undefined = dateType !== "time" ? "yy-mm-dd" : undefined;
 const inputPlaceholder: string = getDefaultPlaceholder();
 const inputIconClass: string = timeOnly ? "icon-clock" : "icon-calendar";
+
+const isInvalid: ComputedRef<boolean> = computed(() => isRequiredValueMissing(dateModelValue.value, props.config));
 
 /**
  * Pads a number with leading zeros to ensure it is at least two digits.
@@ -221,7 +224,7 @@ watch(internalDate, (newLocalDate: Date | null) => updateModelValue(newLocalDate
     v-model="internalDate"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
-    :invalid="config.required && !modelValue"
+    :invalid="isInvalid"
     :show-time="showTime"
     :time-only="timeOnly"
     :date-format="dateFormat"

@@ -3,7 +3,7 @@ import { computed } from "vue";
 import Breadcrumb from "primevue/breadcrumb";
 import { HierarchyPath, IconSpec } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
-import { ellipsize } from "../utils/helper/helper";
+import { ellipsize, getContentLabelText } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
@@ -35,8 +35,10 @@ const home = computed<BreadcrumbMenuItem>(() => ({
 
 const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
   props.path.map((item, index) => {
-    const data = item.node.data as { label?: string; text?: string };
-    const itemLabel: string = data.label ?? data.text ?? "";
+    const isContent: boolean = item.node.nodeLabels.includes("Content");
+    const itemLabel: string = isContent
+      ? getContentLabelText(item.node.nodeLabels)
+      : (item.node.data as { label?: string }).label ?? "";
     const shortened: string = ellipsize(itemLabel, LABEL_MAX_LENGTH);
 
     return {
@@ -48,10 +50,21 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
     };
   }),
 );
+
+/**
+ * Whether a breadcrumb item keeps its full size instead of shrinking when space runs out.
+ * This applies to the home item (the only item without an `index`) and the current (last) item (= the leaf).
+ *
+ * @param {MenuItem} item - The breadcrumb item to check.
+ * @returns {boolean} `true` if the item must not shrink, `false` otherwise.
+ */
+function isFixedSizeItem(item: MenuItem): boolean {
+  return item.index === undefined || item.index === props.path.length - 1;
+}
 </script>
 
 <template>
-  <div class="breadcrumbs-section p-1">
+  <div class="breadcrumbs-section p-1 min-w-0 max-w-full">
     <Breadcrumb
       :home="home as MenuItem"
       :model="breadcrumbItems as MenuItem[]"
@@ -64,18 +77,25 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
         item: ({ context }) => {
           return {
             title: context.item.title,
+            class: isFixedSizeItem(context.item) ? 'shrink-0' : 'min-w-0',
           };
         },
         itemLink: ({ context }) => {
           return {
-            class: ['gap-2'],
+            class: ['gap-2', 'min-w-0', 'max-w-full'],
             style: context.item.color ? { color: context.item.color } : undefined,
           };
+        },
+        itemLabel: {
+          class: 'truncate min-w-0',
+        },
+        separator: {
+          class: 'shrink-0',
         },
       }"
     >
       <template #itemicon="{ item }">
-        <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
+        <i v-if="typeof item.icon === 'string'" class="shrink-0" :class="item.icon"></i>
         <RAMENNodeIcon v-else :spec="(item as BreadcrumbMenuItem).icon" />
       </template>
       <template #separator>

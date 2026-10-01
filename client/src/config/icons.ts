@@ -27,6 +27,8 @@ export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
   Place: { kind: "lucide", name: "map-pinned" },
   Role: { kind: "lucide", name: "award" },
   Thing: { kind: "lucide", name: "box" },
+  Regesta: { kind: "lucide", name: "scroll-text" },
+  Volume: { kind: "lucide", name: "book" },
 };
 
 /**

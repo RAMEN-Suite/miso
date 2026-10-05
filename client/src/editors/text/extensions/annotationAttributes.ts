@@ -1,8 +1,6 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/vue-3";
-import { getDefaultValueForProperty } from "../../../utils/helper/helper";
-import { Annotation, AnnotationType, PropertyConfig } from "../../../models/types";
+import { Annotation, AnnotationType } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
-import { Node } from "@tiptap/pm/model";
 import { VALID_SEMANTIC_BLOCK_TARGETS } from "../../../config/editor";
 
 declare module "@tiptap/core" {
@@ -15,10 +13,10 @@ declare module "@tiptap/core" {
   }
 }
 
-const { getStructuralAnnotationConfigs, getEditorRole, isBuiltinStructuralType } = useGuidelinesStore();
+const { getStructuralAnnotationConfigs, getEditorRole } = useGuidelinesStore();
 
 // Returns {_annotationData, _semanticBlocks } attributes.
-// _annotationData: full neo4j round-trip payload; default = { type } for built-ins, null for customBlock.
+// _annotationData: full neo4j round-trip payload; default = { type } for built-ins
 // _semanticBlocks: custom structural annotations (closer, address, …) that wrap this node's range,
 //  stored as an array of full annotation data objects sorted outermost-first. null when none.
 function createDefaultAttrs(defaultType: string | null): Record<string, Attribute> {
@@ -36,46 +34,6 @@ function createDefaultAttrs(defaultType: string | null): Record<string, Attribut
       },
     },
   };
-}
-
-/**
- * Add per-type specific properties.
- *
- * @param config Configuration of the the annotation type
- * @returns
- */
-function createCustomAttributes(config: AnnotationType): Record<string, Attribute> {
-  const nodeAttrs: Record<string, Attribute> = {};
-
-  const configuredFields: PropertyConfig[] = config?.properties ?? [];
-
-  configuredFields.forEach((field: PropertyConfig) => {
-    const defaultValue: any = field.required ? getDefaultValueForProperty(field.type) : null;
-
-    const htmlDataKey: string = `data-${[field.name]}`;
-
-    nodeAttrs[field.name] = {
-      default: defaultValue,
-      parseHTML: (el: HTMLElement) => el.getAttribute(field.name),
-      renderHTML: (attrs: Record<string, any>) => ({ [htmlDataKey]: attrs[field.name] }),
-    };
-  });
-
-  return nodeAttrs;
-}
-
-/**
- * On every doc change, the node type from the tiptap node must be transferred to `_annotationData.type`
- * since these are the actual neo4j node data. Is done on save too, but for ToC etc. this is useful.
- *
- * @param {Node} doc - The doc root
- */
-function transferTiptapTypeToAnnotationType(doc: Node): void {
-  doc.forEach((node) => {
-    if (node.isBlock && isBuiltinStructuralType(node.type.name)) {
-      node.attrs._annotationData.type = node.type.name;
-    }
-  });
 }
 
 /**
@@ -104,6 +62,7 @@ export const AnnotationAttributes = Extension.create({
         attributes: createDefaultAttrs(config.type),
       };
     });
+    console.log(builtinAttrs);
 
     return [...builtinAttrs];
   },
@@ -185,9 +144,3 @@ export const AnnotationAttributes = Extension.create({
     };
   },
 });
-
-// `createCustomAttributes` and `transferTiptapTypeToAnnotationType` are intentionally kept defined
-// but no longer called (see the disabled `onUpdate`/`customAttrs` above). These references keep them
-// from tripping `noUnusedLocals`; delete them when re-enabling either helper.
-void createCustomAttributes;
-void transferTiptapTypeToAnnotationType;

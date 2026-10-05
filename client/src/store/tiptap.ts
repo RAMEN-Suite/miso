@@ -20,8 +20,7 @@ import { buildDocStructure, cloneDeep, getVisibleDocRange } from "../utils/helpe
 import { AnnotationDecoration } from "../editors/text/extensions/annotationDecoration";
 import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
-import { AnnotationAttributes } from "../editors/text/extensions/AnnotationAttributes";
-import { CustomBlock } from "../editors/text/extensions/customBlock";
+import { AnnotationAttributes } from "../editors/text/extensions/annotationAttributes";
 import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
 import { history } from "prosemirror-history";
 import { type Extensions } from "@tiptap/core";
@@ -63,7 +62,6 @@ function getConfiguredExtensions(): Extensions {
     HardBreak,
     UndoRedo,
     ZeroPointAnnotation,
-    CustomBlock,
     InvisibleCharacters.configure({
       visible: false,
       builders: [new ParagraphNode(), new HardBreakNode()],
@@ -256,7 +254,7 @@ watch(
 
     tiptap.value.commands.setBlockDecorationSettings(newVal);
 
-    if (newVal.documentStructures === true) {
+    if (newVal.documentStructures) {
       tiptap.value.commands.showInvisibleCharacters();
     } else {
       tiptap.value.commands.hideInvisibleCharacters();

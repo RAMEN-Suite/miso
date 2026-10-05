@@ -30,6 +30,15 @@ export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified
 
 export type Annotation = NodeStatusObject<AnnotationNode>;
 
+/**
+ * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes and
+ * zero-point annotations, and each entry of `_semanticBlocks`.
+ *
+ * The `meta` field that contains the status is omitted since it gets recalculated before save
+ * for every block of the document.
+ */
+export type DocAnnotation = Omit<Annotation, "meta">;
+
 export type AnnotationNode = Node<IAnnotation>;
 
 /** A node object for retrieving data */
@@ -516,14 +525,16 @@ export type ToCItem = TreeNode & {
   data: {
     nodeSize: number;
     nodeType: string;
-    /** Canonical (project-configured) annotation type, derived from the live node, not _annotationData. */
+    /** Canonical (project-configured) annotation type, derived from the live node, not _annotation. */
     type: string;
     /** Heading level when the node is a heading; read from the live native attr. */
     level?: number;
     pos: number;
     text: string;
-    _annotationData: Record<string, any>;
-    _semanticBlocks: { uuid: string; annotationType: string }[] | null;
+    /** Annotation of the node itself, as stored in its `_annotation` attribute. */
+    _annotation: DocAnnotation;
+    /** Semantic blocks wrapping the node, as stored in its `_semanticBlocks` attribute. Empty when none. */
+    _semanticBlocks: DocAnnotation[];
   };
   children: ToCItem[];
 };

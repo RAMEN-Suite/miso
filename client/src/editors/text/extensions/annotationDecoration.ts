@@ -59,7 +59,7 @@ interface ViewportMeta {
   visibleTo: number;
 }
 
-interface AnnotationDecorationSpec {
+export interface AnnotationDecorationSpec {
   _type: string;
   _uuid: string;
 }

@@ -1,7 +1,6 @@
-import { readonly, ref } from "vue";
 import { useTiptapStore } from "../store/tiptap";
 import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration";
-import { AnnotationNode, IndexMap, NodeStatusObject } from "../models/types";
+import { DocAnnotation, IndexMap } from "../models/types";
 import { Decoration } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 
@@ -12,11 +11,12 @@ import { Node } from "@tiptap/pm/model";
  * plain-text representation of the document (i.e. character positions, not ProseMirror doc
  * positions). The maps are used when serialising annotations to standoff format for the backend.
  *
- * Four maps are produced:
- * - `decorationIndexMap`     – inline annotation decorations (from/to in plain-text chars)
- * - `structureBlockIndexMap` – block nodes that carry a `uuid` attr (paragraphs, headings, …)
- * - `zeroPointIndexMap`      – `zeroPointAnnotation` inline atoms (position between two chars)
- * - `hardBreakIndexMap`      – `hardBreak` inline atoms (position between two chars)
+ * Three maps are produced, one per place the annotations are stored in:
+ * - `inlineIndexMap`        – inline annotations from the annotation store: range decorations (from/to in
+ *                             plain-text chars) and `zeroPointAnnotation` inline atoms (position between two chars)
+ * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, …)
+ *                             and `hardBreak` inline atoms (position between two chars)
+ * - `semanticBlockIndexMap` – semantic blocks stored in the `_semanticBlocks` attribute of the block nodes they wrap
  */
 export function useCreateIndexMaps() {
   const { tiptap } = useTiptapStore();
@@ -29,44 +29,30 @@ export function useCreateIndexMaps() {
 
   const decorations: Decoration[] = ANNOTATION_DECORATION_KEY.getState(tiptap.value.state)?.all.find() ?? [];
 
-  // Maps for standoff indices
-  const decorationIndexMap = ref<IndexMap>(new Map());
-  const structureBlockIndexMap = ref<IndexMap>(new Map());
-  const semanticBlockIndexMap = ref<IndexMap>(new Map());
-  const zeroPointIndexMap = ref<IndexMap>(new Map());
-  const hardBreakIndexMap = ref<IndexMap>(new Map());
-
   /**
-   * Builds all four index maps in dependency order and returns read-only snapshots.
-   * Call this once per save cycle rather than the individual builders to ensure consistency.
+   * Builds all index maps from the current document. Call this once per save cycle.
    *
-   * @returns Read-only snapshots of all four index maps.
+   * Range and zero-point annotations are stored in the same store and therefore share one map,
+   * just as blocks and hardBreaks do.
+   *
+   * @returns {{ inlineIndexMap: IndexMap; structureIndexMap: IndexMap; semanticBlockIndexMap: IndexMap }} The index maps.
    */
-  function buildIndexMaps() {
-    buildStructureIndexMap();
-    buildSemanticBlockIndexMap();
-    buildZeroPointIndexMap();
-    buildHardBreakIndexMap();
-    buildDecorationIndexMap();
-
+  function buildIndexMaps(): { inlineIndexMap: IndexMap; structureIndexMap: IndexMap; semanticBlockIndexMap: IndexMap } {
     return {
-      decorationIndexMap: readonly(decorationIndexMap.value),
-      hardBreakIndexMap: readonly(hardBreakIndexMap.value),
-      zeroPointIndexMap: readonly(zeroPointIndexMap.value),
-      structureBlockIndexMap: readonly(structureBlockIndexMap.value),
-      semanticBlockIndexMap: readonly(semanticBlockIndexMap.value),
+      inlineIndexMap: new Map([...buildDecorationIndexMap(), ...buildZeroPointIndexMap()]),
+      structureIndexMap: new Map([...buildStructureIndexMap(), ...buildHardBreakIndexMap()]),
+      semanticBlockIndexMap: buildSemanticBlockIndexMap(),
     };
   }
 
   /**
    * Traverses the document and maps every uuid-bearing block node to its plain-text char range.
    *
-   * @returns The populated `IndexMap` (also stored in `structureBlockIndexMap`).
+   * @returns The populated `IndexMap`.
    */
   function buildStructureIndexMap(): IndexMap {
     const map: IndexMap = new Map();
     traverseNode(doc, 0, map);
-    structureBlockIndexMap.value = map;
 
     return map;
   }
@@ -75,11 +61,11 @@ export function useCreateIndexMaps() {
    * Walks the document and builds a map of label annotation UUIDs → their live char range.
    *
    * Label annotations (e.g. `closer`, `address`) are not block nodes themselves; instead, their
-   * UUID references are stored in the `_semanticBlocks` attribute on the built-in block nodes that
+   * annotation data are stored in the `_semanticBlocks` attribute on the built-in block nodes that
    * fall within their range. For each UUID found, this function accumulates the union of all
    * contributing nodes' char ranges, giving the annotation's current `startIndex`/`endIndex`.
    *
-   * @returns The populated `IndexMap` (also stored in `semanticBlockIndexMap`).
+   * @returns The populated `IndexMap`.
    */
   function buildSemanticBlockIndexMap(): IndexMap {
     const map: IndexMap = new Map();
@@ -96,7 +82,7 @@ export function useCreateIndexMaps() {
         current = walk(child, current);
       });
 
-      const semanticBlocks: NodeStatusObject<AnnotationNode>[] = node.attrs?._semanticBlocks ?? [];
+      const semanticBlocks: DocAnnotation[] = node.attrs?._semanticBlocks ?? [];
 
       semanticBlocks.forEach((block) => {
         const { uuid } = block.node.data;
@@ -116,20 +102,17 @@ export function useCreateIndexMaps() {
 
     walk(doc, 0);
 
-    semanticBlockIndexMap.value = map;
-
     return map;
   }
 
   /**
    * Maps each `zeroPointAnnotation` node (by uuid) to the gap it occupies between two chars.
    *
-   * @returns The populated `IndexMap` (also stored in `zeroPointIndexMap`).
+   * @returns The populated `IndexMap`.
    */
   function buildZeroPointIndexMap(): IndexMap {
     const map: IndexMap = new Map();
     traverseForInlineNode(doc, 0, "zeroPointAnnotation", map);
-    zeroPointIndexMap.value = map;
 
     return map;
   }
@@ -137,12 +120,11 @@ export function useCreateIndexMaps() {
   /**
    * Maps each `hardBreak` node (by uuid) to the gap it occupies between two chars.
    *
-   * @returns The populated `IndexMap` (also stored in `hardBreakIndexMap`).
+   * @returns The populated `IndexMap`.
    */
   function buildHardBreakIndexMap(): IndexMap {
     const map: IndexMap = new Map();
     traverseForInlineNode(doc, 0, "hardBreak", map);
-    hardBreakIndexMap.value = map;
 
     return map;
   }
@@ -152,7 +134,7 @@ export function useCreateIndexMaps() {
    * indices by walking only text nodes and counting characters. The endIndex is stored as
    * `to - 1` so both start and end are inclusive char offsets.
    *
-   * @returns The populated `IndexMap` keyed by decoration `_uuid` (also stored in `decorationIndexMap`).
+   * @returns The populated `IndexMap` keyed by decoration `_uuid`.
    */
   function buildDecorationIndexMap(): IndexMap {
     // All available decoration positions that need remapping
@@ -199,8 +181,6 @@ export function useCreateIndexMaps() {
         endIndex: endIndex - 1,
       });
     }
-
-    decorationIndexMap.value = map;
 
     return map;
   }
@@ -269,16 +249,6 @@ export function useCreateIndexMaps() {
   }
 
   return {
-    decorationIndexMap,
-    hardBreakIndexMap,
-    zeroPointIndexMap,
-    structureBlockIndexMap,
-    blockAnnotationIndexMap: semanticBlockIndexMap,
-    buildDecorationIndexMap,
-    buildHardBreakIndexMap,
     buildIndexMaps,
-    buildStructureIndexMap,
-    buildZeroPointIndexMap,
-    buildBlockAnnotationIndexMap: buildSemanticBlockIndexMap,
   };
 }

@@ -1,17 +1,18 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
-import { AnnotationNode } from "../../../models/types";
+import { Annotation, DocAnnotation } from "../../../models/types";
+import { toDocAnnotation } from "../../../utils/helper/tiptapHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     zeroPointAnnotation: {
-      addZeroPointAnnotation: (annotation: AnnotationNode, position?: number) => ReturnType;
+      addZeroPointAnnotation: (annotation: Annotation, position?: number) => ReturnType;
     };
   }
 }
 
 interface ZeroPointAttributes {
   uuid: string;
-  annotationData: AnnotationNode;
+  _annotation: DocAnnotation | null;
 }
 
 export const ZeroPointAnnotation = Node.create({
@@ -24,27 +25,23 @@ export const ZeroPointAnnotation = Node.create({
     return {};
   },
 
-  addAttributes(): Record<any, any> {
+  addAttributes() {
     return {
-      annotationData: {
+      // Same object as on structural nodes and in `_semanticBlocks`. Snapshot of the annotation at creation/parse
+      // time: the annotation store stays the source of truth for zero-point annotations (edits, save).
+      _annotation: {
         default: null,
-        keepOnSplit: true,
-        isRequired: true,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-annotation-uuid"),
-        renderHTML: (attributes: ZeroPointAttributes) => {
-          return {
-            "data-annotation-type": attributes.annotationData.data.type,
-          };
-        },
+        rendered: false,
       },
+      // Identifies the annotation in the annotation store. Separate attribute since it is managed by the
+      // UniqueID extension (e.g. regenerated for duplicated nodes).
       uuid: {
         default: null,
-        keepOnSplit: true,
         isRequired: true,
         parseHTML: (element: HTMLElement) => element.getAttribute("data-annotation-uuid"),
         renderHTML: (attributes: ZeroPointAttributes) => {
           return {
-            "data-annotation-uuid": attributes.annotationData.data.uuid,
+            "data-annotation-uuid": attributes.uuid,
           };
         },
       },
@@ -63,11 +60,12 @@ export const ZeroPointAnnotation = Node.create({
     // TODO: This can be more elegant
     return (nodeProps: NodeViewRendererProps) => {
       const elm: HTMLElement = document.createElement("span");
-      const annotationType = nodeProps.node.attrs.annotationData.data.type;
-      const annotationSubType: string | number | undefined = nodeProps.node.attrs.annotationData.data.subType;
+      const docAnnotation: DocAnnotation | null = nodeProps.node.attrs._annotation;
+      const annotationType: string = docAnnotation?.node.data.type ?? "";
+      const annotationSubType: string | number | undefined = docAnnotation?.node.data.subType;
 
       elm.setAttribute("data-annotation-type", annotationType);
-      elm.setAttribute("data-annotation-subType", annotationSubType?.toString() ?? "");
+      elm.setAttribute("data-annotation-subtype", annotationSubType?.toString() ?? "");
 
       elm.classList.add(`annotation-type-marker-${annotationType}`);
 
@@ -90,13 +88,13 @@ export const ZeroPointAnnotation = Node.create({
   addCommands() {
     return {
       addZeroPointAnnotation:
-        (annotation: AnnotationNode, position?: number) =>
+        (annotation: Annotation, position?: number) =>
         ({ commands }) => {
           const pos: number = position ?? this.editor.state.selection.from;
 
           return commands.insertContentAt(pos, {
             type: this.name,
-            attrs: { annotationData: annotation, uuid: annotation.data.uuid },
+            attrs: { _annotation: toDocAnnotation(annotation), uuid: annotation.node.data.uuid },
           });
         },
     };

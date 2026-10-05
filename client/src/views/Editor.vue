@@ -15,23 +15,7 @@ import SemanticBlockLines from "../components/SemanticBlockLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Message from "primevue/message";
-import {
-  NodeDto,
-  IndexMap,
-  PropertyConfig,
-  TextAccessObject,
-  Annotation,
-  Node,
-  NodeStatusObject,
-  EntityNode,
-  TextNode,
-  CollectionNode,
-  AnnotationNode,
-  BaseNodeData,
-  TextUpdateDto,
-  NodeStatus,
-  BuiltinStructuralType,
-} from "../models/types.ts";
+import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
 import { useEditorStore } from "../store/editor.ts";
 import { useShortcutsStore } from "../store/shortcuts.ts";
 import { useTextStore } from "../store/text.ts";
@@ -40,10 +24,8 @@ import PageOverlay from "../components/PageOverlay.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import EditorAnnotationButtonPane from "../components/EditorAnnotationButtonPane.vue";
 import { Node as DocNode } from "@tiptap/pm/model";
-import { collectSemanticBlocks } from "../utils/helper/tiptapHelper.ts";
-import { useCreateIndexMaps } from "../composables/useCreateIndexMaps.ts";
+import { useCollectAnnotationChanges } from "../composables/useCollectAnnotationChanges.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
-import { IAnnotation } from "../models/IAnnotation.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "../utils/helper/helper.ts";
 
@@ -67,14 +49,7 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const {
-  getStructuralAnnotationConfig,
-  getAnnotationType,
-  getAnnotationBehaviour,
-  getEditorOwnedProperties,
-  isBuiltinStructuralType,
-  isZeroPoint,
-} = useGuidelinesStore();
+const { getAnnotationType } = useGuidelinesStore();
 
 onUnmounted(() => destroyTiptap());
 
@@ -133,6 +108,9 @@ function cleanUpAfterSave(
   cleanUpAnnotations(updatedAnnotations.annotations);
   cleanUpStructureElements(updatedAnnotations.structureElements);
 
+  // Needs to happen before the new initial state is set, since the document is part of it
+  tiptap.value?.commands.resetDocAnnotationStatuses();
+
   setNewInitialState();
 }
 
@@ -169,32 +147,6 @@ function cleanUpStructureElements(structureElements: NodeStatusObject[]): void {
       initialStructuralAnnotations.value?.set(uuid, elm as Annotation);
     }
   });
-
-  // const docNodes = new Map<string, DocNode>();
-
-  // tiptap.value?.state.doc.descendants(node => {
-  //   if (isStructureElement(node)) {
-  //     docNodes.set(node.attrs.uuid, node);
-  //   }
-  // });
-
-  // console.log(docNodes);
-  // console.log(initialStructuralAnnotations.value);
-  // Reset
-}
-
-/**
- * Checks if a node is a structure element editor-wise, meaning that it is either a block element that contains text or other block elmements
- * (div, paragraph) or a `hardBreak`.
- *
- * @param {DocNode} node - Tiptap node to be checked
- */
-function isStructureElement(node: DocNode): boolean {
-  if (node.type.isBlock || node.type.name === "hardBreak") {
-    return true;
-  }
-
-  return false;
 }
 
 function getEmptyNodes(): DocNode[] {
@@ -218,401 +170,16 @@ function getEmptyNodes(): DocNode[] {
   return emptyNodes;
 }
 
-function findChangedAnnotations(indexMap: IndexMap, plainText: string): Annotation[] {
-  const affectedAnnos: Annotation[] = [];
-
-  // Loop through annotations currently in the editor
-  indexMap.forEach((value, uuid) => {
-    const currentEntry: Annotation | undefined = annotations.value?.get(uuid);
-    const initialEntry: Annotation | undefined = initialAnnotations.value?.get(uuid);
-
-    // Should not happen actually
-    if (!currentEntry) {
-      console.error(`The annotation with uuid ${uuid} could not be found`);
-      return;
-    }
-
-    const { startIndex, endIndex } = value;
-
-    // Zero-point annotations (including hardBreaks) occupy an offset between characters - they have no
-    // range and therefore no text content
-    const isZeroPointAnno: boolean = isZeroPoint(currentEntry.node);
-    const textSlice: string = isZeroPointAnno ? "" : plainText.slice(startIndex, endIndex + 1);
-
-    const hasNewStart: boolean = initialEntry?.node.data.startIndex !== startIndex;
-    const hasNewEnd: boolean = initialEntry?.node.data.endIndex !== endIndex;
-    const hasChangedText: boolean = isZeroPointAnno ? false : initialEntry?.node.data.text !== textSlice;
-    const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
-
-    if (hasNewStart || hasNewEnd || hasChangedText || isEditedOrDeleted) {
-      // Needs to be cloned object to keep editor data clean. Otherwise, a failed operation would make problems
-      // ("status" field is updated, doc history not clean etc.)
-      const cloned: Annotation = cloneDeep(currentEntry);
-
-      // Apply indices to cloned object (for existing or new annotations)
-      if (hasNewStart || currentEntry.meta.status === "created") {
-        cloned.node.data.startIndex = value.startIndex;
-      }
-
-      if (hasNewEnd || currentEntry.meta.status === "created") {
-        cloned.node.data.endIndex = value.endIndex;
-      }
-
-      // Get slice of plain text
-      cloned.node.data.text = textSlice;
-
-      // Presence-only zero-point marker: keep persisted data self-describing about the index semantics.
-      if (isZeroPointAnno) {
-        cloned.node.data.isZeroPoint = true;
-      } else {
-        delete cloned.node.data.isZeroPoint;
-      }
-
-      // Update status explicitly for changed indices. Otherwised changed/added/deleted annotations keep their status
-      if (currentEntry.meta.status !== "created" && (hasNewStart || hasNewEnd)) {
-        cloned.meta.status = "modified";
-      }
-
-      affectedAnnos.push(cloned);
-    }
-  });
-
-  // Get elements which are deleted in editor
-  const uuidsInEditor = new Set<string>([...indexMap.keys()]);
-  const initialUuids = new Set<string>([...(initialAnnotations.value?.keys() ?? [])]);
-  const deletedUuids = initialUuids.difference(uuidsInEditor);
-
-  deletedUuids.forEach((uuid) => {
-    const annoEntry: Annotation | undefined = initialAnnotations.value?.get(uuid);
-
-    if (!annoEntry) {
-      console.error(`The annotation with uuid ${uuid} could not be found in the initial annotations`);
-      return;
-    }
-
-    const cloned: Annotation = { ...cloneDeep(annoEntry), meta: { status: "deleted" } };
-
-    affectedAnnos.push(cloned);
-  });
-
-  return affectedAnnos;
-}
-
-/**
- * Collects and returns all properties for the neo4j payload of a structural annotation node.
- *
- * Single assembly point for a structural node's das which merges the different sources of truth:
- * - Domain props from the tiptap node's `_annotationData` attribute,
- * - Editor-owned props from the live tiptap-native attrs (e.g. `level` for headings),
- * - uuid from the UniqueID extension
- * - The annotation type itself from the node's editor role (if a mapping between built-in and custom name was configured)
- *
- * @param {DocNode} node The Tiptap node from where the data should be collected.
- * @returns {Record<string, any>} The collected properties
- */
-function assembleStructuralAnnotationData(node: DocNode): Record<string, any> {
-  const neo4jProperties: Record<string, any> = {};
-
-  const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
-  const annotationType: string = getAnnotationType(editorRole);
-  const annotationData = node.attrs._annotationData ?? {};
-
-  const editorOwned = getEditorOwnedProperties(annotationType);
-
-  // 1. Domain properties: read from `_annotationData`, skipping the editor-owned ones.
-  const fields: PropertyConfig[] = getStructuralAnnotationConfig(annotationType)?.properties ?? [];
-
-  fields.forEach((field: PropertyConfig) => {
-    if (editorOwned.some((map) => map.property === field.name)) {
-      return;
-    }
-
-    if (field.name in annotationData) {
-      neo4jProperties[field.name] = annotationData[field.name];
-    }
-  });
-
-  // 2. Editor-owned properties: read the live native node's attribute (level/colspan/rowspan) and store it
-  // under its configured project property name (e.g. native `level` -> project `n`).
-  for (const { property, attribute } of editorOwned) {
-    if (node.attrs[attribute] !== undefined) {
-      neo4jProperties[property] = node.attrs[attribute];
-    }
-  }
-
-  // 3. Authorative properties: type and uuid non-configurable, must always exist
-  neo4jProperties.uuid = node.attrs.uuid;
-  neo4jProperties.type = annotationType;
-
-  // Structural zero-points (hardBreaks) carry the presence-only marker like any other zero-point.
-  if (getAnnotationBehaviour(annotationType) === "zeroPoint") {
-    neo4jProperties.isZeroPoint = true;
-  }
-
-  return neo4jProperties;
-}
-
-function findChangedStructureElements(indexMap: IndexMap, plainText: string): Annotation[] {
-  const affectedElements: Annotation[] = [];
-
-  const docNodes = new Map<string, DocNode>();
-
-  tiptap.value?.state.doc.descendants((node) => {
-    if (isStructureElement(node)) {
-      docNodes.set(node.attrs.uuid, node);
-    }
-  });
-
-  // Loop through nodes currently in the editor
-  indexMap.forEach(({ startIndex, endIndex }, uuid) => {
-    const docNode: DocNode | undefined = docNodes.get(uuid);
-
-    // Should not happen actually
-    if (!docNode) {
-      console.error(`The annotation with uuid ${uuid} could not be found`);
-      return;
-    }
-
-    const initialEntry: Annotation | undefined = initialStructuralAnnotations.value?.get(uuid);
-
-    const textSlice: string = plainText.slice(startIndex, endIndex + 1);
-
-    // TODO: Always "modified" for now since it is likely anyway (changed text). Fix later maybe
-    const status: NodeStatus = initialEntry ? "modified" : "created";
-
-    // Create annotation object (needed)
-    const annotation: Annotation = {
-      node: {
-        data: {
-          ...assembleStructuralAnnotationData(docNode),
-          startIndex,
-          endIndex,
-          text: textSlice,
-        } as IAnnotation,
-        nodeLabels: ["Annotation"],
-      },
-      connectedNodes: [],
-      meta: {
-        status: status,
-      },
-    };
-
-    affectedElements.push(annotation);
-  });
-
-  // Get elements which are deleted in editor.
-  // Only consider built-in structural types here — semantic block deletions are handled
-  // separately by `findChangedLabelAnnotations` to avoid false deletions.
-  const uuidsInEditor = new Set<string>(indexMap.keys());
-
-  const initialUuids = new Set<string>(
-    (initialStructuralAnnotations.value?.entries() ?? [])
-      .filter(([_, anno]) => isBuiltinStructuralType(anno.node.data.type))
-      .map(([uuid]) => uuid),
-  );
-  const deletedUuids: Set<string> = initialUuids.difference(uuidsInEditor);
-
-  deletedUuids.forEach((uuid) => {
-    const annoEntry: Annotation | undefined = initialStructuralAnnotations.value?.get(uuid);
-
-    if (!annoEntry) {
-      console.error(`The annotation with uuid ${uuid} could not be found in the initial structural annotations`);
-      return;
-    }
-
-    const cloned: Annotation = { ...cloneDeep(annoEntry), meta: { status: "deleted" } };
-
-    affectedElements.push(cloned);
-  });
-
-  return affectedElements;
-}
-
-/**
- * Builds the save payload node for a semantic block from its `_semanticBlocks` attr entry.
- *
- * The entry is a whole `Annotation` (the doc is the source of truth); this clones it and
- * overwrites the derived fields (start/end index, text) from the live index map plus the
- * save-time derived status, leaving `node.nodeLabels`/`connectedNodes` untouched.
- *
- * TODO: this should be very similar to assembleStructuralAnnotationData -> refactor
- *
- * @param {Annotation} entry - The annotation node read from the doc attrs.
- * @param {number} startIndex - Character start index from the semantic-block index map.
- * @param {number} endIndex - Character end index from the semantic-block index map.
- * @param {string} text - The plain-text slice for the block's range.
- * @param {NodeStatus} status - The save-time derived status (created/modified).
- * @returns {Annotation} The assembled annotation node for the save payload.
- */
-function assembleSemanticBlockData(
-  entry: Annotation,
-  startIndex: number,
-  endIndex: number,
-  text: string,
-  status: NodeStatus,
-): Annotation {
-  const assembled: Annotation = cloneDeep(entry);
-
-  assembled.node.data = { ...assembled.node.data, startIndex, endIndex, text };
-  assembled.meta = { status };
-
-  return assembled;
-}
-
-function findChangedSemanticBlocks(indexMap: IndexMap, plainText: string): Annotation[] {
-  const affectedElements: Annotation[] = [];
-
-  // The doc is the source of truth: read the whole annotation node from the attrs.
-  const semanticBlocks: Map<string, Annotation> = tiptap.value ? collectSemanticBlocks(tiptap.value.state.doc) : new Map();
-
-  // Updated/created label annotations: derive live startIndex/endIndex from the doc
-  indexMap.forEach(({ startIndex, endIndex }, uuid) => {
-    const entry: Annotation | undefined = semanticBlocks.get(uuid);
-
-    if (!entry) {
-      return;
-    }
-
-    const status: NodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "modified" : "created";
-    const text: string = plainText.slice(startIndex, endIndex + 1);
-
-    affectedElements.push(assembleSemanticBlockData(entry, startIndex, endIndex, text, status));
-  });
-
-  // Deleted: was semantic block annotation in the initial snapshot but no longer present in the doc
-  const uuidsInEditor = new Set<string>(indexMap.keys());
-
-  initialStructuralAnnotations.value?.forEach((anno, uuid) => {
-    if (!isBuiltinStructuralType(anno.node.data.type) && !uuidsInEditor.has(uuid)) {
-      affectedElements.push({ ...cloneDeep(anno), meta: { status: "deleted" } });
-    }
-  });
-
-  return affectedElements;
-}
-
-function getAffectedAnnotations(): { annotations: Annotation[]; structureElements: Annotation[] } {
-  const plainText: string = tiptap.value?.state.doc.textContent ?? "";
-
-  const { decorationIndexMap, structureBlockIndexMap, semanticBlockIndexMap, zeroPointIndexMap, hardBreakIndexMap } =
-    useCreateIndexMaps().buildIndexMaps();
-
-  // Zero point and range annotation are stored in the same store and can therefore share the same index map
-  const changedAnnotations = findChangedAnnotations(new Map([...decorationIndexMap, ...zeroPointIndexMap]), plainText);
-
-  // hardBreaks and blocks are stored in the same store and can therefore share the same index map
-  const affectedStructureBlocks = findChangedStructureElements(
-    new Map([...structureBlockIndexMap, ...hardBreakIndexMap]),
-    plainText,
-  );
-
-  // Semantic blocks (closer, address, div) are tracked via _semanticBlocks on block nodes
-  const affectedLabelAnnotations = findChangedSemanticBlocks(semanticBlockIndexMap as IndexMap, plainText);
-
-  return {
-    annotations: changedAnnotations,
-    structureElements: [...affectedStructureBlocks, ...affectedLabelAnnotations],
-  };
-}
-
 export interface EdgeDescriptor {
   type: string;
   startUuid: string;
   endUuid: string;
 }
 
-function inferRelationship(parent: Node<BaseNodeData>, child: Node<BaseNodeData>): EdgeDescriptor {
-  const parentUuid: string = parent.data.uuid;
-  const childUuid: string = child.data.uuid;
-
-  const p: string[] = parent.nodeLabels;
-  const c: string[] = child.nodeLabels;
-
-  // Annotation → Annotation: sub-annotation (e.g. commentary text)
-  if (p.includes("Annotation") && c.includes("Annotation")) {
-    return { type: "HAS_ANNOTATION", startUuid: parentUuid, endUuid: childUuid };
-  }
-
-  // Annotation → Entity | Collection | Text: referenced nodes
-  if (p.includes("Annotation")) {
-    return { type: "REFERS_TO", startUuid: parentUuid, endUuid: childUuid };
-  }
-
-  // Text | Collection → Annotation
-  if (c.includes("Annotation")) {
-    return { type: "HAS_ANNOTATION", startUuid: parentUuid, endUuid: childUuid };
-  }
-
-  // Collection → Text | Collection → Collection: edge runs (Text|Collection)-[:PART_OF]->(Collection)
-  if (p.includes("Collection") && (c.includes("Content") || c.includes("Collection"))) {
-    return { type: "PART_OF", startUuid: childUuid, endUuid: parentUuid };
-  }
-
-  throw new Error(`Cannot infer relationship between [${p.join(", ")}] and [${c.join(", ")}]`);
-}
-
-interface UpdateObject {
-  create: (AnnotationNode | CollectionNode | EntityNode | TextNode)[];
-  delete: (AnnotationNode | CollectionNode | EntityNode | TextNode)[];
-  update: (AnnotationNode | CollectionNode | EntityNode | TextNode)[];
-  remove: { startUuid: string; endUuid: string }[];
-  attach: { startUuid: string; endUuid: string }[];
-}
-
-/** Temporary, used in backend */
-function insertNodeIntoObject(parent: NodeStatusObject | null, node: NodeStatusObject, obj: UpdateObject): UpdateObject {
-  node.connectedNodes.forEach((child) => insertNodeIntoObject(node, child, obj));
-
-  if (node.meta.status === "deleted") {
-    obj.delete.push(node.node);
-  }
-
-  if (node.meta.status === "created") {
-    obj.create.push(node.node);
-  }
-
-  if (node.meta.status === "modified") {
-    obj.update.push(node.node);
-  }
-
-  // Added/created with existing parent
-  if (parent && (node.meta.status === "created" || node.meta.status === "added")) {
-    obj.attach.push(inferRelationship(parent.node, node.node));
-  }
-
-  // Removed, but parent was deleted anyway
-  if (parent && node.meta.status === "removed" && parent.meta.status !== "deleted") {
-    obj.remove.push(inferRelationship(parent.node, node.node));
-  }
-
-  return obj;
-}
-
-/** Temporary, used in backend */
-function flattenNodeTree(textDto: TextUpdateDto): UpdateObject {
-  const obj: UpdateObject = {
-    create: [],
-    delete: [],
-    update: [],
-    remove: [],
-    attach: [],
-  };
-
-  insertNodeIntoObject(null, { ...textDto.text, connectedNodes: textDto.annotations }, obj);
-
-  return obj;
-}
-
-// TODO: Annotations structure has changed, overhaul all methods inside
 async function handleSaveChanges(): Promise<void> {
   if (!tiptap.value) {
     return;
   }
-
-  // if (!hasUnsavedChanges()) {
-  //   console.log('no changes made, no request needed');
-  //   return;
-  // }
 
   const nodesWithoutChildrenOrText = getEmptyNodes();
   const joined: string = nodesWithoutChildrenOrText.map((n) => getAnnotationType(n.type.name)).join(",");
@@ -630,7 +197,7 @@ async function handleSaveChanges(): Promise<void> {
     return;
   }
 
-  const affectedAnnotations = getAffectedAnnotations();
+  const affectedAnnotations = useCollectAnnotationChanges().collectAnnotationChanges();
 
   const { structureElements, annotations } = affectedAnnotations;
 
@@ -652,11 +219,6 @@ async function handleSaveChanges(): Promise<void> {
     text: toValue(newTextNode),
     annotations: toValue(annotationsToUpdate),
   };
-
-  // Only for testing purposes
-  // eslint-disable-next-line -- Testing purposes, might be removed later
-  const flattened = flattenNodeTree(textToUpdate);
-  // console.log(flattened);
 
   asyncOperationRunning.value = true;
   try {
@@ -696,8 +258,14 @@ function handleMouseDown(event: MouseEvent): void {
     return;
   }
 
-  const side: string = (event.target as Element).getAttribute("resizer-id");
+  const side: string | null = (event.target as Element).getAttribute("resizer-id");
+
+  if (!side || !(side === "left" || side === "right")) {
+    return;
+  }
+
   activeResizer.value = side;
+
   window.addEventListener("mousemove", handleResize);
 }
 
@@ -729,15 +297,16 @@ function handleKeyDown(event: KeyboardEvent): void {
     toggleRedrawMode({ direction: "off", cause: "cancel" });
   }
 
-  // Check if the shortcut combo exists, execute callback function
-  if (shortcutMap.value.has(keyCombo)) {
+  const executeCallback: (() => void) | undefined = shortcutMap.value.get(keyCombo);
+
+  if (executeCallback) {
     event.preventDefault();
 
     if (isRedrawMode.value) {
       return;
     }
 
-    shortcutMap.value.get(keyCombo)();
+    executeCallback();
   }
 }
 

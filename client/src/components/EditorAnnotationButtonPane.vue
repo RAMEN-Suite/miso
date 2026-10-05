@@ -306,7 +306,7 @@ function addAnnotation(annotation: Annotation, selection: { from: number; to: nu
   // Add decoration or inline block, depeding on config
   if (isAnnoZeroPoint) {
     // TODO: Cursor is set before the inserted element, not after. Fix later
-    tiptap.value?.commands.addZeroPointAnnotation(annotation.node, from);
+    tiptap.value?.commands.addZeroPointAnnotation(annotation, from);
   } else {
     tiptap.value?.commands.addAnnotationDecoration(annotation.node, from, to);
   }
@@ -382,6 +382,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
     >
       <TabPanel value="structure">
         <div class="buttons flex flex-wrap items-center gap-1">
+          <!-- eslint-disable vuejs-accessibility/form-control-has-label -- Eslint config does not recognize PrimeVue's component -->
           <Select
             v-model="currentBlockType"
             class="block-type-select"
@@ -409,8 +410,8 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
           <Button
             v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
             severity="secondary"
-            @click="tiptap?.chain().focus().setHardBreak().run()"
             icon="icon-text-wrap"
+            @click="tiptap?.chain().focus().setHardBreak().run()"
           >
           </Button>
         </div>

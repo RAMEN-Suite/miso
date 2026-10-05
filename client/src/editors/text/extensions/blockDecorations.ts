@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { EditorSettings } from "../../../models/types";
+import { DocAnnotation, EditorSettings } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
 
 const { getAnnotationType } = useGuidelinesStore();
@@ -108,14 +108,16 @@ function buildTags(node: Node, showBase: boolean, showSemantic: boolean): TagDat
   }
 
   if (showSemantic) {
-    const semanticBlocks: { uuid: string; type: string }[] = node.attrs._semanticBlocks ?? [];
+    const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
 
     for (const block of semanticBlocks) {
+      const { type, uuid } = block.node.data;
+
       tags.push({
         kind: "semantic",
-        label: getSemanticLabel(block.type),
-        type: block.type,
-        uuid: block.uuid,
+        label: getSemanticLabel(type),
+        type,
+        uuid,
       });
     }
   }

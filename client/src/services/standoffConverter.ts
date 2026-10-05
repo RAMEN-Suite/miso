@@ -8,8 +8,10 @@ import {
   AnnotationNode,
   AnnotationType,
   AnnotationRole,
+  DocAnnotation,
 } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
+import { toDocAnnotation } from "../utils/helper/tiptapHelper";
 
 type Anno = NodeStatusObject<AnnotationNode>;
 
@@ -259,7 +261,7 @@ export default class StandoffConverter {
           type: "zeroPointAnnotation",
           attrs: {
             uuid: a.node.data.uuid,
-            annotationData: a.node,
+            _annotation: toDocAnnotation(a),
           },
         },
       }));
@@ -273,7 +275,7 @@ export default class StandoffConverter {
           type: "hardBreak",
           attrs: {
             uuid: a.node.data.uuid,
-            _annotationData: { ...a.node.data },
+            _annotation: toDocAnnotation(a),
           },
         },
       }));
@@ -336,11 +338,19 @@ export default class StandoffConverter {
     const uuid: string = crypto.randomUUID();
     const paragraphType: string = getAnnotationType("paragraph");
 
+    const docAnnotation: DocAnnotation = {
+      node: {
+        data: { type: paragraphType, uuid, startIndex, endIndex } as AnnotationNode["data"],
+        nodeLabels: ["Annotation"],
+      },
+      connectedNodes: [],
+    };
+
     return {
       type: "paragraph",
       attrs: {
         uuid,
-        _annotationData: { type: paragraphType, uuid, startIndex, endIndex },
+        _annotation: docAnnotation,
       },
       content,
     };
@@ -475,7 +485,7 @@ export default class StandoffConverter {
    * (e.g. inside `tableRow` only `tableCell`s are possible, everything else would break the document).
    *
    * It works by descending into the deepest text-accepting leaf of the passed node (e.g. into a `tableCell`'s last/first paragraph)
-   * and updating the `_annotationData` range of every node on the path. Since the passed node
+   * and updating the range in the `_annotation` of every node on the path. Since the passed node
    * is a already fully build tiptap node, the descending is guaranteed to succeed.
    *
    * @param {TiptapNode} content The node to append the text range to
@@ -489,8 +499,8 @@ export default class StandoffConverter {
       return;
     }
 
-    if (content.attrs?._annotationData) {
-      const data: Record<string, any> = content.attrs._annotationData;
+    if (content.attrs?._annotation) {
+      const data: Record<string, any> = (content.attrs._annotation as DocAnnotation).node.data;
 
       if (mode === "append") {
         data.endIndex = Math.max(data.endIndex ?? end, end);
@@ -574,7 +584,7 @@ export default class StandoffConverter {
 
     const attrs: Record<string, any> = {
       uuid: annotation.node.data.uuid,
-      _annotationData: { ...annotation.node.data },
+      _annotation: toDocAnnotation(annotation),
     };
 
     // Apply editor attributes (level/colspan/rowspan) from the node's value under its project property name
@@ -726,14 +736,17 @@ export default class StandoffConverter {
    */
   private attachLabelsToNodes(nodes: TiptapNode[], annotations: Anno[]): void {
     for (const node of nodes) {
-      const nodeStart: number | undefined = node.attrs?._annotationData?.startIndex;
-      const nodeEnd: number | undefined = node.attrs?._annotationData?.endIndex;
+      const docAnnotation: DocAnnotation | undefined = node.attrs?._annotation;
+      const nodeStart: number | undefined = docAnnotation?.node.data.startIndex;
+      const nodeEnd: number | undefined = docAnnotation?.node.data.endIndex;
       const isValidBlockTarget: boolean = VALID_SEMANTIC_BLOCK_TARGETS.includes(getEditorRole(node.type));
 
       if (nodeStart !== undefined && nodeEnd !== undefined && isValidBlockTarget) {
-        const semanticBlocks: Anno[] = annotations
+        // Converted (= cloned) per node so the document never shares references with the annotation stores
+        const semanticBlocks: DocAnnotation[] = annotations
           .filter((a) => a.node.data.startIndex <= nodeEnd && a.node.data.endIndex >= nodeStart)
-          .sort((a, b) => b.node.data.endIndex - b.node.data.startIndex - (a.node.data.endIndex - a.node.data.startIndex));
+          .sort((a, b) => b.node.data.endIndex - b.node.data.startIndex - (a.node.data.endIndex - a.node.data.startIndex))
+          .map((a) => toDocAnnotation(a));
 
         node.attrs = { ...node.attrs, _semanticBlocks: semanticBlocks };
       }

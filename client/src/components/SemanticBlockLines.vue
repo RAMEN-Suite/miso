@@ -3,14 +3,14 @@ import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, AnnotationType, SemanticBlockRange } from "../models/types";
+import type { Annotation, AnnotationType, DocAnnotation, NodeStatus, SemanticBlockRange } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { Menu } from "primevue";
-import { collectSemanticBlocks } from "../utils/helper/tiptapHelper";
+import { collectSemanticBlocks, toAnnotation } from "../utils/helper/tiptapHelper";
 import { Node } from "@tiptap/pm/model";
 import { useEditorSettingsStore } from "../store/editorSettings.ts";
 
@@ -22,7 +22,7 @@ interface PositionedLine {
   left: number;
 }
 
-const { tiptap, semanticBlockRanges } = useTiptapStore();
+const { tiptap, semanticBlockRanges, initialStructuralAnnotations } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
 const { getAnnotationConfig } = useGuidelinesStore();
 const dialog = useDialog();
@@ -216,7 +216,7 @@ function updateAnnotation(updated: Annotation): void {
 /**
  * Opens the {@linkcode AnnotationDetailsModal} for the given line's semantic block. The
  * annotation is assembled from the doc attrs (the source of truth); on submit the edited data is
- * written back into the doc via the `updateSemanticBlockData` command (undoable, save reads it).
+ * written back into the doc via the `updateSemanticBlock` command (undoable, save reads it).
  *
  * @param {PositionedLine} line - The line whose annotation should be shown and edited
  * @returns {void} This function does not return any value.
@@ -228,11 +228,14 @@ function handleDetailsClick(line: PositionedLine): void {
     return;
   }
 
-  const annotation: Annotation | undefined = collectSemanticBlocks(doc).get(line.uuid);
+  const docAnnotation: DocAnnotation | undefined = collectSemanticBlocks(doc).get(line.uuid);
 
-  if (!annotation) {
+  if (!docAnnotation) {
     return;
   }
+
+  const status: NodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
+  const annotation: Annotation = toAnnotation(docAnnotation, status);
 
   const config: AnnotationType | undefined = getAnnotationConfig(annotation.node.data.type);
 

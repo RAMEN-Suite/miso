@@ -51,7 +51,7 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
         nodeType: child.type.name,
         type: annotationType,
         level: child.attrs.level ?? null,
-        _annotationData: child.attrs._annotationData,
+        _annotation: child.attrs._annotation,
         _semanticBlocks: child.attrs._semanticBlocks ?? [],
       },
       children: buildDocChildren(child, childPos + 1),

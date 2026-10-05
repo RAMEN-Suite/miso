@@ -1,5 +1,13 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, NodeStatusObject, AnnotationNode, ToCItem, SemanticBlockRange } from "../models/types";
+import {
+  NodeDto,
+  Annotation,
+  NodeStatusObject,
+  AnnotationNode,
+  ToCItem,
+  SemanticBlockRange,
+  DocAnnotation,
+} from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
@@ -190,13 +198,7 @@ function computeSemanticBlockRanges(editor: TiptapEditor | null): void {
   const uuidMap = new Map<string, SemanticBlockRange>();
 
   editor.state.doc.descendants((node, pos) => {
-    const semanticBlocks: NodeStatusObject<AnnotationNode>[] = node.attrs._semanticBlocks ?? [];
-
-    // TODO: Hardcoded because of assignment mistake in standoff converter
-    // (hardBreaks should not get a semanticBlocks attr since they are zero point annotations)
-    if (node.type.name === "hardBreak") {
-      return;
-    }
+    const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
 
     semanticBlocks.forEach((block) => {
       const { type, uuid } = block.node.data;

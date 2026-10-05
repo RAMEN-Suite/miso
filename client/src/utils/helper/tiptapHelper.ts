@@ -1,22 +1,68 @@
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { Annotation, AnnotationNode, NodeStatusObject, Range } from "../../models/types";
+import { Annotation, DocAnnotation, NodeStatus, Range } from "../../models/types";
 import { Fragment, Node, Schema, Slice } from "@tiptap/pm/model";
+import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "./helper";
+import type { AnnotationDecorationSpec } from "../../editors/text/extensions/annotationDecoration";
+
+/**
+ * Converts an annotation into the object that is stored in tiptap node attributes
+ * (`_annotation`, entries of `_semanticBlocks`) by dropping its top-level status.
+ *
+ * Deep cloneed, so the document never shares object references with the annotation stores.
+ *
+ * @param {Annotation} annotation - The annotation to convert.
+ * @returns {DocAnnotation} The annotation to store in the node attributes.
+ */
+export function toDocAnnotation(annotation: Annotation): DocAnnotation {
+  const { node, connectedNodes } = cloneDeep(annotation);
+
+  return { node, connectedNodes };
+}
+
+/**
+ * Converts an annotation read from tiptap node attributes back into a full annotation with the given status.
+ *
+ * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
+ * @param {NodeStatus} status - The status of the annotation.
+ * @returns {Annotation} A deep-cloned annotation with the given status.
+ */
+export function toAnnotation(docAnnotation: DocAnnotation, status: NodeStatus): Annotation {
+  const { node, connectedNodes } = cloneDeep(docAnnotation);
+
+  return { node, connectedNodes, meta: { status } };
+}
+
+/**
+ * Brings an annotation from the node attributes in line with the database state after a successful save:
+ * connected nodes that were deleted or removed are dropped, all remaining ones are set to "unchanged".
+ *
+ * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
+ * @returns {DocAnnotation} A cleaned deep clone of the annotation.
+ */
+export function normalizeDocAnnotation(docAnnotation: DocAnnotation): DocAnnotation {
+  const annotation: Annotation = toAnnotation(docAnnotation, "unchanged");
+
+  pruneDeletedNodes(annotation);
+  setNodeTreeStatus(annotation, "unchanged");
+
+  return { node: annotation.node, connectedNodes: annotation.connectedNodes };
+}
 
 /**
  * Collects all unique semantic block annotations from the given document.
  *
  * @param {Node} doc - The ProseMirror document node to traverse.
- * @returns {Map<string, NodeStatusObject<AnnotationNode>>} A map of semantic block annotations keyed by their UUID.
+ * @returns {Map<string, DocAnnotation>} A map of semantic block annotations keyed by their UUID.
  */
-export function collectSemanticBlocks(doc: Node): Map<string, Annotation> {
-  const map = new Map<string, Annotation>();
+export function collectSemanticBlocks(doc: Node): Map<string, DocAnnotation> {
+  const map = new Map<string, DocAnnotation>();
 
   doc.descendants((node: Node) => {
     if (node.isText) {
       return;
     }
 
-    const semanticBlocks: Annotation[] = node.attrs?._semanticBlocks ?? [];
+    const semanticBlocks: DocAnnotation[] = node.attrs?._semanticBlocks ?? [];
 
     for (const block of semanticBlocks) {
       const uuid: string = block.node.data.uuid;
@@ -40,7 +86,8 @@ export function collectSemanticBlocks(doc: Node): Map<string, Annotation> {
  * @returns {Range | null} The range of the matching decoration, or null if none is found
  */
 export function findDecorationBoundariesByUuid(decorationSet: DecorationSet, uuid: string): Range | null {
-  const annotationDecos: Decoration[] = decorationSet.find(undefined, undefined, (spec: any) => spec._uuid === uuid) ?? [];
+  const annotationDecos: Decoration[] =
+    decorationSet.find(undefined, undefined, (spec: AnnotationDecorationSpec) => spec._uuid === uuid) ?? [];
 
   if (annotationDecos.length === 0) {
     return null;
@@ -97,15 +144,9 @@ export function findSemanticBlockBoundariesByUuid(doc: Node, uuid: string): Rang
   let result: Range | null = null;
 
   doc.descendants((node, pos) => {
-    // TODO: Hardcoded because of assignment mistake in standoff converter
-    // (hardBreaks should not get a semanticBlocks attr since they are zero point annotations)
-    if (node.type.name === "hardBreak") {
-      return;
-    }
+    const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
 
-    const semanticBlocks: NodeStatusObject<AnnotationNode>[] = node.attrs._semanticBlocks ?? [];
-
-    const found: NodeStatusObject<AnnotationNode> | undefined = semanticBlocks.find((block) => block.node.data.uuid === uuid);
+    const found: DocAnnotation | undefined = semanticBlocks.find((block) => block.node.data.uuid === uuid);
 
     if (found) {
       if (result) {

@@ -18,7 +18,7 @@ const displayedLabel = computed<string>(() => {
   } else if (item.data.nodeType === "paragraph") {
     return "p";
   } else {
-    return item.data._annotationData.type;
+    return item.data.type;
   }
 });
 

@@ -373,7 +373,7 @@ watch(
       return;
     }
 
-    const fetchedAnnotations: NodeDto[] = await api.getAnnotations("text", textUuid.value);
+    const fetchedAnnotations: NodeDto[] = await api.getAnnotations("content", textUuid.value);
 
     const standoffObject = { text: text.value.data.text, annotations: fetchedAnnotations };
 

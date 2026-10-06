@@ -114,7 +114,7 @@ export default class ApiService {
     }
   }
 
-  public async getAnnotations(nodeType: "collection" | "text", nodeUuid: string): Promise<NodeDto<AnnotationNode>[]> {
+  public async getAnnotations(nodeType: "collection" | "content", nodeUuid: string): Promise<NodeDto<AnnotationNode>[]> {
     try {
       const url: string = `${this.baseUrl}/${nodeType}s/${nodeUuid}/annotations`;
 
@@ -338,7 +338,7 @@ export default class ApiService {
 
   public async getTextAccessObject(textUuid: string): Promise<TextAccessObject> {
     try {
-      const url: string = `${this.baseUrl}/texts/${textUuid}`;
+      const url: string = `${this.baseUrl}/contents/${textUuid}`;
 
       const response: Response = await fetch(url);
 
@@ -415,7 +415,7 @@ export default class ApiService {
 
   public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
     try {
-      const url: string = `${this.baseUrl}/texts/${uuid}`;
+      const url: string = `${this.baseUrl}/contents/${uuid}`;
 
       const response: Response = await fetch(url, {
         method: "POST",

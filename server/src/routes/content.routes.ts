@@ -9,8 +9,8 @@ const router: Router = express.Router({ mergeParams: true });
 
 const textService: TextService = new TextService();
 
-router.get("/:textUuid", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = parseUuidFrom(req.params, ["textUuid"]);
+router.get("/:contentUuid", async (req: Request, res: Response, next: NextFunction) => {
+  const textUuid: string = parseUuidFrom(req.params, ["contentUuid"]);
 
   try {
     const text: TextAccessObject = await textService.getExtendedTextByUuid(textUuid);
@@ -34,7 +34,7 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-router.use("/:textUuid/characters", characterRoutes);
-router.use("/:textUuid/annotations", annotationRoutes);
+router.use("/:contentUuid/characters", characterRoutes);
+router.use("/:contentUuid/annotations", annotationRoutes);
 
 export default router;

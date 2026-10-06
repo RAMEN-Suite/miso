@@ -295,19 +295,6 @@ export default class ApiService {
     }
   }
 
-  public async getEntities(nodeLabel: string, searchString: string): Promise<EntityNode[]> {
-    try {
-      const url: string = `${this.baseUrl}/entities?node=${nodeLabel}&searchStr=${searchString}`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
   public async getGuidelines(): Promise<IGuidelines> {
     try {
       const url: string = `${this.baseUrl}/guidelines`;

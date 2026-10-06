@@ -14,9 +14,7 @@ import EditorResizer from "../components/EditorResizer.vue";
 import SemanticBlockLines from "../components/SemanticBlockLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
-import Message from "primevue/message";
 import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
-import { useEditorStore } from "../store/editor.ts";
 import { useShortcutsStore } from "../store/shortcuts.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
@@ -70,7 +68,6 @@ const asyncOperationRunning = ref<boolean>(false);
 
 const { api, addToastMessage } = useAppStore();
 
-const { isRedrawMode, redrawMode, toggleRedrawMode } = useEditorStore();
 const { error: textFetchError, text, initialText, fetchAndInitializeText } = useTextStore();
 const { shortcutMap, normalizeKeys } = useShortcutsStore();
 
@@ -292,19 +289,10 @@ function handleKeyDown(event: KeyboardEvent): void {
 
   const keyCombo: string = normalizeKeys(keys);
 
-  // Quick hack to remove backdrop from redraw mode
-  if (keys.length === 1 && keys[0] === "escape") {
-    toggleRedrawMode({ direction: "off", cause: "cancel" });
-  }
-
   const executeCallback: (() => void) | undefined = shortcutMap.value.get(keyCombo);
 
   if (executeCallback) {
     event.preventDefault();
-
-    if (isRedrawMode.value) {
-      return;
-    }
 
     executeCallback();
   }
@@ -393,22 +381,6 @@ watch(
   <div v-else class="page-container flex h-full">
     <PageOverlay v-if="asyncOperationRunning">
       <LoadingSpinner />
-    </PageOverlay>
-
-    <PageOverlay
-      v-if="redrawMode?.direction === 'on'"
-      :style="{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 'var(--z-index-overlay)' }"
-    >
-      <div class="flex justify-center pt-6">
-        <Message class="text-center w-1/2" severity="info" icon="icon-info">
-          <p><strong>Edit annotated text</strong></p>
-          <p>Select the new text that should belong to this annotation.</p>
-          <p>
-            To cancel the operation, click the <i class="icon-x-circle"></i> button in the annotation panel on the right or press
-            <kbd>Esc</kbd>.
-          </p>
-        </Message>
-      </div>
     </PageOverlay>
 
     <EditorSidebar position="left" :is-collapsed="sidebars['left'].isCollapsed === true" :width="sidebars['left'].width">

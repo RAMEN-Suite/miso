@@ -3,7 +3,6 @@ import {
   ApiJson,
   TiptapNode,
   TiptapJson,
-  NodeDto,
   NodeStatusObject,
   AnnotationNode,
   AnnotationType,
@@ -11,6 +10,7 @@ import {
   DocAnnotation,
 } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
+import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
 import { toDocAnnotation } from "../utils/helper/tiptapHelper";
 
 type Anno = NodeStatusObject<AnnotationNode>;
@@ -19,7 +19,7 @@ type Anno = NodeStatusObject<AnnotationNode>;
  * Helper for text ranges, used during creation of gap paragraphs when indices are orphaned
  * (not part of any block annotation)
  */
-interface Range {
+interface IndexRange {
   start: number;
   end: number;
 }
@@ -73,14 +73,6 @@ export default class StandoffConverter {
     };
   }
 
-  private createNodeStatusObjectFromRawData(rawNode: NodeDto): Anno {
-    return {
-      node: rawNode.node as AnnotationNode,
-      connectedNodes: rawNode.connectedNodes.map((n) => this.createNodeStatusObjectFromRawData(n)),
-      meta: { status: "unchanged" },
-    };
-  }
-
   /**
    * Sets up the stores for the different annotation categories (structural, inline, semantic block). These stores are used for all
    * the subsequent parsing steps and will be exported to the editor setup when the document is ready.
@@ -88,7 +80,7 @@ export default class StandoffConverter {
    * @returns {void} - This function does not return a value. All the data are set directly into the variables.
    */
   private createAnnotationUuidMaps(): void {
-    const statusObjects: Anno[] = this.standoffJson.annotations.map((a) => this.createNodeStatusObjectFromRawData(a));
+    const statusObjects: Anno[] = this.standoffJson.annotations.map((a) => createNodeStatusObjectFromRawData(a) as Anno);
 
     for (const a of statusObjects) {
       const documentRole: AnnotationRole = getAnnotationRole(a.node.data.type);
@@ -365,9 +357,9 @@ export default class StandoffConverter {
    *
    * @param {number} gapStart The start index of the gap
    * @param {number} gapEnd The end index of the gap
-   * @returns {Range[]} An array of sub-ranges for this gap
+   * @returns {IndexRange[]} An array of sub-ranges for this gap
    */
-  private splitGapBySemanticBlocks(gapStart: number, gapEnd: number): Range[] {
+  private splitGapBySemanticBlocks(gapStart: number, gapEnd: number): IndexRange[] {
     const boundaries = new Set<number>([gapStart, gapEnd + 1]);
 
     for (const anno of this.semanticBlockAnnotations.values()) {
@@ -385,7 +377,7 @@ export default class StandoffConverter {
     }
 
     const sorted: number[] = [...boundaries].sort((a, b) => a - b);
-    const ranges: Range[] = [];
+    const ranges: IndexRange[] = [];
 
     for (let i = 0; i < sorted.length - 1; i++) {
       ranges.push({ start: sorted[i], end: sorted[i + 1] - 1 });
@@ -428,9 +420,9 @@ export default class StandoffConverter {
       return;
     }
 
-    const subRanges: Range[] = this.splitGapBySemanticBlocks(gapStart, gapEnd);
+    const subRanges: IndexRange[] = this.splitGapBySemanticBlocks(gapStart, gapEnd);
 
-    let leadingWhitespaceBuffer: Range[] = [];
+    let leadingWhitespaceBuffer: IndexRange[] = [];
     let lastParagraph: TiptapNode | null = null;
 
     for (const { start, end } of subRanges) {
@@ -470,8 +462,8 @@ export default class StandoffConverter {
         }
       } else {
         // Leading whitespace at the very start with no siblings: keep it in its own paragraph.
-        const first: Range = leadingWhitespaceBuffer[0];
-        const last: Range = leadingWhitespaceBuffer[leadingWhitespaceBuffer.length - 1];
+        const first: IndexRange = leadingWhitespaceBuffer[0];
+        const last: IndexRange = leadingWhitespaceBuffer[leadingWhitespaceBuffer.length - 1];
 
         content.push(this.syntheticParagraph(first.start, last.end, this.createLeafContent(first.start, last.end)));
       }
@@ -609,7 +601,7 @@ export default class StandoffConverter {
 
     let cursor: number = startIndex;
     // Holds a leading gap that has no previous sibling yet, so it can be prepended to the next child.
-    let pendingLeadingGap: Range | null = null;
+    let pendingLeadingGap: IndexRange | null = null;
 
     for (const child of directChildren) {
       const gapEnd: number = child.node.data.startIndex - 1;

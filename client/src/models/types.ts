@@ -6,11 +6,6 @@ import { IText } from "./IText";
 import type { BuiltinEditorAttribute } from "../config/editor";
 import type { AnnotationMapping } from "../config/editor";
 
-export interface AdditionalText {
-  annotation: IAnnotation;
-  text: TextNode;
-}
-
 /** A status object for nodes in the frontend and for API requests */
 export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
@@ -44,12 +39,6 @@ export type AnnotationNode = Node<IAnnotation>;
 export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeDto[];
-}
-
-export interface AnnotationData {
-  additionalTexts: AdditionalText[];
-  entities: EntityNode[];
-  properties: IAnnotation;
 }
 
 /**

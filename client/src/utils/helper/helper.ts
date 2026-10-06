@@ -242,32 +242,6 @@ export function checkAnnotationValidity(annotation: Annotation, config: Annotati
 }
 
 /**
- * A function that compares two objects to check if they are equal. Works only for non-nested objects
- * where values are strings or numbers.
- *
- * @param {Record<string, any>} obj1 - The first object to compare.
- * @param {Record<string, any>} obj2 - The second object to compare.
- * @return {boolean} Returns true if the objects are equal, otherwise false.
- */
-export function areObjectsEqual(obj1: Record<string, any>, obj2: Record<string, any>): boolean {
-  // TODO: This function needs to be rewritten when there are more complex objects...
-  const keys1: string[] = Object.keys(obj1);
-  const keys2: string[] = Object.keys(obj2);
-
-  if (keys1.length !== keys2.length) {
-    return false;
-  }
-
-  for (const key of keys1) {
-    if (!keys2.includes(key) || obj1[key] !== obj2[key]) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
  * Checks if two sets are equal by comparing their sizes and elements.
  *
  * @param {Set<string>} setA - The first set to compare.

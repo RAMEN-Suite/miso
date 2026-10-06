@@ -21,13 +21,11 @@ import {
   PropertyConfig,
   PropertyConfigDataType,
 } from "../models/types.js";
+import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
 -- db results can not be typed (only with assertion) which is too cumbersome for now
  */
-
-/** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
-const BASE_LABELS: string[] = ["Annotation", "Collection", "Entity", "Content"];
 
 export interface HierarchyListOptions {
   filters: FilterSpec;
@@ -251,7 +249,7 @@ export default class HierarchyService {
       ...(scope.kind === "children" && { parentUuid: scope.parentUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       ...filterParams,
-      baseLabels: BASE_LABELS,
+      baseLabels: BASE_NODE_LABELS,
       previewLength: int(SORT_KEY_MAX_LENGTH),
       limit: int(limit + 1),
       ...(cursor && {

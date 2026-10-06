@@ -1,4 +1,7 @@
-import { BaseNodeData, EdgeDescriptor, Node } from "../models/types.js";
+import { BaseNodeData, BaseNodeLabel, EdgeDescriptor, Node } from "../models/types.js";
+
+/** The RAMEN base node labels. */
+export const BASE_NODE_LABELS: readonly BaseNodeLabel[] = ["Annotation", "Collection", "Content", "Entity"];
 
 /**
  * Given a parent and child node from a node tree, returns the Neo4j relationship type

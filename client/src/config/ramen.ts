@@ -1,7 +1,7 @@
 import { AnnotationNode, BaseNodeLabel, CollectionNode, EntityNode, NodeStatusObject, TextNode } from "../models/types";
 
 /** The RAMEN base node labels. */
-const BASE_NODE_LABELS: readonly BaseNodeLabel[] = ["Annotation", "Character", "Collection", "Content", "Entity"];
+const BASE_NODE_LABELS: readonly BaseNodeLabel[] = ["Annotation", "Collection", "Content", "Entity"];
 
 /**
  * Creates a new Collection object with default values.

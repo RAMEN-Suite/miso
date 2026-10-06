@@ -40,7 +40,6 @@ export function useEditorStore() {
 
   function resetEditor(): void {
     toggleRedrawMode({ direction: "off", cause: "success" });
-    setNewRangeAnchorUuid(null);
   }
 
   /**
@@ -59,18 +58,6 @@ export function useEditorStore() {
       currentSelection?.removeAllRanges();
       currentSelection?.addRange(lastRangeSnapshot.value);
     }, 0);
-  }
-
-  /**
-   * Sets the UUID of the character whose span will be the range start after the next selection change.
-   *
-   * Called after each text operation. The `placeCaret` function will use this variable to set the caret to the specified element.
-   *
-   * @param {string | null | undefined} uuid - The UUID of the character or `null`/`undefined`.
-   * @returns {void} No return value.
-   */
-  function setNewRangeAnchorUuid(uuid: string | null | undefined): void {
-    newRangeAnchorUuid.value = uuid ?? null;
   }
 
   /**

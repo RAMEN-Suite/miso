@@ -1,6 +1,5 @@
 import { TreeNode } from "primevue/treenode";
 import { IAnnotation } from "./IAnnotation";
-import ICharacter from "./ICharacter";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
@@ -91,14 +90,6 @@ export interface AnnotationType {
   behaviour?: AnnotationBehaviour; // Miso -> zeroPoint vs range
 }
 
-export interface AnnotationReference {
-  isFirstCharacter: boolean;
-  isLastCharacter: boolean;
-  subType: string | null;
-  type: string;
-  uuid: string;
-}
-
 export interface AnnotationConfigEntity {
   category: string;
   nodeLabel: string;
@@ -147,18 +138,13 @@ export interface BaseNodeData {
 }
 
 /** Base node labels in RAMEN */
-export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
+export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
 /** The base node labels that can be searched for and referenced from an Annotation */
 export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
 
 /** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
 export type LayoutName = "default" | "blank";
-
-export interface Character {
-  data: ICharacter;
-  annotations: AnnotationReference[];
-}
 
 export type CollectionNode = Node<ICollection>;
 
@@ -489,11 +475,6 @@ export interface StandoffAnnotation {
   text: string;
   type: string;
   subType?: string | number;
-}
-
-export interface StandoffJson {
-  annotations: StandoffAnnotation[];
-  text: string;
 }
 
 /** Raw inline SVG markup. */

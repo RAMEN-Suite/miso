@@ -1,9 +1,6 @@
 import {
   NodeDto,
-  Character,
   PropertyConfigDataType,
-  StandoffAnnotation,
-  StandoffJson,
   TextNode,
   NodeStatusObject,
   NodeStatus,
@@ -77,23 +74,6 @@ export function buildDocStructure(doc: Node): ToCItem[] {
 }
 
 /**
- * Converts the given characters and annotations into a single StandoffJson object.
- *
- * @param characters - The list of characters.
- * @param annotations - The list of annotations.
- * @returns {StandoffJson} The assembled Standoff JSON object.
- */
-export function buildStandoffJson(characters: Character[], annotations: Annotation[]): StandoffJson {
-  const text: string = characters.map((c) => c.data.text).join("");
-  const standoffAnnotations: StandoffAnnotation[] = annotations.map((a) => a.node.data);
-
-  return {
-    text,
-    annotations: standoffAnnotations,
-  };
-}
-
-/**
  * Converts a camelCase or PascalCase string into a space-separated title case string
  * (for example `"actorRoles"` to `"Actor Roles"`).
  *
@@ -143,16 +123,6 @@ export function cloneDeep<T>(input: T): T {
 
   // Default for primitive types like string, number, boolean, etc.
   return input;
-}
-
-export function createNewCharacter(char: string): Character {
-  return {
-    data: {
-      uuid: crypto.randomUUID(),
-      text: char,
-    },
-    annotations: [],
-  };
 }
 
 /**
@@ -298,8 +268,7 @@ export function areObjectsEqual(obj1: Record<string, any>, obj2: Record<string, 
 }
 
 /**
- * Checks if two sets are equal by comparing their sizes and elements. Used for comparing
- * character annotations.
+ * Checks if two sets are equal by comparing their sizes and elements.
  *
  * @param {Set<string>} setA - The first set to compare.
  * @param {Set<string>} setB - The second set to compare.

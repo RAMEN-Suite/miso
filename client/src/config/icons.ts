@@ -10,7 +10,6 @@ export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
   Content: { kind: "lucide", name: "file-text" },
   Annotation: { kind: "lucide", name: "pencil" },
   Entity: { kind: "lucide", name: "user" },
-  Character: { kind: "lucide", name: "square" },
 };
 
 /**

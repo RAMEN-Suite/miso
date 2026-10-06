@@ -9,7 +9,7 @@ const router: Router = express.Router({ mergeParams: true });
 const characterService: CharacterService = new CharacterService();
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = parseUuidFrom(req.params, ["textUuid", "collectionUuid"]);
+  const textUuid: string = parseUuidFrom(req.params, ["contentUuid", "collectionUuid"]);
 
   try {
     const characters: Character[] = await characterService.getCharacters(textUuid);
@@ -21,7 +21,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = parseUuidFrom(req.params, ["textUuid", "collectionUuid"]);
+  const textUuid: string = parseUuidFrom(req.params, ["contentUuid", "collectionUuid"]);
 
   const { uuidStart, uuidEnd, characters, text } = req.body;
 

@@ -1,6 +1,5 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import annotationRoutes from "./annotations.routes.js";
-import contentRoutes from "./content.routes.js";
 import CollectionService from "../services/collection.service.js";
 import { CollectionNode, NodeDto, NodeStatusObject } from "../models/types.js";
 import { parseUuidFrom } from "../utils/helper.js";
@@ -35,6 +34,5 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
 });
 
 router.use("/:collectionUuid/annotations", annotationRoutes);
-router.use("/:collectionUuid/contents", contentRoutes);
 
 export default router;

@@ -1,30 +1,9 @@
 import { IAnnotation } from "./IAnnotation.js";
-import ICharacter from "./ICharacter.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
 
-export type AdditionalText = {
-  annotation: IAnnotation;
-  text: TextNode;
-};
-
-export type Annotation = {
-  characterUuids: string[];
-  data: AnnotationData;
-  endUuid: string;
-  initialData: AnnotationData;
-  startUuid: string;
-  status: "existing" | "created" | "deleted" | "edited";
-};
-
 export type AnnotationNode = Node<IAnnotation>;
-
-export interface AnnotationData {
-  additionalTexts: AdditionalText[];
-  entities: EntityNode[];
-  properties: IAnnotation;
-}
 
 /** A node object for retrieving data */
 export type NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> = {
@@ -58,21 +37,13 @@ export type AnnotationType = {
   behaviour?: AnnotationBehaviour;
 };
 
-export type AnnotationReference = {
-  isFirstCharacter: boolean;
-  isLastCharacter: boolean;
-  subType: string | null;
-  type: string;
-  uuid: string;
-};
-
 export type AnnotationConfigEntity = {
   category: string;
   nodeLabel: string;
 };
 
 /** Base node labels in RAMEN */
-export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
+export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
 export type BaseNodeData = {
   uuid: string;
@@ -80,11 +51,6 @@ export type BaseNodeData = {
 
 /** Relationship types in RAMEN */
 export type BaseRelationshipType = "HAS_ANNOTATION" | "PART_OF" | "REFERS_TO";
-
-export type Character = {
-  data: ICharacter;
-  annotations: AnnotationReference[];
-};
 
 export type CollectionNode = Node<ICollection>;
 
@@ -170,22 +136,7 @@ export type FilterSpec = FilterRule[];
  */
 export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
 
-export type CollectionAccessObject = {
-  annotations: AnnotationData[];
-  collection: CollectionNode;
-  texts: TextNode[];
-};
-
 export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
-
-export type CollectionCreationData = CollectionAccessObject & {
-  parentCollection: CollectionNode | null;
-};
-
-export type CollectionPostData = {
-  data: CollectionAccessObject;
-  initialData: CollectionAccessObject;
-};
 
 /** Object for specifying relationship between two nodes. Used during preprocessing data before updating Text nodes */
 export type EdgeDescriptor = {

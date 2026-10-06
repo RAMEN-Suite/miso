@@ -27,7 +27,7 @@ import {
  */
 
 /** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
-const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
+const BASE_LABELS: string[] = ["Annotation", "Collection", "Entity", "Content"];
 
 export interface HierarchyListOptions {
   filters: FilterSpec;

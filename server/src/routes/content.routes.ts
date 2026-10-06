@@ -1,19 +1,18 @@
 import express, { Request, Response, Router, NextFunction } from "express";
-import characterRoutes from "./characters.routes.js";
 import annotationRoutes from "./annotations.routes.js";
-import TextService from "../services/text.service.js";
+import ContentService from "../services/content.service.js";
 import { TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
 import { parseUuidFrom } from "../utils/helper.js";
 
-const router: Router = express.Router({ mergeParams: true });
+const router: Router = express.Router();
 
-const textService: TextService = new TextService();
+const contentService: ContentService = new ContentService();
 
-router.get("/:contentUuid", async (req: Request, res: Response, next: NextFunction) => {
-  const textUuid: string = parseUuidFrom(req.params, ["contentUuid"]);
+router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
+  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
 
   try {
-    const text: TextAccessObject = await textService.getExtendedTextByUuid(textUuid);
+    const text: TextAccessObject = await contentService.getExtendedTextByUuid(uuid);
 
     res.status(200).json(text);
   } catch (error: unknown) {
@@ -26,7 +25,7 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
   const data: TextUpdateDto = req.body;
 
   try {
-    const updatedTextNode: TextNode = await textService.updateText(uuid, data);
+    const updatedTextNode: TextNode = await contentService.updateText(uuid, data);
 
     res.status(200).json(updatedTextNode);
   } catch (error: unknown) {
@@ -34,7 +33,6 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-router.use("/:contentUuid/characters", characterRoutes);
 router.use("/:contentUuid/annotations", annotationRoutes);
 
 export default router;

@@ -1,43 +1,13 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { NodeSearchParams, PaginationResult, TextNode, TextAccessObject, TextUpdateDto, NodeDto } from "../models/types.js";
+import { NodeSearchParams, PaginationResult, TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
 import { ancestryPaths } from "../utils/cypher.js";
 import { toNativeTypes } from "../utils/helper.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
 
-export default class TextService {
-  public async getTexts(collectionUuid: string): Promise<NodeDto<TextNode>[]> {
-    const query: string = `
-    MATCH (c:Collection {uuid: $uuid})
-
-    // Match optional Text nodes
-    CALL (c) {
-        OPTIONAL MATCH (c)<-[:PART_OF]-(t:Content)
-        
-        RETURN collect(t) as texts
-    }
-
-    WITH c, texts
-
-    RETURN [
-            t IN texts | {
-                nodeLabels: labels(t),
-                data: t {.*}
-            }
-    ] AS texts
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid: collectionUuid });
-    const rawTexts: TextNode[] = result.records[0]?.get("texts") || [];
-
-    return rawTexts.map((text) => ({
-      node: text,
-      connectedNodes: [],
-    }));
-  }
-
+export default class ContentService {
   /**
    * Retrieves a paginated list of Text nodes whose `text` property contains the search string.
    *

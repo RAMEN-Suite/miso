@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useEditorStore } from "../store/editor.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
@@ -38,7 +37,6 @@ const currentData = computed<NodeStatusObject<AnnotationNode>>(
   () => annotations.value?.get(props.annotation.node.data.uuid) ?? props.annotation,
 );
 
-const { isRedrawMode, redrawMode } = useEditorStore();
 const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
 
 const config: AnnotationType = getAnnotationConfig(currentData.value.node.data.type);
@@ -66,10 +64,6 @@ const previewText = computed<string>(() => {
 
   return ellipsize(annotatedText, 10);
 });
-
-/* eslint-disable -- Will be needed when redraw modes is re-implemented */
-const redrawButtonicon = computed<string>(() => (redrawMode.value?.direction === "on" ? "icon-x" : "icon-pencil"));
-const redrawButtonTitle = computed<string>(() => (isRedrawMode.value ? "Cancel redraw operation" : "Redraw annotation"));
 
 function handleDeleteAnnotation(): void {
   // Do NOT set status to 'deleted'or change the store in any way - this is determined during save preprocessing
@@ -115,34 +109,6 @@ function handleEditAnnotation(): void {
     }),
   );
 }
-
-function handleRedraw(): void {
-  // if (isRedrawMode.value) {
-  //   toggleRedrawMode({ direction: 'off', cause: 'cancel' });
-  // } else {
-  //   toggleRedrawMode({ direction: 'on', annotationUuid: currentData.node.data.uuid });
-  // }
-}
-
-/* eslint-disable -- These functions will be re-implemented anyway. */
-
-function handleShiftLeft(): void {
-  // execCommand('shiftAnnotationLeft', { annotation });
-}
-
-function handleShiftRight(): void {
-  // execCommand('shiftAnnotationRight', { annotation });
-}
-
-function handleExpand(): void {
-  // execCommand('expandAnnotation', { annotation });
-}
-
-function handleShrink(): void {
-  // execCommand('shrinkAnnotation', { annotation });
-}
-
-/* eslint-enable */
 
 function handleSpyClick() {
   if (!tiptap.value) {
@@ -254,58 +220,6 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div class="annotation-card-footer">
-      <!-- <div class="edit-buttons flex justify-center items-center">
-        <Button
-          icon="icon-chevron-left"
-          size="small"
-          severity="secondary"
-          rounded
-          title="Move annotation left by one character"
-          :disabled="true"
-          @click="handleShiftLeft"
-          :style="{ width: '20px', height: '20px' }"
-        />
-        <Button
-          icon="icon-chevron-right"
-          size="small"
-          severity="secondary"
-          rounded
-          title="Move annotation right by one character"
-          :disabled="true"
-          @click="handleShiftRight"
-          :style="{ width: '20px', height: '20px' }"
-        />
-        <Button
-          icon="icon-plus"
-          size="small"
-          severity="secondary"
-          rounded
-          title="Expand annotation right by one character"
-          :disabled="true || config.isZeroPoint"
-          @click="handleExpand"
-          :style="{ width: '20px', height: '20px' }"
-        />
-        <Button
-          icon="icon-minus"
-          size="small"
-          severity="secondary"
-          rounded
-          title="Shrink annotation from the right by one character"
-          :disabled="true || config.isZeroPoint"
-          @click="handleShrink"
-          :style="{ width: '20px', height: '20px' }"
-        />
-        <Button
-          :icon="redrawButtonicon"
-          size="small"
-          severity="secondary"
-          rounded
-          :title="redrawButtonTitle"
-          :disabled="true"
-          @click="handleRedraw"
-          :style="{ width: '20px', height: '20px' }"
-        />
-      </div> -->
       <div class="action-buttons flex gap-1 justify-center">
         <Button
           title="Edit annotation"

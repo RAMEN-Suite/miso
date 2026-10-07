@@ -573,7 +573,7 @@ export function useGuidelinesStore() {
 
     const config: AnnotationType | undefined = getAnnotationConfig(type);
 
-    if (!config.role) {
+    if (!config?.role) {
       console.error('No role found for annotation type "' + type + '"');
     }
 
@@ -595,7 +595,7 @@ export function useGuidelinesStore() {
 
     const config: AnnotationType | undefined = getAnnotationConfig(type);
 
-    if (!config.behaviour) {
+    if (!config?.behaviour) {
       console.error('No behaviour found for annotation type "' + type + '"');
     }
 

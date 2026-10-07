@@ -23,7 +23,7 @@ export type BuiltinEditorAttribute = (typeof EDITOR_OWNED_ATTRIBUTES)[number];
  *    hardBreak: 'lb',
  * },
  * attrByRole: {
- *    tableRow: {
+ *    tableCell: {
  *        colspan: 'cols',
  *        rowspan: 'rows',
  *    },
@@ -38,7 +38,7 @@ export type AnnotationMapping = DeepReadonly<{
   /** Mapping from built-in structural types to project-specific attributes
    * @example
    * attrByRole: {
-   *    tableRow: {
+   *    tableCell: {
    *        colspan: 'cols',
    *        rowspan: 'rows',
    *    },
@@ -93,7 +93,7 @@ export const DEFAULT_ANNOTATION_MAPPING: AnnotationMapping = {
     listItem: "item",
   },
   attrByRole: {
-    tableRow: {
+    tableCell: {
       colspan: "cols",
       rowspan: "rows",
     },

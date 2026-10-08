@@ -1,4 +1,5 @@
-import { LEAF_BLOCK_TYPES, VALID_SEMANTIC_BLOCK_TARGETS } from "../config/editor";
+import { Schema } from "@tiptap/pm/model";
+import { VALID_SEMANTIC_BLOCK_TARGETS } from "../config/editor";
 import {
   ApiJson,
   TiptapNode,
@@ -47,6 +48,8 @@ export default class StandoffConverter {
   private inlineAnnotations = new Map<string, Anno>();
 
   private standoffJson: ApiJson;
+  // Schema of the editor the document is built for. Tells which node types hold text and which are inline.
+  private schema: Schema;
   private tiptapJson: TiptapJson | null = null;
   private usedUuids = new Set<string>();
   /** Problems found during parsing, handed to the editor setup to be further processed there. */
@@ -55,8 +58,9 @@ export default class StandoffConverter {
   // Types that are always handled inline and must never appear as block children.
   private static readonly EXCLUDED_FROM_BLOCK_CHILDREN = new Set(["hardBreak"]);
 
-  constructor(newStandoffJson: ApiJson) {
+  constructor(newStandoffJson: ApiJson, schema: Schema) {
     this.standoffJson = newStandoffJson;
+    this.schema = schema;
 
     this.convertStandoffToTipTap();
   }
@@ -525,7 +529,7 @@ export default class StandoffConverter {
     const leaf: TiptapNode[] = this.createLeafContent(start, end);
 
     // Leaf block (paragraph/heading): the text lives here directly.
-    if (this.isLeafContainer(content.type)) {
+    if (this.isTextBlock(content.type)) {
       content.content = content.content ?? [];
 
       if (mode === "append") {
@@ -538,9 +542,7 @@ export default class StandoffConverter {
     }
 
     // Container: descend into the appropriate block child.
-    const blockChildren: TiptapNode[] = (content.content ?? []).filter(
-      (c) => c.type !== "text" && c.type !== "hardBreak" && c.type !== "zeroPointAnnotation",
-    );
+    const blockChildren: TiptapNode[] = (content.content ?? []).filter((c) => !this.isInlineNode(c.type));
 
     // Nothing to descend into (degenerate), meaning that there is no more valid block child.
     // Attach directly as a last resort.
@@ -612,7 +614,7 @@ export default class StandoffConverter {
     }
 
     // Is heading or paragraph -> can only hold text
-    if (this.isLeafContainer(editorRole)) {
+    if (this.isTextBlock(editorRole)) {
       return { type: editorRole, attrs, content: this.createLeafContent(startIndex, endIndex) };
     }
 
@@ -701,14 +703,29 @@ export default class StandoffConverter {
   }
 
   /**
-   * Checks if the node is a leaf container, i.e. a node that cannot have any children. Reads from the class attribute that
-   * holds all the leaf-container-only types (currently only `heading` and `paragraph`).
+   * Checks if the node is a text block, i.e. a block that only contains inline content (text, zero-point annotations,
+   * hardBreaks) and never structural children.
+   *
+   * Reads from the prosemirror schema, where such a node is a textblock (only `heading` and `paragraph`).
    *
    * @param {string} editorRole - The internal type of the Tiptap node (`heading`, `bulletList` etc.)
-   * @returns {boolean} `true` if the node is a leaf container, `false` otherwise
+   * @returns {boolean} `true` if the node is a text block, `false` otherwise
    */
-  private isLeafContainer(editorRole: string): boolean {
-    return LEAF_BLOCK_TYPES.includes(editorRole);
+  private isTextBlock(editorRole: string): boolean {
+    return this.schema.nodes[editorRole]?.isTextblock ?? false;
+  }
+
+  /**
+   * Checks if the node is an inline node, i.e. a node that lives inside a leaf container and can never hold structural
+   * children.
+   *
+   * Reads from the prosemirror schema (currently `text`, `hardBreak` and `zeroPointAnnotation`).
+   *
+   * @param {string} nodeType - The Tiptap node type (`text`, `hardBreak`, `bulletList` etc.)
+   * @returns {boolean} `true` if the node is an inline node, `false` otherwise (also for types unknown to the schema)
+   */
+  private isInlineNode(nodeType: string): boolean {
+    return this.schema.nodes[nodeType]?.isInline ?? false;
   }
 
   /**

@@ -174,7 +174,7 @@ function getEmptyNodes(): DocNode[] {
   }
 
   tiptap.value.state.doc.descendants((node: DocNode) => {
-    if (node.type.name === "zeroPointAnnotation" || node.type.name === "hardBreak") {
+    if (node.isInline) {
       return false;
     }
 

@@ -32,7 +32,7 @@ import { useEventListener } from "@vueuse/core";
 import { AnnotationAttributes } from "../editors/text/extensions/annotationAttributes";
 import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
 import { history } from "prosemirror-history";
-import { type Extensions } from "@tiptap/core";
+import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
 import { AnnotationHighlight } from "../editors/text/extensions/annotationHighlight";
 import { Slice } from "@tiptap/pm/model";
@@ -151,14 +151,16 @@ function hasUnsavedChanges(): boolean {
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
-  const converter: StandoffConverter = new StandoffConverter(standoffObject);
+  const extensions: Extensions = getConfiguredExtensions();
+
+  const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
 
   setAnnotations({ annotations, structuralAnnotations });
 
   tiptap.value = new Editor({
     content: tipTapJson,
-    extensions: [...getConfiguredExtensions()],
+    extensions,
     autofocus: "start",
     editorProps: {
       attributes: {

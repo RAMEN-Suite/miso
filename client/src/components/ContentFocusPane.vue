@@ -90,9 +90,9 @@ function updateView() {
       <div class="label-section">
         <h3 class="label-heading" aria-label="Content label">
           <RAMENNodeIcon
+            v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
             :spec="icon"
             :size="30"
-            v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
           />
           <span v-if="labelText" class="label-text">{{ labelText }}</span>
         </h3>

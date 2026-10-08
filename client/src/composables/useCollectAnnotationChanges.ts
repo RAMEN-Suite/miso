@@ -43,14 +43,14 @@ export function useCollectAnnotationChanges() {
    * - The annotation type itself from the node's editor role (if a mapping between built-in and custom name was configured)
    *
    * @param {DocNode} node The Tiptap node from where the data should be collected.
-   * @returns {Record<string, any>} The collected properties
+   * @returns {Record<string, unknown>} The collected properties
    */
-  function assembleStructuralAnnotationData(node: DocNode): Record<string, any> {
-    const neo4jProperties: Record<string, any> = {};
+  function assembleStructuralAnnotationData(node: DocNode): Record<string, unknown> {
+    const neo4jProperties: Record<string, unknown> = {};
 
     const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
     const annotationType: string = getAnnotationType(editorRole);
-    const annotationData: Record<string, any> = (node.attrs._annotation as DocAnnotation | null)?.node.data ?? {};
+    const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.data ?? {};
 
     const editorOwned = getEditorOwnedProperties(annotationType);
 

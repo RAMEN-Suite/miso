@@ -361,7 +361,7 @@ function showParseIssues(issues: StandoffParseIssue[]): void {
       closeOnEscape: false,
       rejectProps: { label: "Back to overview", severity: "secondary", autofocus: true },
       acceptProps: { label: "Open anyway", severity: "danger" },
-      reject: () => router.push("/"),
+      reject: () => void router.push("/"),
     };
 
     confirm.require(options);

@@ -343,12 +343,12 @@ export default class ApiService {
    * Called in every `catch` block of the `ApiService` methods. The rethrowing allows the error
    * to propagate up the call stack and be caught by a higher-level error handler.
    *
-   * @param {ApiError | unknown} error - The error object to handle.
+   * @param {unknown} error - The error object to handle.
    * @returns {void} This function does not return any value.
    *
    * @throws {ApiError} - The API error (either the original or a subclass of it).
    */
-  private handleApiError(error: ApiError | unknown): never {
+  private handleApiError(error: unknown): never {
     console.error(error);
 
     throw error;

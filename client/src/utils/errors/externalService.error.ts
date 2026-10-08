@@ -5,8 +5,4 @@ import ApiError from "./api.error.js";
  *
  * @extends {AppError} - The generic `AppError` class.
  */
-export default class ExternalServiceError extends ApiError {
-  constructor(httpStatusCode: number, message: string) {
-    super(httpStatusCode, message);
-  }
-}
+export default class ExternalServiceError extends ApiError {}

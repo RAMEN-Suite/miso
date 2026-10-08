@@ -1,5 +1,4 @@
 import type { DirectiveBinding, ObjectDirective } from "vue";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in the function documentation
 
 /**
  * Directive for a contenteditable element whose text is bound to reactive state (e.g. via an

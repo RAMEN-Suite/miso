@@ -3,6 +3,7 @@ import { VALID_SEMANTIC_BLOCK_TARGETS } from "../config/editor";
 import {
   ApiJson,
   TiptapNode,
+  TiptapNodeAttrs,
   TiptapJson,
   NodeStatusObject,
   AnnotationNode,
@@ -11,6 +12,7 @@ import {
   DocAnnotation,
   StandoffParseIssue,
 } from "../models/types";
+import { IAnnotation } from "../models/IAnnotation";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
 import { toDocAnnotation } from "../utils/helper/tiptapHelper";
@@ -517,7 +519,7 @@ export default class StandoffConverter {
     }
 
     if (content.attrs?._annotation) {
-      const data: Record<string, any> = (content.attrs._annotation as DocAnnotation).node.data;
+      const data: IAnnotation = content.attrs._annotation.node.data;
 
       if (mode === "append") {
         data.endIndex = Math.max(data.endIndex ?? end, end);
@@ -603,14 +605,14 @@ export default class StandoffConverter {
     const { startIndex, endIndex, type } = annotation.node.data;
     const editorRole: string = getEditorRole(type);
 
-    const attrs: Record<string, any> = {
+    const attrs: TiptapNodeAttrs = {
       uuid: annotation.node.data.uuid,
       _annotation: toDocAnnotation(annotation),
     };
 
     // Apply editor attributes (level/colspan/rowspan) from the node's value under its project property name
     for (const { property, attribute } of getEditorOwnedProperties(type)) {
-      attrs[attribute] = (annotation.node.data as Record<string, any>)[property] ?? 1;
+      attrs[attribute] = annotation.node.data[property] ?? 1;
     }
 
     // Is heading or paragraph -> can only hold text

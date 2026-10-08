@@ -49,7 +49,7 @@ export function useNavigationGuard() {
 
     const singleAncestry: NodeAncestry | null = ancestryPaths[0] ?? null;
 
-    let pathQuery: string = "";
+    let pathQuery: string;
 
     // The api response only contains item's the ancestry, not the item itself
     if (singleAncestry?.length > 0) {

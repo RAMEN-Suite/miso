@@ -13,7 +13,7 @@ export interface UseAddNodeReturn {
   currentStep: Readonly<Ref<PipelineStep, PipelineStep>>;
   errorMessages: DeepReadonly<Ref<ErrorMessage[], ErrorMessage[]>>;
   node: Ref<NodeStatusObject | null>;
-  addErrorMessage: (error: DOMException | unknown) => void;
+  addErrorMessage: (error: unknown) => void;
   cancel: () => void;
   finish: () => void;
   setNode: (node: NodeStatusObject | null) => void;

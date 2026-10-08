@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import Splitter from "primevue/splitter";
 import SplitterPanel from "primevue/splitterpanel";
-import { useHierarchyStore } from "../store/hierarchy";
+import { useHierarchyStore } from "../store/hierarchy.ts";
 import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import HierarchyColumn from "../components/HierarchyColumn.vue";
 import HierarchySidebar from "../components/HierarchySidebar.vue";
 import FocusPane from "../components/FocusPane.vue";
 import { onBeforeRouteLeave } from "vue-router";
-import { useAppStore } from "../store/app";
+import { useAppStore } from "../store/app.ts";
 import PageOverlay from "../components/PageOverlay.vue";
 import { MenuItem } from "primevue/menuitem";
 import { computed, DeepReadonly, nextTick, onMounted, useTemplateRef, watch } from "vue";
 import { useSmartViewsStore } from "../store/smartViews.ts";
 import { SmartView, Tag } from "../models/types.ts";
 import { useTagsStore } from "../store/tags.ts";
-import { normalizeTagColor } from "../config/tags";
+import { normalizeTagColor } from "../config/tags.ts";
 import { useScroll } from "@vueuse/core";
 
 const { addToastMessage } = useAppStore();

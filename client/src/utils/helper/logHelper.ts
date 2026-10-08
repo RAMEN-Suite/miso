@@ -9,7 +9,7 @@ export function logMap(plainText: string, heading: string, map: IndexMap) {
   });
 }
 
-export function logSetDiffs(set1: Set<any>, set2: Set<any>): void {
+export function logSetDiffs(set1: Set<unknown>, set2: Set<unknown>): void {
   const diff1 = set1.difference(set2);
   const diff2 = set2.difference(set1);
   console.log("Only set 1:", diff1);

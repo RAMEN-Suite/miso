@@ -5,7 +5,7 @@ import { getDefaultValueForProperty } from "../utils/helper/helper";
 import { PropertyConfig } from "../models/types";
 import Button from "primevue/button";
 
-const modelValue = defineModel<any[]>();
+const modelValue = defineModel<unknown[]>();
 const props = defineProps<{
   config: Partial<PropertyConfig>;
   mode?: "edit" | "view";
@@ -58,7 +58,7 @@ function handleDeleteItem(itemIndex: number): void {
 
 <template>
   <div class="w-full">
-    <div v-for="(_, index) in modelValue" class="flex gap-1 items-center">
+    <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
       <DataInputComponent v-model="modelValue[index]" :config="props.config.items" :mode="props.mode" />
       <Button
         v-if="isEditable"

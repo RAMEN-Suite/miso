@@ -16,10 +16,7 @@ const props = defineProps<{
   collectionNodeLabels: string[];
 }>();
 
-const emit = defineEmits<{
-  (e: "edit"): void;
-  (e: "remove"): void;
-}>();
+const emit = defineEmits<(e: "edit" | "remove") => void>();
 
 const { getCollectionAnnotationFields } = useGuidelinesStore();
 

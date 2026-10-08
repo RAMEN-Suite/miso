@@ -2,7 +2,7 @@
 import ProgressSpinner from "primevue/progressspinner";
 import { computed } from "vue";
 
-const props = withDefaults(defineProps<{ size?: number; color?: string }>(), { size: 80 });
+const props = withDefaults(defineProps<{ size?: number; color?: string }>(), { size: 80, color: undefined });
 
 /** Default PrimeVue colors. */
 const DEFAULT_COLORS = ["#F16667", "#8DCC93", "#F79767", "#4C8EDA"] as const;

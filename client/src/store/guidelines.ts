@@ -19,7 +19,7 @@ import { EDITOR_OWNED_ATTRIBUTES, DEFAULT_ANNOTATION_MAPPING } from "../config/e
 const { initializeFilter } = useFilterStore();
 const guidelines = ref<IGuidelines>();
 const isFetching = ref<boolean>(false);
-const error = ref<any>(null);
+const error = ref<Error | null>(null);
 const isInitialized = computed<boolean>(() => guidelines.value && !isFetching.value);
 
 const groupedAnnotationTypes = ref<Record<string, AnnotationType[]>>();
@@ -398,7 +398,7 @@ export function useGuidelinesStore() {
    * }]
    */
   function getEditorOwnedProperties(annotationType: string): { property: string; attribute: BuiltinEditorAttribute }[] {
-    const editorRole: BuiltinStructuralType | string = getEditorRole(annotationType);
+    const editorRole: string = getEditorRole(annotationType);
     const propertyByAttribute: Partial<Record<BuiltinEditorAttribute, string | undefined>> =
       annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
 
@@ -480,7 +480,7 @@ export function useGuidelinesStore() {
    * @param {string} annotationType The project annotation type (e.g. `p`, `list`)
    * @returns {string} The editor role (e.g. `paragraph`, `bulletList`) if mapped, else the type
    */
-  function getEditorRole(annotationType: string): BuiltinStructuralType | string {
+  function getEditorRole(annotationType: string): string {
     return roleByType.value[annotationType] ?? annotationType;
   }
 
@@ -492,10 +492,10 @@ export function useGuidelinesStore() {
    *
    * Complementary function of {@linkcode getEditorRole}.
    *
-   * @param {BuiltinStructuralType} editorRole The editor role (e.g. `bulletList`)
+   * @param {string} editorRole The editor role (e.g. `bulletList`)
    * @returns {string} The project annotation type (e.g. `list`) if mapped, else the given role
    */
-  function getAnnotationType(editorRole: BuiltinStructuralType | string): string {
+  function getAnnotationType(editorRole: string): string {
     return annotationMapping.value.typeByRole[editorRole as BuiltinStructuralType] ?? editorRole;
   }
 

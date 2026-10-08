@@ -48,7 +48,7 @@ export class RemoveAnnotationStep extends Step {
     };
   }
 
-  static fromJSON(_schema: Schema, json: any): RemoveAnnotationStep {
+  static fromJSON(_schema: Schema, json: { annotation: AnnotationNode; from: number; to: number }): RemoveAnnotationStep {
     // Kept for consistency, not really needed (JSON serialization is only relevant during collaboration when
     // steps need to be sent over the network). Here, everything is kept in memory anyway.
     return new RemoveAnnotationStep(json.annotation, json.from, json.to);

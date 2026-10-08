@@ -94,6 +94,7 @@ function handleCancelClick(): void {
       :loading="asyncOperationRunning"
       @click="handleSubmitClick"
     ></Button>
+    <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <Button type="button" label="Cancel" title="Cancel" severity="secondary" autofocus @click="handleCancelClick"></Button>
   </div>
 </template>

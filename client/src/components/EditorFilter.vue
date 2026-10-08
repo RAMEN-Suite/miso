@@ -61,6 +61,7 @@ function toggleDropdown(): void {
               </div>
               <div v-for="annotationType of annotationTypes" :key="annotationType.type">
                 <Checkbox v-model="selectedOptions" :input-id="annotationType.type" :value="annotationType.type" />
+                <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
                 <label :for="annotationType.type" class="ml-2 cursor-pointer">
                   {{ annotationType.type }}
                 </label>

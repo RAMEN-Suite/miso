@@ -72,7 +72,7 @@ export function useCreateIndexMaps() {
 
     function walk(node: Node, charIndex: number): number {
       if (node.isText) {
-        return charIndex + node.text!.length;
+        return charIndex + node.nodeSize;
       }
 
       const start: number = charIndex;
@@ -153,7 +153,7 @@ export function useCreateIndexMaps() {
       }
 
       if (node.isText) {
-        const nodeEnd: number = nodePos + node.text!.length;
+        const nodeEnd: number = nodePos + node.nodeSize;
 
         // For each doc position inside the current text node, the same mapping can be applied
         while (i < sortedPositions.length && sortedPositions[i] <= nodeEnd) {
@@ -162,7 +162,7 @@ export function useCreateIndexMaps() {
           positionMap.set(curr, charIndex + (curr - nodePos));
         }
 
-        charIndex += node.text!.length;
+        charIndex += node.nodeSize;
       }
     });
 
@@ -197,7 +197,7 @@ export function useCreateIndexMaps() {
    */
   function traverseNode(node: Node, charIndex: number, map: IndexMap): number {
     if (node.isText) {
-      return charIndex + node.text!.length;
+      return charIndex + node.nodeSize;
     }
 
     const startIndex: number = charIndex;
@@ -232,7 +232,7 @@ export function useCreateIndexMaps() {
   function traverseForInlineNode(node: Node, charIndex: number, nodeTypeName: string, map: IndexMap): number {
     // Collect character count recursively
     if (node.isText) {
-      return charIndex + node.text!.length;
+      return charIndex + node.nodeSize;
     }
 
     if (node.type.name === nodeTypeName && node.attrs.uuid) {

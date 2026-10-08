@@ -143,6 +143,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
             <div
               v-else
               tabindex="0"
+              role="button"
               :style="{ 'text-wrap': 'nowrap' }"
               @mouseover="toggleTextHightlighting(slotProps.node.data, 'on')"
               @mouseout="toggleTextHightlighting(slotProps.node.data, 'off')"

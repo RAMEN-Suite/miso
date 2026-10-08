@@ -259,7 +259,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
           setMode("view");
           destroyModalInstance();
 
-          scrollElementIntoView(created.node.data.uuid);
+          await scrollElementIntoView(created.node.data.uuid);
         },
       },
       onClose: destroyModalInstance,

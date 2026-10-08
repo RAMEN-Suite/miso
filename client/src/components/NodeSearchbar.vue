@@ -166,8 +166,8 @@ onStartTyping(() => {
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
-      :class="isSearchActive ? 'active' : 'inactive'"
       v-model="visibleSearchInput"
+      :class="isSearchActive ? 'active' : 'inactive'"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
       :loading="isLoading"
@@ -198,8 +198,8 @@ onStartTyping(() => {
         <template v-if="props.baseNodeLabel === 'Collection'">
           <div class="result-item">
             <RAMENNodeIcon
-              :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option.nodeLabels)"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -209,8 +209,8 @@ onStartTyping(() => {
         <template v-if="props.baseNodeLabel === 'Entity'">
           <div class="result-item">
             <RAMENNodeIcon
-              :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option.nodeLabels)"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -220,8 +220,8 @@ onStartTyping(() => {
         <template v-if="props.baseNodeLabel === 'Content'">
           <div class="result-item">
             <RAMENNodeIcon
-              :spec="resolveNodeIcon(option.nodeLabels)"
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option.nodeLabels)"
             />
             <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
           </div>

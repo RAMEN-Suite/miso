@@ -34,16 +34,19 @@ defineExpose({ toggle });
   <Popover ref="popover">
     <div class="flex gap-4">
       <div class="flex-auto w-24">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="columns" class="font-bold block mb-2"> Columns </label>
         <InputNumber v-model="columns" input-id="columns" fluid :min="1" :max="10" show-buttons />
       </div>
       <div class="flex-auto w-24">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="rows" class="font-bold block mb-2"> Rows </label>
         <InputNumber v-model="rows" input-id="rows" fluid :min="1" :max="10" show-buttons />
       </div>
     </div>
     <div class="flex items-center gap-2 mt-2 justify-center">
       <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary />
+      <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
       <label for="header-row"> Add header row </label>
     </div>
     <div class="mt-2 text-center">

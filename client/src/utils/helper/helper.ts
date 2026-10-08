@@ -103,7 +103,7 @@ export function capitalize(inputString: string): string {
  */
 export function cloneDeep<T>(input: T): T {
   if (input instanceof Map) {
-    const clonedMap = new Map<any, any>();
+    const clonedMap = new Map<unknown, unknown>();
 
     // new Map(input) would not work since the reference to nested objects would still be the same
     input.forEach((value, key) => {
@@ -314,7 +314,11 @@ export function formatPropertyValue(value: unknown, type?: PropertyConfigDataTyp
     return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
   }
 
-  return String(value);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 }
 
 /**
@@ -444,18 +448,19 @@ export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
  * Used during import, editing and saving of Collections or Annotations.
  *
  * @param {PropertyConfigDataType} type - The data type.
- * @return {any} The appropriate default value for the data type.
+ * @return {unknown} The appropriate default value for the data type.
  */
-export function getDefaultValueForProperty(type: PropertyConfigDataType): any {
+export function getDefaultValueForProperty(type: PropertyConfigDataType): unknown {
   switch (type) {
     case "boolean":
       return false;
-    case "date":
+    case "date": {
       const today: Date = new Date();
       const year: number = today.getUTCFullYear();
       const month: number = today.getUTCMonth();
       const day: number = today.getUTCDate();
       return new Date(Date.UTC(year, month, day, 0, 0, 0)).toISOString();
+    }
     case "date-time":
       return new Date().toISOString();
     case "integer":

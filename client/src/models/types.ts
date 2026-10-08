@@ -107,14 +107,21 @@ export type { AnnotationMapping };
 
 export interface TiptapMark {
   type: string;
-  attrs: Record<string, any>;
+  attrs: Record<string, unknown>;
 }
 
 export type AllowedTiptapNodeTypes = string;
 
+export interface TiptapNodeAttrs {
+  [key: string]: unknown;
+  uuid?: string;
+  _annotation?: DocAnnotation;
+  _semanticBlocks?: DocAnnotation[];
+}
+
 export interface TiptapNode {
   type: AllowedTiptapNodeTypes;
-  attrs?: Record<string, any>;
+  attrs?: TiptapNodeAttrs;
   content?: TiptapNode[];
   marks?: TiptapMark[];
   text?: string;
@@ -458,7 +465,7 @@ export interface SmartView {
 }
 
 export interface StandoffAnnotation {
-  [key: string]: any;
+  [key: string]: unknown;
   startIndex: number;
   endIndex: number;
   text: string;

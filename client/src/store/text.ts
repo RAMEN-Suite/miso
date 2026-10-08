@@ -13,13 +13,13 @@ const paths = ref<NodeAncestry[]>([]);
 
 // Fetch status
 const isFetching = ref<boolean>(false);
-const error = ref<any>(null);
+const error = ref<Error | null>(null);
 
 export function useTextStore() {
   async function fetchAndInitializeText(uuid: string): Promise<void> {
     isFetching.value = true;
 
-    error.value = false;
+    error.value = null;
 
     try {
       const text: TextAccessObject = await api.getTextAccessObject(uuid);

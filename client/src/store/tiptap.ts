@@ -301,6 +301,10 @@ function setNewInitialDocState() {
   // Annotations and structural annotations are already reset in the editor's cleanup function
   initialDoc = tiptap.value.getJSON();
   initialPlainText = tiptap.value.state.doc.textContent;
+
+  // Currently important because undo could silently revert status attributes of connected nodes e.g.
+  // which would invalidate the doc state vs db state comparison. Not very user-friendly, might be updated in the future.
+  resetHistory();
 }
 
 /**
@@ -308,7 +312,8 @@ function setNewInitialDocState() {
  * recreating editor state/instance is too expensive and directly accessing the history state is neither type-safe
  * nor reliable. Might be updated in the future.
  *
- * Called when the editor is reset to initial state.
+ * Called when the editor is reset to initial state and after a successful save, which makes the saved
+ * state the new initial state.
  *
  * @returns {void} This function does not return any value.
  */

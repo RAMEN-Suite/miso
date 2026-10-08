@@ -325,6 +325,8 @@ export function formatPropertyValue(value: unknown, type?: PropertyConfigDataTyp
  * Returns the ProseMirror document positions that correspond to the top and bottom edges
  * of the editor's scroll container (i.e. the currently visible range of the document).
  *
+ * Requires the editor element to be as tall as its content, otherwise `posAtCoords` returns `null`.
+ *
  * Falls back to `0` for `from` and `doc.content.size` for `to` when `posAtCoords` returns
  * `null` — which happens when the editor content does not yet fill the container or the
  * coordinates land outside the rendered document.
@@ -334,22 +336,20 @@ export function formatPropertyValue(value: unknown, type?: PropertyConfigDataTyp
  */
 export function getVisibleDocRange(editorView: EditorView): { from: number; to: number } {
   // TODO: Add viewport buffer so that annotation directly above/below are included...
-  const rect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
+  const scrollPaneRect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
 
-  if (!rect) {
+  if (!scrollPaneRect) {
     return { from: 0, to: editorView.state.doc.content.size };
   }
 
-  const { top: parentTopOffset, left: parentLeftOffset, height } = rect;
+  const contentRect: DOMRect = editorView.dom.getBoundingClientRect();
 
-  const startPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset,
-  });
-  const endPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset + height,
-  });
+  const left: number = contentRect.left + 1;
+  const top: number = Math.max(scrollPaneRect.top, contentRect.top) + 1;
+  const bottom: number = Math.min(scrollPaneRect.bottom, contentRect.bottom) - 1;
+
+  const startPos = editorView.posAtCoords({ left, top });
+  const endPos = editorView.posAtCoords({ left, top: bottom });
 
   // Catch edge cases
   const from: number = startPos?.pos ?? 0;

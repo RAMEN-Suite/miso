@@ -14,7 +14,6 @@
   flex-grow: 1;
   display: flex;
   padding: 5px;
-  /* outline: 1px solid var(--purple); */
   text-decoration-skip-ink: none;
   /* Positioning context for the teleported semantic-block-lines overlay. */
   position: relative;
@@ -22,6 +21,8 @@
 
 .tiptap-editor-pane {
   width: 100%;
+  height: fit-content;
+  min-height: 100%;
 
   /* ------------------ RESETS ------------------ */
 

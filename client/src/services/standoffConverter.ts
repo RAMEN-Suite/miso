@@ -8,6 +8,7 @@ import {
   AnnotationType,
   AnnotationRole,
   DocAnnotation,
+  StandoffParseIssue,
 } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
@@ -33,6 +34,7 @@ const {
   getAnnotationBehaviour,
   getPriorityForType,
   getEditorOwnedProperties,
+  isConfiguredAnnotationType,
 } = useGuidelinesStore();
 
 export default class StandoffConverter {
@@ -47,6 +49,8 @@ export default class StandoffConverter {
   private standoffJson: ApiJson;
   private tiptapJson: TiptapJson | null = null;
   private usedUuids = new Set<string>();
+  /** Problems found during parsing, handed to the editor setup to be further processed there. */
+  private issues: StandoffParseIssue[] = [];
 
   // Types that are always handled inline and must never appear as block children.
   private static readonly EXCLUDED_FROM_BLOCK_CHILDREN = new Set(["hardBreak"]);
@@ -59,6 +63,7 @@ export default class StandoffConverter {
 
   public getData(): {
     annotations: Map<string, Anno>;
+    issues: StandoffParseIssue[];
     structuralAnnotations: Map<string, Anno>;
     tipTapJson: TiptapJson;
   } {
@@ -68,22 +73,30 @@ export default class StandoffConverter {
 
     return {
       annotations: this.inlineAnnotations,
+      issues: this.issues,
       structuralAnnotations: allStructural,
       tipTapJson: this.tiptapJson,
     };
   }
 
   /**
-   * Sets up the stores for the different annotation categories (structural, inline, semantic block). These stores are used for all
-   * the subsequent parsing steps and will be exported to the editor setup when the document is ready.
+   * Sets up the stores for the different annotation categories (structural, inline, semantic block) and validates the document.
+   *
+   * The stores are used for all the subsequent parsing steps and will be exported to the editor setup afterwards. The issues
+   * are also exported to the editor setup for further processing.
    *
    * @returns {void} - This function does not return a value. All the data are set directly into the variables.
    */
   private createAnnotationUuidMaps(): void {
     const statusObjects: Anno[] = this.standoffJson.annotations.map((a) => createNodeStatusObjectFromRawData(a) as Anno);
+    const unconfiguredTypes = new Map<string, number>();
 
     for (const a of statusObjects) {
       const documentRole: AnnotationRole = getAnnotationRole(a.node.data.type);
+
+      if (!isConfiguredAnnotationType(a.node.data.type)) {
+        unconfiguredTypes.set(a.node.data.type, (unconfiguredTypes.get(a.node.data.type) ?? 0) + 1);
+      }
 
       if (documentRole === "structure") {
         // Built-in scaffolding (paragraph, heading, table, hardBreak, ...) — forms the TipTap tree.
@@ -95,6 +108,14 @@ export default class StandoffConverter {
         // Inline annotation — rendered as a range decoration or a zero-point atom.
         this.inlineAnnotations.set(a.node.data.uuid, a);
       }
+    }
+
+    for (const [type, count] of unconfiguredTypes) {
+      this.issues.push({
+        severity: "error",
+        reason: "unconfiguredType",
+        message: `${count} annotation(s) of type "${type}" are not configured.`,
+      });
     }
   }
 
@@ -542,8 +563,8 @@ export default class StandoffConverter {
   }
 
   /**
-   * Warning function to log out if any invalid indices required clamping. Can be replace with
-   * another error handling function later if desired.
+   * Warning function to log out if any invalid indices required clamping, and to record it as a parse issue
+   * with severity `warning` (the clamp repairs the document, it is fixed in the database on the next save).
    *
    * @param {number} startIndex The start index of the orphaned range
    * @param {number} endIndex The end index of the orphaned range
@@ -551,6 +572,12 @@ export default class StandoffConverter {
    * @param {'previous' | 'next'} where Whether the clamp prepended or appended the range into the adjacent node
    */
   private warnClamp(startIndex: number, endIndex: number, parentType: string, where: "previous" | "next"): void {
+    this.issues.push({
+      severity: "warning",
+      reason: "clampedGap",
+      message: `Text at [${startIndex},${endIndex}] belonged to no child of <${parentType}> and was merged into the ${where} one.`,
+    });
+
     console.warn(
       `[standoffConverter] Clamped orphan gap [${startIndex},${endIndex}] into the ${where} child of ` +
         `<${parentType}>. This text belongs to no structural child — likely incorrect source ` +
@@ -774,8 +801,8 @@ export default class StandoffConverter {
    * Post-parse function that checks if the built tiptap document's text exactly equals the standoff text.
    *
    * If it doesn't, decorations and saved indices (silently) drift and on save the document is polluted
-   * so the drift is made explicit. Might be replaced by or enhanced with an appropriate error handling/
-   * user notifying function.
+   * so the drift is made explicit: it is logged and recorded as a parse issue with severity `error`, so
+   * the user can be asked before continuing.
    *
    * @returns {void} This function does not return any value.
    */
@@ -790,6 +817,14 @@ export default class StandoffConverter {
       while (i < expected.length && i < docText.length && expected[i] === docText[i]) {
         i++;
       }
+
+      this.issues.push({
+        severity: "error",
+        reason: "textMismatch",
+        message:
+          `The text of the document (${docText.length} characters) does not match the stored text ` +
+          `(${expected.length} characters). First difference at index ${i}.`,
+      });
 
       console.error(
         `[standoffConverter] TEXT INVARIANT VIOLATED: document text (len ${docText.length}) ` +

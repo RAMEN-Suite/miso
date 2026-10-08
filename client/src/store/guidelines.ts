@@ -456,6 +456,19 @@ export function useGuidelinesStore() {
   }
 
   /**
+   * Checks if the given annotation type is known to the editor: either it maps to one of the built-in structural
+   * types or it is configured in the guidelines.
+   *
+   * Used to check the annotation validity during document parsing on load.
+   *
+   * @param {string} annotationType The annotation type
+   * @returns {boolean} `true` if the annotation type is built-in or configured, `false` otherwise
+   */
+  function isConfiguredAnnotationType(annotationType: string): boolean {
+    return isBuiltinStructuralType(annotationType) || getAnnotationConfig(annotationType) !== undefined;
+  }
+
+  /**
    * Returns the editor role (the built-in structural type / tiptap node type) for a given project
    * annotation type, via the active annotation mapping.
    *
@@ -634,6 +647,7 @@ export function useGuidelinesStore() {
     getAnnotationRole,
     getAnnotationBehaviour,
     isBuiltinStructuralType,
+    isConfiguredAnnotationType,
     initializeGuidelines,
     setAnnotationMapping,
     isZeroPoint,

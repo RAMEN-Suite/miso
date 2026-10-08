@@ -466,6 +466,19 @@ export interface StandoffAnnotation {
   subType?: string | number;
 }
 
+/**
+ * A problem found while a standoff document is parsed into a tiptap document.
+ * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
+ *    are lost, the repaired state is written to the database on the next save.
+ * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
+ *    configured in the guidelines. Saving it can corrupt the stored data, so the user should be asked before continuing.
+ */
+export interface StandoffParseIssue {
+  severity: "warning" | "error";
+  reason: "clampedGap" | "textMismatch" | "unconfiguredType";
+  message: string;
+}
+
 /** Raw inline SVG markup. */
 export interface SvgIconSpec {
   kind: "svg";

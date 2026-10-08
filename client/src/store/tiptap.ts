@@ -7,6 +7,7 @@ import {
   ToCItem,
   SemanticBlockRange,
   DocAnnotation,
+  StandoffParseIssue,
 } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
@@ -143,9 +144,15 @@ function hasUnsavedChanges(): boolean {
   return false;
 }
 
-function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): void {
+/**
+ * Parses the given standoff document and creates the tiptap editor from it.
+ *
+ * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
+ * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
+ */
+function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
   const converter: StandoffConverter = new StandoffConverter(standoffObject);
-  const { tipTapJson, annotations, structuralAnnotations } = converter.getData();
+  const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
 
   setAnnotations({ annotations, structuralAnnotations });
 
@@ -187,6 +194,8 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
       resizeObserver = null;
     },
   });
+
+  return issues;
 }
 
 function computeSemanticBlockRanges(editor: TiptapEditor | null): void {

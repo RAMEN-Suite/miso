@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ComputedRef, computed, onUnmounted, ref, toValue, watch } from "vue";
-import { RouteLocationNormalizedLoaded, useRoute, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
+import { ComputedRef, computed, nextTick, onUnmounted, ref, toValue, watch } from "vue";
+import { RouteLocationNormalizedLoaded, useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
 import { EditorContent } from "@tiptap/vue-3";
+import ConfirmDialog from "primevue/confirmdialog";
+import { useConfirm } from "primevue/useconfirm";
+import type { ConfirmationOptions } from "primevue/confirmationoptions";
 import { useEventListener, useTitle } from "@vueuse/core";
 import EditorAnnotationPanel from "../components/EditorAnnotationPanel.vue";
 import EditorSidebar from "../components/EditorSidebar.vue";
@@ -14,7 +17,7 @@ import EditorResizer from "../components/EditorResizer.vue";
 import SemanticBlockLines from "../components/SemanticBlockLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
-import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
+import { NodeDto, Annotation, NodeStatusObject, StandoffParseIssue, TextNode, TextUpdateDto } from "../models/types.ts";
 import { useShortcutsStore } from "../store/shortcuts.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
@@ -33,6 +36,8 @@ interface SidebarConfig {
   width: number;
 }
 const route: RouteLocationNormalizedLoaded = useRoute();
+const router = useRouter();
+const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const textUuid = computed<string>(() => route.params.uuid as string);
 
 const {
@@ -95,6 +100,21 @@ const sidebars = ref<Record<string, SidebarConfig>>({
 });
 
 const activeResizer = ref<string>("");
+
+/** What each kind of parse issue means for the user. Shown in the toast (warnings) and in the parse error dialog (errors). */
+const PARSE_ISSUE_CONSEQUENCES: Record<StandoffParseIssue["reason"], string> = {
+  clampedGap: "The repaired structure is stored with the next save.",
+  textMismatch: "Annotations may be displayed at the wrong position, and saving can write these positions to the database.",
+  unconfiguredType: "Annotations of unconfigured types were found. Saving can change or remove their data.",
+};
+
+/** The parse errors of the current document, displayed in the parse error dialog. */
+const parseErrors = ref<StandoffParseIssue[]>([]);
+
+/** The consequences of the current parse errors, one per kind of error. */
+const parseErrorConsequences = computed<string[]>(() =>
+  [...new Set(parseErrors.value.map((e) => e.reason))].map((reason) => PARSE_ISSUE_CONSEQUENCES[reason]),
+);
 
 function cleanUpAfterSave(
   updatedText: NodeStatusObject<TextNode>,
@@ -307,6 +327,47 @@ function handleBeforeUnload(event: BeforeUnloadEvent): void {
   preventUserFromPageLeaving(event);
 }
 
+/**
+ * Informs the user about problems that were found while the document was parsed.
+ *
+ * Warnings (the document was repaired, nothing is lost) are only shown as a toast. Errors (the document does not
+ * match the stored data or contains annotations of unconfigured types, so saving it can corrupt the stored data)
+ * open a dialog in which the user decides whether to continue or to leave the editor.
+ *
+ * @param {StandoffParseIssue[]} issues - The problems returned by the parser.
+ * @returns {void} This function does not return any value.
+ */
+function showParseIssues(issues: StandoffParseIssue[]): void {
+  const warnings: StandoffParseIssue[] = issues.filter((i) => i.severity === "warning");
+  const errors: StandoffParseIssue[] = issues.filter((i) => i.severity === "error");
+
+  if (warnings.length > 0) {
+    addToastMessage({
+      severity: "warn",
+      summary: "Document structure was repaired",
+      detail:
+        `${warnings.length} text passage(s) belonged to no structural element and were merged into a neighbouring one. ` +
+        PARSE_ISSUE_CONSEQUENCES.clampedGap,
+      life: 6000,
+    });
+  }
+
+  parseErrors.value = errors;
+
+  if (errors.length > 0) {
+    const options: ConfirmationOptions & { closeOnEscape: boolean } = {
+      header: "Problems found in this document",
+      message: errors.map((e) => e.message).join(" "),
+      closeOnEscape: false,
+      rejectProps: { label: "Back to overview", severity: "secondary", autofocus: true },
+      acceptProps: { label: "Open anyway", severity: "danger" },
+      reject: () => router.push("/"),
+    };
+
+    confirm.require(options);
+  }
+}
+
 function showMessage(result: "success" | "error", error?: Error) {
   addToastMessage({
     severity: result,
@@ -365,9 +426,14 @@ watch(
 
     const standoffObject = { text: text.value.data.text, annotations: fetchedAnnotations };
 
-    initializeTiptap(standoffObject);
+    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject);
 
     isLoading.value = false;
+
+    // The confirm dialog is part of the editor layout, which is only rendered once loading has finished
+    await nextTick();
+
+    showParseIssues(parseIssues);
   },
   { immediate: true },
 );
@@ -382,6 +448,28 @@ watch(
     <PageOverlay v-if="asyncOperationRunning">
       <LoadingSpinner />
     </PageOverlay>
+    <ConfirmDialog :closable="false" class="w-136 max-w-[calc(100vw-2rem)]" :pt="{ footer: { class: 'flex justify-center!' } }">
+      <template #message>
+        <div class="flex flex-col gap-3">
+          <div
+            v-for="(error, index) in parseErrors"
+            :key="index"
+            class="flex items-start gap-3 rounded-md border border-(--p-red-200) bg-(--p-red-50) p-3 text-(--p-red-700)"
+          >
+            <i class="icon-alert-triangle mt-0.5 shrink-0 text-xl" aria-hidden="true" />
+            <span>{{ error.message }}</span>
+          </div>
+          <div
+            v-for="consequence in parseErrorConsequences"
+            :key="consequence"
+            class="rounded-md border border-(--p-yellow-300) bg-(--p-yellow-50) p-3 text-(--p-yellow-900)"
+          >
+            {{ consequence }}
+          </div>
+          <p class="text-center">Do you want to open the document anyway?</p>
+        </div>
+      </template>
+    </ConfirmDialog>
 
     <EditorSidebar position="left" :is-collapsed="sidebars['left'].isCollapsed === true" :width="sidebars['left'].width">
       <EditorMetadata :content-uuid="textUuid" />

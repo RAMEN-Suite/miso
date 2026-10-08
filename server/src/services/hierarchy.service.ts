@@ -23,9 +23,7 @@ import {
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
--- db results can not be typed (only with assertion) which is too cumbersome for now
- */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
 export interface HierarchyListOptions {
   filters: FilterSpec;
@@ -266,7 +264,7 @@ export default class HierarchyService {
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
     const rawChildren: {
-      node: { nodeLabels: string[]; data: Record<string, any> };
+      node: { nodeLabels: string[]; data: { uuid: string; [key: string]: unknown } };
       groupRank: number;
       sortValue: unknown;
     }[] = dataResult.records[0]?.get("children") ?? [];
@@ -288,7 +286,7 @@ export default class HierarchyService {
       const cursorObject: HierarchyCursor = {
         v: CURSOR_VERSION,
         g: last.groupRank,
-        k: [valueToNativeType(last.sortValue)],
+        k: [valueToNativeType(last.sortValue) as string | number],
         u: last.node.data.uuid,
         s: signature,
       };

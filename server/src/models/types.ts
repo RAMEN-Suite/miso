@@ -6,10 +6,10 @@ import { IText } from "./IText.js";
 export type AnnotationNode = Node<IAnnotation>;
 
 /** A node object for retrieving data */
-export type NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> = {
+export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeDto[];
-};
+}
 
 /**
  * A status field for nodes in the frontend and for API requests. Is accessed during editing
@@ -23,7 +23,7 @@ export type AnnotationRole = "structure" | "inline" | "semanticBlock";
 /** How an annotation sits in the text: offset between characters vs covered span (mirror of the client type). */
 export type AnnotationBehaviour = "zeroPoint" | "range";
 
-export type AnnotationType = {
+export interface AnnotationType {
   category: string;
   defaultSelected: boolean;
   isSeparator?: boolean;
@@ -35,19 +35,19 @@ export type AnnotationType = {
   type: string;
   role?: AnnotationRole;
   behaviour?: AnnotationBehaviour;
-};
+}
 
-export type AnnotationConfigEntity = {
+export interface AnnotationConfigEntity {
   category: string;
   nodeLabel: string;
-};
+}
 
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
-export type BaseNodeData = {
+export interface BaseNodeData {
   uuid: string;
-};
+}
 
 /** Relationship types in RAMEN */
 export type BaseRelationshipType = "HAS_ANNOTATION" | "PART_OF" | "REFERS_TO";
@@ -96,16 +96,16 @@ export type FilterComparator =
 export type FilterOperator = "and" | "or";
 
 /** A single condition/constraint for filtering a list of nodes. */
-export type FilterCondition = {
+export interface FilterCondition {
   comparator: FilterComparator;
   value: unknown;
-};
+}
 
 /** A group of filter conditions which are applied together, and the concatenation operator */
-export type FilterConditionGroup = {
+export interface FilterConditionGroup {
   operator: FilterOperator;
   conditions: FilterCondition[];
-};
+}
 
 /**
  * What a rule or a sort points at. Shared by both, so anything filterable is sortable and both
@@ -139,52 +139,52 @@ export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: 
 export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
 
 /** Object for specifying relationship between two nodes. Used during preprocessing data before updating Text nodes */
-export type EdgeDescriptor = {
+export interface EdgeDescriptor {
   type: BaseRelationshipType;
   startUuid: string;
   endUuid: string;
-};
+}
 
 export type EntityNode = Node<IEntity>;
 
-export type FaviconResponse = {
+export interface FaviconResponse {
   contentType: string;
   data: Buffer;
-};
+}
 
-export type Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> = {
+export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
   data: T;
   nodeLabels: string[];
-};
+}
 
-export type NetworkPostData = {
+export interface NetworkPostData {
   type: CollectionNetworkActionType;
   nodes: (CollectionNode | TextNode)[];
   origin: CollectionNode | null;
   target: CollectionNode | null;
-};
+}
 
 export type NodeAncestry = NodeDto<CollectionNode>[];
 
-export type NodeSearchParams = {
+export interface NodeSearchParams {
   nodeLabels?: string[];
   order?: "asc" | "desc";
   offset?: number;
   limit?: number;
   search?: string;
-};
+}
 
 /** A status object for incoming API requests that should update a subgraph */
-export type NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> = {
+export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeStatusObject<T>[];
   meta: {
     status: NodeStatus;
     [key: string]: unknown;
   };
-};
+}
 
-export type PaginationData = {
+export interface PaginationData {
   limit: number;
   offset?: number | null;
   order: string;
@@ -192,19 +192,19 @@ export type PaginationData = {
   totalRecords: number;
   /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
   nextCursor?: CursorData | string | null;
-};
+}
 
-export type CursorData = {
+export interface CursorData {
   label: string;
   uuid: string;
-};
+}
 
-export type PaginationResult<T> = {
+export interface PaginationResult<T> {
   data: T;
   pagination: PaginationData;
-};
+}
 
-export type PropertyConfig = {
+export interface PropertyConfig {
   name: string /* folioEnd, label, websiteUrl */;
   type: PropertyConfigDataType /* raw string, dropdown, multiple options */;
   required: boolean /* required or optional */;
@@ -224,7 +224,7 @@ export type PropertyConfig = {
   maxLength?: number;
   options?: string[] | number[] /* Options if type is dropdown */;
   template?: PropertyConfigStringTemplate /* Render as normal input or textarea? */;
-};
+}
 
 export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
 
@@ -234,24 +234,24 @@ export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
-export type NodeUpdateObject = {
-  create: Node<Record<string, any>>[];
-  update: Node<Record<string, any>>[];
-  delete: (AnnotationNode | CollectionNode | EntityNode | TextNode | Node<Record<string, any>>)[];
+export interface NodeUpdateObject {
+  create: Node<object>[];
+  update: Node<object>[];
+  delete: Node<object>[];
   remove: { type: string; startUuid: string; endUuid: string }[];
   attach: { type: string; startUuid: string; endUuid: string }[];
-};
+}
 
 /**
  * Type for updating text + annotations.
  */
-export type TextUpdateDto = {
+export interface TextUpdateDto {
   text: NodeStatusObject<TextNode>;
   annotations: NodeStatusObject[];
-};
+}
 
-export type TextAccessObject = {
+export interface TextAccessObject {
   collection: CollectionNode | null;
   paths: NodeAncestry[];
   text: TextNode;
-};
+}

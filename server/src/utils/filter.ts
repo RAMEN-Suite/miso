@@ -361,7 +361,7 @@ export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyCo
     // machinery: one comparator, one Cypher fragment
     const config: PropertyConfig | undefined = target.kind === "property" ? properties.get(target.field) : undefined;
 
-    let conditions: FilterCondition[] = [];
+    let conditions: FilterCondition[];
 
     if (target.kind === "labels") {
       conditions = parseLabelConditions(rule.conditions);

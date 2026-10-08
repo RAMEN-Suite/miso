@@ -31,16 +31,22 @@ export function capitalize(inputString: string): string {
  * and modiefied.
  *
  * @param {Request} req - The express request object.
- * @returns {Record<string, any>} An object with the following properties:
+ * @returns {{ cursor: CursorData | null; limit: number; offset: number; order: string; search: string }} An object with the following properties:
+ *   - `cursor`: The cursor to continue from, or `null` if none (or an invalid one) was provided.
  *   - `search`: The search string to filter by.
- *   - `sort`: The field to sort by.
  *   - `order`: The direction of the sort (ascending/descending).
  *   - `limit`: The maximum number of results to return.
  *   - `offset`: The number of results to skip.
  */
-export function getPagination(req: Request): Record<string, any> {
+export function getPagination(req: Request): {
+  cursor: CursorData | null;
+  limit: number;
+  offset: number;
+  order: string;
+  search: string;
+} {
   // TODO: Should this function have more restriction functionalities/error handling
-  let { search, limit, order, cursorUuid, cursorLabel, offset } = req.query;
+  const { limit, cursorUuid, cursorLabel, offset } = req.query;
 
   // Valid Order directions
   const ORDER_ASC: string = "ASC";
@@ -54,7 +60,7 @@ export function getPagination(req: Request): Record<string, any> {
   const isCursorValid: boolean = typeof cursorUuid === "string" && typeof cursorLabel === "string" && cursorUuid !== "";
 
   // Set default values
-  search ||= "";
+  const search: string = typeof req.query.search === "string" ? req.query.search : "";
   const cursor: CursorData | null = isCursorValid
     ? {
         uuid: cursorUuid as string,
@@ -63,9 +69,8 @@ export function getPagination(req: Request): Record<string, any> {
     : null;
 
   // Only accept ASC/DESC values
-  if (!order || !ORDERS.includes(order.toString().toUpperCase())) {
-    order = ORDER_ASC;
-  }
+  const rawOrder: unknown = req.query.order;
+  const order: string = typeof rawOrder === "string" && ORDERS.includes(rawOrder.toUpperCase()) ? rawOrder : ORDER_ASC;
 
   return {
     cursor,
@@ -127,7 +132,7 @@ export function parseNodeStatusObject(req: Request): NodeStatusObject {
  * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
  */
 export function parseCreateNodePayload(req: Request): { uuid: string; data: NodeStatusObject } {
-  const uuid: string = parseUuidFrom(req.body, ["uuid"]);
+  const uuid: string = parseUuidFrom((req.body ?? {}) as Record<string, unknown>, ["uuid"]);
   const data: NodeStatusObject = parseNodeStatusObject(req);
 
   return { uuid, data };
@@ -243,7 +248,7 @@ function parsePaginationLimit(rawLimit: unknown): number {
     return DEFAULT_LIMIT;
   }
 
-  const parsedLimit: number = parseInt(rawLimit as string);
+  const parsedLimit: number = parseInt(rawLimit);
   const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
 
   return limit;
@@ -287,7 +292,7 @@ export function isValidHttpUrl(string: string): boolean {
     const newUrl: URL = new URL(string);
 
     return newUrl.protocol === "http:" || newUrl.protocol === "https:";
-  } catch (err: unknown) {
+  } catch {
     return false;
   }
 }
@@ -325,13 +330,13 @@ export function getToolUrl(toolName: string): string {
  * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
  * and modiefied.
  *
- * @param {Record<string, any>} properties
- * @return {Record<string, any>}
+ * @param {object} properties
+ * @return {object}
  */
-export function toNativeTypes(properties: Record<string, any>): Record<string, any> {
+export function toNativeTypes(properties: object): object {
   return Object.fromEntries(
-    Object.keys(properties).map((key) => {
-      const value: any = valueToNativeType(properties[key]);
+    Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
+      const value: unknown = valueToNativeType(rawValue);
 
       return [key, value];
     }),
@@ -344,10 +349,10 @@ export function toNativeTypes(properties: Record<string, any>): Record<string, a
  * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
  * and modiefied.
  *
- * @param {any} value
- * @returns {any}
+ * @param {unknown} value
+ * @returns {unknown}
  */
-export function valueToNativeType(value: any): any {
+export function valueToNativeType(value: unknown): unknown {
   if (Array.isArray(value)) {
     value = value.map((innerValue) => valueToNativeType(innerValue));
   } else if (isInt(value)) {
@@ -370,15 +375,15 @@ export function valueToNativeType(value: any): any {
  * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. dates, date times and times are always strings in JavaScript).
  *
- * @param {Record<string, any>} properties
+ * @param {object} properties
  * @param {PropertyConfig[]} fields
- * @return {Record<string, any>}
+ * @return {Record<string, unknown>}
  */
-export function toNeo4jTypes(properties: any, fields: PropertyConfig[]): Record<string, any> {
+export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Record<string, unknown> {
   return Object.fromEntries(
-    Object.keys(properties).map((key) => {
+    Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
       const config: PropertyConfig | undefined = fields.find((field) => field.name === key);
-      const value: any = valueToNeo4jType(properties[key], config);
+      const value: unknown = valueToNeo4jType(rawValue, config);
 
       return [key, value];
     }),
@@ -390,11 +395,11 @@ export function toNeo4jTypes(properties: any, fields: PropertyConfig[]): Record<
  * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. dates, date times and times are always strings in JavaScript).
  *
- * @param {any} value
- * @param {PropertyConfig | undefined} config
- * @returns {any}
+ * @param {unknown} value
+ * @param {Partial<PropertyConfig> | undefined} config
+ * @returns {unknown}
  */
-function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefined): any {
+function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | undefined): unknown {
   // TODO: How handle empty string?
   // TODO: This is the case for non-customizable properties (uuid, start/endIndex etc.). Keep or handle better?
   if (!config) {
@@ -411,7 +416,9 @@ function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefine
 
   // Call function recursively when needed if data type is array
   if (config.type === "array") {
-    if (value.length === 0) {
+    const items: unknown[] = Array.isArray(value) ? value : [];
+
+    if (items.length === 0) {
       if (isRequired) {
         return [];
       } else {
@@ -419,10 +426,10 @@ function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefine
       }
     } else {
       return (
-        value
-          .map((innerValue: any) => valueToNeo4jType(innerValue, config.items))
+        items
+          .map((innerValue: unknown) => valueToNeo4jType(innerValue, config.items))
           // This is needed since arrays with null values (e.g. [1, 2, null, 4]) are not allowed as node properties)
-          .filter((v: any) => v !== null && v !== undefined)
+          .filter((v: unknown) => v !== null && v !== undefined)
       );
     }
   }
@@ -435,7 +442,7 @@ function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefine
         return 0;
       }
     } else {
-      return types.Integer.fromValue(value);
+      return types.Integer.fromValue(value as number | string);
     }
   } else if (config.type === "number") {
     return value;
@@ -445,13 +452,13 @@ function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefine
     if (valueIsNull && !isRequired) {
       return null;
     } else {
-      return types.Date.fromStandardDate(new Date(value));
+      return types.Date.fromStandardDate(new Date(value as string | number));
     }
   } else if (config.type === "date-time") {
     if (valueIsNull && !isRequired) {
       return null;
     } else {
-      return types.DateTime.fromStandardDate(new Date(value));
+      return types.DateTime.fromStandardDate(new Date(value as string | number));
     }
   } else if (config.type === "time") {
     if (valueIsNull) {

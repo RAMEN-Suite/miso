@@ -32,7 +32,7 @@ export default class StylesService {
         const styles: string = await response.text();
 
         return styles;
-      } catch (error: unknown) {
+      } catch {
         throw new ExternalServiceError(`Styles could not be loaded from remote url`);
       }
     }
@@ -46,7 +46,7 @@ export default class StylesService {
 
     try {
       return await fs.readFile(filePath, "utf-8");
-    } catch (err: unknown) {
+    } catch {
       throw new ExternalServiceError(`Failed to read styles from file from the provided file `);
     }
   }

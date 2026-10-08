@@ -7,15 +7,15 @@ const loggerMiddleware = morgan(
     return JSON.stringify({
       method: tokens.method(req, res),
       url: tokens.url(req, res),
-      status: Number.parseFloat(tokens.status(req, res) as string),
+      status: Number.parseFloat(tokens.status(req, res) ?? ""),
       content_length: tokens.res(req, res, "content-length"),
-      response_time: Number.parseFloat(tokens["response-time"](req, res) as string),
+      response_time: Number.parseFloat(tokens["response-time"](req, res) ?? ""),
     });
   },
   {
     stream: {
       write: (message: string) => {
-        const data = JSON.parse(message);
+        const data: unknown = JSON.parse(message);
 
         logger.http(`Request`, data);
       },

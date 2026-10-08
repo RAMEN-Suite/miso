@@ -22,7 +22,7 @@ router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => 
 
 router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
   const uuid: string = parseUuidFrom(req.params, ["uuid"]);
-  const data: TextUpdateDto = req.body;
+  const data: TextUpdateDto = req.body as TextUpdateDto;
 
   try {
     const updatedTextNode: TextNode = await contentService.updateText(uuid, data);

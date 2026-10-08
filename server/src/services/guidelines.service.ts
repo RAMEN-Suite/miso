@@ -75,8 +75,8 @@ export default class GuidelinesService {
           throw new ExternalServiceError(`Guidelines could not be loaded from remote url`);
         }
 
-        return await response.json();
-      } catch (error: unknown) {
+        return (await response.json()) as IGuidelines;
+      } catch {
         throw new ExternalServiceError(`Guidelines could not be loaded from remote url`);
       }
     }
@@ -91,13 +91,13 @@ export default class GuidelinesService {
 
     try {
       fileContent = await fs.readFile(filePath, "utf-8");
-    } catch (err: unknown) {
+    } catch {
       throw new ExternalServiceError(`Failed to read guidelines from the provided file`);
     }
 
     try {
-      return JSON.parse(fileContent);
-    } catch (err: unknown) {
+      return JSON.parse(fileContent) as IGuidelines;
+    } catch {
       throw new ExternalServiceError(`Invalid JSON in the provided guidelines file`);
     }
   }

@@ -8,7 +8,7 @@ const searchService: SearchService = new SearchService();
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { limit, offset, order, search }: NodeSearchParams = getPagination(req);
+    const { limit, offset, order, search } = getPagination(req);
     const scope: "Collection" | "Entity" | "Content" = req.query.scope as "Collection" | "Entity" | "Content";
 
     if (!scope) {

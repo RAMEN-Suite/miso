@@ -1,22 +1,24 @@
 import { NextFunction, Request, Response } from "express";
 import logger from "../logger.js";
+import AppError from "../errors/app.error.js";
 
 /**
  * Generic error handler.  Output error details as JSON.
  *
- * @param {any} error - The error object that was thrown or passed to the next function.
+ * @param {unknown} error - The error object that was thrown or passed to the next function.
  * @param {Request} req - The Express request object.
  * @param {Response} res - The Express response object.
- * @param {NextFunction} next - The next middleware function in the stack.
+ * @param {NextFunction} _next - The next middleware function in the stack. Unused, but Express only
+ * recognises a function with four parameters as an error handler.
  * @returns {void} This function does not return any value.
  */
-export default function errorMiddleware(error: any, req: Request, res: Response, next: NextFunction): void {
+export default function errorMiddleware(error: unknown, req: Request, res: Response, _next: NextFunction): void {
   logger.error("error: ", error);
 
-  const message: string = error.message ?? "Internal Server Error";
-  const code: number = error.code ?? 500;
+  const message: string = error instanceof Error ? error.message : "Internal Server Error";
+  const code: number = error instanceof AppError ? error.code : 500;
 
-  res.status(error.code).json({
+  res.status(code).json({
     status: "error",
     code,
     message,

@@ -33,7 +33,7 @@ const consoleFormat: winston.Logform.Format = combine(
     // Add meta data if present (currently request data from the middleware)
     const metaStr: string = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : "";
     // Error stack if present (used for error handling)
-    const stackStr: string = stack ? `\n${stack}` : "";
+    const stackStr: string = typeof stack === "string" ? `\n${stack}` : "";
 
     return `${timestamp} [${level}]: ${message}${stackStr}${metaStr}`;
   }),
@@ -82,7 +82,7 @@ const allTransports = [
  * @param {string | undefined} mode The mode to select transports for. Comes from environment variables and can therefore be undefined.
  * @returns {winston.transport[]} The transports to use.
  */
-function getTransports(mode: "development" | "production" | string | undefined): winston.transport[] {
+function getTransports(mode: string | undefined): winston.transport[] {
   if (mode === "development") {
     return allTransports.filter((t) => t instanceof winston.transports.Console);
   } else if (mode === "production") {
@@ -94,6 +94,7 @@ function getTransports(mode: "development" | "production" | string | undefined):
 
 const logger = winston.createLogger({
   levels: logLevels.levels,
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- An empty LOG_LEVEL must fall back to the default too
   level: process.env.LOG_LEVEL || "debug",
   transports: getTransports(process.env.NODE_ENV),
 }) as winston.Logger & {

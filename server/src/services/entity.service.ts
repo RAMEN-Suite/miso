@@ -3,6 +3,8 @@ import Neo4jDriver from "../database/neo4j.js";
 import { EntityNode, NodeSearchParams, PaginationResult } from "../models/types.js";
 import { toNativeTypes } from "../utils/helper.js";
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+
 export default class EntityService {
   /**
    * Retrieves a paginated list of Entity nodes whose `label` property contains the search string.
@@ -49,9 +51,9 @@ export default class EntityService {
       Neo4jDriver.runQuery(dataQuery, queryParams),
     ]);
 
-    const totalRecords: number = countResult.records[0]?.get("totalRecords") || 0;
+    const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: EntityNode[] = dataResult.records[0]?.get("entities") || [];
+    const rawData: EntityNode[] = dataResult.records[0]?.get("entities") ?? [];
     const data: EntityNode[] = rawData.map((e) => toNativeTypes(e)) as EntityNode[];
 
     return {
@@ -86,6 +88,6 @@ export default class EntityService {
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeLabel, searchStr });
 
-    return result.records[0]?.get("entities");
+    return result.records[0]?.get("entities") as EntityNode[];
   }
 }

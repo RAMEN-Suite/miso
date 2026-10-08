@@ -3,6 +3,8 @@ import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import { TextNode, CollectionNode, NetworkPostData, NodeDto } from "../models/types.js";
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+
 /**
  * Service class for managing network operations on Collections and Text nodes.
  * Provides functionality to copy, move, delete, and dereference nodes within collection hierarchies.
@@ -47,13 +49,11 @@ export default class NetworkService {
   /**
    * Deletes the given nodes, including their subgraph. Not yet implemented.
    *
-   * @param {NetworkPostData} data - The data containing the nodes to delete and the origin collection.
-   * @return {Promise<any>} A promise that resolves to an empty array.
+   * @param {NetworkPostData} _data - The data containing the nodes to delete and the origin collection.
+   * @return {Promise<(CollectionNode | TextNode)[]>} A promise that resolves to an empty array.
    */
-  async deleteNodes(data: NetworkPostData): Promise<any> {
-    const { type, nodes, origin, target } = data;
-
-    return [];
+  deleteNodes(_data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {
+    return Promise.resolve([]);
   }
 
   /**
@@ -62,7 +62,7 @@ export default class NetworkService {
    * @param {NetworkPostData} data - The data containing the nodes to dereference and the origin collection.
    * @return {Promise<(CollectionNode | TextNode)[]>} A promise that resolves to an array of the dereferenced nodes.
    */
-  async dereferenceNodes(data: NetworkPostData): Promise<any> {
+  async dereferenceNodes(data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {
     const { nodes, origin } = data;
 
     if (!origin) {
@@ -101,7 +101,7 @@ export default class NetworkService {
    * @param {NetworkPostData} data - The data containing the nodes to move and the origin and target collections.
    * @return {Promise<(CollectionNode | TextNode)[]>} A promise that resolves to an array of the moved nodes.
    */
-  async moveNodes(data: NetworkPostData): Promise<any> {
+  async moveNodes(data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {
     const { nodes, origin, target } = data;
 
     if (!target || !origin) {

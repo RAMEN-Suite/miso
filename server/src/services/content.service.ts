@@ -7,6 +7,8 @@ import { toNativeTypes } from "../utils/helper.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+
 export default class ContentService {
   /**
    * Retrieves a paginated list of Text nodes whose `text` property contains the search string.
@@ -53,9 +55,9 @@ export default class ContentService {
       Neo4jDriver.runQuery(dataQuery, queryParams),
     ]);
 
-    const totalRecords: number = countResult.records[0]?.get("totalRecords") || 0;
+    const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: TextNode[] = dataResult.records[0]?.get("texts") || [];
+    const rawData: TextNode[] = dataResult.records[0]?.get("texts") ?? [];
     const data: TextNode[] = rawData.map((t) => toNativeTypes(t)) as TextNode[];
 
     return {

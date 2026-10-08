@@ -22,7 +22,7 @@ router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => 
 
 router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
   const uuid: string = parseUuidFrom(req.params, ["uuid"]);
-  const data: NodeStatusObject = req.body;
+  const data: NodeStatusObject = req.body as NodeStatusObject;
 
   try {
     const updatedCollection: NodeDto<CollectionNode> = await collectionService.updateCollection(uuid, data);

@@ -2,17 +2,20 @@ import { QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import { toNativeTypes } from "../utils/helper.js";
 import { NodeDto } from "../models/types.js";
+import InternalServerError from "../errors/server.error.js";
 
-type FlatAnnotationTree = {
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+
+interface FlatAnnotationTree {
   rootUuid: string;
   annotationNodes: AnnotationNodeRecord[];
   edges: AnnotationRecordEdge[];
-};
+}
 type AnnotationNodeRecord = NodeDto;
-type AnnotationRecordEdge = {
+interface AnnotationRecordEdge {
   startUuid: string;
   endUuid: string;
-};
+}
 
 export default class AnnotationService {
   /**
@@ -41,7 +44,11 @@ export default class AnnotationService {
       });
 
       const buildNestedDto = (uuid: string): NodeDto => {
-        const root: NodeDto = nodeMap.get(uuid)!;
+        const root: NodeDto | undefined = nodeMap.get(uuid);
+
+        if (!root) {
+          throw new InternalServerError(`Annotation ${uuid} is referenced by an edge but missing from its tree`);
+        }
 
         // Current root node
         const nodeData = {

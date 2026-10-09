@@ -3,7 +3,8 @@ import { IAnnotation } from "../models/IAnnotation";
 import { Annotation, BuiltinStructuralType, DocAnnotation, IndexMap, NodeStatus, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import { cloneDeep } from "../utils/helper/helper";
+import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
+import { cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import { collectSemanticBlocks, toAnnotation } from "../utils/helper/tiptapHelper";
 import { useCreateIndexMaps } from "./useCreateIndexMaps";
 
@@ -16,7 +17,7 @@ import { useCreateIndexMaps } from "./useCreateIndexMaps";
  * - semantic blocks in the `_semanticBlocks` attribute of the block nodes they wrap.
  *
  * Every collector works the same way: each annotation that is currently in the editor gets its live
- * indices, text and status, and every annotation that was part of the last saved state but is gone
+ * indices, text and status and is reduced to the properties configured in the guidelines, and every annotation that was part of the last saved state but is gone
  * from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
  *
  * Requires an initialised tiptap editor when `collectAnnotationChanges` is called.
@@ -26,10 +27,12 @@ export function useCollectAnnotationChanges() {
 
   const {
     getAnnotationBehaviour,
+    getAnnotationFields,
     getAnnotationType,
     getEditorOwnedProperties,
     getStructuralAnnotationConfig,
     isBuiltinStructuralType,
+    isConfiguredAnnotationType,
     isZeroPoint,
   } = useGuidelinesStore();
 
@@ -54,8 +57,12 @@ export function useCollectAnnotationChanges() {
 
     const editorOwned = getEditorOwnedProperties(annotationType);
 
-    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones.
-    const fields: PropertyConfig[] = getStructuralAnnotationConfig(annotationType)?.properties ?? [];
+    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only configured properties
+    // are taken: the ones of the structural type itself and the `system` and `base` ones every annotation has.
+    const fields: PropertyConfig[] = [
+      ...(getStructuralAnnotationConfig(annotationType)?.properties ?? []),
+      ...getAnnotationFields(annotationType),
+    ];
 
     fields.forEach((field: PropertyConfig) => {
       if (editorOwned.some((map) => map.property === field.name)) {
@@ -175,6 +182,8 @@ export function useCollectAnnotationChanges() {
         delete cloned.node.data.isZeroPoint;
       }
 
+      pruneAnnotationData(cloned);
+
       if (cloned.meta.status !== "created" && (hasNewRange || hasChangedText)) {
         cloned.meta.status = "modified";
       }
@@ -208,6 +217,7 @@ export function useCollectAnnotationChanges() {
       const annotation: Annotation = toAnnotation(entry, status);
 
       stampRange(annotation, range, plainText);
+      pruneAnnotationData(annotation);
 
       affected.push(annotation);
     });
@@ -283,6 +293,25 @@ export function useCollectAnnotationChanges() {
    */
   function isStructureElement(node: DocNode): boolean {
     return node.type.isBlock || node.type.name === "hardBreak";
+  }
+
+  /**
+   * Removes all properties from the given annotation that are not configured in the guidelines, in place.
+   * Used for inline annotations and semantic blocks, whose data are sent as they are stored in the editor.
+   *
+   * Annotations of an unconfigured type are left untouched unless {@link PRUNE_UNCONFIGURED_ANNOTATION_TYPES} is set.
+   *
+   * @param {Annotation} annotation - The (cloned) annotation to prune.
+   * @returns {void} This function does not return any value.
+   */
+  function pruneAnnotationData(annotation: Annotation): void {
+    const type: string = annotation.node.data.type;
+
+    if (!isConfiguredAnnotationType(type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+      return;
+    }
+
+    pruneUnconfiguredProperties(annotation.node.data, getAnnotationFields(type), INTRINSIC_ANNOTATION_PROPERTIES);
   }
 
   /**

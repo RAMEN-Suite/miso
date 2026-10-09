@@ -20,7 +20,9 @@ import {
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
+  pruneUnconfiguredProperties,
 } from "../utils/helper/helper";
+import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -422,15 +424,18 @@ function updateView() {
  * @returns {void} This function does not return any value.
  */
 function removeUnnecessaryDataBeforeSave(): void {
-  const configuredFieldNames: string[] = getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).map(
-    (f) => f.name,
-  );
+  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
-    if (!configuredFieldNames.includes(key) && key !== "uuid") {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
-      delete temporaryWorkData.value.collection.node.data[key];
+  pruneUnconfiguredProperties(temporaryWorkData.value.collection.node.data, getCollectionConfigFields(nodeLabels), ["uuid"]);
+
+  temporaryWorkData.value.annotations.forEach((a: Annotation) => {
+    const type: string = a.node.data.type;
+
+    if (!getCollectionAnnotationConfig(nodeLabels, type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+      return;
     }
+
+    pruneUnconfiguredProperties(a.node.data, getCollectionAnnotationFields(nodeLabels, type), INTRINSIC_ANNOTATION_PROPERTIES);
   });
 }
 

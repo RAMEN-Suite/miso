@@ -173,6 +173,31 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 }
 
 /**
+ * Removes all properties from the given node data that are not configured in the guidelines, in place.
+ *
+ * Is pplied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
+ *
+ * @param {Record<string, unknown>} data - The node data to prune. Is mutated in place.
+ * @param {PropertyConfig[]} fields - The properties configured for the node.
+ * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are configured or not.
+ * @returns {void} This function does not return any value.
+ */
+export function pruneUnconfiguredProperties(
+  data: Record<string, unknown>,
+  fields: PropertyConfig[],
+  intrinsic: readonly string[],
+): void {
+  const allowed = new Set<string>([...fields.map((f) => f.name), ...intrinsic]);
+
+  Object.keys(data).forEach((key: string) => {
+    if (!allowed.has(key)) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
+      delete data[key];
+    }
+  });
+}
+
+/**
  * Creates a new, not yet persisted Entity node wrapped in a node status object, ready to be filled in by the user.
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.

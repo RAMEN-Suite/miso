@@ -10,12 +10,16 @@ import { AddAnnotationStep } from "./addAnnotationStep";
  * indirection is that ProseMirror's history plugin only records `tr.steps`, not plugin state.
  * By placing the annotation data into an actual step, the history plugin records it and calls
  * `invert()` on undo, producing an {@link AddAnnotationStep} that the plugin then acts on.
+ *
+ * The positions are deliberately not named `from`/`to`: tiptap's `getChangedRanges` treats every step
+ * without a step map but with `from`/`to` fields as a changed document range, which breaks extensions
+ * relying on it (e.g. UniqueID) on undo/redo.
  */
 export class RemoveAnnotationStep extends Step {
   constructor(
     readonly annotation: AnnotationNode,
-    readonly from: number,
-    readonly to: number,
+    readonly annotationFrom: number,
+    readonly annotationTo: number,
   ) {
     super();
   }
@@ -27,12 +31,12 @@ export class RemoveAnnotationStep extends Step {
 
   invert(): AddAnnotationStep {
     // Returns the opposite step
-    return new AddAnnotationStep(this.annotation, this.from, this.to);
+    return new AddAnnotationStep(this.annotation, this.annotationFrom, this.annotationTo);
   }
 
   map(mapping: Mapping): RemoveAnnotationStep {
-    const from: number = mapping.map(this.from);
-    const to: number = mapping.map(this.to);
+    const from: number = mapping.map(this.annotationFrom);
+    const to: number = mapping.map(this.annotationTo);
 
     return new RemoveAnnotationStep(this.annotation, from, to);
   }
@@ -43,8 +47,8 @@ export class RemoveAnnotationStep extends Step {
     return {
       stepType: "removeAnnotation",
       annotation: this.annotation,
-      from: this.from,
-      to: this.to,
+      from: this.annotationFrom,
+      to: this.annotationTo,
     };
   }
 

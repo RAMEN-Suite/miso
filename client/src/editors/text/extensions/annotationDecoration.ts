@@ -332,9 +332,9 @@ export const AnnotationDecoration = Extension.create({
             // Loop over transaction steps to discover if any of them are AddAnnotationStep/RemoveAnnotationStep.
             for (const step of tr.steps) {
               if (step instanceof AddAnnotationStep) {
-                const { from, to, annotation } = step;
+                const { annotationFrom, annotationTo, annotation } = step;
 
-                const newDeco: Decoration = createDecoration(from, to, annotation);
+                const newDeco: Decoration = createDecoration(annotationFrom, annotationTo, annotation);
 
                 newAll = newAll.add(doc, [newDeco]);
                 decorationsChanged = true;

@@ -187,12 +187,6 @@ function getEmptyNodes(): DocNode[] {
   return emptyNodes;
 }
 
-export interface EdgeDescriptor {
-  type: string;
-  startUuid: string;
-  endUuid: string;
-}
-
 async function handleSaveChanges(): Promise<void> {
   if (!tiptap.value) {
     return;

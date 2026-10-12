@@ -435,12 +435,6 @@ export interface Range {
   to: number;
 }
 
-export interface RedrawModeOptions {
-  direction: "on" | "off";
-  cause?: "success" | "cancel";
-  annotationUuid?: string;
-}
-
 export interface SemanticBlockRange {
   startPos: number;
   endPos: number;

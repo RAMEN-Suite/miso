@@ -79,7 +79,7 @@ function sync(): void {
  */
 function addRow(): void {
   const property: PropertyConfig | undefined = availableProperties[0];
-  const comparators: FilterComparator[] = availableComparators(property?.type ?? "string", property?.options);
+  const comparators: FilterComparator[] = availableComparators(property);
 
   rows.value.push({
     id: crypto.randomUUID(),

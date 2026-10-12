@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
+import { isDuration, isInt, types } from "neo4j-driver";
 import {
   CursorData,
   FilterSpec,
@@ -10,6 +10,7 @@ import {
   PropertyConfig,
 } from "../models/types.js";
 import { parseFilterSpec, parseFilterTarget } from "./filter.js";
+import { isArray, isInteger } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
@@ -357,10 +358,6 @@ export function valueToNativeType(value: unknown): unknown {
     value = value.map((innerValue) => valueToNativeType(innerValue));
   } else if (isInt(value)) {
     value = value.toNumber();
-  } else if (isDate(value) || isDateTime(value) || isLocalDateTime(value)) {
-    value = value.toStandardDate();
-  } else if (isLocalTime(value) || isTime(value)) {
-    value = value.toString();
   } else if (isDuration(value)) {
     value = value.toString();
   } else if (typeof value === "object" && value !== undefined && value !== null) {
@@ -373,7 +370,7 @@ export function valueToNativeType(value: unknown): unknown {
 /**
  * Convert JavaScript types back into Neo4j Properties, using the provided configuration. This conversion direction
  * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
- * (e.g. dates, date times and times are always strings in JavaScript).
+ * (e.g. integers and floats are both numbers in JavaScript).
  *
  * @param {object} properties
  * @param {PropertyConfig[]} fields
@@ -393,7 +390,7 @@ export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Reco
 /**
  * Convert an individual value to its Neo4j equivalent, using the provided configuration. This conversion direction
  * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
- * (e.g. dates, date times and times are always strings in JavaScript).
+ * (e.g. integers and floats are both numbers in JavaScript).
  *
  * @param {unknown} value
  * @param {Partial<PropertyConfig> | undefined} config
@@ -415,7 +412,7 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
   }
 
   // Call function recursively when needed if data type is array
-  if (config.type === "array") {
+  if (isArray(config)) {
     const items: unknown[] = Array.isArray(value) ? value : [];
 
     if (items.length === 0) {
@@ -434,7 +431,7 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     }
   }
 
-  if (config.type === "integer") {
+  if (isInteger(config)) {
     if (valueIsNull) {
       if (!isRequired) {
         return null;
@@ -444,61 +441,9 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     } else {
       return types.Integer.fromValue(value as number | string);
     }
-  } else if (config.type === "number") {
-    return value;
-  } else if (config.type === "string") {
-    return value;
-  } else if (config.type === "date") {
-    if (valueIsNull && !isRequired) {
-      return null;
-    } else {
-      return types.Date.fromStandardDate(new Date(value as string | number));
-    }
-  } else if (config.type === "date-time") {
-    if (valueIsNull && !isRequired) {
-      return null;
-    } else {
-      return types.DateTime.fromStandardDate(new Date(value as string | number));
-    }
-  } else if (config.type === "time") {
-    if (valueIsNull) {
-      if (!isRequired) {
-        return null;
-      } else {
-        return new types.LocalTime(0, 0, 0, 0);
-      }
-    } else {
-      // Needs more work since parsing can fail easily (Dates/Datetimes handle wrong values better)
-      try {
-        const items: number[] = (value as string).split(":").map((item: string) => {
-          const parsed: number = parseInt(item);
-
-          if (isNaN(parsed)) {
-            throw new Error(`Invalid time format: ${value}`);
-          }
-
-          return parsed;
-        });
-
-        const hours: number = items[0] ?? 0;
-        const minutes: number = items[1] ?? 0;
-        const seconds: number = items[2] ?? 0;
-
-        return new types.LocalTime(hours, minutes, seconds, 0);
-      } catch (e: unknown) {
-        console.error(`Failed to parse time from value "${value}":`, e);
-
-        // Same logic as above (no value/not required)
-        if (!isRequired) {
-          return null;
-        }
-
-        return new types.LocalTime(0, 0, 0, 0);
-      }
-    }
-  } else if (config.type === "boolean") {
-    return value;
   } else {
+    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates, date times
+    // and times are kept as raw strings (`YYYY-MM-DD`, ISO 8601, `HH:mm:ss`) instead of Neo4j temporals
     return value;
   }
 }

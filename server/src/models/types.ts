@@ -210,23 +210,23 @@ export interface PropertyConfig {
   required: boolean /* required or optional */;
   editable: boolean /* Editable by user */;
   visible: boolean /* Visible by user */;
-  /* Only relevant if type is "array" */
+  /* Only relevant if type is "Array" */
   items?: Partial<PropertyConfig>;
   minItems?: number;
   maxItems?: number;
-  /* Only relevant if type is "number"/"integer" */
+  /* Only relevant if type is "Float"/"Integer" */
   minimum?: number;
   maximum?: number;
   exclusiveMinimum?: number;
   exclusiveMaximum?: number;
-  /* Only relevant if type is "string" */
+  /* Only relevant if type is "String" */
   minLength?: number;
   maxLength?: number;
   options?: string[] | number[] /* Options if type is dropdown */;
   template?: PropertyConfigStringTemplate /* Render as normal input or textarea? */;
 }
 
-export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
+export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
 
 export type PropertyConfigStringTemplate = "input" | "textarea";
 

@@ -20,7 +20,7 @@ const rows: ComputedRef<PropertyRow[]> = computed(() => {
       .filter((field: PropertyConfig) => field.visible)
       .map((field: PropertyConfig) => ({
         name: camelCaseToTitleCase(field.name),
-        value: formatPropertyValue(props.data?.[field.name], field.type),
+        value: formatPropertyValue(props.data?.[field.name], field),
       }));
   }
 

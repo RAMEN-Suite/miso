@@ -4,18 +4,17 @@ import Select from "primevue/select";
 import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
-import DatePicker from "primevue/datepicker";
 import Button from "primevue/button";
-import { FilterComparator, FilterRow, FilterTarget, PropertyConfig, PropertyConfigDataType } from "../models/types";
+import { FilterComparator, FilterRow, FilterTarget, PropertyConfig } from "../models/types";
+import { availableComparators, COMPARATOR_LABELS, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
 import {
-  availableComparators,
-  COMPARATOR_LABELS,
-  NUMERIC_DATATYPES,
-  RANGE_COMPARATORS,
-  targetKey,
-  TEMPORAL_DATATYPES,
-  VALUELESS_COMPARATORS,
-} from "../config/filters";
+  getTemporalInputType,
+  isBoolean,
+  isNumeric,
+  isTemporal,
+  toStoredTemporal,
+  toTemporalInputValue,
+} from "../utils/helper/propertyTypeHelper";
 
 const props = defineProps<{
   properties: PropertyConfig[];
@@ -44,12 +43,10 @@ const config = computed<PropertyConfig | undefined>(() =>
     : undefined,
 );
 
-const datatype = computed<PropertyConfigDataType>(() => config.value?.type ?? "string");
-
 const enumOptions = computed<(string | number)[]>(() => config.value?.options ?? []);
 
 const comparatorOptions = computed<{ label: string; value: FilterComparator }[]>(() =>
-  availableComparators(datatype.value, config.value?.options).map((comparator: FilterComparator) => ({
+  availableComparators(config.value).map((comparator: FilterComparator) => ({
     label: COMPARATOR_LABELS[comparator],
     value: comparator,
   })),
@@ -57,8 +54,12 @@ const comparatorOptions = computed<{ label: string; value: FilterComparator }[]>
 
 const needsValue = computed<boolean>(() => !VALUELESS_COMPARATORS.includes(row.value.comparator));
 const isRange = computed<boolean>(() => RANGE_COMPARATORS.includes(row.value.comparator));
-const isTemporal = computed<boolean>(() => TEMPORAL_DATATYPES.includes(datatype.value));
-const isNumeric = computed<boolean>(() => NUMERIC_DATATYPES.includes(datatype.value));
+const hasTemporalValue = computed<boolean>(() => isTemporal(config.value));
+const hasNumericValue = computed<boolean>(() => isNumeric(config.value));
+const hasBooleanValue = computed<boolean>(() => isBoolean(config.value));
+
+/** The `type` attribute the native html `input` element expects */
+const temporalInputType = computed<"date" | "time" | "datetime-local">(() => getTemporalInputType(config.value));
 
 /**
  * Switches the row to another property. Both the comparator and the value are reset, since neither
@@ -70,7 +71,7 @@ const isNumeric = computed<boolean>(() => NUMERIC_DATATYPES.includes(datatype.va
 function handleTargetChange(key: string): void {
   const target: FilterTarget = { kind: "property", field: key };
   const nextConfig: PropertyConfig | undefined = props.properties.find((property: PropertyConfig) => property.name === key);
-  const comparators: FilterComparator[] = availableComparators(nextConfig?.type ?? "string", nextConfig?.options);
+  const comparators: FilterComparator[] = availableComparators(nextConfig);
 
   row.value = { ...row.value, target, comparator: comparators[0] ?? "equals", value: null };
 }
@@ -126,17 +127,6 @@ function boundAt(index: number): unknown {
   return Array.isArray(row.value.value) ? row.value.value[index] ?? null : null;
 }
 
-/**
- * The stored value as a `Date`, for the date picker. Temporal values are kept as ISO strings, which
- * is what the API expects.
- *
- * @param {unknown} value - The stored value.
- * @returns {Date | null} The date, or null when unset.
- */
-function toDate(value: unknown): Date | null {
-  return value ? new Date(value as string) : null;
-}
-
 const defaultProps = {
   title: "Value to test against",
   size: "small",
@@ -178,19 +168,21 @@ const defaultProps = {
     <div class="value flex gap-1">
       <template v-if="needsValue">
         <template v-if="isRange">
-          <DatePicker
-            v-if="isTemporal"
+          <InputText
+            v-if="hasTemporalValue"
             v-bind="defaultProps"
-            :model-value="toDate(boundAt(0))"
-            placeholder="From"
-            @update:model-value="setBound(0, ($event as Date)?.toISOString() ?? null)"
+            :type="temporalInputType"
+            step="1"
+            :model-value="toTemporalInputValue(boundAt(0) as string | null, config)"
+            @update:model-value="setBound(0, toStoredTemporal($event, config))"
           />
-          <DatePicker
-            v-if="isTemporal"
-            :model-value="toDate(boundAt(1))"
+          <InputText
+            v-if="hasTemporalValue"
             v-bind="defaultProps"
-            placeholder="To"
-            @update:model-value="setBound(1, ($event as Date)?.toISOString() ?? null)"
+            :type="temporalInputType"
+            step="1"
+            :model-value="toTemporalInputValue(boundAt(1) as string | null, config)"
+            @update:model-value="setBound(1, toStoredTemporal($event, config))"
           />
           <template v-else>
             <InputNumber
@@ -225,22 +217,23 @@ const defaultProps = {
           show-clear
           @update:model-value="setValue($event)"
         />
-        <DatePicker
-          v-else-if="isTemporal"
-          :model-value="toDate(row.value)"
+        <InputText
+          v-else-if="hasTemporalValue"
           v-bind="defaultProps"
-          placeholder="Date"
-          @update:model-value="setValue(($event as Date)?.toISOString() ?? null)"
+          :type="temporalInputType"
+          step="1"
+          :model-value="toTemporalInputValue(row.value as string | null, config)"
+          @update:model-value="setValue(toStoredTemporal($event, config))"
         />
         <InputNumber
-          v-else-if="isNumeric"
+          v-else-if="hasNumericValue"
           :model-value="row.value as number"
           v-bind="defaultProps"
           placeholder="Value"
           @update:model-value="setValue($event)"
         />
         <Select
-          v-else-if="datatype === 'boolean'"
+          v-else-if="hasBooleanValue"
           :model-value="row.value"
           :options="[
             { label: 'Yes', value: true },
@@ -263,15 +256,7 @@ const defaultProps = {
       </template>
     </div>
 
-    <Button
-      icon="icon-x"
-      severity="danger"
-      text
-      size="small"
-      title="Remove this rule"
-      class="shrink-0"
-      @click="emit('remove')"
-    />
+    <Button icon="icon-x" severity="danger" text size="small" title="Remove this rule" class="shrink-0" @click="emit('remove')" />
   </div>
 </template>
 

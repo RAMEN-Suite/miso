@@ -68,7 +68,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
     const baseNodeData: IAnnotation = {} as IAnnotation;
 
     fields.forEach((field: PropertyConfig) => {
-      baseNodeData[field.name] = field?.required ? getDefaultValueForProperty(field.type) : null;
+      baseNodeData[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
     });
 
     // Set explicitly after the fields are set to override default values if necessary

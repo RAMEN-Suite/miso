@@ -7,7 +7,7 @@ import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
-import { buildFilterCypher, datatypeOf, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
+import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
   FilterSpec,
   FilterTarget,
@@ -19,7 +19,6 @@ import {
   NodeUpdateObject,
   PaginationResult,
   PropertyConfig,
-  PropertyConfigDataType,
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
@@ -42,40 +41,6 @@ export interface HierarchyListOptions {
  * and the planned directory / tree views with the same endpoints.
  */
 export default class HierarchyService {
-  /**
-   * Creates the Cypher statement used for the sort key in the final query
-   *
-   * Dates are wrapped in `toString()`. This is because the cursor stores the sort value of the
-   * last row in JSON format — which has no date type. Therefore, the comparison value also must be
-   * a string to compare lexicographically. Otherwise, paging would break.
-   *
-   * @param {FilterTarget} sort - The validated sort target.
-   * @param {PropertyConfigDataType} datatype - The datatype the target compares as.
-   * @returns {string} A Cypher expression evaluating to the node's sort value.
-   * @example
-   * // Sorting by a node's "status" property:
-   * {
-   *   kind: "property",
-   *   field: "status"
-   * }
-   *
-   * // returns:
-   *
-   * `n.status`
-   *
-   * // and will be used in the final query as:
-   *
-   * `WITH n.status AS sortValue
-   *  ...
-   *  ORDER BY sortValue`
-   */
-  private sortValueExpression(sort: FilterTarget, datatype: PropertyConfigDataType): string {
-    const expression: string = targetExpression(sort);
-    const isTemporal: boolean = datatype === "date" || datatype === "date-time" || datatype === "time";
-
-    return isTemporal ? `toString(${expression})` : expression;
-  }
-
   /**
      * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID.
      *
@@ -201,7 +166,7 @@ export default class HierarchyService {
     }
 
     const op: "<" | ">" = orderDirection(order);
-    const sortValue: string = this.sortValueExpression(sort, datatypeOf(sort, properties));
+    const sortValue: string = targetExpression(sort);
     const scopeMatch: string = this.scopeMatchClause(scope);
 
     const { clause: filterClause, params: filterParams } = buildFilterCypher(filters, properties);

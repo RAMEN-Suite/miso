@@ -22,6 +22,7 @@ import {
   pruneDeletedNodes,
   pruneUnconfiguredProperties,
 } from "../utils/helper/helper";
+import { isArray } from "../utils/helper/propertyTypeHelper";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
@@ -191,7 +192,7 @@ function enrichCollectionData(): void {
 
   allPossibleFields.forEach((field) => {
     if (!(field.name in temporaryWorkData.value.collection.node.data)) {
-      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field.type) : null;
+      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
     }
   });
 }
@@ -556,7 +557,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                 v-for="field in collectionFields"
                 :key="field.name"
                 class="properties-row"
-                :class="{ 'is-multiline': mode === 'edit' && field.type === 'array' }"
+                :class="{ 'is-multiline': mode === 'edit' && isArray(field) }"
               >
                 <td class="properties-label">
                   <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
@@ -564,10 +565,10 @@ function showMessage(result: "success" | "error", error?: Error) {
                 </td>
                 <td class="properties-value">
                   <span v-if="mode === 'view'" class="properties-text">{{
-                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field.type)
+                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field)
                   }}</span>
                   <DataInputGroup
-                    v-else-if="field.type === 'array'"
+                    v-else-if="isArray(field)"
                     v-model="temporaryWorkData.collection.node.data[field.name]"
                     :config="field"
                     :mode="mode"

@@ -41,7 +41,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [
       {
         name: "level",
-        type: "number",
+        type: "Integer",
         minimum: 1,
         maximum: 6,
         required: true,
@@ -106,8 +106,8 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     topLevel: false,
     priority: 70,
     properties: [
-      { name: "rowspan", type: "number", required: true, editable: true, visible: true },
-      { name: "colspan", type: "number", required: true, editable: true, visible: true },
+      { name: "rowspan", type: "Integer", required: true, editable: true, visible: true },
+      { name: "colspan", type: "Integer", required: true, editable: true, visible: true },
     ],
     shortcut: [],
     text: "",
@@ -123,8 +123,8 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     topLevel: false,
     priority: 70,
     properties: [
-      { name: "rowspan", type: "number", required: true, editable: true, visible: true },
-      { name: "colspan", type: "number", required: true, editable: true, visible: true },
+      { name: "rowspan", type: "Integer", required: true, editable: true, visible: true },
+      { name: "colspan", type: "Integer", required: true, editable: true, visible: true },
     ],
     shortcut: [],
     text: "",

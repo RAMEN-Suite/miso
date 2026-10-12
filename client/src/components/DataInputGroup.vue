@@ -27,9 +27,9 @@ const maxItems: number | null | undefined = props.config.maxItems;
  */
 function handleAddItem(): void {
   if (!modelValue.value) {
-    modelValue.value = [getDefaultValueForProperty(props.config.items.type)];
+    modelValue.value = [getDefaultValueForProperty(props.config.items)];
   } else {
-    modelValue.value.push(getDefaultValueForProperty(props.config.items.type));
+    modelValue.value.push(getDefaultValueForProperty(props.config.items));
   }
 }
 

@@ -411,22 +411,22 @@ export interface PropertyConfig {
   /** Render as normal input or textarea? */
   template?: PropertyConfigStringTemplate; // Miso;
   // The rest here is Miso
-  /* Only relevant if type is "array" */
+  /* Only relevant if type is "Array" */
   items?: Partial<PropertyConfig>;
   minItems?: number;
   maxItems?: number;
-  /* Only relevant if type is "number"/"integer" */
+  /* Only relevant if type is "Float"/"Integer" */
   minimum?: number;
   maximum?: number;
   exclusiveMinimum?: number;
   exclusiveMaximum?: number;
-  /* Only relevant if type is "string" */
+  /* Only relevant if type is "String" */
   minLength?: number;
   maxLength?: number;
   options?: string[] | number[] /* Options if type is dropdown */;
 }
 
-export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
+export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
 
 export type PropertyConfigStringTemplate = "input" | "textarea";
 

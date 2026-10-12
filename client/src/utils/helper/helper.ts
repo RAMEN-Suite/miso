@@ -1,6 +1,5 @@
 import {
   NodeDto,
-  PropertyConfigDataType,
   TextNode,
   NodeStatusObject,
   NodeStatus,
@@ -16,6 +15,7 @@ import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { useGuidelinesStore } from "../../store/guidelines";
 import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
+import { isArray, isBoolean, isDate, isDateTime, isNumeric, isString, isTime } from "./propertyTypeHelper";
 
 const { getAnnotationType } = useGuidelinesStore();
 
@@ -323,19 +323,19 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * Formats a raw property value for read-only display. When a field's configured type is known it is used,
+ * Formats a raw property value for read-only display. When a field's config is known its type is used,
  * otherwise the type is derived from the raw value itself (e.g. for untyped/unconfigured node properties).
  *
  * @param {unknown} value - The raw property value.
- * @param {PropertyConfigDataType} [type] - The configured type of the property, if known.
+ * @param {Partial<PropertyConfig>} [config] - The config of the property, if known.
  * @returns {string} The formatted, human-readable value.
  */
-export function formatPropertyValue(value: unknown, type?: PropertyConfigDataType): string {
+export function formatPropertyValue(value: unknown, config?: Partial<PropertyConfig>): string {
   if (value === null || value === undefined || value === "") {
     return "—";
   }
 
-  if (type === "array" || Array.isArray(value)) {
+  if (isArray(config) || Array.isArray(value)) {
     return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
   }
 
@@ -468,38 +468,32 @@ export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
 }
 
 /**
- * Returns a default value based on the data type.
+ * Returns a default value based on the data type of a property.
  *
  * Used during import, editing and saving of Collections or Annotations.
  *
- * @param {PropertyConfigDataType} type - The data type.
+ * @param {Partial<PropertyConfig>} config - The config of the property.
  * @return {unknown} The appropriate default value for the data type.
  */
-export function getDefaultValueForProperty(type: PropertyConfigDataType): unknown {
-  switch (type) {
-    case "boolean":
-      return false;
-    case "date": {
-      const today: Date = new Date();
-      const year: number = today.getUTCFullYear();
-      const month: number = today.getUTCMonth();
-      const day: number = today.getUTCDate();
-      return new Date(Date.UTC(year, month, day, 0, 0, 0)).toISOString();
-    }
-    case "date-time":
-      return new Date().toISOString();
-    case "integer":
-      return 0;
-    case "number":
-      return 0;
-    case "string":
-      return "";
-    case "time":
-      return "00:00:00";
-    case "array":
-      return [];
-    default:
-      return null;
+export function getDefaultValueForProperty(config: Partial<PropertyConfig>): unknown {
+  if (isBoolean(config)) {
+    return false;
+  } else if (isDate(config)) {
+    // Today (UTC) as YYYY-MM-DD
+    return new Date().toISOString().slice(0, 10);
+  } else if (isDateTime(config)) {
+    // Now (UTC), cut to whole seconds like the values the inputs produce
+    return `${new Date().toISOString().slice(0, 19)}.000Z`;
+  } else if (isNumeric(config)) {
+    return 0;
+  } else if (isString(config)) {
+    return "";
+  } else if (isTime(config)) {
+    return "00:00:00";
+  } else if (isArray(config)) {
+    return [];
+  } else {
+    return null;
   }
 }
 

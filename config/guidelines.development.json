@@ -1,13 +1,13 @@
 {
   "texts": {
-    "additionalLabels": []
+    "additionalLabels": ["Text"]
   },
   "collections": {
     "properties": {
       "system": [
         {
           "name": "label",
-          "type": "string",
+          "type": "String",
           "required": true,
           "editable": true,
           "visible": false
@@ -22,7 +22,35 @@
         "properties": [
           {
             "name": "status",
-            "type": "string",
+            "type": "String",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "sent",
+            "type": "Date",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "received",
+            "type": "Date",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "time",
+            "type": "Time",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "isValidLetter",
+            "type": "Boolean",
             "required": false,
             "editable": true,
             "visible": true
@@ -32,34 +60,38 @@
           "types": [
             {
               "type": "sentPerson",
+              "isBlock": false,
               "category": "none",
               "defaultSelected": true,
               "isZeroPoint": false,
               "hasEntities": true,
               "entityNodes": ["Person"],
-              "hasAdditionalTexts": true
+              "hasAdditionalTexts": true,
+              "properties": []
             },
             {
               "type": "receivedPerson",
+              "isBlock": false,
               "category": "none",
               "defaultSelected": true,
               "isZeroPoint": false,
               "hasEntities": true,
               "entityNodes": ["Person"],
-              "hasAdditionalTexts": true
+              "hasAdditionalTexts": true,
+              "properties": []
             }
           ],
           "properties": [
             {
               "name": "type",
-              "type": "string",
+              "type": "String",
               "required": true,
               "editable": false,
               "visible": true
             },
             {
               "name": "name",
-              "type": "string",
+              "type": "String",
               "required": true,
               "editable": true,
               "visible": true
@@ -72,7 +104,13 @@
       {
         "additionalLabel": "Manuscript",
         "level": "secondary",
-        "properties": []
+        "properties": [],
+        "annotations": {
+          "types": [],
+          "properties": [],
+          "entities": [],
+          "additionalTexts": []
+        }
       }
     ],
     "annotations": {
@@ -88,7 +126,93 @@
   "annotations": {
     "types": [
       {
+        "type": "p",
+        "editorRole": "paragraph",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
+        "type": "head",
+        "editorRole": "heading",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "hasAdditionalTexts": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
+        "type": "row",
+        "editorRole": "tableRow",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
+        "type": "lb",
+        "editorRole": "hardBreak",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "zeroPoint"
+      },
+      {
+        "type": "cell",
+        "editorRole": "tableCell",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
+        "type": "list",
+        "editorRole": "bulletList",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
+        "type": "item",
+        "editorRole": "listItem",
+        "isBlock": true,
+        "category": "structure",
+        "defaultSelected": true,
+        "shortcut": [],
+        "text": "",
+        "properties": [],
+        "role": "structure",
+        "behaviour": "range"
+      },
+      {
         "type": "emphasised",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
@@ -96,24 +220,31 @@
         "properties": [
           {
             "name": "subType",
-            "type": "string",
+            "type": "String",
             "options": ["rubricated", "initial", "underlined", "italic", "bold", "smallCaps"],
             "required": true,
             "editable": true,
             "visible": true
           }
-        ]
+        ],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "expansion",
+        "isBlock": false,
+        "shortcut": ["Ctrl", "Shift", "E"],
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasAdditionalTexts": true,
-        "shortcut": ["Ctrl", "Shift", "E"]
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "nonLinear",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
@@ -121,16 +252,19 @@
         "properties": [
           {
             "name": "subType",
-            "type": "string",
+            "type": "String",
             "options": ["aboveLine", "belowLine", "marginNote"],
             "required": true,
             "editable": true,
             "visible": true
           }
-        ]
+        ],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "correction",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
@@ -138,155 +272,74 @@
         "properties": [
           {
             "name": "subType",
-            "type": "string",
+            "type": "String",
             "options": ["inPlace", "inRasura"],
             "required": true,
             "editable": true,
             "visible": true
           }
-        ]
+        ],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "deleted",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": true,
-        "hasAdditionalTexts": true
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "zeroPoint"
       },
       {
         "type": "unclear",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
-        "hasAdditionalTexts": true
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "repeated",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
-        "hasAdditionalTexts": true
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "gap",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
-        "hasAdditionalTexts": true
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "additionLaterHand",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
-        "hasAdditionalTexts": true
-      },
-      {
-        "type": "head",
-        "category": "layout",
-        "defaultSelected": true,
-        "isZeroPoint": false,
-        "hasAdditionalTexts": true
-      },
-      {
-        "type": "line",
-        "category": "layout",
-        "defaultSelected": false,
-        "isZeroPoint": false,
-        "shortcut": ["Ctrl", "Shift", "L"],
         "hasAdditionalTexts": true,
-        "properties": [
-          {
-            "name": "page",
-            "type": "string",
-            "required": false,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "url",
-            "type": "string",
-            "required": false,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "firstLineOfColumn",
-            "type": "boolean",
-            "required": true,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "lastLineOfColumn",
-            "type": "boolean",
-            "required": true,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "firstLineOfPage",
-            "type": "boolean",
-            "required": true,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "lastLineOfPage",
-            "type": "boolean",
-            "required": true,
-            "editable": true,
-            "visible": true
-          }
-        ]
-      },
-      {
-        "type": "pb",
-        "category": "layout",
-        "defaultSelected": true,
-        "isZeroPoint": true,
-        "hasAdditionalTexts": false,
-        "properties": [
-          {
-            "name": "page",
-            "type": "string",
-            "required": false,
-            "editable": true,
-            "visible": true
-          },
-          {
-            "name": "url",
-            "type": "string",
-            "required": false,
-            "editable": true,
-            "visible": true
-          }
-        ]
-      },
-      {
-        "type": "cb",
-        "category": "layout",
-        "defaultSelected": true,
-        "isZeroPoint": true,
-        "hasAdditionalTexts": false,
-        "properties": []
-      },
-      {
-        "type": "transposition",
-        "category": "layout",
-        "defaultSelected": true,
-        "isZeroPoint": false,
-        "hasAdditionalTexts": true
-      },
-      {
-        "type": "commentary",
-        "category": "project",
-        "defaultSelected": true,
-        "isZeroPoint": false,
-        "hasAdditionalTexts": true
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "sic",
+        "isBlock": false,
         "category": "edition",
         "defaultSelected": true,
         "isZeroPoint": false,
@@ -295,7 +348,7 @@
         "properties": [
           {
             "name": "subType",
-            "type": "string",
+            "type": "String",
             "options": ["corr", "conj", "reg"],
             "required": true,
             "editable": true,
@@ -303,100 +356,170 @@
           },
           {
             "name": "corrected",
-            "type": "string",
+            "type": "String",
             "required": false,
             "editable": false,
             "visible": true
           },
           {
             "name": "description",
-            "type": "string",
+            "type": "String",
             "template": "textarea",
             "required": false,
             "editable": false,
             "visible": true
           }
-        ]
+        ],
+        "role": "inline",
+        "behaviour": "range"
+      },
+      {
+        "type": "line",
+        "isBlock": false,
+        "shortcut": ["Ctrl", "Shift", "L"],
+        "category": "layout",
+        "defaultSelected": false,
+        "isZeroPoint": false,
+        "hasAdditionalTexts": true,
+        "properties": [
+          {
+            "name": "page",
+            "type": "String",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "url",
+            "type": "String",
+            "required": false,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "firstLineOfColumn",
+            "type": "Boolean",
+            "required": true,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "lastLineOfColumn",
+            "type": "Boolean",
+            "required": true,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "firstLineOfPage",
+            "type": "Boolean",
+            "required": true,
+            "editable": true,
+            "visible": true
+          },
+          {
+            "name": "lastLineOfPage",
+            "type": "Boolean",
+            "required": true,
+            "editable": true,
+            "visible": true
+          }
+        ],
+        "role": "inline",
+        "behaviour": "range"
+      },
+      {
+        "type": "transposition",
+        "isBlock": false,
+        "category": "layout",
+        "defaultSelected": true,
+        "isZeroPoint": false,
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "person",
+        "isBlock": false,
         "category": "entities",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["Person", "Group", "Role"],
         "hasAdditionalTexts": true,
-        "properties": []
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "place",
+        "isBlock": false,
         "category": "entities",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["Place"],
         "hasAdditionalTexts": true,
-        "properties": []
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "event",
+        "isBlock": false,
         "category": "entities",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["Event"],
         "hasAdditionalTexts": true,
-        "properties": []
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "concept",
+        "isBlock": false,
         "category": "entities",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["Concept"],
         "hasAdditionalTexts": true,
-        "properties": []
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "imagery",
+        "isBlock": false,
         "category": "entities",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["Imagery"],
         "hasAdditionalTexts": true,
-        "properties": []
-      },
-      {
-        "type": "selfReference",
-        "category": "sources",
-        "defaultSelected": true,
-        "isZeroPoint": false,
-        "hasEntities": true,
-        "entityNodes": ["LiteratureTitle"],
-        "hasAdditionalTexts": true,
-        "properties": [
-          {
-            "name": "citation",
-            "type": "string",
-            "required": false,
-            "editable": true,
-            "visible": true
-          }
-        ]
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "biblePassage",
+        "isBlock": false,
         "category": "sources",
         "defaultSelected": true,
         "isZeroPoint": false,
         "hasEntities": true,
         "entityNodes": ["BiblePassage"],
-        "hasAdditionalTexts": true
+        "hasAdditionalTexts": true,
+        "properties": [],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
         "type": "literatureReference",
+        "isBlock": false,
         "category": "sources",
         "defaultSelected": true,
         "isZeroPoint": false,
@@ -406,117 +529,60 @@
         "properties": [
           {
             "name": "citation",
-            "type": "string",
+            "type": "String",
             "required": false,
             "editable": true,
             "visible": true
           }
-        ]
+        ],
+        "role": "inline",
+        "behaviour": "range"
       },
       {
-        "type": "paragraph",
-        "isBlock": true,
-        "contains": [],
-        "topLevel": true,
-        "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
-      },
-      {
-        "type": "heading",
-        "isBlock": true,
-        "contains": [],
-        "topLevel": true,
+        "type": "selfReference",
+        "isBlock": false,
+        "category": "sources",
+        "defaultSelected": true,
+        "isZeroPoint": false,
+        "hasEntities": true,
+        "entityNodes": ["LiteratureTitle"],
+        "hasAdditionalTexts": true,
         "properties": [
           {
-            "name": "level",
-            "type": "number",
-            "minimum": 1,
-            "maximum": 6,
-            "required": true,
+            "name": "citation",
+            "type": "String",
+            "required": false,
             "editable": true,
             "visible": true
           }
         ],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
+        "role": "inline",
+        "behaviour": "range"
       },
       {
-        "type": "hardBreak",
-        "isBlock": true,
-        "contains": [],
-        "topLevel": false,
-        "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
-      },
-      {
-        "type": "div",
-        "isBlock": true,
-        "contains": ["div"],
-        "topLevel": false,
-        "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
+        "type": "commentary",
+        "isBlock": false,
+        "category": "project",
         "defaultSelected": true,
-        "priority": 100
-      },
-      {
-        "type": "closer",
-        "isBlock": true,
-        "contains": ["dateline", "salute", "addrLine", "address"],
-        "topLevel": true,
-        "priority": 40,
+        "isZeroPoint": false,
+        "hasAdditionalTexts": true,
         "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
-      },
-      {
-        "type": "address",
-        "isBlock": true,
-        "contains": ["addrLine"],
-        "topLevel": false,
-        "priority": 50,
-        "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
-      },
-      {
-        "type": "addrLine",
-        "isBlock": true,
-        "contains": [],
-        "topLevel": false,
-        "priority": 40,
-        "properties": [],
-        "shortcut": [],
-        "text": "",
-        "category": "structure",
-        "defaultSelected": true
+        "role": "inline",
+        "behaviour": "range"
       }
     ],
     "properties": {
       "system": [
         {
           "name": "type",
-          "type": "string",
+          "type": "String",
           "required": true,
           "editable": false,
           "visible": true
         },
         {
           "name": "text",
-          "type": "string",
+          "type": "String",
           "required": true,
           "editable": false,
           "visible": true
@@ -525,7 +591,7 @@
       "base": [
         {
           "name": "originalText",
-          "type": "string",
+          "type": "String",
           "required": false,
           "editable": true,
           "visible": true

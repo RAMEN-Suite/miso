@@ -22,11 +22,12 @@ export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode 
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
+/** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
 export type Annotation = NodeStatusObject<AnnotationNode>;
 
 /**
- * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes and
- * zero-point annotations, and each entry of `_semanticBlocks`.
+ * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes
+ * and each entry of `_semanticBlocks`.
  *
  * The `meta` field that contains the status is omitted since it gets recalculated before save
  * for every block of the document.

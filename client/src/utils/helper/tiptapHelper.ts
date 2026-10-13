@@ -1,14 +1,15 @@
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { Annotation, DocAnnotation, NodeStatus, Range } from "../../models/types";
 import { Fragment, Node, Schema, Slice } from "@tiptap/pm/model";
+import { EditorState } from "@tiptap/pm/state";
 import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "./helper";
-import type { AnnotationDecorationSpec } from "../../editors/text/extensions/annotationDecoration";
+import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../editors/text/extensions/annotationDecoration";
 
 /**
  * Converts an annotation into the object that is stored in tiptap node attributes
  * (`_annotation`, entries of `_semanticBlocks`) by dropping its top-level status.
  *
- * Deep cloneed, so the document never shares object references with the annotation stores.
+ * Deep cloneed, so the document never shares object references with the caller.
  *
  * @param {Annotation} annotation - The annotation to convert.
  * @returns {DocAnnotation} The annotation to store in the node attributes.
@@ -33,19 +34,79 @@ export function toAnnotation(docAnnotation: DocAnnotation, status: NodeStatus): 
 }
 
 /**
+ * Brings an annotation in line with the database state after a successful save:
+ * connected nodes that were deleted or removed are dropped, the annotation and all remaining
+ * connected nodes are set to "unchanged".
+ *
+ * @param {Annotation} annotation - The annotation as stored in the editor or as sent to the backend. Is not mutated.
+ * @returns {Annotation} A cleaned deep clone of the annotation.
+ */
+export function normalizeAnnotation(annotation: Annotation): Annotation {
+  const normalized: Annotation = cloneDeep(annotation);
+
+  pruneDeletedNodes(normalized);
+  setNodeTreeStatus(normalized, "unchanged");
+
+  return normalized;
+}
+
+/**
  * Brings an annotation from the node attributes in line with the database state after a successful save:
  * connected nodes that were deleted or removed are dropped, all remaining ones are set to "unchanged".
+ *
+ * Same as {@link normalizeAnnotation}, for annotations that are stored without their top-level status.
  *
  * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
  * @returns {DocAnnotation} A cleaned deep clone of the annotation.
  */
 export function normalizeDocAnnotation(docAnnotation: DocAnnotation): DocAnnotation {
-  const annotation: Annotation = toAnnotation(docAnnotation, "unchanged");
+  const { node, connectedNodes } = normalizeAnnotation({ ...docAnnotation, meta: { status: "unchanged" } });
 
-  pruneDeletedNodes(annotation);
-  setNodeTreeStatus(annotation, "unchanged");
+  return { node, connectedNodes };
+}
 
-  return { node: annotation.node, connectedNodes: annotation.connectedNodes };
+/**
+ * Collects the inline annotations (range annotations and zero-point annotations) from the given editor state,
+ * which is their source of truth: range annotations are stored in their decoration, zero-point annotations
+ * in the `_annotation` attribute of their node.
+ *
+ * @param {EditorState} state - The editor state to read from.
+ * @param {Range} range - Optional document range. If given, only the annotations touching it are collected.
+ * @returns {Map<string, Annotation>} The annotations keyed by their UUID, range annotations first.
+ */
+export function collectInlineAnnotations(state: EditorState, range?: Range): Map<string, Annotation> {
+  const map = new Map<string, Annotation>();
+
+  const decorations: Decoration[] = ANNOTATION_DECORATION_KEY.getState(state)?.all.find(range?.from, range?.to) ?? [];
+
+  for (const decoration of decorations) {
+    const { _uuid, _annotation } = decoration.spec as AnnotationDecorationSpec;
+
+    map.set(_uuid, _annotation);
+  }
+
+  const start: number = range?.from ?? 0;
+  const end: number = range?.to ?? state.doc.content.size;
+
+  state.doc.nodesBetween(start, end, (node: Node) => {
+    if (node.type.name === "zeroPointAnnotation" && node.attrs._annotation) {
+      map.set(node.attrs.uuid, node.attrs._annotation);
+    }
+  });
+
+  return map;
+}
+
+/**
+ * Returns a counter that increases whenever a range annotation is added, removed or its data replaced.
+ * Text edits do not affect it. Can be watched to react to annotation changes without comparing the annotations
+ * themselves.
+ *
+ * @param {EditorState} state - The editor state to read from.
+ * @returns {number} The current revision of the range annotations.
+ */
+export function getAnnotationRevision(state: EditorState): number {
+  return ANNOTATION_DECORATION_KEY.getState(state)?.revision ?? 0;
 }
 
 /**

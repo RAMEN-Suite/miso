@@ -25,23 +25,20 @@ const props = defineProps<{
 const dialog = useDialog();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { tiptap, annotations, initialAnnotations } = useTiptapStore();
+const { tiptap, initialAnnotations } = useTiptapStore();
 
 /** Last saved state of the annotation. `undefined` if the annotation was not saved yet. */
 const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-/** Current state of the annotation. Falls back to the prop in case the entry was removed from the store. */
-const currentData = computed<NodeStatusObject<AnnotationNode>>(
-  () => annotations.value?.get(props.annotation.node.data.uuid) ?? props.annotation,
-);
-
 const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
 
-const config: AnnotationType = getAnnotationConfig(currentData.value.node.data.type);
+const config: AnnotationType = getAnnotationConfig(props.annotation.node.data.type);
+
+const isZeroPointAnnotation: boolean = getAnnotationBehaviour(config.type) === "zeroPoint";
 // TODO: Maybe give whole config instead of only fields...?
-const propertyFields: PropertyConfig[] = getAnnotationFields(currentData.value.node.data.type);
+const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
 
 const isCollapsed = ref<boolean>(true);
 
@@ -55,8 +52,13 @@ const previewText = computed<string>(() => {
   const decoration: Decoration | undefined = decorations.find(
     undefined,
     undefined,
-    (spec) => spec._uuid === currentData.value.node.data.uuid,
+    (spec) => spec._uuid === props.annotation.node.data.uuid,
   )[0];
+
+  // Zero-point annotations have no decoration and cover no text
+  if (!decoration) {
+    return "";
+  }
 
   const { from, to } = decoration;
 
@@ -66,16 +68,11 @@ const previewText = computed<string>(() => {
 });
 
 function handleDeleteAnnotation(): void {
-  // Do NOT set status to 'deleted'or change the store in any way - this is determined during save preprocessing
-  // when checked what annotations are in the document
-  const annoEntry: Annotation | undefined = annotations.value?.get(currentData.value.node.data.uuid);
-
-  if (!annoEntry) {
-    return;
+  if (isZeroPointAnnotation) {
+    tiptap.value?.commands.removeZeroPointAnnotation(props.annotation);
+  } else {
+    tiptap.value?.commands.removeAnnotationDecoration(props.annotation);
   }
-
-  // TODO: Include removing zero point annotations
-  tiptap.value?.commands.removeAnnotationDecoration(currentData.value.node);
 }
 
 /**
@@ -85,20 +82,14 @@ function handleDeleteAnnotation(): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(): void {
-  const entry: Annotation | undefined = annotations.value?.get(currentData.value.node.data.uuid);
-
-  if (!entry) {
-    return;
-  }
-
   createModalInstance(
     dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${currentData.value.node.data.subType ?? currentData.value.node.data.type} annotation`,
+        header: `Edit ${props.annotation.node.data.subType ?? props.annotation.node.data.type} annotation`,
       },
 
-      data: { annotation: entry, config, mode: "edit" },
+      data: { annotation: props.annotation, config, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateData(updated);
@@ -117,7 +108,7 @@ function handleSpyClick() {
 
   let range: Range | null = null;
 
-  const uuid: string = currentData.value.node.data.uuid;
+  const uuid: string = props.annotation.node.data.uuid;
   const renderType: "range" | "zeroPoint" = getAnnotationBehaviour(config.type) === "zeroPoint" ? "zeroPoint" : "range";
 
   if (renderType === "range") {
@@ -133,7 +124,7 @@ function handleSpyClick() {
   }
 
   if (!range) {
-    console.error(`Annotation with uuid ${currentData.value.node.data.uuid} not found`);
+    console.error(`Annotation with uuid ${props.annotation.node.data.uuid} not found`);
     return;
   }
 
@@ -151,19 +142,12 @@ function toggleCollapsed(newState?: boolean): void {
 }
 
 /**
- * Writes the data edited in the {@linkcode AnnotationDetailsModal} back into the form and the store.
+ * Writes the data edited in the {@linkcode AnnotationDetailsModal} back into the editor.
  *
  * @param {Annotation} updated - The annotation data as returned by the modal
  * @returns {void} This function does not return any value.
  */
 function updateData(updated: Annotation): void {
-  const uuid: string = currentData.value.node.data.uuid;
-  const entry: NodeStatusObject<AnnotationNode> | undefined = annotations.value?.get(uuid);
-
-  if (!entry) {
-    return;
-  }
-
   const newData: NodeStatusObject<AnnotationNode> = cloneDeep(updated);
 
   // Annotations which are not part of the last saved state are not persisted yet and therefore still "created"
@@ -173,20 +157,23 @@ function updateData(updated: Annotation): void {
     newData.meta.status = "modified";
   }
 
-  // currentData/initialData are derived from the store, so updating the store is sufficient
-  annotations.value?.set(uuid, newData);
+  if (isZeroPointAnnotation) {
+    tiptap.value?.commands.updateZeroPointAnnotation(newData);
+  } else {
+    tiptap.value?.commands.updateAnnotationDecoration(newData);
+  }
 }
 </script>
 
 <template>
-  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-4" :data-annotation-uuid="currentData.node.data.uuid">
+  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-4" :data-annotation-uuid="props.annotation.node.data.uuid">
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :annotation-type="currentData.node.data.subType ?? currentData.node.data.type" />
+          <AnnotationTypeIcon :annotation-type="props.annotation.node.data.subType ?? props.annotation.node.data.type" />
         </div>
-        <span class="font-bold">{{ currentData.node.data.subType ?? currentData.node.data.type }}</span>
-        <span class="italic text-xs text-(color:--p-text-muted-color)" :title="currentData.node.data.text">
+        <span class="font-bold">{{ props.annotation.node.data.subType ?? props.annotation.node.data.type }}</span>
+        <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.data.text">
           {{ previewText }}
         </span>
         <div
@@ -215,8 +202,8 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div v-show="!isCollapsed" class="annotation-card-body">
-      <NodePropertiesTable :data="currentData.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection :model-value="currentData.connectedNodes" mode="view" />
+      <NodePropertiesTable :data="props.annotation.node.data" :fields="propertyFields" />
+      <AnnotationReferencesSection :model-value="props.annotation.connectedNodes" mode="view" />
     </div>
 
     <div class="annotation-card-footer">

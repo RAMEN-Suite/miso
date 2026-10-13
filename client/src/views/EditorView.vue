@@ -28,7 +28,8 @@ import { Node as DocNode } from "@tiptap/pm/model";
 import { useCollectAnnotationChanges } from "../composables/useCollectAnnotationChanges.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import EditorToC from "../components/EditorToC.vue";
-import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "../utils/helper/helper.ts";
+import { cloneDeep } from "../utils/helper/helper.ts";
+import { normalizeAnnotation } from "../utils/helper/tiptapHelper.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -41,7 +42,6 @@ const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const textUuid = computed<string>(() => route.params.uuid as string);
 
 const {
-  annotations,
   initialStructuralAnnotations,
   initialAnnotations,
   tiptap,
@@ -131,37 +131,36 @@ function cleanUpAfterSave(
   setNewInitialState();
 }
 
-function cleanUpAnnotations(updatedAnnotations: NodeStatusObject[]): void {
-  updatedAnnotations.forEach((a) => {
+function cleanUpAnnotations(updatedAnnotations: Annotation[]): void {
+  const savedAnnotations = new Map<string, Annotation>();
+
+  updatedAnnotations.forEach((a: Annotation) => {
+    const uuid: string = a.node.data.uuid;
+
     if (a.meta.status === "deleted") {
       // Can be removed from the map safely
-      annotations.value?.delete(a.node.data.uuid);
+      initialAnnotations.value?.delete(uuid);
     } else {
-      pruneDeletedNodes(a);
-      setNodeTreeStatus(a, "unchanged");
-
-      // Update value
-      annotations.value?.set(a.node.data.uuid, a as Annotation);
+      // Update value. Two separate clones, since the editor takes over the annotation object itself
+      initialAnnotations.value?.set(uuid, normalizeAnnotation(a));
+      savedAnnotations.set(uuid, normalizeAnnotation(a));
     }
   });
 
-  // Reset
-  initialAnnotations.value = cloneDeep(annotations.value);
+  // Range annotations are updated here, zero-point annotations along with the document (resetDocAnnotationStatuses)
+  tiptap.value?.commands.applySavedAnnotations(savedAnnotations);
 }
 
-function cleanUpStructureElements(structureElements: NodeStatusObject[]): void {
-  structureElements.forEach((elm: NodeStatusObject) => {
+function cleanUpStructureElements(structureElements: Annotation[]): void {
+  structureElements.forEach((elm: Annotation) => {
     const uuid: string = elm.node.data.uuid;
 
     if (elm.meta.status === "deleted") {
       // Can be removed from the map safely
       initialStructuralAnnotations.value?.delete(uuid);
     } else {
-      pruneDeletedNodes(elm);
-      setNodeTreeStatus(elm, "unchanged");
-
       // Update value
-      initialStructuralAnnotations.value?.set(uuid, elm as Annotation);
+      initialStructuralAnnotations.value?.set(uuid, normalizeAnnotation(elm));
     }
   });
 }

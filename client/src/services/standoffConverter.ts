@@ -14,7 +14,7 @@ import {
 } from "../models/types";
 import { IAnnotation } from "../models/IAnnotation";
 import { useGuidelinesStore } from "../store/guidelines";
-import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { cloneDeep, createNodeStatusObjectFromRawData } from "../utils/helper/helper";
 import { toDocAnnotation } from "../utils/helper/tiptapHelper";
 
 type Anno = NodeStatusObject<AnnotationNode>;
@@ -280,7 +280,7 @@ export default class StandoffConverter {
           type: "zeroPointAnnotation",
           attrs: {
             uuid: a.node.data.uuid,
-            _annotation: toDocAnnotation(a),
+            _annotation: cloneDeep(a),
           },
         },
       }));

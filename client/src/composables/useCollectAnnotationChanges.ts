@@ -5,14 +5,15 @@ import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
 import { cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
-import { collectSemanticBlocks, toAnnotation } from "../utils/helper/tiptapHelper";
+import { collectInlineAnnotations, collectSemanticBlocks, toAnnotation } from "../utils/helper/tiptapHelper";
 import { useCreateIndexMaps } from "./useCreateIndexMaps";
 
 /**
  * Composable that collects all annotations that need to be sent to the backend on save.
  *
  * Annotations live in three places, each handled by its own collector:
- * - inline annotations (range decorations and zero-points) in the annotation store,
+ * - inline annotations in the editor state: range annotations in their decoration, zero-points in the `_annotation`
+ *   attribute of their node,
  * - structural nodes (blocks and hardBreaks) in the document, with their data in the `_annotation` attribute,
  * - semantic blocks in the `_semanticBlocks` attribute of the block nodes they wrap.
  *
@@ -23,7 +24,7 @@ import { useCreateIndexMaps } from "./useCreateIndexMaps";
  * Requires an initialised tiptap editor when `collectAnnotationChanges` is called.
  */
 export function useCollectAnnotationChanges() {
-  const { annotations, initialAnnotations, initialStructuralAnnotations, tiptap } = useTiptapStore();
+  const { initialAnnotations, initialStructuralAnnotations, tiptap } = useTiptapStore();
 
   const {
     getAnnotationBehaviour,
@@ -138,10 +139,11 @@ export function useCollectAnnotationChanges() {
   }
 
   /**
-   * Collects the changed inline annotations (range decorations and zero-points) from the annotation store.
+   * Collects the changed inline annotations (range decorations and zero-points) from the editor state.
    *
    * An annotation is affected if its range or text differs from the last saved state or if it was
-   * created/modified externally in the editor.
+   * created/modified intentionally by the user. The status stored in the editor only reflects the latter: range and text
+   * changes are detected here and only set on the returned clones.
    *
    * @param {IndexMap} indexMap - The live ranges of all inline annotations in the editor.
    * @param {string} plainText - The plain text of the whole document.
@@ -150,8 +152,10 @@ export function useCollectAnnotationChanges() {
   function collectInlineChanges(indexMap: IndexMap, plainText: string): Annotation[] {
     const affected: Annotation[] = [];
 
+    const annotations: Map<string, Annotation> = tiptap.value ? collectInlineAnnotations(tiptap.value.state) : new Map();
+
     indexMap.forEach((range, uuid) => {
-      const currentEntry: Annotation | undefined = annotations.value?.get(uuid);
+      const currentEntry: Annotation | undefined = annotations.get(uuid);
       const initialEntry: Annotation | undefined = initialAnnotations.value?.get(uuid);
 
       if (!currentEntry) {

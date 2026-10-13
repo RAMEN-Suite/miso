@@ -36,7 +36,7 @@ const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, g
   useGuidelinesStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
-const { tiptap, annotations } = useTiptapStore();
+const { tiptap } = useTiptapStore();
 const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
 
 const selectedTab = ref<"annotations" | "structure">("structure");
@@ -293,9 +293,9 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
 }
 
 /**
- * Adds a new annotation to the store by executing the `createAnnotation` command.
+ * Adds a new annotation to the editor.
  *
- * @param {Annotation} annotation - The annotation to add to the store.
+ * @param {Annotation} annotation - The annotation to add.
  * @param {Object} selection - The selection object with `from` and `to` properties.
  * @returns {void} This function does not return any value.
  */
@@ -308,10 +308,8 @@ function addAnnotation(annotation: Annotation, selection: { from: number; to: nu
     // TODO: Cursor is set before the inserted element, not after. Fix later
     tiptap.value?.commands.addZeroPointAnnotation(annotation, from);
   } else {
-    tiptap.value?.commands.addAnnotationDecoration(annotation.node, from, to);
+    tiptap.value?.commands.addAnnotationDecoration(annotation, from, to);
   }
-  // Add to store
-  annotations.value?.set(annotation.node.data.uuid, annotation);
 }
 
 function handleBlockAnnotationClick(data: { type: string; subType?: string | number }): void {

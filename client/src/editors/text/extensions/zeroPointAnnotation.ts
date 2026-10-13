@@ -1,18 +1,38 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
-import { Annotation, DocAnnotation } from "../../../models/types";
-import { toDocAnnotation } from "../../../utils/helper/tiptapHelper";
+import { Annotation, Range } from "../../../models/types";
+import { cloneDeep } from "../../../utils/helper/helper";
+import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     zeroPointAnnotation: {
+      /**
+       * Inserts a zero-point annotation at the given position (defaults to the selection start). The annotation
+       * is cloned and stored in the node's `_annotation` attribute.
+       *
+       * @param {Annotation} annotation - The annotation to add.
+       * @param {number} position - The document position to insert the annotation at.
+       */
       addZeroPointAnnotation: (annotation: Annotation, position?: number) => ReturnType;
+      /**
+       * Replaces the data of an existing zero-point annotation, matched by its uuid.
+       *
+       * @param {Annotation} annotation - The updated annotation.
+       */
+      updateZeroPointAnnotation: (annotation: Annotation) => ReturnType;
+      /**
+       * Removes a zero-point annotation, matched by its uuid, from the document.
+       *
+       * @param {Annotation} annotation - The annotation to remove.
+       */
+      removeZeroPointAnnotation: (annotation: Annotation) => ReturnType;
     };
   }
 }
 
 interface ZeroPointAttributes {
   uuid: string;
-  _annotation: DocAnnotation | null;
+  _annotation: Annotation | null;
 }
 
 export const ZeroPointAnnotation = Node.create({
@@ -27,13 +47,14 @@ export const ZeroPointAnnotation = Node.create({
 
   addAttributes() {
     return {
-      // Same object as on structural nodes and in `_semanticBlocks`. Snapshot of the annotation at creation/parse
-      // time: the annotation store stays the source of truth for zero-point annotations (edits, save).
+      // The annotation itself (data, status and connected nodes). The attribute is its source of truth while it
+      // is in the editor. Unlike on structural nodes and in `_semanticBlocks`, the status is included, since
+      // zero-point annotations are only saved when they were created or changed.
       _annotation: {
         default: null,
         rendered: false,
       },
-      // Identifies the annotation in the annotation store. Separate attribute since it is managed by the
+      // Identifies the annotation. Separate attribute since it is managed by the
       // UniqueID extension (e.g. regenerated for duplicated nodes).
       uuid: {
         default: null,
@@ -60,9 +81,9 @@ export const ZeroPointAnnotation = Node.create({
     // TODO: This can be more elegant
     return (nodeProps: NodeViewRendererProps) => {
       const elm: HTMLElement = document.createElement("span");
-      const docAnnotation: DocAnnotation | null = nodeProps.node.attrs._annotation;
-      const annotationType: string = docAnnotation?.node.data.type ?? "";
-      const annotationSubType: string | number | undefined = docAnnotation?.node.data.subType;
+      const annotation: Annotation | null = nodeProps.node.attrs._annotation;
+      const annotationType: string = annotation?.node.data.type ?? "";
+      const annotationSubType: string | number | undefined = annotation?.node.data.subType;
 
       elm.setAttribute("data-annotation-type", annotationType);
       elm.setAttribute("data-annotation-subtype", annotationSubType?.toString() ?? "");
@@ -94,8 +115,44 @@ export const ZeroPointAnnotation = Node.create({
 
           return commands.insertContentAt(pos, {
             type: this.name,
-            attrs: { _annotation: toDocAnnotation(annotation), uuid: annotation.node.data.uuid },
+            attrs: { _annotation: cloneDeep(annotation), uuid: annotation.node.data.uuid },
           });
+        },
+
+      updateZeroPointAnnotation:
+        (annotation: Annotation) =>
+        ({ tr, dispatch }) => {
+          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.data.uuid);
+
+          if (!range) {
+            return false;
+          }
+
+          // Cloned since the annotation is stored in the document and must not share references
+          // with the caller (e.g. reactive form data)
+          tr.setNodeAttribute(range.from, "_annotation", cloneDeep(annotation));
+
+          dispatch?.(tr);
+
+          return true;
+        },
+
+      removeZeroPointAnnotation:
+        (annotation: Annotation) =>
+        ({ tr, dispatch }) => {
+          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.data.uuid);
+
+          if (!range) {
+            return false;
+          }
+
+          // Do NOT set status to 'deleted' - this is determined during save preprocessing
+          // when checked what annotations are in the document
+          tr.delete(range.from, range.to);
+
+          dispatch?.(tr);
+
+          return true;
         },
     };
   },

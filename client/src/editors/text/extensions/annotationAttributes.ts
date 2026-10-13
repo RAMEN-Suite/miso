@@ -2,7 +2,7 @@ import { Attribute, Extension, GlobalAttributes } from "@tiptap/vue-3";
 import { Annotation, AnnotationType, DocAnnotation } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { VALID_SEMANTIC_BLOCK_TARGETS } from "../../../config/editor";
-import { normalizeDocAnnotation, toDocAnnotation } from "../../../utils/helper/tiptapHelper";
+import { normalizeAnnotation, normalizeDocAnnotation, toDocAnnotation } from "../../../utils/helper/tiptapHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -32,7 +32,7 @@ declare module "@tiptap/core" {
       /**
        * Brings the annotations in the node attributes (`_annotation`, `_semanticBlocks`) in line with the
        * database state after a successful save: connected nodes that were deleted or removed are dropped,
-       * the remaining ones are set to "unchanged".
+       * the remaining ones are set to "unchanged". Zero-point annotations are set to "unchanged" themselves, too.
        *
        * Not added to the undo history, since it does not reflect a user action.
        */
@@ -192,8 +192,18 @@ export const AnnotationAttributes = Extension.create({
         () =>
         ({ tr, dispatch }) => {
           tr.doc.descendants((node, pos) => {
-            // Zero-point annotations are saved from the annotation store
-            if (node.type.isText || node.type.name === "zeroPointAnnotation") {
+            if (node.type.isText) {
+              return;
+            }
+
+            // Zero-point annotations carry their own status, which needs to be reset as well
+            if (node.type.name === "zeroPointAnnotation") {
+              const annotation: Annotation | null = node.attrs._annotation ?? null;
+
+              if (annotation && (annotation.meta.status !== "unchanged" || annotation.connectedNodes.length > 0)) {
+                tr.setNodeAttribute(pos, "_annotation", normalizeAnnotation(annotation));
+              }
+
               return;
             }
 

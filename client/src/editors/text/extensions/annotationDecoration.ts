@@ -5,9 +5,11 @@ import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
-import { AnnotationNode, NodeStatusObject } from "../../../models/types";
+import { Annotation } from "../../../models/types";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
+import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../../../utils/helper/indexHelper";
+import { cloneDeep } from "../../../utils/helper/helper";
 
 const { isZeroPoint } = useGuidelinesStore();
 
@@ -16,14 +18,45 @@ export const ANNOTATION_DECORATION_KEY = new PluginKey<AnnotationDecorationState
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     annotationDecoration: {
-      addAnnotationDecoration: (annotation: AnnotationNode, from: number, to: number) => ReturnType;
-      removeAnnotationDecoration: (annotation: AnnotationNode) => ReturnType;
+      /**
+       * Adds a range annotation between the given positions. The annotation is cloned and stored in the decoration.
+       *
+       * @param {Annotation} annotation - The annotation to add.
+       * @param {number} from - The document position where the annotation starts.
+       * @param {number} to - The document position where the annotation ends.
+       */
+      addAnnotationDecoration: (annotation: Annotation, from: number, to: number) => ReturnType;
+      /**
+       * Replaces the data of an existing range annotation, matched by its uuid. Its range is not changed.
+       *
+       * @param {Annotation} annotation - The updated annotation.
+       */
+      updateAnnotationDecoration: (annotation: Annotation) => ReturnType;
+      /**
+       * Removes a range annotation, matched by its uuid.
+       *
+       * @param {Annotation} annotation - The annotation to remove.
+       */
+      removeAnnotationDecoration: (annotation: Annotation) => ReturnType;
+      /**
+       * Creates the decorations of all given range annotations (zero-point annotations are skipped) and replaces
+       * the existing ones. The given annotation objects are stored as they are and must not be mutated afterwards.
+       */
       initializeDecorations: (
-        annotations: Map<string, NodeStatusObject<AnnotationNode>>,
+        annotations: Map<string, Annotation>,
         selectedTypes: string[],
         visibleFrom: number,
         visibleTo: number,
       ) => ReturnType;
+      /**
+       * Replaces the stored annotations with their saved state after a successful save. Ranges are not changed.
+       *
+       * Not added to the undo history, since it does not reflect a user action.
+       *
+       * @param {Map<string, Annotation>} annotations - The saved annotations, keyed by uuid. Annotations without
+       *   a decoration (e.g. zero-point annotations) are ignored.
+       */
+      applySavedAnnotations: (annotations: Map<string, Annotation>) => ReturnType;
       applyFilterUpdates: (selectedTypes: string[]) => ReturnType;
       applyViewportUpdates: (docRange: { from: number; to: number }) => ReturnType;
     };
@@ -36,16 +69,23 @@ interface AnnotationDecorationState {
   visibleFrom: number;
   visibleTo: number;
   selectedTypes: string[];
+  /** Counter that increases whenever an annotation is added, removed or its data replaced. Not affected by text edits. */
+  revision: number;
 }
 
-type TransactionMeta = InitMeta | FilterUpdateMeta | ViewportMeta | undefined;
+type TransactionMeta = InitMeta | FilterUpdateMeta | ViewportMeta | SavedMeta | undefined;
 
 interface InitMeta {
   type: "initialize";
-  annotations: Map<string, AnnotationNode>;
+  annotations: Map<string, Annotation>;
   visibleFrom: number;
   visibleTo: number;
   selectedTypes: string[];
+}
+
+interface SavedMeta {
+  type: "annotationsSaved";
+  annotations: Map<string, Annotation>;
 }
 
 interface FilterUpdateMeta {
@@ -62,27 +102,40 @@ interface ViewportMeta {
 export interface AnnotationDecorationSpec {
   _type: string;
   _uuid: string;
+  /**
+   * The annotation itself (data, status and connected nodes). The decoration is its source of truth while it
+   * is in the editor. Must be treated as immutable; changes replace the whole decoration.
+   */
+  _annotation: Annotation;
 }
 
-function createDecoration(from: number, to: number, annotation: AnnotationNode): Decoration {
+function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
+  const { type, uuid, subType } = annotation.node.data;
+
+  const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
+
   return Decoration.inline(
     from,
     to,
     {
       nodeName: "span",
-      "data-annotation-type": annotation.data.type,
-      "data-annotation-uuid": annotation.data.uuid,
-      "data-annotation-subtype": annotation.data.subType?.toString() ?? "",
+      "data-annotation-type": type,
+      "data-annotation-uuid": uuid,
+      "data-annotation-subtype": subType?.toString() ?? "",
     },
-    { inclusiveEnd: true, _type: annotation.data.type, _uuid: annotation.data.uuid },
+    { inclusiveEnd: true, ...spec },
   );
 }
 
-function createInitialDecorations(doc: Node, annotations: Map<string, AnnotationNode>): Decoration[] {
+function findDecorationsByUuid(decorationSet: DecorationSet, uuid: string): Decoration[] {
+  return decorationSet.find(undefined, undefined, (spec: AnnotationDecorationSpec) => spec._uuid === uuid);
+}
+
+function createInitialDecorations(doc: Node, annotations: Map<string, Annotation>): Decoration[] {
   const decos: Decoration[] = [];
 
-  for (const annotation of [...annotations.values()].toSorted((a, b) => a.data.startIndex - b.data.startIndex)) {
-    const { startIndex, endIndex } = annotation.data;
+  for (const annotation of [...annotations.values()].toSorted((a, b) => a.node.data.startIndex - b.node.data.startIndex)) {
+    const { startIndex, endIndex } = annotation.node.data;
 
     const start: number = indexToPosition(doc, startIndex);
     const end: number = indexToPosition(doc, endIndex + 1);
@@ -115,19 +168,38 @@ function createFilteredDecorations(
 export const AnnotationDecoration = Extension.create({
   name: "annotationDecoration",
 
-  addOptions() {
-    return {
-      getAnnotationByUuid: (_uuid: string): AnnotationNode | undefined => undefined,
-    };
-  },
-
   addCommands() {
     return {
       addAnnotationDecoration:
-        (annotation: AnnotationNode, from: number, to: number) =>
+        (annotation: Annotation, from: number, to: number) =>
         ({ tr, dispatch }) => {
-          // Add placeholder step that signals plugin what to execute
-          tr.step(new AddAnnotationStep(annotation, from, to));
+          // Add placeholder step that signals plugin what to execute. Cloned since the annotation is stored
+          // in the decoration and must not share references with the caller (e.g. reactive form data).
+          tr.step(new AddAnnotationStep(cloneDeep(annotation), from, to));
+
+          dispatch?.(tr);
+
+          return true;
+        },
+
+      updateAnnotationDecoration:
+        (annotation: Annotation) =>
+        ({ tr, dispatch, state }) => {
+          const pluginState: AnnotationDecorationState | undefined = ANNOTATION_DECORATION_KEY.getState(state);
+
+          if (!pluginState) {
+            return false;
+          }
+
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
+
+          if (!decos.length) {
+            return false;
+          }
+
+          const { _annotation: oldAnnotation } = decos[0].spec as AnnotationDecorationSpec;
+
+          tr.step(new UpdateAnnotationStep(oldAnnotation, cloneDeep(annotation)));
 
           dispatch?.(tr);
 
@@ -135,7 +207,7 @@ export const AnnotationDecoration = Extension.create({
         },
 
       removeAnnotationDecoration:
-        (annotation: AnnotationNode) =>
+        (annotation: Annotation) =>
         ({ tr, dispatch, state }) => {
           const pluginState: AnnotationDecorationState | undefined = ANNOTATION_DECORATION_KEY.getState(state);
 
@@ -145,19 +217,16 @@ export const AnnotationDecoration = Extension.create({
 
           // Annotation must be found to be included in the step, since undo and redo need to know
           // what annotation object to (re)create
-          const decos: Decoration[] = pluginState.all.find(
-            undefined,
-            undefined,
-            (spec: AnnotationDecorationSpec) => spec._uuid === annotation.data.uuid,
-          );
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
 
           if (!decos.length) {
             return false;
           }
 
           const deco: Decoration = decos[0];
+          const { _annotation: storedAnnotation } = deco.spec as AnnotationDecorationSpec;
 
-          tr.step(new RemoveAnnotationStep(annotation, deco.from, deco.to));
+          tr.step(new RemoveAnnotationStep(storedAnnotation, deco.from, deco.to));
 
           dispatch?.(tr);
 
@@ -165,19 +234,14 @@ export const AnnotationDecoration = Extension.create({
         },
 
       initializeDecorations:
-        (
-          annotations: Map<string, NodeStatusObject<AnnotationNode>>,
-          selectedTypes: string[],
-          visibleFrom: number,
-          visibleTo: number,
-        ) =>
+        (annotations: Map<string, Annotation>, selectedTypes: string[], visibleFrom: number, visibleTo: number) =>
         ({ tr, dispatch }) => {
           // TODO: Or should this be filtered outside the plugin?
-          const filtered = new Map<string, AnnotationNode>();
+          const filtered = new Map<string, Annotation>();
 
-          for (const [uuid, { node }] of annotations) {
-            if (!isZeroPoint(node)) {
-              filtered.set(uuid, node);
+          for (const [uuid, annotation] of annotations) {
+            if (!isZeroPoint(annotation.node)) {
+              filtered.set(uuid, annotation);
             }
           }
 
@@ -195,6 +259,23 @@ export const AnnotationDecoration = Extension.create({
 
           return true;
         },
+
+      applySavedAnnotations:
+        (annotations: Map<string, Annotation>) =>
+        ({ tr, dispatch }) => {
+          const meta: SavedMeta = {
+            type: "annotationsSaved",
+            annotations,
+          };
+
+          tr.setMeta(ANNOTATION_DECORATION_KEY, meta);
+          tr.setMeta("addToHistory", false);
+
+          dispatch?.(tr);
+
+          return true;
+        },
+
       applyFilterUpdates:
         (selectedTypes: string[]) =>
         ({ tr, dispatch }) => {
@@ -231,8 +312,6 @@ export const AnnotationDecoration = Extension.create({
   },
 
   addProseMirrorPlugins() {
-    const { getAnnotationByUuid } = this.options;
-
     return [
       new Plugin({
         key: ANNOTATION_DECORATION_KEY,
@@ -247,6 +326,7 @@ export const AnnotationDecoration = Extension.create({
               selectedTypes: [],
               visibleFrom: 0,
               visibleTo: 0,
+              revision: 0,
             };
           },
 
@@ -275,6 +355,28 @@ export const AnnotationDecoration = Extension.create({
                 selectedTypes: meta.selectedTypes,
                 visibleFrom: meta.visibleFrom,
                 visibleTo: meta.visibleTo,
+                revision: oldDecorations.revision + 1,
+              };
+            } else if (meta?.type === "annotationsSaved") {
+              // Swap the stored annotations in a single pass, since a save can affect all of them at once
+              // (e.g. when text was inserted at the start of the document). Ranges stay as they are.
+              const decos: Decoration[] = oldDecorations.all
+                .map(tr.mapping, doc)
+                .find()
+                .map((deco: Decoration) => {
+                  const saved: Annotation | undefined = meta.annotations.get((deco.spec as AnnotationDecorationSpec)._uuid);
+
+                  return saved ? createDecoration(deco.from, deco.to, saved) : deco;
+                });
+
+              const newAll: DecorationSet = DecorationSet.create(doc, decos);
+              const newFiltered: DecorationSet = createFilteredDecorations(newAll, oldDecorations, tr);
+
+              return {
+                ...oldDecorations,
+                all: newAll,
+                filtered: newFiltered,
+                revision: oldDecorations.revision + 1,
               };
             } else if (meta?.type === "filterUpdated") {
               const newAll: DecorationSet = oldDecorations.all.map(tr.mapping, tr.doc);
@@ -318,7 +420,7 @@ export const AnnotationDecoration = Extension.create({
               };
             }
 
-            // Handle AddAnnotationStep / RemoveAnnotationStep (and their undo/redo inverses).
+            // Handle AddAnnotationStep / RemoveAnnotationStep / UpdateAnnotationStep (and their undo/redo inverses).
             // Because these are actual Steps, the history plugin records and inverts them
             // automatically — no special undo handling needed here.
             let newAll: DecorationSet = oldDecorations.all;
@@ -329,7 +431,7 @@ export const AnnotationDecoration = Extension.create({
             // post-transaction space and must be added after this remap, not before.
             newAll = newAll.map(tr.mapping, doc);
 
-            // Loop over transaction steps to discover if any of them are AddAnnotationStep/RemoveAnnotationStep.
+            // Loop over transaction steps to discover if any of them are annotation steps.
             for (const step of tr.steps) {
               if (step instanceof AddAnnotationStep) {
                 const { annotationFrom, annotationTo, annotation } = step;
@@ -341,8 +443,22 @@ export const AnnotationDecoration = Extension.create({
               } else if (step instanceof RemoveAnnotationStep) {
                 const { annotation } = step;
 
-                const toRemove: Decoration[] = newAll.find(undefined, undefined, (spec) => spec._uuid === annotation.data.uuid);
+                const toRemove: Decoration[] = findDecorationsByUuid(newAll, annotation.node.data.uuid);
                 newAll = newAll.remove(toRemove);
+                decorationsChanged = true;
+              } else if (step instanceof UpdateAnnotationStep) {
+                const { newAnnotation } = step;
+
+                const toReplace: Decoration[] = findDecorationsByUuid(newAll, newAnnotation.node.data.uuid);
+
+                // The decoration can be gone when the step is replayed by undo/redo (e.g. its text was deleted)
+                if (toReplace.length === 0) {
+                  continue;
+                }
+
+                const { from, to } = toReplace[0];
+
+                newAll = newAll.remove(toReplace).add(doc, [createDecoration(from, to, newAnnotation)]);
                 decorationsChanged = true;
               }
             }
@@ -376,6 +492,7 @@ export const AnnotationDecoration = Extension.create({
               filtered: newFiltered,
               visibleFrom: newVisibleFrom,
               visibleTo: newVisibleTo,
+              revision: decorationsChanged ? oldDecorations.revision + 1 : oldDecorations.revision,
             };
           },
         },
@@ -419,7 +536,7 @@ export const AnnotationDecoration = Extension.create({
             transactions
               .flatMap((tr) => tr.steps)
               .filter((step): step is RemoveAnnotationStep => step instanceof RemoveAnnotationStep)
-              .map((step) => step.annotation.data.uuid),
+              .map((step) => step.annotation.node.data.uuid),
           );
 
           // Create maps (faster/easier to compare)
@@ -447,13 +564,8 @@ export const AnnotationDecoration = Extension.create({
               continue;
             }
 
-            // TODO: This is technically not important since the annotation data are not stored in the decoration.
-            // Should be removed along with all annotation data in the custom step classes, the tiptap config etc.
-            const annotation: AnnotationNode | undefined = getAnnotationByUuid(uuid);
-
-            if (!annotation) {
-              continue;
-            }
+            // The annotation is carried by the steps so that undo can restore the decoration together with its data
+            const { _annotation: annotation } = oldDeco.spec as AnnotationDecorationSpec;
 
             const newDeco: Decoration | undefined = newDecoMap.get(uuid);
 

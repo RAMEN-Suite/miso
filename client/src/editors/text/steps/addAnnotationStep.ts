@@ -1,6 +1,6 @@
 import { Node, Schema } from "@tiptap/pm/model";
 import { Step, StepResult, Mapping } from "@tiptap/pm/transform";
-import { AnnotationNode } from "../../../models/types";
+import { Annotation } from "../../../models/types";
 import { RemoveAnnotationStep } from "./removeAnnotationStep";
 
 /**
@@ -11,13 +11,16 @@ import { RemoveAnnotationStep } from "./removeAnnotationStep";
  * By placing the annotation data into an actual step, the history plugin records it and calls
  * `invert()` on undo, producing a {@link RemoveAnnotationStep} that the plugin then acts on.
  *
+ * The step carries the whole annotation (data, status and connected nodes), since the plugin stores it
+ * in the decoration and is the source of truth for it.
+ *
  * The positions are deliberately not named `from`/`to`: tiptap's `getChangedRanges` treats every step
  * without a step map but with `from`/`to` fields as a changed document range, which breaks extensions
  * relying on it (e.g. UniqueID) on undo/redo.
  */
 export class AddAnnotationStep extends Step {
   constructor(
-    readonly annotation: AnnotationNode,
+    readonly annotation: Annotation,
     readonly annotationFrom: number,
     readonly annotationTo: number,
   ) {
@@ -52,7 +55,7 @@ export class AddAnnotationStep extends Step {
     };
   }
 
-  static fromJSON(_schema: Schema, json: { annotation: AnnotationNode; from: number; to: number }): AddAnnotationStep {
+  static fromJSON(_schema: Schema, json: { annotation: Annotation; from: number; to: number }): AddAnnotationStep {
     // Kept for consistency, not really needed (JSON serialization is only relevant during collaboration when
     // steps need to be sent over the network). Here, everything is kept in memory anyway.
     return new AddAnnotationStep(json.annotation, json.from, json.to);

@@ -12,7 +12,7 @@ import { Node } from "@tiptap/pm/model";
  * positions). The maps are used when serialising annotations to standoff format for the backend.
  *
  * Three maps are produced, one per place the annotations are stored in:
- * - `inlineIndexMap`        – inline annotations from the annotation store: range decorations (from/to in
+ * - `inlineIndexMap`        – inline annotations: range decorations (from/to in
  *                             plain-text chars) and `zeroPointAnnotation` inline atoms (position between two chars)
  * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, …)
  *                             and `hardBreak` inline atoms (position between two chars)
@@ -32,7 +32,7 @@ export function useCreateIndexMaps() {
   /**
    * Builds all index maps from the current document. Call this once per save cycle.
    *
-   * Range and zero-point annotations are stored in the same store and therefore share one map,
+   * Range and zero-point annotations are both inline annotations and therefore share one map,
    * just as blocks and hardBreaks do.
    *
    * @returns {{ inlineIndexMap: IndexMap; structureIndexMap: IndexMap; semanticBlockIndexMap: IndexMap }} The index maps.

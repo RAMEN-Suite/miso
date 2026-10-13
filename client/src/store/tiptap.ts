@@ -1,14 +1,5 @@
 import { ref, shallowRef, watch } from "vue";
-import {
-  NodeDto,
-  Annotation,
-  NodeStatusObject,
-  AnnotationNode,
-  ToCItem,
-  SemanticBlockRange,
-  DocAnnotation,
-  StandoffParseIssue,
-} from "../models/types";
+import { NodeDto, Annotation, ToCItem, SemanticBlockRange, DocAnnotation, StandoffParseIssue } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
@@ -37,15 +28,12 @@ import { useEditorSettingsStore } from "./editorSettings";
 import { AnnotationHighlight } from "../editors/text/extensions/annotationHighlight";
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
-import { pastedSliceToRawText } from "../utils/helper/tiptapHelper";
+import { collectInlineAnnotations, pastedSliceToRawText } from "../utils/helper/tiptapHelper";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
 
 const tiptap = shallowRef<Editor | null>(null);
-
-const structuralAnnotations = ref<Map<string, Annotation>>();
-const annotations = ref<Map<string, Annotation>>();
 
 const initialStructuralAnnotations = ref<Map<string, Annotation>>();
 const initialAnnotations = ref<Map<string, Annotation>>();
@@ -75,9 +63,7 @@ function getConfiguredExtensions(): Extensions {
       visible: false,
       builders: [new ParagraphNode(), new HardBreakNode()],
     }),
-    AnnotationDecoration.configure({
-      getAnnotationByUuid: (uuid: string) => annotations.value?.get(uuid)?.node ?? structuralAnnotations.value?.get(uuid)?.node,
-    }),
+    AnnotationDecoration,
     BlockDecorations,
     UniqueID.configure({
       types: "all",
@@ -129,14 +115,16 @@ function hasUnsavedChanges(): boolean {
     return true;
   }
 
+  const annotations: Map<string, Annotation> = tiptap.value ? collectInlineAnnotations(tiptap.value.state) : new Map();
+
   // Compare annotations size
-  if (initialAnnotations.value?.size !== annotations.value?.size) {
+  if (initialAnnotations.value?.size !== annotations.size) {
     console.log("Annotation size has changed.");
     return true;
   }
 
   // Compare annotations status (modified -> something has been changed, not need to deep compare)
-  if (annotations.value?.values().some((a) => a.meta.status !== "unchanged")) {
+  if (annotations.values().some((a) => a.meta.status !== "unchanged")) {
     console.log("Some annotations were modified");
     return true;
   }
@@ -237,7 +225,7 @@ function initializeEventListeners(editor: TiptapEditor): void {
   resizeObserver.observe(editor.view.dom);
 }
 
-function initializeDecorationView(annotations: Map<string, NodeStatusObject<AnnotationNode>>): void {
+function initializeDecorationView(annotations: Map<string, Annotation>): void {
   if (!tiptap.value) {
     console.error("Could not initialize decorations since no tiptap instance was found");
     return;
@@ -281,14 +269,10 @@ function resetToInitialState(): void {
     return;
   }
 
-  // Reset annotation maps
-  annotations.value = cloneDeep(initialAnnotations.value);
-  structuralAnnotations.value = cloneDeep(initialStructuralAnnotations.value);
-
   // setContent goes through TipTap's dispatchTransaction, keeping internal state in sync.
   tiptap.value.commands.setContent(initialDoc);
 
-  initializeDecorationView(annotations.value);
+  initializeDecorationView(cloneDeep(initialAnnotations.value));
 
   resetHistory();
 }
@@ -327,10 +311,15 @@ function destroyTiptap(): void {
   tiptap.value = null;
 }
 
+/**
+ * Stores the given annotations as the last saved state. Cloned, since the editor handles the annotation
+ * objects themselves.
+ *
+ * @param {{ structuralAnnotations?: Map<string, Annotation>; annotations?: Map<string, Annotation> }} data - The
+ *   inline and structural annotations as parsed from the saved document.
+ * @returns {void} This function does not return any value.
+ */
 function setAnnotations(data: { structuralAnnotations?: Map<string, Annotation>; annotations?: Map<string, Annotation> }): void {
-  structuralAnnotations.value = data.structuralAnnotations;
-  annotations.value = data.annotations;
-
   initialAnnotations.value = cloneDeep(data.annotations);
   initialStructuralAnnotations.value = cloneDeep(data.structuralAnnotations);
 }
@@ -341,11 +330,9 @@ function updateTableOfContent(doc: Node): void {
 
 export function useTiptapStore() {
   return {
-    annotations,
     initialAnnotations,
     initialStructuralAnnotations,
     semanticBlockRanges,
-    structuralAnnotations,
     tiptap,
     tableOfContent,
     destroyTiptap,

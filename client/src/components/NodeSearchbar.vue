@@ -15,7 +15,7 @@ import {
   TextNode,
 } from "../models/types";
 import { useAppStore } from "../store/app";
-import { onStartTyping, useElementSize } from "@vueuse/core";
+import { onStartTyping, useElementSize, useInfiniteScroll } from "@vueuse/core";
 import { resolveNodeIcon } from "../config/icons";
 import { filterBaseNodeLabels } from "../config/ramen";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -36,6 +36,9 @@ const emit = defineEmits<(e: "itemSelected", item: CollectionNode | TextNode | E
 
 const PREVIEW_CHARACTER_SIZE: number = 1000;
 
+/** Distance (in px) to the end of the result list below which the next page is fetched. */
+const NEXT_PAGE_SCROLL_DISTANCE: number = 25;
+
 const isSearchActive = ref<boolean>(false);
 const placeHolder = computed<string>(() => {
   return `Search ${props.additionalNodeLabel}`;
@@ -50,15 +53,116 @@ const visibleSearchInput = ref<string>("");
 
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
 const resultPagination = ref<PaginationData>();
+const hasMoreItems = ref<boolean>(false);
 
 const isLoading = ref<boolean>(false);
+const isLoadingMore = ref<boolean>(false);
+const isReloading = computed<boolean>(() => isLoading.value && !isLoadingMore.value);
 
 /** Guards against out-of-order responses overwriting the results of a newer search. */
 let latestRequestId: number = 0;
 
+const resultList = ref<HTMLElement | null>(null);
+const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
+
+const { width: searchbarWidth } = useElementSize(searchbar, undefined, { box: "border-box" });
+
 watch(searchParams, handleSearchParamsChange, {
   deep: true,
 });
+
+useInfiniteScroll(resultList, fetchNextPage, {
+  distance: NEXT_PAGE_SCROLL_DISTANCE,
+  canLoadMore: () => hasMoreItems.value && !isLoading.value,
+});
+
+onStartTyping(() => {
+  const inputEl: HTMLInputElement | undefined = searchbar.value?.$el.querySelector("input");
+
+  if (inputEl && document.activeElement !== inputEl) {
+    inputEl.focus();
+  }
+});
+
+/**
+ * Appends a fetched page to the result list. Nodes that are already listed are skipped: the offset
+ * pagination can return a node twice if the data changed between two page requests.
+ *
+ * @param {(CollectionNode | EntityNode | TextNode)[]} data - The nodes of the fetched page.
+ * @returns {void} This function does not return any value.
+ */
+function appendData(data: (CollectionNode | EntityNode | TextNode)[]): void {
+  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.data.uuid));
+
+  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.data.uuid)));
+}
+
+/**
+ * Stores the pagination of a fetched page. The offset is advanced by the page size, so it always
+ * holds the number of results fetched from the server so far — the offset of the next page.
+ *
+ * @param {PaginationData} pagination - The pagination returned with the page.
+ * @param {number} pageSize - The number of nodes the page contained.
+ * @returns {void} This function does not return any value.
+ */
+function applyPagination(pagination: PaginationData, pageSize: number): void {
+  pagination.offset = (pagination.offset ?? 0) + pageSize;
+
+  setPagination(pagination);
+
+  // An empty page ends the list even if the total says otherwise (results removed in the meantime)
+  hasMoreItems.value = pageSize > 0 && pagination.offset < pagination.totalRecords;
+}
+
+/**
+ * Fetches one page of nodes matching the current search parameters.
+ *
+ * @param {number} offset - The number of results to skip, i.e. how many were already fetched.
+ * @returns {Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>>} The fetched page plus pagination.
+ */
+async function fetchData(offset: number = 0): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
+  const { data, pagination } = await api.searchNodes(props.baseNodeLabel, {
+    filters: { ...searchParams.value, offset },
+  });
+
+  return { data, pagination };
+}
+
+/**
+ * Fetches the next page of the current search and appends it to the result list. No-op while a
+ * request is running or when everything is fetched. A search started in the meantime wins: the
+ * page of the outdated search is dropped.
+ *
+ * @returns {Promise<void>} Resolves when the next page is applied.
+ */
+async function fetchNextPage(): Promise<void> {
+  if (isLoading.value || !hasMoreItems.value) {
+    return;
+  }
+
+  const requestId: number = ++latestRequestId;
+  isLoading.value = true;
+  isLoadingMore.value = true;
+
+  try {
+    const { data, pagination } = await fetchData(resultPagination.value?.offset ?? fetchedItems.value.length);
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+
+    appendData(data);
+    applyPagination(pagination, data.length);
+  } finally {
+    // A search that started in the meantime is a reload, whatever happened to this page
+    isLoadingMore.value = false;
+
+    // Only the newest request can end the loading state
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
+  }
+}
 
 /**
  * Returns the first characters of given text.
@@ -71,6 +175,50 @@ watch(searchParams, handleSearchParamsChange, {
  */
 function getPreviewText(text: string | undefined): string {
   return text?.slice(0, PREVIEW_CHARACTER_SIZE) ?? "";
+}
+
+function handleResultItemSelect(item: CollectionNode | TextNode | EntityNode): void {
+  resetSearch();
+
+  emit("itemSelected", item);
+}
+
+function handleSearchInputChange(newInput: string) {
+  const data: NodeSearchParams = {
+    searchInput: newInput,
+  };
+
+  updateSearchParams(data, { immediate: false });
+}
+
+async function handleSearchParamsChange() {
+  const requestId: number = ++latestRequestId;
+  isLoading.value = true;
+
+  try {
+    const { data, pagination } = await fetchData();
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+
+    replaceData(data);
+    applyPagination(pagination, data.length);
+  } finally {
+    // Only the newest request can end the loading state
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
+  }
+}
+
+function replaceData(data: (CollectionNode | EntityNode | TextNode)[]) {
+  fetchedItems.value = data;
+}
+
+function resetPagination(): void {
+  setPagination(null);
+  hasMoreItems.value = false;
 }
 
 function resetSearch(): void {
@@ -89,74 +237,20 @@ function setIsSearchActive(mode: boolean): void {
   }
 }
 
-function handleResultItemSelect(item: CollectionNode | TextNode | EntityNode): void {
-  resetSearch();
-
-  emit("itemSelected", item);
-}
-
-function handleSearchInputChange(newInput: string) {
-  const data: NodeSearchParams = {
-    searchInput: newInput,
-  };
-
-  updateSearchParams(data, { immediate: false });
-}
-
-function resetPagination(): void {
-  setPagination(null);
-}
-
-async function fetchData(): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
-  const { data, pagination } = await api.searchNodes(props.baseNodeLabel, {
-    filters: searchParams.value,
-  });
-
-  return { data, pagination };
-}
-
 function setPagination(newPagination: PaginationData) {
   resultPagination.value = newPagination;
 }
 
-function replaceData(data: (CollectionNode | EntityNode | TextNode)[]) {
-  fetchedItems.value = data;
+/**
+ * Function ref for the scrollable result list. The list lives in the AutoComplete's overlay, which
+ * is only mounted while open — Vue calls this with the element on mount and with `null` on unmount.
+ *
+ * @param {Element | ComponentPublicInstance | null} element - The result list element, or `null` once it is gone.
+ * @returns {void} This function does not return any value.
+ */
+function setResultList(element: Element | ComponentPublicInstance | null): void {
+  resultList.value = element as HTMLElement | null;
 }
-
-async function handleSearchParamsChange() {
-  const requestId: number = ++latestRequestId;
-  isLoading.value = true;
-
-  try {
-    const { data, pagination } = await fetchData();
-
-    if (requestId !== latestRequestId) {
-      return;
-    }
-
-    pagination.offset = (pagination.offset ?? 0) + data.length;
-
-    replaceData(data);
-    setPagination(pagination);
-  } finally {
-    // Only the newest request can end the loading state
-    if (requestId === latestRequestId) {
-      isLoading.value = false;
-    }
-  }
-}
-
-const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
-
-const { width: searchbarWidth } = useElementSize(searchbar, undefined, { box: "border-box" });
-
-onStartTyping(() => {
-  const inputEl: HTMLInputElement | undefined = searchbar.value?.$el.querySelector("input");
-
-  if (inputEl && document.activeElement !== inputEl) {
-    inputEl.focus();
-  }
-});
 </script>
 
 <template>
@@ -170,7 +264,7 @@ onStartTyping(() => {
       :class="isSearchActive ? 'active' : 'inactive'"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
-      :loading="isLoading"
+      :loading="isReloading"
       input-class="w-full"
       class="searchbar h-12"
       variant="filled"
@@ -182,6 +276,9 @@ onStartTyping(() => {
             autofocus: true,
           },
         },
+        listContainer: {
+          ref: setResultList,
+        },
         loader: {
           style: {
             zIndex: 1,
@@ -192,7 +289,11 @@ onStartTyping(() => {
       @option-select="handleResultItemSelect($event.value)"
     >
       <template v-if="fetchedItems.length > 0" #header>
-        <div class="font-medium px-4 py-2">{{ fetchedItems.length }} Results</div>
+        <div class="font-medium px-4 py-2">
+          {{ fetchedItems.length }}
+          <template v-if="hasMoreItems">of {{ resultPagination?.totalRecords }}</template>
+          Results
+        </div>
       </template>
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">
@@ -228,6 +329,11 @@ onStartTyping(() => {
         </template>
       </template>
     </AutoComplete>
+    <Teleport v-if="resultList && isLoadingMore" :to="resultList">
+      <div class="text-center py-1" title="More data are loading...">
+        <span class="icon-loader-circle animate-spin"></span>
+      </div>
+    </Teleport>
   </InputGroup>
 </template>
 

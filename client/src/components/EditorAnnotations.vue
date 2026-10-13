@@ -33,7 +33,6 @@ const expandedKeys = ref<Record<string, boolean>>({});
 const knownCategoryKeys = new Set<string>();
 
 function updateDisplayedAnnotations(): void {
-  console.log("UPDSTE");
   const current: NodeStatusObject<AnnotationNode>[] = tiptap.value
     ? [...collectInlineAnnotations(tiptap.value.state).values()]
     : [];

@@ -28,7 +28,7 @@ const breadcrumbHome = computed<MenuItem>(() => {
   } else if (root.value.kind === "smartView") {
     const view: SmartView | null = getSmartView(root.value.uuid);
 
-    return { icon: "icon-folder", label: view?.label ?? "" };
+    return { icon: "icon-folder-cog", label: view?.label ?? "" };
   } else {
     const tag: DeepReadonly<Tag> | null = getTag(root.value.uuid);
 

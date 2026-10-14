@@ -6,8 +6,8 @@ import { MenuItem } from "primevue/menuitem";
 import { useSmartViewsStore } from "../store/smartViews";
 import { SmartView } from "../models/types";
 
-const SMART_VIEW_ICON: string = "icon-folder";
-const SMART_VIEW_ICON_ACTIVE: string = "icon-folder";
+const SMART_VIEW_ICON: string = "icon-folder-cog";
+const SMART_VIEW_ICON_ACTIVE: string = "icon-folder-cog";
 
 const props = defineProps<{
   view: DeepReadonly<SmartView>;

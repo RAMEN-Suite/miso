@@ -90,7 +90,7 @@ function handleSubmit(): void {
     <div class="flex flex-col gap-5 p-6 pb-5">
       <div class="flex items-center gap-3">
         <span class="inline-flex shrink-0 items-center justify-center size-10 text-2xl" aria-hidden="true">
-          <i class="icon-folder" />
+          <i class="icon-folder-cog" />
         </span>
         <div class="flex flex-col flex-1 min-w-0">
           <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- The name is the first thing to fill in -->

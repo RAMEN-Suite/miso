@@ -213,8 +213,6 @@ defineExpose({ sync });
       </div>
     </div>
 
-    <hr />
-
     <IconField>
       <InputIcon class="icon-search" />
       <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />

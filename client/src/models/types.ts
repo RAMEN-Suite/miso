@@ -258,8 +258,8 @@ export type HierarchyRoot =
   | { kind: "database" }
   | { kind: "tag"; uuid: string }
   /**
-   * Same set and fetching mechanism as `database`, but seeds the first column with the {@linkcode SmartView}'s
-   * stored filter preset.
+   * Same fetching mechanism as `database`, but the first column lists the set chosen by the
+   * {@linkcode SmartView}'s stored scope and is seeded with its stored filter preset.
    */
   | { kind: "smartView"; uuid: string };
 
@@ -267,9 +267,23 @@ export type HierarchyRoot =
  * Which set of nodes a hierarchy listing is drawn from.
  *
  * This is the *scope*, not a filter: {@link HierarchyFilters} narrows a set, a scope defines it,
- * and the three kinds are mutually exclusive. All three are served by `POST /hierarchy/query`.
+ * and the five kinds are mutually exclusive. All of them are served by `POST /hierarchy/query`.
+ *
+ * - `children`: the direct `PART_OF` children of one Collection.
+ * - `descendants`: everything below one Collection, at any depth of the `PART_OF` hierarchy.
+ * - `top`: the top of the `PART_OF` hierarchy.
+ * - `all`: every Collection and Content, wherever it sits in the hierarchy.
+ * - `uuids`: an explicit set of nodes, independent of `PART_OF`.
  */
-export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
+export type HierarchyScope =
+  | { kind: "children"; parentUuid: string }
+  | { kind: "descendants"; ancestorUuid: string }
+  | { kind: "top" }
+  | { kind: "all" }
+  | { kind: "uuids"; uuids: string[] };
+
+/** The scopes a {@linkcode SmartView} can search in. The other kinds are bound to navigation or tags. */
+export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendants" }>;
 
 /** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
 export interface CollectionFocus {
@@ -444,9 +458,10 @@ export interface SemanticBlockRange {
 }
 
 /**
- * A user-defined view: a named filter preset held in the browser. Selecting one lists the top of the
- * hierarchy pre-filtered by {@linkcode SmartView.config}. Unlike a {@linkcode Tag} it references no
- * nodes at all — membership is decided by the filters on every request, so it never goes stale.
+ * A user-defined view: a named scope and filter preset held in the browser. Selecting one lists the
+ * nodes of its scope, pre-filtered by its filters (see {@linkcode SmartView.config}). Unlike a
+ * {@linkcode Tag} it references no listed nodes at all — membership is decided by scope and filters
+ * on every request, so it never goes stale.
  */
 export interface SmartView {
   uuid: string;
@@ -455,6 +470,8 @@ export interface SmartView {
     icon?: string;
   };
   config: {
+    /** Where the view searches: everywhere, or everything below one Collection. */
+    scope: SmartViewScope;
     filters: FilterSpec;
   };
 }

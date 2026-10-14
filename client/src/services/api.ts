@@ -195,8 +195,9 @@ export default class ApiService {
 
   /**
    * Fetches one page of a hierarchy listing. What is listed is decided by the scope: a Collection's
-   * children, the top of the hierarchy, or an explicit set of uuids (everything carrying one tag).
-   * Filtering, sorting and cursor pagination are identical for all three.
+   * children or all of its descendants, the top of the hierarchy, every node of the hierarchy, or an
+   * explicit set of uuids (everything carrying one tag).
+   * Filtering, sorting and cursor pagination are identical for all of them.
    *
    * This is a read despite being a POST — the parameters do not reliably fit in a URI, and a body allows
    * more complex filters.

@@ -122,8 +122,16 @@ export default class HierarchyService {
       case "children": {
         return `MATCH (parent:Collection {uuid: $parentUuid})<-[:PART_OF]-(n:Collection|Content)`;
       }
+      case "descendants": {
+        return `MATCH (ancestor:Collection {uuid: $ancestorUuid})<-[:PART_OF*1..]-(n:Collection|Content)
+                WHERE n <> ancestor
+                WITH DISTINCT n`;
+      }
       case "top": {
         return `MATCH (n:Collection|Content) WHERE NOT EXISTS { ()<-[:PART_OF]-(n) }`;
+      }
+      case "all": {
+        return `MATCH (n:Collection|Content)`;
       }
       case "uuids": {
         return `UNWIND $uuids AS scopeUuid
@@ -135,10 +143,11 @@ export default class HierarchyService {
 
   /**
    * Retrieves a paginated page of a hierarchy listing. What is listed is decided by the
-   * {@link HierarchyScope}: a Collection's direct children, the top of the hierarchy, or an
-   * explicit set of uuids (a client-side tag, whose nodes may sit anywhere in the graph).
+   * {@link HierarchyScope}: a Collection's direct children or all of its descendants, the top of the
+   * hierarchy, every node of the hierarchy, or an explicit set of uuids (a client-side tag, whose
+   * nodes may sit anywhere in the graph).
    *
-   * Everything but the scope is identical across the three: Collections always sort before
+   * Everything but the scope is identical across all of them: Collections always sort before
    * Contents (Finder-style); within each group the nodes sort by the requested target (the distinct
    * property by default), tie-broken by uuid; pagination is keyset (cursor) based.
    *
@@ -210,6 +219,7 @@ export default class HierarchyService {
 
     const queryParams = {
       ...(scope.kind === "children" && { parentUuid: scope.parentUuid }),
+      ...(scope.kind === "descendants" && { ancestorUuid: scope.ancestorUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       ...filterParams,
       baseLabels: BASE_NODE_LABELS,

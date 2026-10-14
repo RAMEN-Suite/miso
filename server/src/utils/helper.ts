@@ -153,11 +153,14 @@ function parseHierarchyScope(raw: unknown): HierarchyScope {
   }
 
   const maxScopeUuids: number = 10000;
-  const scope = raw as { kind?: unknown; parentUuid?: unknown; uuids?: unknown };
+  const scope = raw as { kind?: unknown; parentUuid?: unknown; ancestorUuid?: unknown; uuids?: unknown };
 
   switch (scope.kind) {
     case "top": {
       return { kind: "top" };
+    }
+    case "all": {
+      return { kind: "all" };
     }
     case "children": {
       if (typeof scope.parentUuid !== "string" || scope.parentUuid === "") {
@@ -165,6 +168,13 @@ function parseHierarchyScope(raw: unknown): HierarchyScope {
       }
 
       return { kind: "children", parentUuid: scope.parentUuid };
+    }
+    case "descendants": {
+      if (typeof scope.ancestorUuid !== "string" || scope.ancestorUuid === "") {
+        throw new ValidationError("A `descendants` scope needs an `ancestorUuid`.");
+      }
+
+      return { kind: "descendants", ancestorUuid: scope.ancestorUuid };
     }
     case "uuids": {
       if (!Array.isArray(scope.uuids) || scope.uuids.some((uuid) => typeof uuid !== "string")) {

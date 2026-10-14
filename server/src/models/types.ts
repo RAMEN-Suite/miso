@@ -126,15 +126,24 @@ export type FilterSpec = FilterRule[];
 
 /**
  * Which set of nodes a hierarchy listing is drawn from. This is the *scope*, not a filter:
- * a {@link FilterSpec} narrows a set, a scope defines it, and the three kinds are mutually
+ * a {@link FilterSpec} narrows a set, a scope defines it, and the five kinds are mutually
  * exclusive.
  *
  * - `children`: the direct `PART_OF` children of one Collection (the column view below level 0).
+ * - `descendants`: everything below one Collection, at any depth of the `PART_OF` hierarchy
+ *   (level 0 of a smart view that searches inside a Collection).
  * - `top`: the top of the `PART_OF` hierarchy (level 0 of the database root).
+ * - `all`: every Collection and Content, wherever it sits in the hierarchy (level 0 of a smart
+ *   view that searches everywhere).
  * - `uuids`: an explicit set of nodes, gathered client-side and independent of `PART_OF`
  *   (level 0 of a tag root). The nodes may sit anywhere in the graph.
  */
-export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
+export type HierarchyScope =
+  | { kind: "children"; parentUuid: string }
+  | { kind: "descendants"; ancestorUuid: string }
+  | { kind: "top" }
+  | { kind: "all" }
+  | { kind: "uuids"; uuids: string[] };
 
 export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
 

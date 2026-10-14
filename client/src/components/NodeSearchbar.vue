@@ -3,6 +3,9 @@ import { ComponentPublicInstance, computed, ref, useTemplateRef, watch } from "v
 import AutoComplete from "primevue/autocomplete";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
+import Button from "primevue/button";
+import { MenuItem } from "primevue/menuitem";
+import FilterableMenu from "./FilterableMenu.vue";
 
 import { useSearchParams } from "../composables/useSearchParams";
 import {
@@ -23,7 +26,31 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 const props = defineProps<{
   baseNodeLabel: ReferenceNodeLabel;
   additionalNodeLabel: string;
+  /**
+   * When given, the label icon in front of the searchbar becomes a
+   * button opening a searchable menu of these labels.
+   */
+  additionalNodeLabelOptions?: string[];
+  variant?: "filled" | "outlined";
+  size?: "normal" | "small";
 }>();
+
+const heightClass = computed<string>(() => (props.size === "small" ? "h-9" : "h-12"));
+const variant = computed<"filled" | "outlined">(() => props.variant ?? "filled");
+
+const labelMenu = useTemplateRef<InstanceType<typeof FilterableMenu>>("label-menu");
+const labelButton = useTemplateRef<{ $el: HTMLElement }>("label-button");
+
+const labelMenuItems = computed<MenuItem[]>(() => [
+  {
+    label: props.baseNodeLabel,
+    items: (props.additionalNodeLabelOptions ?? []).map((label: string) => ({
+      label,
+      nodeIcon: resolveNodeIcon([props.baseNodeLabel, label]),
+      command: () => emit("update:additionalNodeLabel", label),
+    })),
+  },
+]);
 
 const { api } = useAppStore();
 const { searchParams, updateSearchParams, resetSearchParams } = useSearchParams({
@@ -32,7 +59,10 @@ const { searchParams, updateSearchParams, resetSearchParams } = useSearchParams(
   nodeLabels: [props.additionalNodeLabel],
 });
 
-const emit = defineEmits<(e: "itemSelected", item: CollectionNode | TextNode | EntityNode) => void>();
+const emit = defineEmits<{
+  itemSelected: [item: CollectionNode | TextNode | EntityNode];
+  "update:additionalNodeLabel": [label: string];
+}>();
 
 const PREVIEW_CHARACTER_SIZE: number = 1000;
 
@@ -52,7 +82,7 @@ const placeHolder = computed<string>(() => {
 const visibleSearchInput = ref<string>("");
 
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
-const resultPagination = ref<PaginationData>();
+const resultPagination = ref<PaginationData | null>(null);
 const hasMoreItems = ref<boolean>(false);
 
 const isLoading = ref<boolean>(false);
@@ -77,12 +107,34 @@ useInfiniteScroll(resultList, fetchNextPage, {
 });
 
 onStartTyping(() => {
-  const inputEl: HTMLInputElement | undefined = searchbar.value?.$el.querySelector("input");
+  const inputEl: HTMLInputElement | null = getInputElement();
 
   if (inputEl && document.activeElement !== inputEl) {
     inputEl.focus();
   }
 });
+
+/**
+ * Moves the focus into the searchbar. Exposed for callers that show the searchbar in reaction to a user
+ * action.
+ *
+ * @param {"input" | "labelMenu"} [target] - `input` (default) focuses the search input. `labelMenu` opens the label
+ * menu, `input` focuses the input.
+ * @returns {void} This function does not return any value.
+ */
+function focus(target: "input" | "labelMenu" = "input"): void {
+  const button: HTMLElement | undefined = labelButton.value?.$el;
+
+  if (target === "labelMenu" && button && (props.additionalNodeLabelOptions?.length ?? 0) > 1) {
+    button.click();
+  } else {
+    getInputElement()?.focus();
+  }
+}
+
+function getInputElement(): HTMLInputElement | null {
+  return searchbar.value?.$el.querySelector("input") ?? null;
+}
 
 /**
  * Appends a fetched page to the result list. Nodes that are already listed are skipped: the offset
@@ -237,7 +289,7 @@ function setIsSearchActive(mode: boolean): void {
   }
 }
 
-function setPagination(newPagination: PaginationData) {
+function setPagination(newPagination: PaginationData | null) {
   resultPagination.value = newPagination;
 }
 
@@ -251,23 +303,47 @@ function setPagination(newPagination: PaginationData) {
 function setResultList(element: Element | ComponentPublicInstance | null): void {
   resultList.value = element as HTMLElement | null;
 }
+
+defineExpose({ focus });
 </script>
 
 <template>
   <InputGroup>
-    <InputGroupAddon class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
+    <template v-if="props.additionalNodeLabelOptions?.length">
+      <Button
+        ref="label-button"
+        type="button"
+        class="label-button"
+        :class="heightClass"
+        :size="props.size === 'small' ? 'small' : undefined"
+        severity="secondary"
+        :outlined="variant === 'outlined'"
+        :title="`Searching ${props.additionalNodeLabel} nodes. Click to search another type`"
+        @click="labelMenu?.toggle($event)"
+      >
+        <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
+        <i class="icon-chevron-down" />
+      </Button>
+      <FilterableMenu ref="label-menu" :model="labelMenuItems">
+        <template #itemicon="{ item }">
+          <RAMENNodeIcon :spec="item.nodeIcon" />
+        </template>
+      </FilterableMenu>
+    </template>
+    <InputGroupAddon v-else class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
       <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
       v-model="visibleSearchInput"
-      :class="isSearchActive ? 'active' : 'inactive'"
+      :class="[heightClass, isSearchActive ? 'active' : 'inactive']"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
       :loading="isReloading"
       input-class="w-full"
-      class="searchbar h-12"
-      variant="filled"
+      class="searchbar"
+      :size="props.size === 'small' ? 'small' : undefined"
+      :variant="variant"
       :title="placeHolder"
       :overlay-style="{ width: `${searchbarWidth}px`, maxWidth: `${searchbarWidth}px` }"
       :pt="{
@@ -338,6 +414,11 @@ function setResultList(element: Element | ComponentPublicInstance | null): void 
 </template>
 
 <style scoped>
+.label-button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .result-item {
   display: flex;
   align-items: center;

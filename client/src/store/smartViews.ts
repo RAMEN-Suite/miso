@@ -1,19 +1,27 @@
 import { DeepReadonly, readonly, Ref } from "vue";
 import { useStorage } from "@vueuse/core";
-import type { FilterSpec, SmartView } from "../models/types";
+import type { FilterSpec, SmartView, SmartViewScope } from "../models/types";
 import { cloneDeep } from "../utils/helper/helper";
 
 interface SmartViewsStore {
   smartViews: DeepReadonly<Ref<SmartView[]>>;
   getSmartView: (uuid: string) => SmartView | null;
   getSmartViewFilters: (uuid: string) => FilterSpec | null;
+  getSmartViewScope: (uuid: string) => SmartViewScope | null;
   createSmartView: (params: {
     label: string;
+    scope: SmartViewScope;
     filters: FilterSpec;
     uuid?: string;
     appearance?: SmartView["appearance"];
   }) => SmartView;
-  updateSmartView: (params: { uuid: string; label?: string; filters?: FilterSpec; appearance?: SmartView["appearance"] }) => void;
+  updateSmartView: (params: {
+    uuid: string;
+    label?: string;
+    scope?: SmartViewScope;
+    filters?: FilterSpec;
+    appearance?: SmartView["appearance"];
+  }) => void;
   deleteSmartView: (uuid: string) => void;
 }
 
@@ -25,14 +33,23 @@ if (!Array.isArray(storedSmartViews.value)) {
   storedSmartViews.value = [];
 }
 
+// Views stored without a scope, or with the no longer offered `top` scope, search everywhere
+storedSmartViews.value.forEach((view: SmartView) => {
+  const storedKind: string | undefined = (view.config.scope as { kind?: string } | undefined)?.kind;
+
+  if (storedKind !== "all" && storedKind !== "descendants") {
+    view.config.scope = { kind: "all" };
+  }
+});
+
 /** Public readonly ref of the store */
 const smartViews: DeepReadonly<Ref<SmartView[]>> = readonly(storedSmartViews);
 
 /**
- * Store for the user-defined views (named filter presets), currently persisted in the browser's local storage.
+ * Store for the user-defined views (named scope and filter presets), currently persisted in the browser's local storage.
  *
- * Unlike a Tag, a view stores no node reference directly, only a filter preset that can be applied to node listings (Collection/Content).
- * Its membership is recomputed on every request from the filters it carries.
+ * Unlike a Tag, a view stores no reference to the nodes it lists, only a scope and a filter preset that can be applied to
+ * node listings (Collection/Content). Its membership is recomputed on every request from the scope and filters it carries.
  *
  * @returns {SmartViewsStore} The views reactive ref, and the functions to manage them.
  */
@@ -47,6 +64,43 @@ export function useSmartViewsStore(): SmartViewsStore {
    */
   function cloneFilters(filters: FilterSpec): FilterSpec {
     return cloneDeep(filters);
+  }
+
+  /**
+   * Creates a view and appends it to the store.
+   *
+   * @param {Object} params - The label, scope and filter preset, plus an optional UUID (generated when omitted) and appearance.
+   * @returns {SmartView} The created view, so the caller can select it straight away.
+   */
+  function createSmartView(params: {
+    label: string;
+    scope: SmartViewScope;
+    filters: FilterSpec;
+    uuid?: string;
+    appearance?: SmartView["appearance"];
+  }): SmartView {
+    const { label, scope, filters, uuid, appearance } = params;
+
+    const newSmartView: SmartView = {
+      uuid: uuid ?? crypto.randomUUID(),
+      label,
+      appearance,
+      config: { scope: cloneDeep(scope), filters: cloneFilters(filters) },
+    };
+
+    storedSmartViews.value.push(newSmartView);
+
+    return newSmartView;
+  }
+
+  /**
+   * Deletes a view.
+   *
+   * @param {string} uuid - The view UUID.
+   * @returns {void} This function does not return any value.
+   */
+  function deleteSmartView(uuid: string): void {
+    storedSmartViews.value = storedSmartViews.value.filter((view: SmartView) => view.uuid !== uuid);
   }
 
   /**
@@ -86,45 +140,32 @@ export function useSmartViewsStore(): SmartViewsStore {
   }
 
   /**
-   * Creates a view and appends it to the store.
+   * Returns the scope a view searches in, detached from the store.
    *
-   * @param {Object} params - The label and filter preset, plus an optional UUID (generated when omitted) and appearance.
-   * @returns {SmartView} The created view, so the caller can select it straight away.
+   * @param {string} uuid - The view UUID.
+   * @returns {SmartViewScope | null} A deep copy of the scope, or null for an unknown view.
    */
-  function createSmartView(params: {
-    label: string;
-    filters: FilterSpec;
-    uuid?: string;
-    appearance?: SmartView["appearance"];
-  }): SmartView {
-    const { label, filters, uuid, appearance } = params;
+  function getSmartViewScope(uuid: string): SmartViewScope | null {
+    const view: SmartView | undefined = findSmartView(uuid);
 
-    const newSmartView: SmartView = {
-      uuid: uuid ?? crypto.randomUUID(),
-      label,
-      appearance,
-      config: { filters: cloneFilters(filters) },
-    };
-
-    storedSmartViews.value.push(newSmartView);
-
-    return newSmartView;
+    return view ? cloneDeep(view.config.scope) : null;
   }
 
   /**
-   * Updates a view's label, filters and/or appearance. An omitted field is left alone, so renaming a
+   * Updates a view's label, scope, filters and/or appearance. An omitted field is left alone, so renaming a
    * view does not drop its preset and re-filtering it does not drop its label.
    *
-   * @param {Object} params - The view UUID, and the label, filters and/or appearance to apply.
+   * @param {Object} params - The view UUID, and the label, scope, filters and/or appearance to apply.
    * @returns {void} This function does not return any value.
    */
   function updateSmartView(params: {
     uuid: string;
     label?: string;
+    scope?: SmartViewScope;
     filters?: FilterSpec;
     appearance?: SmartView["appearance"];
   }): void {
-    const { uuid, label, filters, appearance } = params;
+    const { uuid, label, scope, filters, appearance } = params;
 
     const view: SmartView | undefined = findSmartView(uuid);
 
@@ -136,6 +177,10 @@ export function useSmartViewsStore(): SmartViewsStore {
       view.label = label;
     }
 
+    if (scope !== undefined) {
+      view.config = { ...view.config, scope: cloneDeep(scope) };
+    }
+
     if (filters !== undefined) {
       view.config = { ...view.config, filters: cloneFilters(filters) };
     }
@@ -145,20 +190,11 @@ export function useSmartViewsStore(): SmartViewsStore {
     }
   }
 
-  /**
-   * Deletes a view.
-   *
-   * @param {string} uuid - The view UUID.
-   * @returns {void} This function does not return any value.
-   */
-  function deleteSmartView(uuid: string): void {
-    storedSmartViews.value = storedSmartViews.value.filter((view: SmartView) => view.uuid !== uuid);
-  }
-
   return {
     smartViews,
     getSmartView,
     getSmartViewFilters,
+    getSmartViewScope,
     createSmartView,
     updateSmartView,
     deleteSmartView,

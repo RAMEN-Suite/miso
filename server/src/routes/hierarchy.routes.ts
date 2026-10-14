@@ -14,8 +14,9 @@ const guidelinesService: GuidelinesService = new GuidelinesService();
 
 /**
  * The single hierarchy listing endpoint. What is listed is decided by the `scope` in the body —
- * a Collection's children, the top of the hierarchy, or an explicit set of uuids (everything
- * carrying one client-side tag) — with identical filter, sort and cursor semantics for all three.
+ * a Collection's children or all of its descendants, the top of the hierarchy, every node of the
+ * hierarchy, or an explicit set of uuids (everything carrying one client-side tag) — with identical
+ * filter, sort and cursor semantics for all of them.
  *
  * This is a **read**, not a mutation. It is a POST because the parameters do not reliably fit in a
  * URI (large uuid lists, long cursor strings, complex filters etc.)

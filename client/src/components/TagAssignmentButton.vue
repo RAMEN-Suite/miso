@@ -73,7 +73,7 @@ function handleTagToggle(tagUuid: string): void {
     </ul>
 
     <div class="disclaimer mt-4 text-xs italic flex items-center gap-2">
-      <i class="icon-alert-circle"></i>
+      <i class="icon-hard-drive"></i>
       <span>Tags are stored in your browser. If you change your device, they won't be available there.</span>
     </div>
   </Popover>

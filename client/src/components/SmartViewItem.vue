@@ -28,20 +28,6 @@ const menuItems: MenuItem[] = [
   { label: "Delete", icon: "icon-trash-2", command: () => emit("delete") },
 ];
 
-function handleOpenMenu(event: Event): void {
-  menu.value?.toggle(event);
-}
-
-/**
- * Turns the label into an input. Reached from the row menu and from a double click on the label.
- *
- * @returns {void} This function does not return any value.
- */
-function startRename(): void {
-  isRenaming.value = true;
-  renameDraft.value = props.view.label;
-}
-
 /**
  * Focuses the rename input and selects its text, so typing replaces the old label.
  *
@@ -81,6 +67,10 @@ function handleCommitRename(): void {
   updateSmartView({ uuid: props.view.uuid, label });
 }
 
+function handleOpenMenu(event: Event): void {
+  menu.value?.toggle(event);
+}
+
 /**
  * Handles keys inside the rename input, and keeps every one of them from reaching the row: the row
  * treats Enter and Space as "select this view", which would otherwise swallow the space bar.
@@ -96,6 +86,16 @@ function handleRenameKeydown(event: KeyboardEvent): void {
     event.preventDefault();
     isRenaming.value = false;
   }
+}
+
+/**
+ * Turns the label into an input. Reached from the row menu and from a double click on the label.
+ *
+ * @returns {void} This function does not return any value.
+ */
+function startRename(): void {
+  isRenaming.value = true;
+  renameDraft.value = props.view.label;
 }
 </script>
 

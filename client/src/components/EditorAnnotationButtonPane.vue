@@ -178,7 +178,7 @@ function buildTableMenuItems(): MenuItem[] {
       label: "Header",
       title: "Toggle header row or column",
       icon: "icon-list",
-      disabled: !inTable,
+      disabled: true,
       items: [
         { label: "Toggle header row", title: "Toggle header row", command: () => runTableCommand((c) => c.toggleHeaderRow()) },
         {

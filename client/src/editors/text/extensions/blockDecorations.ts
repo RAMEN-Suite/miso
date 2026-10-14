@@ -39,7 +39,7 @@ const DECORATED_ROLES: ReadonlySet<string> = new Set(["paragraph", "heading", "b
 
 // Paragraphs nested directly inside these containers are skipped to avoid visual clutter
 // (paragraphs inside cells e.g. do not have to be displayed)
-const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "tableHeader", "listItem"]);
+const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "listItem"]);
 
 /**
  * Build the decoration set, consisting of node decorations and widget decorations depending on the user settings.

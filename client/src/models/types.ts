@@ -97,7 +97,6 @@ export type BuiltinStructuralType =
   | "table"
   | "tableRow"
   | "tableCell"
-  | "tableHeader"
   | "bulletList"
   | "listItem";
 

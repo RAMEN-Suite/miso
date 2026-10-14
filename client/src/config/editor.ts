@@ -107,6 +107,9 @@ export const DEFAULT_ANNOTATION_MAPPING: AnnotationMapping = {
     listItem: "item",
   },
   attrByRole: {
+    heading: {
+      level: "level",
+    },
     tableCell: {
       colspan: "cols",
       rowspan: "rows",

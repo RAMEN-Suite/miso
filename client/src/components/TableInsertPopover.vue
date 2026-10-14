@@ -11,7 +11,7 @@ const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 
 const columns = ref<number>(3);
 const rows = ref<number>(3);
-const hasHeaderRow = ref<boolean>(true);
+const hasHeaderRow = ref<boolean>(false);
 
 function toggle(event: Event): void {
   popover.value?.toggle(event);
@@ -22,7 +22,7 @@ function addTable(): void {
 
   columns.value = 3;
   rows.value = 3;
-  hasHeaderRow.value = true;
+  hasHeaderRow.value = false;
 
   popover.value?.hide();
 }
@@ -45,7 +45,7 @@ defineExpose({ toggle });
       </div>
     </div>
     <div class="flex items-center gap-2 mt-2 justify-center">
-      <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary />
+      <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary disabled />
       <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
       <label for="header-row"> Add header row </label>
     </div>

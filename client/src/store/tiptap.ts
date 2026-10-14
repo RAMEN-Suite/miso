@@ -22,6 +22,7 @@ import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
 import { AnnotationAttributes } from "../editors/text/extensions/annotationAttributes";
 import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
+import { TableRowWithoutHeader } from "../editors/text/extensions/tableRow";
 import { history } from "prosemirror-history";
 import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
@@ -52,7 +53,10 @@ function getConfiguredExtensions(): Extensions {
     Heading,
     TableKit.configure({
       table: { resizable: true },
+      tableRow: false,
+      tableHeader: false,
     }),
+    TableRowWithoutHeader,
     BulletList,
     ListItem,
     Gapcursor,

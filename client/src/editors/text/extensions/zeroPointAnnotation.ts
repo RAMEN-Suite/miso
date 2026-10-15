@@ -1,5 +1,5 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
-import { Annotation, AnnotationAppearance, IconSpecInput, MarkerTextStyle, Range } from "../../../models/types";
+import { Annotation, AnnotationAppearance, IconSpecInput, MarkerStyle, Range } from "../../../models/types";
 import { cloneDeep } from "../../../utils/helper/helper";
 import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
 
@@ -53,7 +53,7 @@ interface ZeroPointOptions {
  * @returns {HTMLElement | null} The marker content, or `null` if no marker is configured.
  */
 function createMarkerElement(appearance: AnnotationAppearance | undefined, subType?: string): HTMLElement | null {
-  const markerConfig: MarkerTextStyle | undefined =
+  const markerConfig: MarkerStyle | undefined =
     (subType !== undefined ? appearance?.subTypes?.[subType]?.marker : undefined) ?? appearance?.marker;
 
   if (!markerConfig) {

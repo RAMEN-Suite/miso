@@ -101,7 +101,7 @@ export interface AnnotationAppearance {
   /** Styling of the annotated text. Only applies to `range` annotations. */
   highlight?: HighlightTextStyle;
   /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
-  marker?: MarkerTextStyle;
+  marker?: MarkerStyle;
   /** Overrides per value of the `subType` property */
   subTypes?: Record<string, Pick<AnnotationAppearance, "icon" | "highlight" | "marker">>;
 }
@@ -111,16 +111,16 @@ export interface AnnotationAppearance {
  */
 export type HighlightTextStyle = PropertiesTextStyle;
 
-/** An icon rendered in the text. */
-export interface IconTextStyle {
+/** An icon rendered at the position of an annotation. */
+export interface IconStyle {
   kind: "icon";
   icon: IconSpecInput;
 }
 
 /**
- * Styling of the position of a `zeroPoint` annotation in the text.
+ * Styling of the position of a `zeroPoint` annotation.
  */
-export type MarkerTextStyle = IconTextStyle;
+export type MarkerStyle = IconStyle;
 
 /** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
 export interface PropertiesTextStyle {

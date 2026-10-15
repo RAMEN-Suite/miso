@@ -1,6 +1,5 @@
 import { readonly, ref } from "vue";
 import ApiService from "../services/api";
-import { useStyleTag } from "@vueuse/core";
 import { useGuidelinesStore } from "./guidelines";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { ToastMessageOptions, ToastServiceMethods } from "primevue";
@@ -25,9 +24,8 @@ const error = ref<AppError>(null);
  * Returns an object containing methods for fetching data from the API and initializing the application.
  *
  * The object contains the following methods:
- *   - `fetchAndApplyStyles`: Fetches the custom stylesheet and applies it to the document.
  *   - `fetchAndInitializeGuidelines`: Fetches the guidelines and initializes the store with the fetched data.
- *   - `initializeApp`: Initializes the application by fetching guidelines, styles, configuration etc.
+ *   - `initializeApp`: Initializes the application by fetching guidelines, configuration etc.
  *
  * The object also contains the following properties:
  *   - `api`: The API instance.
@@ -74,17 +72,6 @@ export function useAppStore() {
   }
 
   /**
-   * Fetches the custom stylesheet and applies it to the document.
-   *
-   * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   */
-  async function fetchAndApplyStyles(): Promise<void> {
-    const css: string = await api.getStyles();
-
-    useStyleTag(css, { id: "custom-styles" });
-  }
-
-  /**
    * Fetches the guidelines and initializes the store with the fetched data.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
@@ -119,7 +106,6 @@ export function useAppStore() {
     try {
       await checkDatabaseStatus();
       await fetchAndInitializeGuidelines();
-      await fetchAndApplyStyles();
 
       if (guidelinesError.value) {
         throw guidelinesError.value;

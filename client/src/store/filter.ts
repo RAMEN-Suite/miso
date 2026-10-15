@@ -18,7 +18,9 @@ export function useFilterStore() {
    */
   function initializeFilter(guidelines: IGuidelines): void {
     allOptions.value = guidelines.annotations.types.map((type) => type.type);
-    defaultOptions.value = guidelines.annotations.types.filter((type) => type.defaultSelected).map((type) => type.type);
+    defaultOptions.value = guidelines.annotations.types
+      .filter((type) => type.miso?.controls?.defaultSelected)
+      .map((type) => type.type);
     selectedOptions.value = [...defaultOptions.value];
   }
 

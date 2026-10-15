@@ -1,20 +1,26 @@
-import { AnnotationConfigEntity, AnnotationType, PropertyConfig } from "./types";
+import { AnnotationConfigEntity, AnnotationType, NodeMisoConfig, PropertyConfig } from "./types";
 
 export interface IGuidelines {
   collections: {
+    /** Miso-only configuration of the base Collection node */
+    miso?: NodeMisoConfig;
     properties: {
       system: PropertyConfig[];
       base: PropertyConfig[];
     };
     types: {
       additionalLabel: string;
-      level: "primary" | "secondary" /* Quick fix to determine which collections should be loaded into the overview table */;
       properties: PropertyConfig[];
       annotations: {
         additionalTexts: string[];
         types: AnnotationType[];
         properties: PropertyConfig[];
         entities: AnnotationConfigEntity[];
+      };
+      /** Miso-only configuration */
+      miso?: NodeMisoConfig & {
+        /** Quick fix to determine which collections should be loaded into the overview table */
+        level?: "primary" | "secondary";
       };
     }[];
     annotations: {

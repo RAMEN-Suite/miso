@@ -1,20 +1,24 @@
 <script setup lang="ts">
-defineProps<{ annotationType: string | number }>();
+import { computed } from "vue";
+import { AnnotationType, IconSpecInput } from "../models/types";
+import { resolveAnnotationIcon } from "../config/icons";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+
+const props = withDefaults(
+  defineProps<{
+    config: AnnotationType | undefined;
+    subType?: string | number;
+    size?: number;
+  }>(),
+  {
+    subType: undefined,
+    size: 18,
+  },
+);
+
+const icon = computed<IconSpecInput | undefined>(() => resolveAnnotationIcon(props.config, props.subType));
 </script>
 
 <template>
-  <span :class="`annotation-type-icon-${annotationType}`"></span>
+  <RAMENNodeIcon v-if="icon" :spec="icon" :size="props.size" />
 </template>
-
-<style scoped>
-/* This styles the icon container which will be enriched with
-custom SVG background-image properties by the users */
-[class^="annotation-type-icon"] {
-  display: block;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  width: 100%;
-  height: 100%;
-}
-</style>

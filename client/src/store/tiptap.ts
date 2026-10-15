@@ -1,5 +1,13 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, ToCItem, SemanticBlockRange, DocAnnotation, StandoffParseIssue } from "../models/types";
+import {
+  NodeDto,
+  Annotation,
+  AnnotationAppearance,
+  ToCItem,
+  SemanticBlockRange,
+  DocAnnotation,
+  StandoffParseIssue,
+} from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
@@ -30,9 +38,11 @@ import { AnnotationHighlight } from "../editors/text/extensions/annotationHighli
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
 import { collectInlineAnnotations, pastedSliceToRawText } from "../utils/helper/tiptapHelper";
+import { useGuidelinesStore } from "./guidelines";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
+const { getAnnotationConfig } = useGuidelinesStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -44,6 +54,17 @@ let resizeObserver: ResizeObserver | null = null;
 
 const tableOfContent = ref<ToCItem[]>([]);
 const semanticBlockRanges = ref<SemanticBlockRange[]>([]);
+
+/**
+ * Returns the configured appearance of an annotation type. Passed to the editor extensions, which render
+ * markers and highlights from it.
+ *
+ * @param {string} type The annotation type
+ * @returns {AnnotationAppearance | undefined} The configured appearance, if any
+ */
+function getAppearance(type: string): AnnotationAppearance | undefined {
+  return getAnnotationConfig(type)?.miso?.appearance;
+}
 
 function getConfiguredExtensions(): Extensions {
   return [
@@ -62,12 +83,12 @@ function getConfiguredExtensions(): Extensions {
     Gapcursor,
     HardBreak,
     UndoRedo,
-    ZeroPointAnnotation,
+    ZeroPointAnnotation.configure({ getAppearance }),
     InvisibleCharacters.configure({
       visible: false,
       builders: [new ParagraphNode(), new HardBreakNode()],
     }),
-    AnnotationDecoration,
+    AnnotationDecoration.configure({ getAppearance }),
     BlockDecorations,
     UniqueID.configure({
       types: "all",

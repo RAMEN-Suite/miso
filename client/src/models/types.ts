@@ -43,8 +43,8 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
 }
 
 /**
- * Miso-internal role of the annotation in a text document. Defines how an annotation is represented
- * in the tiptap editor. Options are:
+ * Miso-internal role of the annotation in a text document, configured in `miso.editing.role`. Defines how an
+ * annotation is represented in the tiptap editor. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
  * - `semanticBlock`: whole-block labels. Are always attached to a whole built-in document blocks and give them as semantic meaning.
@@ -54,7 +54,7 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
 export type AnnotationRole = "structure" | "inline" | "semanticBlock";
 
 /**
- * How an annotation sits in the text.
+ * How an annotation is anchored in its content, configured in `miso.editing.anchor`.
  * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
  *    Required for annotations with role `semanticBlock`.
  * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
@@ -62,27 +62,92 @@ export type AnnotationRole = "structure" | "inline" | "semanticBlock";
 export type AnnotationBehaviour = "zeroPoint" | "range";
 
 export interface AnnotationType {
-  category: string; // Miso
-  defaultSelected: boolean; // Miso
-  /** @deprecated Use `behaviour: "zeroPoint"`. Kept as a legacy input the normalization derives from. */
-  isZeroPoint?: boolean; // Miso and Nori
   hasEntities?: boolean; // Derived from Nori
   properties?: PropertyConfig[]; // Nori
-  shortcut: string[]; // Miso
-  text: string; // Miso
   type: string; // Nori -> discriminator, also property there
-  /** @deprecated Use `role`. Kept as a legacy input the normalization derives from. */
-  isBlock?: boolean; // Miso
-  contains?: string[]; // Miso -> only for builtin structural elements
-  topLevel?: boolean; // Miso -> deprecated, but keep for now
-  priority?: number; // Miso
-  role?: AnnotationRole; // Miso -> operational category (structure/inline/semanticBlock)
-  behaviour?: AnnotationBehaviour; // Miso -> zeroPoint vs range
+  /** Miso-only configuration (editor behaviour, controls, appearance) */
+  miso?: AnnotationMisoConfig;
+}
+
+/**
+ * Miso-only configuration of an annotation type. Everything in here is frontend-only and not part of the data model.
+ */
+export interface AnnotationMisoConfig {
+  /** Group the annotation type is listed under in the toolbar and the filter */
+  group?: string;
+  /** How the user creates and interacts with annotations of this type */
+  controls?: {
+    /** Keyboard shortcut in keymap notation, e.g. `Mod-Shift-e`. `Mod` is Cmd on macOS and Ctrl elsewhere. */
+    shortcut?: string;
+    /** Whether annotations of this type are visible when the editor is opened */
+    defaultSelected?: boolean;
+  };
+  /** How annotations of this type are anchored in the content */
+  editing?: {
+    anchor?: AnnotationBehaviour;
+    role?: AnnotationRole;
+    /** Nesting priority, only relevant for structural types */
+    priority?: number;
+    /** Editor roles of structural types that can be nested inside, only relevant for structural types */
+    contains?: string[];
+  };
+  appearance?: AnnotationAppearance;
+}
+
+/** How annotations of a type are rendered */
+export interface AnnotationAppearance {
+  /** Icon in the toolbar and in annotation lists */
+  icon?: IconSpecInput;
+  /** Styling of the annotated text. Only applies to `range` annotations. */
+  highlight?: HighlightTextStyle;
+  /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
+  marker?: MarkerTextStyle;
+  /** Overrides per value of the `subType` property */
+  subTypes?: Record<string, Pick<AnnotationAppearance, "icon" | "highlight" | "marker">>;
+}
+
+/**
+ * Styling of the text covered by a `range` annotation.
+ */
+export type HighlightTextStyle = PropertiesTextStyle;
+
+/** An icon rendered in the text. */
+export interface IconTextStyle {
+  kind: "icon";
+  icon: IconSpecInput;
+}
+
+/**
+ * Styling of the position of a `zeroPoint` annotation in the text.
+ */
+export type MarkerTextStyle = IconTextStyle;
+
+/** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
+export interface PropertiesTextStyle {
+  kind: "properties";
+  color?: string;
+  backgroundColor?: string;
+  fontWeight?: string;
+  fontStyle?: string;
+  fontVariant?: string;
+  fontSize?: string;
+  verticalAlign?: string;
+  textDecorationLine?: string;
+  textDecorationStyle?: string;
+  textDecorationColor?: string;
+  textDecorationThickness?: string;
 }
 
 export interface AnnotationConfigEntity {
   category: string;
   nodeLabel: string;
+  /** Miso-only configuration */
+  miso?: NodeMisoConfig;
+}
+
+/** Miso-only configuration of a node type (Collection or Entity refinement) */
+export interface NodeMisoConfig {
+  icon?: IconSpecInput;
 }
 
 export interface ApiJson {

@@ -1,7 +1,11 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
-import { Annotation, Range } from "../../../models/types";
+import { Annotation, AnnotationAppearance, IconSpecInput, MarkerTextStyle, Range } from "../../../models/types";
 import { cloneDeep } from "../../../utils/helper/helper";
 import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
+
+// TODO: This should come from the editor
+/** Class prefix of the Lucide icon font (`lucide-static`), e.g. `icon-triangle-alert` */
+const LUCIDE_ICON_CLASS_PREFIX = "icon-" as const;
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -35,14 +39,74 @@ interface ZeroPointAttributes {
   _annotation: Annotation | null;
 }
 
-export const ZeroPointAnnotation = Node.create({
+interface ZeroPointOptions {
+  /** Returns the configured appearance of the given annotation type, used to render its marker. */
+  getAppearance: (type: string) => AnnotationAppearance | undefined;
+}
+
+/**
+ * Creates the content of a zero-point annotation's marker from the configured appearance. A configured marker for
+ * the given subType takes precedence over the marker of the annotation type itself.
+ *
+ * @param {AnnotationAppearance | undefined} appearance The configured appearance of the annotation type.
+ * @param {string} [subType] The value of the annotation's `subType` property, if any.
+ * @returns {HTMLElement | null} The marker content, or `null` if no marker is configured.
+ */
+function createMarkerElement(appearance: AnnotationAppearance | undefined, subType?: string): HTMLElement | null {
+  const markerConfig: MarkerTextStyle | undefined =
+    (subType !== undefined ? appearance?.subTypes?.[subType]?.marker : undefined) ?? appearance?.marker;
+
+  if (!markerConfig) {
+    return null;
+  }
+
+  const icon: IconSpecInput = markerConfig.icon;
+
+  if (typeof icon === "string" || icon.kind === "lucide") {
+    const element: HTMLElement = document.createElement("i");
+
+    element.className = LUCIDE_ICON_CLASS_PREFIX + (typeof icon === "string" ? icon : icon.name);
+
+    return element;
+  }
+
+  if (icon.kind === "url") {
+    const element: HTMLImageElement = document.createElement("img");
+
+    element.src = icon.url;
+    element.alt = "";
+    element.style.width = "100%";
+    element.style.height = "100%";
+
+    return element;
+  }
+
+  if (icon.kind === "svg") {
+    const element: HTMLSpanElement = document.createElement("span");
+
+    element.innerHTML = icon.svg;
+    element.style.display = "block";
+    element.style.width = "100%";
+    element.style.height = "100%";
+    element.querySelector("svg")?.setAttribute("width", "100%");
+    element.querySelector("svg")?.setAttribute("height", "100%");
+
+    return element;
+  }
+
+  return null;
+}
+
+export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
   name: "zeroPointAnnotation",
   group: "inline",
   inline: true,
   atom: true,
 
   addOptions() {
-    return {};
+    return {
+      getAppearance: () => undefined,
+    };
   },
 
   addAttributes() {
@@ -91,12 +155,17 @@ export const ZeroPointAnnotation = Node.create({
       elm.classList.add(`annotation-type-marker-${annotationType}`);
 
       elm.style.display = "inline-block";
-
-      elm.style.backgroundSize = "contain";
-      elm.style.backgroundRepeat = "no-repeat";
-      elm.style.backgroundPosition = "center";
       elm.style.width = "16px";
       elm.style.height = "16px";
+
+      const marker: HTMLElement | null = createMarkerElement(
+        this.options.getAppearance(annotationType),
+        annotationSubType?.toString(),
+      );
+
+      if (marker) {
+        elm.appendChild(marker);
+      }
 
       return { dom: elm };
     };

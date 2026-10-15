@@ -310,20 +310,6 @@ export default class ApiService {
     }
   }
 
-  public async getStyles(): Promise<string> {
-    try {
-      const url: string = `${this.baseUrl}/styles`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.text();
-    } catch (error) {
-      this.handleApiError(error);
-    }
-  }
-
   public async getTextAccessObject(textUuid: string): Promise<TextAccessObject> {
     try {
       const url: string = `${this.baseUrl}/contents/${textUuid}`;

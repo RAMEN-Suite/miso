@@ -127,7 +127,7 @@ export default class StandoffConverter {
 
   /**
    * Returns the list of annotation types allowed as structural children of the given annotation type as
-   * configured in the given annotation type's `contains` field.
+   * configured in the given annotation type's `miso.editing.contains` field.
    * `Null` means "no filter" - the node either has no declared children or is a leaf.
    *
    * Even though technically all annotations can have a `contains` field, this function is only used
@@ -138,7 +138,7 @@ export default class StandoffConverter {
    */
   private getContainsList(type: string): string[] | null {
     const config: AnnotationType | undefined = getStructuralAnnotationConfigs().find((c) => c.type === type);
-    const list: string[] | undefined = config?.contains;
+    const list: string[] | undefined = config?.miso?.editing?.contains;
 
     return list && list.length > 0 ? list : null;
   }

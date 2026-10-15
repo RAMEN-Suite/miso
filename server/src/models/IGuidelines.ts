@@ -2,13 +2,16 @@ import { AnnotationConfigEntity, AnnotationType, PropertyConfig } from "./types.
 
 export interface IGuidelines {
   collections: {
+    /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+    miso?: unknown;
     properties: {
       system: PropertyConfig[];
       base: PropertyConfig[];
     };
     types: {
       additionalLabel: string;
-      level: "primary" | "secondary" /* Quick fix to determine which collections should be loaded into the overview table */;
+      /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+      miso?: unknown;
       properties: PropertyConfig[];
       annotations: {
         additionalTexts: string[];

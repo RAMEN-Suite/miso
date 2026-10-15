@@ -17,29 +17,20 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
-/** Miso-internal operational category of an annotation (mirror of the client type). */
-export type AnnotationRole = "structure" | "inline" | "semanticBlock";
-
-/** How an annotation sits in the text: offset between characters vs covered span (mirror of the client type). */
-export type AnnotationBehaviour = "zeroPoint" | "range";
-
 export interface AnnotationType {
-  category: string;
-  defaultSelected: boolean;
   isSeparator?: boolean;
-  isZeroPoint?: boolean;
   hasEntities?: boolean;
   properties?: PropertyConfig[];
-  shortcut: string[];
-  text: string;
   type: string;
-  role?: AnnotationRole;
-  behaviour?: AnnotationBehaviour;
+  /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+  miso?: unknown;
 }
 
 export interface AnnotationConfigEntity {
   category: string;
   nodeLabel: string;
+  /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+  miso?: unknown;
 }
 
 /** Base node labels in RAMEN */

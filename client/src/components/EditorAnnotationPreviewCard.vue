@@ -170,7 +170,7 @@ function updateData(updated: Annotation): void {
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :annotation-type="props.annotation.node.data.subType ?? props.annotation.node.data.type" />
+          <AnnotationTypeIcon :config="config" :sub-type="props.annotation.node.data.subType" />
         </div>
         <span class="font-bold">{{ props.annotation.node.data.subType ?? props.annotation.node.data.type }}</span>
         <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.data.text">

@@ -1,4 +1,4 @@
-import { AnnotationAppearance, AnnotationType, BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
+import { AnnotationType, BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
 import { filterBaseNodeLabels } from "./ramen";
 
 /** Used when a node matches none of the known base labels. */
@@ -29,26 +29,14 @@ export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
 };
 
 /**
- * Resolves the configured icon of an annotation type.
- *
- * A configured icon for the given subType takes precedence over the icon of the annotation type itself.
+ * Resolves the configured icon of an annotation type. The icon identifies the type itself and doesn't depend on the
+ * property values of an annotation.
  *
  * @param {AnnotationType | undefined} config - The configuration of the annotation type.
- * @param {string | number} [subType] - The value of the annotation's `subType` property, if any.
  * @returns {IconSpecInput | undefined} The configured icon, or `undefined` if there is none.
  */
-export function resolveAnnotationIcon(config: AnnotationType | undefined, subType?: string | number): IconSpecInput | undefined {
-  const appearance: AnnotationAppearance | undefined = config?.miso?.appearance;
-
-  if (subType !== undefined && subType !== null) {
-    const subTypeIcon: IconSpecInput | undefined = appearance?.subTypes?.[subType.toString()]?.icon;
-
-    if (subTypeIcon) {
-      return subTypeIcon;
-    }
-  }
-
-  return appearance?.icon;
+export function resolveAnnotationIcon(config: AnnotationType | undefined): IconSpecInput | undefined {
+  return config?.miso?.appearance?.icon;
 }
 
 /**

@@ -3,7 +3,6 @@ import { IGuidelines } from "../models/IGuidelines";
 import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
-  AnnotationAppearance,
   AnnotationBehaviour,
   AnnotationConfigEntity,
   AnnotationMapping,
@@ -11,6 +10,7 @@ import {
   AnnotationNode,
   AnnotationRole,
   AnnotationType,
+  AppearanceVariant,
   BaseNodeLabel,
   BuiltinEditorAttribute,
   BuiltinStructuralType,
@@ -680,17 +680,24 @@ export function useGuidelinesStore() {
       }
 
       const anchor: AnnotationBehaviour = miso.editing?.anchor ?? "range";
-      const subTypeOptions: string[] = (config.properties?.find((p) => p.name === "subType")?.options ?? []).map(String);
-      const appearances: [string, Pick<AnnotationAppearance, "highlight" | "marker">][] = [
-        ["miso.appearance", miso.appearance ?? {}],
-        ...Object.entries(miso.appearance?.subTypes ?? {}).map(
-          ([subType, value]) => [`miso.appearance.subTypes.${subType}`, value] as [string, AnnotationAppearance],
-        ),
-      ];
+      const appearances: [string, AppearanceVariant][] = [["miso.appearance", miso.appearance ?? {}]];
 
-      for (const subType of Object.keys(miso.appearance?.subTypes ?? {})) {
-        if (!subTypeOptions.includes(subType)) {
-          warn(config.type, `"${subType}" in miso.appearance.subTypes is not an option of the "subType" property`);
+      for (const [property, variantsByValue] of Object.entries(miso.appearance?.variants ?? {})) {
+        const propertyConfig: PropertyConfig | undefined = config.properties?.find((p) => p.name === property);
+        const options: string[] | undefined = propertyConfig?.options?.map(String);
+
+        if (!propertyConfig) {
+          warn(config.type, `"${property}" in miso.appearance.variants is not a property of the annotation type`);
+        }
+
+        for (const [value, variant] of Object.entries(variantsByValue)) {
+          const path: string = `miso.appearance.variants.${property}.${value}`;
+
+          if (options && !options.includes(value)) {
+            warn(config.type, `"${value}" in ${path} is not an option of the "${property}" property`);
+          }
+
+          appearances.push([path, variant]);
         }
       }
 

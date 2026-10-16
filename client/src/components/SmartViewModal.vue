@@ -93,7 +93,7 @@ function handleSubmit(): void {
           <i class="icon-folder-cog" />
         </span>
         <div class="flex flex-col flex-1 min-w-0">
-          <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- The name is the first thing to fill in -->
+          <!-- eslint-disable vuejs-accessibility/no-autofocus -- The name is the first thing to fill in -->
           <input
             v-model="label"
             class="title-input w-full py-0.5 bg-transparent outline-none"
@@ -102,6 +102,7 @@ function handleSubmit(): void {
             aria-label="Smart view name"
             autofocus
           />
+          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           <small v-if="hasDuplicateLabel" class="duplicate-hint flex items-center gap-1">
             <i class="icon-alert-circle" />
             <span>A view with this name already exists.</span>

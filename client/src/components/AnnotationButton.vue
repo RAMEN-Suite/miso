@@ -132,7 +132,7 @@ function handleClick(dropdownOption?: string | number): void {
     <template #item="{ label }">
       <div class="flex p-1 gap-1 items-center select-none cursor-pointer">
         <span :style="{ display: 'block', width: '20px', height: '20px' }">
-          <AnnotationTypeIcon :config="props.config" :sub-type="label as string" />
+          <AnnotationTypeIcon :config="props.config" />
         </span>
         <span>{{ label }}</span>
       </div>

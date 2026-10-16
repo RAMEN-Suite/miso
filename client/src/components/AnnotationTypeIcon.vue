@@ -7,16 +7,14 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 const props = withDefaults(
   defineProps<{
     config: AnnotationType | undefined;
-    subType?: string | number;
     size?: number;
   }>(),
   {
-    subType: undefined,
     size: 18,
   },
 );
 
-const icon = computed<IconSpecInput | undefined>(() => resolveAnnotationIcon(props.config, props.subType));
+const icon = computed<IconSpecInput | undefined>(() => resolveAnnotationIcon(props.config));
 </script>
 
 <template>

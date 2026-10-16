@@ -5,7 +5,8 @@ import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
-import { Annotation, AnnotationAppearance, HighlightTextStyle } from "../../../models/types";
+import { IAnnotation } from "../../../models/IAnnotation";
+import { Annotation, AnnotationAppearance, AppearanceVariant, HighlightTextStyle } from "../../../models/types";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../../../utils/helper/indexHelper";
@@ -143,26 +144,43 @@ function createFilteredDecorations(
 }
 
 /**
- * Returns the inline style of a range annotation's decoration. The highlight of the given subType is merged onto the
- * highlight of the annotation type, so subType properties override type properties.
+ * Returns the inline style of a range annotation's decoration. The highlights of all variants matching the
+ * annotation's property values are merged onto the highlight of the annotation type, in config order.
  *
  * @param {AnnotationAppearance | undefined} appearance The configured appearance of the annotation type.
- * @param {string} [subType] The value of the annotation's `subType` property, if any.
+ * @param {IAnnotation} data The annotation's data.
  * @returns {string} The inline style, or an empty string if no highlight is configured.
  *
  * @example
- * getHighlightStyle({ highlight: { kind: "properties", fontWeight: "bold" }, subTypes: { i: { highlight: { kind: "properties", fontStyle: "italic" } } } }, "i");
+ * const appearance = {
+ *   highlight: { kind: "properties", fontWeight: "bold" },
+ *   variants: {
+ *     subType: {
+ *       i: { highlight: { kind: "properties", fontStyle: "italic" } },
+ *     },
+ *   },
+ * };
+ *
+ * getHighlightStyle(appearance, { subType: "i", ... });
  *
  * // Returns
  *
  * "font-weight: bold; font-style: italic"
  */
-function getHighlightStyle(appearance: AnnotationAppearance | undefined, subType?: string): string {
-  const subTypeHighlight: HighlightTextStyle | undefined =
-    subType !== undefined ? appearance?.subTypes?.[subType]?.highlight : undefined;
+function getHighlightStyle(appearance: AnnotationAppearance | undefined, data: IAnnotation): string {
+  let merged: HighlightTextStyle | undefined = appearance?.highlight;
 
-  const merged: HighlightTextStyle | undefined =
-    appearance?.highlight || subTypeHighlight ? { kind: "properties", ...appearance?.highlight, ...subTypeHighlight } : undefined;
+  for (const [property, variantsByValue] of Object.entries(appearance?.variants ?? {})) {
+    const value: unknown = data[property];
+    const variant: AppearanceVariant | undefined =
+      typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? variantsByValue[String(value)]
+        : undefined;
+
+    if (variant?.highlight) {
+      merged = { ...merged, ...variant.highlight };
+    }
+  }
 
   return highlightToDeclarations(merged);
 }
@@ -370,7 +388,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
           "data-annotation-type": type,
           "data-annotation-uuid": uuid,
           "data-annotation-subtype": subType?.toString() ?? "",
-          style: getHighlightStyle(getAppearance(type), subType?.toString()),
+          style: getHighlightStyle(getAppearance(type), annotation.node.data),
         },
         { inclusiveEnd: true, ...spec },
       );

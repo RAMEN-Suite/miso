@@ -111,7 +111,6 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
         items: subTypeOptions.map((option: string | number) => ({
           label: option.toString(),
           annotationConfig: type,
-          annotationSubType: option,
           command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
         })),
       };
@@ -542,7 +541,7 @@ function showMessage(result: "success" | "error", error?: Error) {
               <template #item="{ item, props: itemProps, hasSubmenu }">
                 <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :config="item.annotationConfig" :sub-type="item.annotationSubType" />
+                    <AnnotationTypeIcon :config="item.annotationConfig" />
                   </span>
                   <span>{{ item.label }}</span>
                   <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>

@@ -102,9 +102,20 @@ export interface AnnotationAppearance {
   highlight?: HighlightTextStyle;
   /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
   marker?: MarkerStyle;
-  /** Overrides per value of the `subType` property */
-  subTypes?: Record<string, Pick<AnnotationAppearance, "icon" | "highlight" | "marker">>;
+  /**
+   * Overrides per property value, keyed by property name and then by value, e.g. `variants.subType.deletion`.
+   * Variants override the type's appearance and are applied in config order, so later matches win.
+   * Highlights are merged field by field, a marker replaces the previous one. The icon can't be overridden, since it
+   * identifies the annotation type in places without annotation data (e.g. the toolbar).
+   *
+   * @example
+   * { "variants": { "display": { "block": { "marker": { "kind": "icon", "icon": "square-sigma" } } } } }
+   */
+  variants?: Record<string, Record<string, AppearanceVariant>>;
 }
+
+/** Appearance overrides for annotations with a certain property value */
+export type AppearanceVariant = Pick<AnnotationAppearance, "highlight" | "marker">;
 
 /**
  * Styling of the text covered by a `range` annotation.

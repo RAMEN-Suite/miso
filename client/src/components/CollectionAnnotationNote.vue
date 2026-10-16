@@ -40,7 +40,7 @@ function handleToggleView(event: MouseEvent): void {
     <div class="header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :config="config" :sub-type="annotation.node.data.subType" />
+          <AnnotationTypeIcon :config="config" />
         </div>
         <span class="font-bold">{{ annotation.node.data.subType ?? annotation.node.data.type }}</span>
         <NodeStatusBadge :status="annotation.meta.status" badge-style="dot" />

@@ -1,5 +1,5 @@
 /**
- * Path to the mounted configuration directory where guidelines and styles can be stored.
+ * Path to the mounted configuration directory where guidelines can be stored.
  */
 export const CONFIG_DIR: string = "/app/config";
 

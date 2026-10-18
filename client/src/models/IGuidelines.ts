@@ -1,4 +1,4 @@
-import { AnnotationConfigEntity, AnnotationType, NodeMisoConfig, PropertyConfig } from "./types";
+import { AnnotationConfigEntity, AnnotationType, ContentTypeMisoConfig, NodeMisoConfig, PropertyConfig } from "./types";
 
 export interface IGuidelines {
   collections: {
@@ -42,7 +42,13 @@ export interface IGuidelines {
     };
     entities: AnnotationConfigEntity[];
   };
-  texts: {
-    additionalLabels: string[];
+  contents: {
+    /** Miso-only configuration of the base Content node */
+    miso?: NodeMisoConfig;
+    types: {
+      additionalLabel: string;
+      /** Miso-only configuration */
+      miso?: ContentTypeMisoConfig;
+    }[];
   };
 }

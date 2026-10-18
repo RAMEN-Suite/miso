@@ -1,6 +1,6 @@
 {
-  "texts": {
-    "additionalLabels": ["Text"]
+  "contents": {
+    "types": [{ "additionalLabel": "Text", "miso": { "medium": "text" } }]
   },
   "collections": {
     "properties": {

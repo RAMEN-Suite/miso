@@ -39,7 +39,13 @@ export interface IGuidelines {
     };
     entities: AnnotationConfigEntity[];
   };
-  texts: {
-    additionalLabels: string[];
+  contents: {
+    /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+    miso?: unknown;
+    types: {
+      additionalLabel: string;
+      /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+      miso?: unknown;
+    }[];
   };
 }

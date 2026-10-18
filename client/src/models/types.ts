@@ -183,10 +183,25 @@ export interface AnnotationConfigEntity {
   miso?: NodeMisoConfig;
 }
 
-/** Miso-only configuration of a node type (Collection or Entity refinement) */
+/** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
 export interface NodeMisoConfig {
+  appearance?: NodeAppearance;
+}
+
+/** How nodes of a type are displayed, e.g. in the hierarchy */
+export interface NodeAppearance {
   icon?: IconSpecInput;
 }
+
+/**
+ * The medium of a Content type, which decides how its nodes are edited and how annotation configs are applied.
+ */
+export type ContentMedium = "text" | "image";
+
+/** Miso-only configuration of a Content type */
+export type ContentTypeMisoConfig = NodeMisoConfig & {
+  medium?: ContentMedium;
+};
 
 export interface ApiJson {
   text: string;

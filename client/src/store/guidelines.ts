@@ -13,6 +13,7 @@ import {
   BaseNodeLabel,
   BuiltinEditorAttribute,
   BuiltinStructuralType,
+  ContentMedium,
   NativeTypeMapping,
   PropertyConfig,
   TextAnnotationRepresentation,
@@ -112,11 +113,13 @@ export function useGuidelinesStore() {
       ...guidelinesData.collections.types.flatMap((c) => c.annotations?.entities ?? []),
     ];
 
-    registerNodeIcon("Collection", guidelinesData.collections.miso?.icon);
+    registerNodeIcon("Collection", guidelinesData.collections.miso?.appearance?.icon);
+    registerNodeIcon("Content", guidelinesData.contents.miso?.appearance?.icon);
 
-    guidelinesData.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.icon));
+    guidelinesData.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
+    guidelinesData.contents.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
 
-    entities.forEach((e) => registerNodeIcon(e.nodeLabel, e.miso?.icon));
+    entities.forEach((e) => registerNodeIcon(e.nodeLabel, e.miso?.appearance?.icon));
   }
 
   /**
@@ -376,7 +379,21 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableContentLabels(): string[] {
-    return guidelines.value?.texts.additionalLabels ?? [];
+    return guidelines.value?.contents.types.map((content) => content.additionalLabel) ?? [];
+  }
+
+  /**
+   * Retrieves the medium of a Content node from its labels. The first label with a configured medium wins.
+   *
+   * @param {string[]} nodeLabels - All node labels of the Content node.
+   * @return {ContentMedium} The configured medium, `text` if none is configured.
+   */
+  function getContentMedium(nodeLabels: string[]): ContentMedium {
+    const contentType = guidelines.value?.contents.types.find(
+      (content) => nodeLabels.includes(content.additionalLabel) && content.miso?.medium,
+    );
+
+    return contentType?.miso?.medium ?? "text";
   }
 
   /**
@@ -787,6 +804,7 @@ export function useGuidelinesStore() {
     getCollectionAnnotationConfig,
     getCollectionAnnotationFields,
     getCollectionConfigFields,
+    getContentMedium,
     getEditorOwnedProperties,
     getEditorRole,
     getPriorityForType,

@@ -91,8 +91,29 @@ export interface AnnotationMisoConfig {
     priority?: number;
     /** Editor roles of structural types that can be nested inside, only relevant for structural types */
     contains?: string[];
+    /**
+     * The editor's native type that implements this annotation type. Its extent and representation are then taken
+     * from the native type.
+     */
+    native?: NativeTypeMapping;
   };
   appearance?: AnnotationAppearance;
+}
+
+/**
+ * Maps an annotation type to a native type of the editor, e.g. a TEI `cell` to the editor's `tableCell`.
+ *
+ * @example
+ * { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
+ */
+export interface NativeTypeMapping {
+  /** The native type */
+  type: BuiltinStructuralType;
+  /**
+   * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
+   * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
+   */
+  attributes?: Partial<Record<BuiltinEditorAttribute, string>>;
 }
 
 /** How annotations of a type are rendered */

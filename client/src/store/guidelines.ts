@@ -13,6 +13,7 @@ import {
   BaseNodeLabel,
   BuiltinEditorAttribute,
   BuiltinStructuralType,
+  NativeTypeMapping,
   PropertyConfig,
   TextAnnotationRepresentation,
 } from "../models/types";
@@ -119,6 +120,34 @@ export function useGuidelinesStore() {
   }
 
   /**
+   * Builds the mapping between the editor's native structural types/attributes and the project's annotation
+   * types/properties. Starts from the default mapping in {@linkcode DEFAULT_ANNOTATION_MAPPING} and overrides it with
+   * the `miso.editing.native` keys of the annotation types.
+   *
+   * @param {IGuidelines} guidelinesData - The guidelines to read the native type mappings from.
+   * @returns {AnnotationMapping} The annotation mapping.
+   */
+  function buildAnnotationMapping(guidelinesData: IGuidelines): AnnotationMapping {
+    const typeByRole: Partial<Record<BuiltinStructuralType, string>> = { ...DEFAULT_ANNOTATION_MAPPING.typeByRole };
+    const attrByRole: Partial<Record<BuiltinStructuralType, Partial<Record<BuiltinEditorAttribute, string>>>> = {
+      ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
+    };
+
+    for (const config of guidelinesData.annotations.types) {
+      const native: NativeTypeMapping | undefined = config.miso?.editing?.native;
+
+      if (!native) {
+        continue;
+      }
+
+      typeByRole[native.type] = config.type;
+      attrByRole[native.type] = { ...attrByRole[native.type], ...native.attributes };
+    }
+
+    return { typeByRole, attrByRole };
+  }
+
+  /**
    * Builds the merged structural configs: built-in behavior (priority/contains) combined with
    * each type's properties, all keyed by the project's type names via the active editor mapping.
    *
@@ -150,9 +179,9 @@ export function useGuidelinesStore() {
       };
     });
 
-    // 2. All types in the custom configuration
+    // 2. All types in the custom configuration. Types mapped to a native type are structural without saying so.
     for (const entry of guidelinesData.annotations.types) {
-      if (entry.miso?.editing?.representation !== "structure") {
+      if (!entry.miso?.editing?.native && entry.miso?.editing?.representation !== "structure") {
         continue;
       }
 
@@ -547,6 +576,8 @@ export function useGuidelinesStore() {
     validateMisoConfig(guidelinesData);
     applyConfiguredNodeIcons(guidelinesData);
 
+    // Must be set before the structural configs are merged, since they are keyed by the project's type names
+    annotationMapping.value = buildAnnotationMapping(guidelinesData);
     guidelines.value = guidelinesData;
     mergedStructuralConfigs.value = buildMergedStructuralConfigs(guidelinesData);
     groupedAnnotationTypes.value = groupAnnotationTypes();
@@ -626,8 +657,8 @@ export function useGuidelinesStore() {
 
   /**
    * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
-   * rebuilds the merged structural configs so the renames take effect. Call on app load once the
-   * separate mapping JSON is fetched (alongside the guidelines); until then the default is used.
+   * rebuilds the merged structural configs so the renames take effect. On load, the mapping is built from the
+   * `miso.editing.native` keys of the guidelines; this function replaces it afterwards.
    *
    * @param {AnnotationMapping} mapping - The annotation mapping to apply.
    * @return {void} This function does not return anything.
@@ -679,7 +710,11 @@ export function useGuidelinesStore() {
         continue;
       }
 
-      const extent: AnnotationExtent = miso.editing?.extent ?? "range";
+      // The mapping is not built yet, so the extent of a native type is read from its built-in config directly
+      const nativeConfig: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find(
+        (c) => c.type === miso.editing?.native?.type,
+      );
+      const extent: AnnotationExtent = nativeConfig?.miso?.editing?.extent ?? miso.editing?.extent ?? "range";
       const appearances: [string, AppearanceOverride][] = [["miso.appearance", miso.appearance ?? {}]];
 
       (miso.appearance?.variants ?? []).forEach((variant, index) => {

@@ -19,10 +19,10 @@ export default class GuidelinesService {
    * @return {PropertyConfig[]} The field configuration for the annotation type.
    */
   public getAnnotationConfigFieldsFromGuidelines(guidelines: IGuidelines, type: string): PropertyConfig[] {
-    const system: PropertyConfig[] = guidelines.annotations.properties.system;
-    const base: PropertyConfig[] = guidelines.annotations.properties.base;
+    const system: PropertyConfig[] = guidelines.contents.annotations.properties.system;
+    const base: PropertyConfig[] = guidelines.contents.annotations.properties.base;
     const additional: PropertyConfig[] =
-      guidelines.annotations.types.find((annoConfig) => annoConfig.type === type)?.properties ?? [];
+      guidelines.contents.annotations.types.find((annoConfig) => annoConfig.type === type)?.properties ?? [];
 
     return [...system, ...base, ...additional];
   }

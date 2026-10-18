@@ -108,7 +108,7 @@ export function useGuidelinesStore() {
    */
   function applyConfiguredNodeIcons(guidelinesData: IGuidelines): void {
     const entities: AnnotationConfigEntity[] = [
-      ...(guidelinesData.annotations.entities ?? []),
+      ...(guidelinesData.contents.annotations.entities ?? []),
       ...(guidelinesData.collections.annotations?.entities ?? []),
       ...guidelinesData.collections.types.flatMap((c) => c.annotations?.entities ?? []),
     ];
@@ -136,7 +136,7 @@ export function useGuidelinesStore() {
       ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
     };
 
-    for (const config of guidelinesData.annotations.types) {
+    for (const config of guidelinesData.contents.annotations.types) {
       const native: NativeTypeMapping | undefined = config.miso?.editing?.native;
 
       if (!native) {
@@ -183,7 +183,7 @@ export function useGuidelinesStore() {
     });
 
     // 2. All types in the custom configuration. Types mapped to a native type are structural without saying so.
-    for (const entry of guidelinesData.annotations.types) {
+    for (const entry of guidelinesData.contents.annotations.types) {
       if (!entry.miso?.editing?.native && entry.miso?.editing?.representation !== "structure") {
         continue;
       }
@@ -231,7 +231,7 @@ export function useGuidelinesStore() {
    * @return {AnnotationType} The configuration of the annotation type.
    */
   function getAnnotationConfig(type: string): AnnotationType {
-    return guidelines.value.annotations.types.find((t) => t.type === type);
+    return guidelines.value.contents.annotations.types.find((t) => t.type === type);
   }
 
   /**
@@ -269,8 +269,8 @@ export function useGuidelinesStore() {
    * @return {PropertyConfig[]} The fields for the annotation type.
    */
   function getAnnotationFields(type: string): PropertyConfig[] {
-    const system: PropertyConfig[] = guidelines.value.annotations.properties.system;
-    const base: PropertyConfig[] = guidelines.value.annotations.properties.base;
+    const system: PropertyConfig[] = guidelines.value.contents.annotations.properties.system;
+    const base: PropertyConfig[] = guidelines.value.contents.annotations.properties.base;
     const additional: PropertyConfig[] = getAnnotationConfig(type)?.properties ?? [];
 
     return [...additional, ...system, ...base];
@@ -327,7 +327,7 @@ export function useGuidelinesStore() {
    * @return {AnnotationConfigEntity[]} The combined and deduplicated entities.
    */
   function getAvailableAnnotationEntityConfigs(): AnnotationConfigEntity[] {
-    const baseAnnotationEntities: AnnotationConfigEntity[] = guidelines.value.annotations.entities ?? [];
+    const baseAnnotationEntities: AnnotationConfigEntity[] = guidelines.value.contents.annotations.entities ?? [];
 
     const baseCollectionEntities: AnnotationConfigEntity[] = guidelines.value.collections.annotations.entities ?? [];
 
@@ -402,7 +402,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableEntityLabels(): string[] {
-    return guidelines.value?.annotations.entities.map((e) => e.nodeLabel) ?? [];
+    return guidelines.value?.contents.annotations.entities.map((e) => e.nodeLabel) ?? [];
   }
 
   /**
@@ -570,7 +570,7 @@ export function useGuidelinesStore() {
    * @return {Record<string, AnnotationType[]>} An object where the keys are the categories and the values are arrays of annotation types belonging to that category.
    */
   function groupAnnotationTypes(): Record<string, AnnotationType[]> {
-    return guidelines.value.annotations.types.reduce((grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
+    return guidelines.value.contents.annotations.types.reduce((grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
       const category: string = current.miso?.group ?? DEFAULT_ANNOTATION_GROUP;
 
       if (!grouped[category]) {
@@ -715,7 +715,7 @@ export function useGuidelinesStore() {
     };
 
     const annotationTypes: AnnotationType[] = [
-      ...guidelinesData.annotations.types,
+      ...guidelinesData.contents.annotations.types,
       ...(guidelinesData.collections.annotations?.types ?? []),
       ...guidelinesData.collections.types.flatMap((c) => c.annotations?.types ?? []),
     ];
@@ -767,7 +767,7 @@ export function useGuidelinesStore() {
     // Shortcuts are only registered for the editor's annotation types
     const typesByShortcut = new Map<string, string[]>();
 
-    for (const config of guidelinesData.annotations.types) {
+    for (const config of guidelinesData.contents.annotations.types) {
       const shortcut: string | undefined = config.miso?.controls?.shortcut;
 
       if (shortcut) {

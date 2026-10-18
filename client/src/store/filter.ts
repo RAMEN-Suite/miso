@@ -16,7 +16,7 @@ export function useFilterStore() {
    * @return {void} This function does not return anything.
    */
   function initializeFilter(guidelines: IGuidelines): void {
-    allOptions.value = guidelines.annotations.types.map((type) => type.type);
+    allOptions.value = guidelines.contents.annotations.types.map((type) => type.type);
     selectedOptions.value = [...allOptions.value];
   }
 

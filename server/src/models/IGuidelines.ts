@@ -30,15 +30,6 @@ export interface IGuidelines {
       entities: AnnotationConfigEntity[];
     };
   };
-  annotations: {
-    additionalTexts: string[];
-    types: AnnotationType[];
-    properties: {
-      system: PropertyConfig[];
-      base: PropertyConfig[];
-    };
-    entities: AnnotationConfigEntity[];
-  };
   contents: {
     /** Miso-only frontend configuration. Not read by the server, passed through as is. */
     miso?: unknown;
@@ -47,5 +38,15 @@ export interface IGuidelines {
       /** Miso-only frontend configuration. Not read by the server, passed through as is. */
       miso?: unknown;
     }[];
+    /** Annotations of Content nodes */
+    annotations: {
+      additionalTexts: string[];
+      types: AnnotationType[];
+      properties: {
+        system: PropertyConfig[];
+        base: PropertyConfig[];
+      };
+      entities: AnnotationConfigEntity[];
+    };
   };
 }

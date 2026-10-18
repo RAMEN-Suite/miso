@@ -6,7 +6,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
 import { IAnnotation } from "../../../models/IAnnotation";
-import { Annotation, AnnotationAppearance, AppearanceVariant, HighlightTextStyle } from "../../../models/types";
+import { Annotation, AnnotationAppearance, AppearanceOverride, HighlightTextStyle } from "../../../models/types";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../../../utils/helper/indexHelper";
@@ -154,11 +154,12 @@ function createFilteredDecorations(
  * @example
  * const appearance = {
  *   highlight: { kind: "properties", fontWeight: "bold" },
- *   variants: {
- *     subType: {
- *       i: { highlight: { kind: "properties", fontStyle: "italic" } },
+ *   variants: [
+ *     {
+ *       property: "subType",
+ *       values: { i: { highlight: { kind: "properties", fontStyle: "italic" } } },
  *     },
- *   },
+ *   ],
  * };
  *
  * getHighlightStyle(appearance, { subType: "i", ... });
@@ -170,15 +171,15 @@ function createFilteredDecorations(
 function getHighlightStyle(appearance: AnnotationAppearance | undefined, data: IAnnotation): string {
   let merged: HighlightTextStyle | undefined = appearance?.highlight;
 
-  for (const [property, variantsByValue] of Object.entries(appearance?.variants ?? {})) {
-    const value: unknown = data[property];
-    const variant: AppearanceVariant | undefined =
+  for (const variant of appearance?.variants ?? []) {
+    const value: unknown = data[variant.property];
+    const override: AppearanceOverride | undefined =
       typeof value === "string" || typeof value === "number" || typeof value === "boolean"
-        ? variantsByValue[String(value)]
+        ? variant.values[String(value)]
         : undefined;
 
-    if (variant?.highlight) {
-      merged = { ...merged, ...variant.highlight };
+    if (override?.highlight) {
+      merged = { ...merged, ...override.highlight };
     }
   }
 

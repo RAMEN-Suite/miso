@@ -8,9 +8,9 @@ import {
   NodeStatusObject,
   AnnotationNode,
   AnnotationType,
-  AnnotationRole,
   DocAnnotation,
   StandoffParseIssue,
+  TextAnnotationRepresentation,
 } from "../models/types";
 import { IAnnotation } from "../models/IAnnotation";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -33,8 +33,8 @@ const {
   isZeroPoint,
   getEditorRole,
   getAnnotationType,
-  getAnnotationRole,
-  getAnnotationBehaviour,
+  getAnnotationRepresentation,
+  getAnnotationExtent,
   getPriorityForType,
   getEditorOwnedProperties,
   isConfiguredAnnotationType,
@@ -56,9 +56,6 @@ export default class StandoffConverter {
   private usedUuids = new Set<string>();
   /** Problems found during parsing, handed to the editor setup to be further processed there. */
   private issues: StandoffParseIssue[] = [];
-
-  // Types that are always handled inline and must never appear as block children.
-  private static readonly EXCLUDED_FROM_BLOCK_CHILDREN = new Set(["hardBreak"]);
 
   constructor(newStandoffJson: ApiJson, schema: Schema) {
     this.standoffJson = newStandoffJson;
@@ -98,16 +95,16 @@ export default class StandoffConverter {
     const unconfiguredTypes = new Map<string, number>();
 
     for (const a of statusObjects) {
-      const documentRole: AnnotationRole = getAnnotationRole(a.node.data.type);
+      const representation: TextAnnotationRepresentation = getAnnotationRepresentation(a.node.data.type);
 
       if (!isConfiguredAnnotationType(a.node.data.type)) {
         unconfiguredTypes.set(a.node.data.type, (unconfiguredTypes.get(a.node.data.type) ?? 0) + 1);
       }
 
-      if (documentRole === "structure") {
+      if (representation === "structure") {
         // Built-in scaffolding (paragraph, heading, table, hardBreak, ...) — forms the TipTap tree.
         this.structuralAnnotations.set(a.node.data.uuid, a);
-      } else if (documentRole === "semanticBlock") {
+      } else if (representation === "semanticBlock") {
         // Whole-block label (opener, closer, addrLine, ...) — attached as _semanticBlocks, never a tree node.
         this.semanticBlockAnnotations.set(a.node.data.uuid, a);
       } else {
@@ -287,7 +284,7 @@ export default class StandoffConverter {
 
     // Resolve to hardBreaks (the only built-in type configured the way below)
     const hardBreakEntries: InlineEntry[] = [...this.structuralAnnotations.values()]
-      .filter((a) => getAnnotationBehaviour(a.node.data.type) === "zeroPoint" && this.inRange(a, { startIndex, endIndex }))
+      .filter((a) => getAnnotationExtent(a.node.data.type) === "zeroPoint" && this.inRange(a, { startIndex, endIndex }))
       .map((a) => ({
         pos: a.node.data.startIndex,
         node: {
@@ -684,14 +681,14 @@ export default class StandoffConverter {
   }
 
   /**
-   * A structure annotation with zero-point behaviour (currently only `hardBreak`): an inline atom that must never
+   * A structure annotation with zero-point extent (currently only `hardBreak`): an inline atom that must never
    * appear as a block child or a top-level node.
    *
    * @param {string} annotationType - The type of the annotation.
    * @returns {boolean} `true` if the type is a structural zero-point, `false` otherwise.
    */
   private isStructuralZeroPoint(annotationType: string): boolean {
-    return getAnnotationRole(annotationType) === "structure" && getAnnotationBehaviour(annotationType) === "zeroPoint";
+    return getAnnotationRepresentation(annotationType) === "structure" && getAnnotationExtent(annotationType) === "zeroPoint";
   }
 
   /** Checks if annotation of given type can be a top-level document node. Excludes structural zero-points

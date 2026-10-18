@@ -27,7 +27,7 @@ export function useCollectAnnotationChanges() {
   const { initialAnnotations, initialStructuralAnnotations, tiptap } = useTiptapStore();
 
   const {
-    getAnnotationBehaviour,
+    getAnnotationExtent,
     getAnnotationFields,
     getAnnotationType,
     getEditorOwnedProperties,
@@ -87,7 +87,7 @@ export function useCollectAnnotationChanges() {
     neo4jProperties.uuid = node.attrs.uuid;
     neo4jProperties.type = annotationType;
 
-    if (getAnnotationBehaviour(annotationType) === "zeroPoint") {
+    if (getAnnotationExtent(annotationType) === "zeroPoint") {
       neo4jProperties.isZeroPoint = true;
     }
 

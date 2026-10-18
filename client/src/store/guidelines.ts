@@ -3,18 +3,18 @@ import { IGuidelines } from "../models/IGuidelines";
 import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
-  AnnotationBehaviour,
   AnnotationConfigEntity,
+  AnnotationExtent,
   AnnotationMapping,
   AnnotationMisoConfig,
   AnnotationNode,
-  AnnotationRole,
   AnnotationType,
-  AppearanceVariant,
+  AppearanceOverride,
   BaseNodeLabel,
   BuiltinEditorAttribute,
   BuiltinStructuralType,
   PropertyConfig,
+  TextAnnotationRepresentation,
 } from "../models/types";
 import { BUILTIN_STRUCTURAL_CONFIGS } from "../config/constants";
 import { EDITOR_OWNED_ATTRIBUTES, DEFAULT_ANNOTATION_MAPPING } from "../config/editor";
@@ -152,7 +152,7 @@ export function useGuidelinesStore() {
 
     // 2. All types in the custom configuration
     for (const entry of guidelinesData.annotations.types) {
-      if (entry.miso?.editing?.role !== "structure") {
+      if (entry.miso?.editing?.representation !== "structure") {
         continue;
       }
 
@@ -190,30 +190,6 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns the behaviour of an annotation type (`zero-point`/`range`), computed on demand. A built-in mapping
-   * uses the built-in's canonical behaviour; otherwise the configured `miso.editing.anchor` is used.
-   * Unknown/collection types degrade to `range`.
-   *
-   * @param {string} type The project annotation type
-   * @returns {AnnotationBehaviour} The resolved behaviour
-   */
-  function getAnnotationBehaviour(type: string): AnnotationBehaviour {
-    if (isBuiltinStructuralType(type)) {
-      return getBuiltinBehaviour(type);
-    }
-
-    const config: AnnotationType | undefined = getAnnotationConfig(type);
-
-    const anchor: AnnotationBehaviour | undefined = config?.miso?.editing?.anchor;
-
-    if (!anchor) {
-      console.error('No anchor found for annotation type "' + type + '"');
-    }
-
-    return anchor ?? "range";
-  }
-
-  /**
    * Retrieves the configuration for an annotation of given type. The configuration is an object containing internal information
    * as well as information about rendering behaviour (input type in forms, selection status etc.).
    *
@@ -224,6 +200,30 @@ export function useGuidelinesStore() {
    */
   function getAnnotationConfig(type: string): AnnotationType {
     return guidelines.value.annotations.types.find((t) => t.type === type);
+  }
+
+  /**
+   * Returns the extent of an annotation type (`zeroPoint`/`range`), computed on demand. A built-in mapping
+   * uses the built-in's canonical extent; otherwise the configured `miso.editing.extent` is used.
+   * Unknown/collection types degrade to `range`.
+   *
+   * @param {string} type The project annotation type
+   * @returns {AnnotationExtent} The resolved extent
+   */
+  function getAnnotationExtent(type: string): AnnotationExtent {
+    if (isBuiltinStructuralType(type)) {
+      return getBuiltinExtent(type);
+    }
+
+    const config: AnnotationType | undefined = getAnnotationConfig(type);
+
+    const extent: AnnotationExtent | undefined = config?.miso?.editing?.extent;
+
+    if (!extent) {
+      console.error('No extent found for annotation type "' + type + '"');
+    }
+
+    return extent ?? "range";
   }
 
   /**
@@ -245,30 +245,30 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns the operational role of an annotation type (`structure`/`inline`/`semanticBlock`), computed on
-   * demand from the config. A built-in mapping always wins (early return); otherwise the configured
-   * `miso.editing.role` is used. Unknown/collection types degrade to `inline`.
+   * Returns how an annotation type is represented in the text editor (`structure`/`inline`/`semanticBlock`),
+   * computed on demand from the config. A built-in mapping always wins (early return); otherwise the configured
+   * `miso.editing.representation` is used. Unknown/collection types degrade to `inline`.
    *
    * NOTE: this is the annotation's *classification*, distinct from {@linkcode getEditorRole}, which returns
    * the tiptap node name of a structural type.
    *
    * @param {string} type The project annotation type
-   * @returns {AnnotationRole} The resolved role
+   * @returns {TextAnnotationRepresentation} The resolved representation
    */
-  function getAnnotationRole(type: string): AnnotationRole {
+  function getAnnotationRepresentation(type: string): TextAnnotationRepresentation {
     if (isBuiltinStructuralType(type)) {
       return "structure";
     }
 
     const config: AnnotationType | undefined = getAnnotationConfig(type);
 
-    const role: AnnotationRole | undefined = config?.miso?.editing?.role;
+    const representation: TextAnnotationRepresentation | undefined = config?.miso?.editing?.representation;
 
-    if (!role) {
-      console.error('No role found for annotation type "' + type + '"');
+    if (!representation) {
+      console.error('No representation found for annotation type "' + type + '"');
     }
 
-    return role ?? "inline";
+    return representation ?? "inline";
   }
 
   /**
@@ -380,18 +380,18 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Canonical behaviour of the built-in editor role that `type` maps to (via the mapping). Used to force
-   * a type that maps to a built-in onto the built-in's behaviour (e.g. a `lb` mapped to `hardBreak` is
+   * Canonical extent of the built-in editor role that `type` maps to (via the mapping). Used to force
+   * a type that maps to a built-in onto the built-in's extent (e.g. a `lb` mapped to `hardBreak` is
    * always zero-point).
    *
    * @param {string} type The project annotation type
-   * @returns {AnnotationBehaviour} The built-in's canonical behaviour (defaults to `range`)
+   * @returns {AnnotationExtent} The built-in's canonical extent (defaults to `range`)
    */
-  function getBuiltinBehaviour(type: string): AnnotationBehaviour {
+  function getBuiltinExtent(type: string): AnnotationExtent {
     const editorRole: string = getEditorRole(type);
     const config: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
 
-    return config?.miso?.editing?.anchor ?? "range";
+    return config?.miso?.editing?.extent ?? "range";
   }
 
   // TODO: This is a hack since the guidelines structure can change. It should be refactored to use the same structure as the annotations.
@@ -586,7 +586,7 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns whether an annotation is a zero-point annotation, based on its type's configured behaviour.
+   * Returns whether an annotation is a zero-point annotation, based on its type's configured extent.
    * Configuration always beats instance data here; if it is configured as zero point, it will be treated
    * as zero point and it's `isZeroPoint` property will be updated to `true` on the next save.
    *
@@ -594,7 +594,7 @@ export function useGuidelinesStore() {
    * @returns {boolean} `true` if the annotation is a zero-point annotation, `false` otherwise.
    */
   function isZeroPoint(annotation: AnnotationNode): boolean {
-    return getAnnotationBehaviour(annotation.data.type) === "zeroPoint";
+    return getAnnotationExtent(annotation.data.type) === "zeroPoint";
   }
 
   /**
@@ -679,34 +679,34 @@ export function useGuidelinesStore() {
         continue;
       }
 
-      const anchor: AnnotationBehaviour = miso.editing?.anchor ?? "range";
-      const appearances: [string, AppearanceVariant][] = [["miso.appearance", miso.appearance ?? {}]];
+      const extent: AnnotationExtent = miso.editing?.extent ?? "range";
+      const appearances: [string, AppearanceOverride][] = [["miso.appearance", miso.appearance ?? {}]];
 
-      for (const [property, variantsByValue] of Object.entries(miso.appearance?.variants ?? {})) {
-        const propertyConfig: PropertyConfig | undefined = config.properties?.find((p) => p.name === property);
+      (miso.appearance?.variants ?? []).forEach((variant, index) => {
+        const propertyConfig: PropertyConfig | undefined = config.properties?.find((p) => p.name === variant.property);
         const options: string[] | undefined = propertyConfig?.options?.map(String);
 
         if (!propertyConfig) {
-          warn(config.type, `"${property}" in miso.appearance.variants is not a property of the annotation type`);
+          warn(config.type, `"${variant.property}" in miso.appearance.variants[${index}] is not a property of the annotation type`);
         }
 
-        for (const [value, variant] of Object.entries(variantsByValue)) {
-          const path: string = `miso.appearance.variants.${property}.${value}`;
+        for (const [value, override] of Object.entries(variant.values)) {
+          const path: string = `miso.appearance.variants[${index}].values.${value}`;
 
           if (options && !options.includes(value)) {
-            warn(config.type, `"${value}" in ${path} is not an option of the "${property}" property`);
+            warn(config.type, `"${value}" in ${path} is not an option of the "${variant.property}" property`);
           }
 
-          appearances.push([path, variant]);
+          appearances.push([path, override]);
         }
-      }
+      });
 
       for (const [path, appearance] of appearances) {
-        if (anchor === "range" && appearance.marker) {
+        if (extent === "range" && appearance.marker) {
           warn(config.type, `${path}.marker only applies to zeroPoint annotations`);
         }
 
-        if (anchor === "zeroPoint" && appearance.highlight) {
+        if (extent === "zeroPoint" && appearance.highlight) {
           warn(config.type, `${path}.highlight only applies to range annotations`);
         }
       }
@@ -738,10 +738,10 @@ export function useGuidelinesStore() {
     availableTextLabels,
     error: readonly(error),
     getAllCollectionConfigFields,
-    getAnnotationBehaviour,
     getAnnotationConfig,
+    getAnnotationExtent,
     getAnnotationFields,
-    getAnnotationRole,
+    getAnnotationRepresentation,
     getAnnotationType,
     getAvailableAnnotationResourceConfigs: getAvailableAnnotationEntityConfigs,
     getAvailableCollectionAnnotationConfigs,

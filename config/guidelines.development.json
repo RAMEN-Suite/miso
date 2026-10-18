@@ -91,7 +91,7 @@
               "miso": {
                 "group": "project",
                 "controls": { "defaultSelected": true },
-                "editing": { "anchor": "range" }
+                "editing": { "extent": "range" }
               }
             },
             {
@@ -139,7 +139,7 @@
               "miso": {
                 "group": "project",
                 "controls": { "defaultSelected": true },
-                "editing": { "anchor": "range" },
+                "editing": { "extent": "range" },
                 "appearance": {
                   "highlight": { "kind": "properties", "backgroundColor": "hsla(55, 100%, 70%, 0.35)" }
                 }
@@ -338,7 +338,6 @@
     "types": [
       {
         "type": "p",
-        "editorRole": "paragraph",
         "properties": [
           {
             "name": "rendition",
@@ -352,12 +351,11 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
         "type": "head",
-        "editorRole": "heading",
         "properties": [
           {
             "name": "lang",
@@ -370,32 +368,29 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
         "type": "row",
-        "editorRole": "tableRow",
         "properties": [],
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
         "type": "lb",
-        "editorRole": "hardBreak",
         "properties": [],
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "structure" }
+          "editing": { "extent": "zeroPoint", "representation": "structure" }
         }
       },
       {
         "type": "cell",
-        "editorRole": "tableCell",
         "properties": [
           {
             "name": "cols",
@@ -415,27 +410,25 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
         "type": "list",
-        "editorRole": "bulletList",
         "properties": [],
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
         "type": "item",
-        "editorRole": "listItem",
         "properties": [],
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure" }
+          "editing": { "extent": "range", "representation": "structure" }
         }
       },
       {
@@ -454,8 +447,8 @@
           "group": "structure",
           "controls": { "defaultSelected": true },
           "editing": {
-            "anchor": "range",
-            "role": "semanticBlock",
+            "extent": "range",
+            "representation": "semanticBlock",
             "priority": 110,
             "contains": [
               "opener",
@@ -491,8 +484,8 @@
           "group": "structure",
           "controls": { "defaultSelected": true },
           "editing": {
-            "anchor": "range",
-            "role": "semanticBlock",
+            "extent": "range",
+            "representation": "semanticBlock",
             "priority": 105,
             "contains": ["head", "p", "list", "lg", "lg-poem", "div"]
           }
@@ -505,8 +498,8 @@
           "group": "structure",
           "controls": { "defaultSelected": true },
           "editing": {
-            "anchor": "range",
-            "role": "semanticBlock",
+            "extent": "range",
+            "representation": "semanticBlock",
             "priority": 70,
             "contains": ["dateline", "salute", "addrLine", "address"]
           }
@@ -519,8 +512,8 @@
           "group": "structure",
           "controls": { "defaultSelected": true },
           "editing": {
-            "anchor": "range",
-            "role": "semanticBlock",
+            "extent": "range",
+            "representation": "semanticBlock",
             "priority": 70,
             "contains": ["dateline", "salute", "addrLine", "address", "signed"]
           }
@@ -532,7 +525,12 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 65, "contains": ["salute", "dateline", "p"] }
+          "editing": {
+            "extent": "range",
+            "representation": "semanticBlock",
+            "priority": 65,
+            "contains": ["salute", "dateline", "p"]
+          }
         }
       },
       {
@@ -558,7 +556,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 55, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
         }
       },
       {
@@ -567,7 +565,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 60, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 60, "contains": [] }
         }
       },
       {
@@ -585,7 +583,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 55, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
         }
       },
       {
@@ -594,7 +592,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 55, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
         }
       },
       {
@@ -603,7 +601,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 50, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 50, "contains": [] }
         }
       },
       {
@@ -612,7 +610,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 80, "contains": ["l", "lg", "lg-poem"] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 80, "contains": ["l", "lg", "lg-poem"] }
         }
       },
       {
@@ -630,7 +628,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 75, "contains": ["l", "lg"] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 75, "contains": ["l", "lg"] }
         }
       },
       {
@@ -647,7 +645,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 65, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 65, "contains": [] }
         }
       },
       {
@@ -656,7 +654,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure", "priority": 75, "contains": ["item"] }
+          "editing": { "extent": "range", "representation": "structure", "priority": 75, "contains": ["item"] }
         }
       },
       {
@@ -665,7 +663,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure", "priority": 70, "contains": [] }
+          "editing": { "extent": "range", "representation": "structure", "priority": 70, "contains": [] }
         }
       },
       {
@@ -674,7 +672,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 50, "contains": ["addrLine"] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 50, "contains": ["addrLine"] }
         }
       },
       {
@@ -683,7 +681,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 45, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 45, "contains": [] }
         }
       },
       {
@@ -692,7 +690,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure", "priority": 30, "contains": ["cell"] }
+          "editing": { "extent": "range", "representation": "structure", "priority": 30, "contains": ["cell"] }
         }
       },
       {
@@ -701,7 +699,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "semanticBlock", "priority": 25, "contains": [] }
+          "editing": { "extent": "range", "representation": "semanticBlock", "priority": 25, "contains": [] }
         }
       },
       {
@@ -725,7 +723,7 @@
         "miso": {
           "group": "structure",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "structure", "priority": 40, "contains": ["row"] }
+          "editing": { "extent": "range", "representation": "structure", "priority": 40, "contains": ["row"] }
         }
       },
       {
@@ -743,7 +741,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(22, 81%, 40%)" }
           }
@@ -764,7 +762,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "textDecorationLine": "line-through", "color": "hsl(0, 0%, 44%)" }
           }
@@ -784,7 +782,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(36, 85%, 76%, 0.3)" }
           }
@@ -820,7 +818,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(130, 99%, 29%)" }
           }
@@ -849,7 +847,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(328, 98%, 47%)" }
           }
@@ -885,7 +883,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -920,7 +918,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(217, 60%, 45%)", "fontStyle": "italic" }
           }
@@ -940,7 +938,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -957,7 +955,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(201, 22%, 50%)", "fontStyle": "italic" }
           }
@@ -969,7 +967,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(201, 22%, 50%)", "fontStyle": "italic" }
           }
@@ -981,7 +979,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(0, 0%, 50%, 0.12)" }
           }
@@ -1002,7 +1000,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(36, 85%, 76%, 0.6)" }
           }
@@ -1022,7 +1020,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(201, 22%, 50%)", "fontStyle": "italic" }
           }
@@ -1043,7 +1041,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "fontWeight": "bold" }
           }
@@ -1064,7 +1062,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "fontStyle": "italic", "color": "hsl(240, 30%, 50%)" }
           }
@@ -1084,7 +1082,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1140,7 +1138,7 @@
         "miso": {
           "group": "edition",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(200, 50%, 40%)" }
           }
@@ -1174,7 +1172,7 @@
         "miso": {
           "group": "layout",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1201,7 +1199,7 @@
         "miso": {
           "group": "layout",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1219,7 +1217,7 @@
         "miso": {
           "group": "layout",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1237,7 +1235,7 @@
         "miso": {
           "group": "layout",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1264,7 +1262,7 @@
         "miso": {
           "group": "layout",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "color": "hsl(0, 0%, 55%)", "fontSize": "0.85em" }
           }
@@ -1285,7 +1283,7 @@
         "miso": {
           "group": "entities",
           "controls": { "shortcut": "Mod-Shift-p", "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1311,7 +1309,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1337,7 +1335,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1363,7 +1361,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1389,7 +1387,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1415,7 +1413,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1441,7 +1439,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1467,7 +1465,7 @@
         "miso": {
           "group": "entities",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1492,7 +1490,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1518,7 +1516,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "fontStyle": "italic" }
           }
@@ -1538,7 +1536,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1563,7 +1561,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1589,7 +1587,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "zeroPoint", "role": "inline" },
+          "editing": { "extent": "zeroPoint", "representation": "inline" },
           "appearance": {
             "marker": {
               "kind": "icon",
@@ -1615,7 +1613,7 @@
         "miso": {
           "group": "sources",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1672,7 +1670,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(55, 100%, 70%, 0.35)" }
           }
@@ -1692,7 +1690,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(30, 80%, 85%, 0.6)" }
           }
@@ -1704,7 +1702,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(200, 60%, 85%, 0.6)" }
           }
@@ -1739,7 +1737,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": {
               "kind": "properties",
@@ -1786,7 +1784,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(160, 60%, 80%, 0.6)" }
           }
@@ -1798,7 +1796,7 @@
         "miso": {
           "group": "project",
           "controls": { "defaultSelected": true },
-          "editing": { "anchor": "range", "role": "inline" },
+          "editing": { "extent": "range", "representation": "inline" },
           "appearance": {
             "highlight": { "kind": "properties", "backgroundColor": "hsla(260, 60%, 85%, 0.6)" }
           }

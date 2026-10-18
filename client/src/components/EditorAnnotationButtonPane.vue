@@ -32,7 +32,7 @@ import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 
 const { isValid: isSelectionValid } = useValidateTextSelection();
-const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, getAnnotationRole, isZeroPoint } =
+const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, getAnnotationRepresentation, isZeroPoint } =
   useGuidelinesStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
@@ -52,7 +52,7 @@ const annotationCategories = computed(() =>
 const selectedCategory = ref<string>("");
 
 const semanticBlockTypes = computed<AnnotationType[]>(() =>
-  (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRole(t.type) === "semanticBlock"),
+  (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRepresentation(t.type) === "semanticBlock"),
 );
 
 const blockTypeOptions: { label: string; value: BlockTypeValue }[] = [

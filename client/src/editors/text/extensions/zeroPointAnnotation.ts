@@ -1,6 +1,6 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
 import { IAnnotation } from "../../../models/IAnnotation";
-import { Annotation, AnnotationAppearance, AppearanceVariant, IconSpecInput, MarkerStyle, Range } from "../../../models/types";
+import { Annotation, AnnotationAppearance, AppearanceOverride, IconSpecInput, MarkerStyle, Range } from "../../../models/types";
 import { cloneDeep } from "../../../utils/helper/helper";
 import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
 
@@ -68,15 +68,15 @@ interface ZeroPointOptions {
 function resolveMarker(appearance: AnnotationAppearance | undefined, data: IAnnotation | undefined): MarkerStyle | undefined {
   let marker: MarkerStyle | undefined = appearance?.marker;
 
-  for (const [property, variantsByValue] of Object.entries(appearance?.variants ?? {})) {
-    const value: unknown = data?.[property];
-    const variant: AppearanceVariant | undefined =
+  for (const variant of appearance?.variants ?? []) {
+    const value: unknown = data?.[variant.property];
+    const override: AppearanceOverride | undefined =
       typeof value === "string" || typeof value === "number" || typeof value === "boolean"
-        ? variantsByValue[String(value)]
+        ? variant.values[String(value)]
         : undefined;
 
-    if (variant?.marker) {
-      marker = variant.marker;
+    if (override?.marker) {
+      marker = override.marker;
     }
   }
 

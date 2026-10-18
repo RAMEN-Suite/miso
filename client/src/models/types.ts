@@ -43,23 +43,24 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
 }
 
 /**
- * Miso-internal role of the annotation in a text document, configured in `miso.editing.role`. Defines how an
- * annotation is represented in the tiptap editor. Options are:
+ * How an annotation is represented in the text editor, configured in `miso.editing.representation`. Only applies to
+ * annotations on text content. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
  * - `semanticBlock`: whole-block labels. Are always attached to a whole built-in document blocks and give them as semantic meaning.
  *    Mirror TEI-like block elements (opener, closer, addrLine etc.) to a certain extent.
  * - `inline`: user interpretation of a text range (font styling, commentaries, entities). Kind of the default annotation.
  */
-export type AnnotationRole = "structure" | "inline" | "semanticBlock";
+export type TextAnnotationRepresentation = "structure" | "inline" | "semanticBlock";
 
 /**
- * How an annotation is anchored in its content, configured in `miso.editing.anchor`.
+ * How far an annotation extends in its content, configured in `miso.editing.extent`. Both values correspond to a
+ * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
  * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
- *    Required for annotations with role `semanticBlock`.
+ *    Required for annotations with representation `semanticBlock`.
  * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
  */
-export type AnnotationBehaviour = "zeroPoint" | "range";
+export type AnnotationExtent = "zeroPoint" | "range";
 
 export interface AnnotationType {
   hasEntities?: boolean; // Derived from Nori
@@ -82,10 +83,10 @@ export interface AnnotationMisoConfig {
     /** Whether annotations of this type are visible when the editor is opened */
     defaultSelected?: boolean;
   };
-  /** How annotations of this type are anchored in the content */
+  /** How annotations of this type are placed and represented in the content */
   editing?: {
-    anchor?: AnnotationBehaviour;
-    role?: AnnotationRole;
+    extent?: AnnotationExtent;
+    representation?: TextAnnotationRepresentation;
     /** Nesting priority, only relevant for structural types */
     priority?: number;
     /** Editor roles of structural types that can be nested inside, only relevant for structural types */
@@ -103,19 +104,26 @@ export interface AnnotationAppearance {
   /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
   marker?: MarkerStyle;
   /**
-   * Overrides per property value, keyed by property name and then by value, e.g. `variants.subType.deletion`.
-   * Variants override the type's appearance and are applied in config order, so later matches win.
-   * Highlights are merged field by field, a marker replaces the previous one. The icon can't be overridden, since it
-   * identifies the annotation type in places without annotation data (e.g. the toolbar).
+   * Overrides for annotations with certain property values. They override the type's appearance and are applied in
+   * order, so later matches win. Highlights are merged field by field, a marker replaces the previous one. The icon
+   * can't be overridden, since it identifies the annotation type in places without annotation data (e.g. the toolbar).
    *
    * @example
-   * { "variants": { "display": { "block": { "marker": { "kind": "icon", "icon": "square-sigma" } } } } }
+   * [{ "property": "hand", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
    */
-  variants?: Record<string, Record<string, AppearanceVariant>>;
+  variants?: AppearanceVariant[];
+}
+
+/** Overrides of the appearance per value of one annotation property */
+export interface AppearanceVariant {
+  /** Name of the annotation property whose value is matched */
+  property: string;
+  /** Appearance overrides keyed by property value */
+  values: Record<string, AppearanceOverride>;
 }
 
 /** Appearance overrides for annotations with a certain property value */
-export type AppearanceVariant = Pick<AnnotationAppearance, "highlight" | "marker">;
+export type AppearanceOverride = Pick<AnnotationAppearance, "highlight" | "marker">;
 
 /**
  * Styling of the text covered by a `range` annotation.

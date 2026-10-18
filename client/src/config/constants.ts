@@ -21,7 +21,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       editing: { extent: "range", representation: "structure", contains: [], priority: 20 },
     },
   },
@@ -40,7 +40,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     ],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       editing: { extent: "range", representation: "structure", contains: [], priority: 30 },
     },
   },
@@ -49,7 +49,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       editing: { extent: "zeroPoint", representation: "structure", contains: [], priority: 10 },
     },
   },
@@ -58,7 +58,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       // caption/heading can be added later by extending contains via guidelines JSON
       editing: { extent: "range", representation: "structure", contains: ["tableRow"], priority: 90 },
     },
@@ -68,7 +68,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       editing: { extent: "range", representation: "structure", contains: ["tableCell"], priority: 80 },
     },
   },
@@ -80,8 +80,13 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     ],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
-      editing: { extent: "range", representation: "structure", contains: ["paragraph", "heading", "bulletList", "table"], priority: 70 },
+      controls: {},
+      editing: {
+        extent: "range",
+        representation: "structure",
+        contains: ["paragraph", "heading", "bulletList", "table"],
+        priority: 70,
+      },
     },
   },
   {
@@ -89,7 +94,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
+      controls: {},
       // caption/heading can be added later by extending contains via guidelines JSON
       editing: { extent: "range", representation: "structure", contains: ["listItem"], priority: 60 },
     },
@@ -99,8 +104,13 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     properties: [],
     miso: {
       group: "structure",
-      controls: { defaultSelected: true },
-      editing: { extent: "range", representation: "structure", contains: ["paragraph", "heading", "bulletList", "table"], priority: 50 },
+      controls: {},
+      editing: {
+        extent: "range",
+        representation: "structure",
+        contains: ["paragraph", "heading", "bulletList", "table"],
+        priority: 50,
+      },
     },
   },
 ];

@@ -80,8 +80,6 @@ export interface AnnotationMisoConfig {
   controls?: {
     /** Keyboard shortcut in keymap notation, e.g. `Mod-Shift-e`. `Mod` is Cmd on macOS and Ctrl elsewhere. */
     shortcut?: string;
-    /** Whether annotations of this type are visible when the editor is opened */
-    defaultSelected?: boolean;
   };
   /** How annotations of this type are placed and represented in the content */
   editing?: {

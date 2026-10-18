@@ -18,10 +18,7 @@ export interface IGuidelines {
         entities: AnnotationConfigEntity[];
       };
       /** Miso-only configuration */
-      miso?: NodeMisoConfig & {
-        /** Quick fix to determine which collections should be loaded into the overview table */
-        level?: "primary" | "secondary";
-      };
+      miso?: NodeMisoConfig;
     }[];
     annotations: {
       additionalTexts: string[];

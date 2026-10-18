@@ -25,7 +25,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "primary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Letter",
@@ -151,7 +151,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "primary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Document",
@@ -184,7 +184,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "primary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Figure",
@@ -217,7 +217,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "primary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Variant",
@@ -299,7 +299,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "secondary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Attachment",
@@ -310,7 +310,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "secondary" }
+        "miso": {}
       },
       {
         "additionalLabel": "Abstract",
@@ -321,7 +321,7 @@
           "entities": [],
           "additionalTexts": []
         },
-        "miso": { "level": "secondary" }
+        "miso": {}
       }
     ],
     "annotations": {

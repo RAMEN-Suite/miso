@@ -3,7 +3,6 @@ import { IGuidelines } from "../models/IGuidelines";
 import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
-  AnnotationConfigEntity,
   AnnotationExtent,
   AnnotationMapping,
   AnnotationMisoConfig,
@@ -100,26 +99,20 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Registers the node icons configured in the `miso` keys of Collection types and Entities, so that
-   * {@linkcode resolveNodeIcon} picks them up.
+   * Registers the node icons configured in the `miso` keys of the Collection, Content and Entity nodes and their
+   * types, so that {@linkcode resolveNodeIcon} picks them up.
    *
    * @param {IGuidelines} guidelinesData - The guidelines to read the icons from.
    * @return {void} This function does not return anything.
    */
   function applyConfiguredNodeIcons(guidelinesData: IGuidelines): void {
-    const entities: AnnotationConfigEntity[] = [
-      ...(guidelinesData.contents.annotations.entities ?? []),
-      ...(guidelinesData.collections.annotations?.entities ?? []),
-      ...guidelinesData.collections.types.flatMap((c) => c.annotations?.entities ?? []),
-    ];
-
     registerNodeIcon("Collection", guidelinesData.collections.miso?.appearance?.icon);
     registerNodeIcon("Content", guidelinesData.contents.miso?.appearance?.icon);
+    registerNodeIcon("Entity", guidelinesData.entities?.miso?.appearance?.icon);
 
     guidelinesData.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
     guidelinesData.contents.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
-
-    entities.forEach((e) => registerNodeIcon(e.nodeLabel, e.miso?.appearance?.icon));
+    (guidelinesData.entities?.types ?? []).forEach((e) => registerNodeIcon(e.additionalLabel, e.miso?.appearance?.icon));
   }
 
   /**
@@ -312,39 +305,6 @@ export function useGuidelinesStore() {
     return annotationMapping.value.typeByRole[editorRole as BuiltinStructuralType] ?? editorRole;
   }
 
-  /**
-   * Retrieves all available entity configurations for annotations from the guidelines.
-   *
-   * This method combines the entities defined in the annotations and collections sections
-   * of the guidelines and removes any duplicates. It is currently a hack since the guidelines structure can change.
-   *
-   * @return {AnnotationConfigEntity[]} The combined and deduplicated entities.
-   */
-  function getAvailableAnnotationEntityConfigs(): AnnotationConfigEntity[] {
-    const baseAnnotationEntities: AnnotationConfigEntity[] = guidelines.value.contents.annotations.entities ?? [];
-
-    const baseCollectionEntities: AnnotationConfigEntity[] = guidelines.value.collections.annotations.entities ?? [];
-
-    const additionalCollectionEntities: AnnotationConfigEntity[] = guidelines.value.collections.types.flatMap(
-      (c) => c.annotations?.entities ?? [],
-    );
-
-    const combined: AnnotationConfigEntity[] = [
-      ...baseAnnotationEntities,
-      ...baseCollectionEntities,
-      ...additionalCollectionEntities,
-    ];
-
-    const unique: AnnotationConfigEntity[] = combined.reduce<AnnotationConfigEntity[]>((total, curr) => {
-      if (!total.some((r) => r.category === curr.category && r.nodeLabel === curr.nodeLabel)) {
-        total.push(curr);
-      }
-      return total;
-    }, []);
-
-    return unique;
-  }
-
   function getAvailableCollectionAnnotationConfigs(collectionNodeLabels: string[]): AnnotationType[] {
     const base: AnnotationType[] = guidelines.value.collections.annotations.types;
     const additional: AnnotationType[] = guidelines.value.collections.types.reduce((total: AnnotationType[], curr) => {
@@ -396,7 +356,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableEntityLabels(): string[] {
-    return guidelines.value?.contents.annotations.entities.map((e) => e.nodeLabel) ?? [];
+    return guidelines.value?.entities?.types.map((e) => e.additionalLabel) ?? [];
   }
 
   /**
@@ -795,7 +755,6 @@ export function useGuidelinesStore() {
     getAnnotationFields,
     getAnnotationRepresentation,
     getAnnotationType,
-    getAvailableAnnotationResourceConfigs: getAvailableAnnotationEntityConfigs,
     getAvailableCollectionAnnotationConfigs,
     getAvailableCollectionLabels,
     getAvailableContentLabels,

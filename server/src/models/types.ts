@@ -26,13 +26,6 @@ export interface AnnotationType {
   miso?: unknown;
 }
 
-export interface AnnotationConfigEntity {
-  category: string;
-  nodeLabel: string;
-  /** Miso-only frontend configuration. Not read by the server, passed through as is. */
-  miso?: unknown;
-}
-
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 

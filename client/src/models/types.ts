@@ -173,13 +173,6 @@ export interface PropertiesTextStyle {
   textDecorationThickness?: string;
 }
 
-export interface AnnotationConfigEntity {
-  category: string;
-  nodeLabel: string;
-  /** Miso-only configuration */
-  miso?: NodeMisoConfig;
-}
-
 /** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
 export interface NodeMisoConfig {
   appearance?: NodeAppearance;

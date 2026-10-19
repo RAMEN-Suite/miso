@@ -18,10 +18,7 @@
         "properties": [],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -144,10 +141,7 @@
             }
           ],
 
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -177,10 +171,7 @@
         ],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -210,10 +201,7 @@
         ],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -292,10 +280,7 @@
         ],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -303,10 +288,7 @@
         "properties": [],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       },
       {
@@ -314,10 +296,7 @@
         "properties": [],
         "annotations": {
           "types": [],
-          "properties": [],
-          "entities": [],
-          "additionalTexts": []
-        },
+          "properties": []        },
         "miso": {}
       }
     ],
@@ -326,10 +305,7 @@
         "system": [],
         "base": []
       },
-      "types": [],
-      "entities": [],
-      "additionalTexts": []
-    }
+      "types": []    }
   },
   "contents": {
     "types": [{ "additionalLabel": "Text", "miso": { "medium": "text" } }],
@@ -1781,34 +1757,17 @@
           }
         ],
         "base": []
-      },
-      "entities": [
-        {
-          "category": "persons",
-          "nodeLabel": "Person"
-        },
-        {
-          "category": "places",
-          "nodeLabel": "Place"
-        },
-        {
-          "category": "terms",
-          "nodeLabel": "Term"
-        },
-        {
-          "category": "bibleVerses",
-          "nodeLabel": "BibleVerse"
-        },
-        {
-          "category": "letters",
-          "nodeLabel": "Letter"
-        },
-        {
-          "category": "comets",
-          "nodeLabel": "Comet"
-        }
-      ],
-      "additionalTexts": []
+      }
     }
+  },
+  "entities": {
+    "types": [
+      { "additionalLabel": "Person", "miso": {} },
+      { "additionalLabel": "Place", "miso": {} },
+      { "additionalLabel": "Term", "miso": {} },
+      { "additionalLabel": "BibleVerse", "miso": {} },
+      { "additionalLabel": "Letter", "miso": {} },
+      { "additionalLabel": "Comet", "miso": {} }
+    ]
   }
 }

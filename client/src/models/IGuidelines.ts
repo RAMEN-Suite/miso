@@ -1,8 +1,8 @@
-import { AnnotationConfigEntity, AnnotationType, ContentTypeMisoConfig, NodeMisoConfig, PropertyConfig } from "./types";
+import { AnnotationType, ContentTypeMisoConfig, NodeMisoConfig, PropertyConfig } from "./types";
 
 export interface IGuidelines {
+  /** Refinements of the Collection node, e.g. Letter or Abstract */
   collections: {
-    /** Miso-only configuration of the base Collection node */
     miso?: NodeMisoConfig;
     properties: {
       system: PropertyConfig[];
@@ -14,9 +14,7 @@ export interface IGuidelines {
       annotations: {
         types: AnnotationType[];
         properties: PropertyConfig[];
-        entities: AnnotationConfigEntity[];
       };
-      /** Miso-only configuration */
       miso?: NodeMisoConfig;
     }[];
     annotations: {
@@ -25,25 +23,29 @@ export interface IGuidelines {
         system: PropertyConfig[];
         base: PropertyConfig[];
       };
-      entities: AnnotationConfigEntity[];
     };
   };
+  /** Refinements of the Content node, e.g. Text or Image */
   contents: {
-    /** Miso-only configuration of the base Content node */
     miso?: NodeMisoConfig;
     types: {
       additionalLabel: string;
-      /** Miso-only configuration */
       miso?: ContentTypeMisoConfig;
     }[];
-    /** Annotations of Content nodes, e.g. the annotation types of the text editor */
     annotations: {
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];
         base: PropertyConfig[];
       };
-      entities: AnnotationConfigEntity[];
     };
+  };
+  /** Refinements of the Entity node, e.g. Person or Place */
+  entities: {
+    miso?: NodeMisoConfig;
+    types: {
+      additionalLabel: string;
+      miso?: NodeMisoConfig;
+    }[];
   };
 }

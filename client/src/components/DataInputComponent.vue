@@ -16,7 +16,6 @@ import {
 import InputNumber from "primevue/inputnumber";
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
-import Textarea from "primevue/textarea";
 import { Checkbox } from "primevue";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
@@ -68,7 +67,7 @@ const temporalValue = computed<string>({
     class="w-full"
   />
   <InputText
-    v-else-if="isString(config) && (config.template === 'input' || !config.template)"
+    v-else-if="isString(config)"
     v-model="modelValue"
     :disabled="!config.editable || mode === 'view'"
     :required="config.required"
@@ -77,17 +76,6 @@ const temporalValue = computed<string>({
     class="w-full"
     spellcheck="false"
     :pt="{ root: { minLength: minLength, maxLength: maxLength } }"
-  />
-  <Textarea
-    v-else-if="isString(config) && config.template === 'textarea'"
-    v-model="modelValue"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
-    :invalid="isInvalid"
-    cols="30"
-    rows="5"
-    size="small"
-    class="w-full"
   />
   <InputNumber
     v-else-if="isInteger(config)"

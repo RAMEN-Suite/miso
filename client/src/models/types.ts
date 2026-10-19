@@ -537,8 +537,6 @@ export interface PropertyConfig {
   editable: boolean; // Miso
   /** Visible by user */
   visible: boolean; // Miso;
-  /** Render as normal input or textarea? */
-  template?: PropertyConfigStringTemplate; // Miso;
   // The rest here is Miso
   /* Only relevant if type is "Array" */
   items?: Partial<PropertyConfig>;
@@ -556,8 +554,6 @@ export interface PropertyConfig {
 }
 
 export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
-
-export type PropertyConfigStringTemplate = "input" | "textarea";
 
 export interface Range {
   from: number;

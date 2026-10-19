@@ -223,12 +223,9 @@ export interface PropertyConfig {
   minLength?: number;
   maxLength?: number;
   options?: string[] | number[] /* Options if type is dropdown */;
-  template?: PropertyConfigStringTemplate /* Render as normal input or textarea? */;
 }
 
 export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
-
-export type PropertyConfigStringTemplate = "input" | "textarea";
 
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default

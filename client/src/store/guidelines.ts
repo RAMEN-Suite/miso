@@ -18,7 +18,7 @@ import {
   PropertyConfig,
   TextAnnotationRepresentation,
 } from "../models/types";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../config/constants";
+import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
 import { EDITOR_OWNED_ATTRIBUTES, DEFAULT_ANNOTATION_MAPPING } from "../config/editor";
 import { registerNodeIcon } from "../config/icons";
 
@@ -151,14 +151,15 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Builds the merged structural configs: built-in behavior (priority/contains) combined with
-   * each type's properties, all keyed by the project's type names via the active editor mapping.
+   * Builds the merged structural configs: the built-in configs combined with each type's properties, all keyed by
+   * the project's type names via the active editor mapping. The nesting rules stay internal, see
+   * {@linkcode BUILTIN_STRUCTURAL_NESTING}.
    *
    * Each built-in role becomes an entry under its project type name (`typeByRole[role] ?? role`), with
    * its editor-owned properties renamed to their project names (`attrByRole[role][attr] ?? attr`) but
    * keeping the built-in constraints. A project JSON entry whose type matches one of those entries
    * merges its domain properties onto it; an entry that matches none is kept as a custom structural
-   * type. `contains` keeps built-in role names (it is matched against editor roles).
+   * type.
    *
    * @param {IGuidelines} guidelinesData The domain guidelines
    * @returns {AnnotationType[]} The merged structural configs keyed by project type name
@@ -193,14 +194,7 @@ export function useGuidelinesStore() {
       if (existing) {
         existing.properties = mergeDomainProperties(existing.properties ?? [], entry.properties ?? []);
       } else {
-        builtInDerived.push({
-          ...entry,
-          properties: [...(entry.properties ?? [])],
-          miso: {
-            ...entry.miso,
-            editing: { ...entry.miso.editing, contains: [...(entry.miso.editing.contains ?? [])] },
-          },
-        });
+        builtInDerived.push({ ...entry, properties: [...(entry.properties ?? [])] });
       }
     }
 
@@ -556,8 +550,14 @@ export function useGuidelinesStore() {
     return roleByType.value[annotationType] ?? annotationType;
   }
 
+  /**
+   * Returns the nesting priority of a structural annotation type, from the rules of its built-in type.
+   *
+   * @param {string} type The project annotation type
+   * @returns {number} The priority (higher is more outer), `0` for types without a built-in type
+   */
   function getPriorityForType(type: string): number {
-    return mergedStructuralConfigs.value.find((c) => c.type === type)?.miso?.editing?.priority ?? 0;
+    return BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.priority ?? 0;
   }
 
   function getStructuralAnnotationConfig(type: string): AnnotationType | undefined {

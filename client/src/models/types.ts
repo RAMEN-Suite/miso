@@ -86,10 +86,6 @@ export interface AnnotationMisoConfig {
   editing?: {
     extent?: AnnotationExtent;
     representation?: TextAnnotationRepresentation;
-    /** Nesting priority, only relevant for structural types */
-    priority?: number;
-    /** Editor roles of structural types that can be nested inside, only relevant for structural types */
-    contains?: string[];
     /**
      * The editor's native type that implements this annotation type. Its extent and representation are then taken
      * from the native type.

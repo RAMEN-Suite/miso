@@ -22,7 +22,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: { extent: "range", representation: "structure", contains: [], priority: 20 },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -41,7 +41,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: { extent: "range", representation: "structure", contains: [], priority: 30 },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -50,7 +50,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: { extent: "zeroPoint", representation: "structure", contains: [], priority: 10 },
+      editing: { extent: "zeroPoint", representation: "structure" },
     },
   },
   {
@@ -59,8 +59,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      // caption/heading can be added later by extending contains via guidelines JSON
-      editing: { extent: "range", representation: "structure", contains: ["tableRow"], priority: 90 },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -69,7 +68,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: { extent: "range", representation: "structure", contains: ["tableCell"], priority: 80 },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -81,12 +80,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: {
-        extent: "range",
-        representation: "structure",
-        contains: ["paragraph", "heading", "bulletList", "table"],
-        priority: 70,
-      },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -95,8 +89,7 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      // caption/heading can be added later by extending contains via guidelines JSON
-      editing: { extent: "range", representation: "structure", contains: ["listItem"], priority: 60 },
+      editing: { extent: "range", representation: "structure" },
     },
   },
   {
@@ -105,12 +98,24 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     miso: {
       group: "structure",
       controls: {},
-      editing: {
-        extent: "range",
-        representation: "structure",
-        contains: ["paragraph", "heading", "bulletList", "table"],
-        priority: 50,
-      },
+      editing: { extent: "range", representation: "structure" },
     },
   },
 ];
+
+/**
+ * Nesting rules of the editor's built-in structural types, used to build the document tree from standoff annotations.
+ * They are editor internals and not configurable.
+ * - `priority`: decides which of two annotations with the same range is the outer one. Higher is more outer.
+ * - `contains`: the built-in types allowed as direct children. Empty means no restriction (or a leaf).
+ */
+export const BUILTIN_STRUCTURAL_NESTING = {
+  bulletList: { priority: 60, contains: ["listItem"] },
+  listItem: { priority: 50, contains: ["paragraph", "heading", "bulletList", "table"] },
+  hardBreak: { priority: 10, contains: [] },
+  heading: { priority: 30, contains: [] },
+  table: { priority: 90, contains: ["tableRow"] },
+  paragraph: { priority: 20, contains: [] },
+  tableCell: { priority: 70, contains: ["paragraph", "heading", "bulletList", "table"] },
+  tableRow: { priority: 80, contains: ["tableCell"] },
+} as const;

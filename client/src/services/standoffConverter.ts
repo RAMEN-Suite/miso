@@ -1,5 +1,6 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
+import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
 import {
   ApiJson,
   TiptapNode,
@@ -7,7 +8,7 @@ import {
   TiptapJson,
   NodeStatusObject,
   AnnotationNode,
-  AnnotationType,
+  BuiltinStructuralType,
   DocAnnotation,
   StandoffParseIssue,
   TextAnnotationRepresentation,
@@ -29,7 +30,6 @@ interface IndexRange {
 }
 
 const {
-  getStructuralAnnotationConfigs,
   isZeroPoint,
   getEditorRole,
   getAnnotationType,
@@ -123,19 +123,16 @@ export default class StandoffConverter {
   }
 
   /**
-   * Returns the list of annotation types allowed as structural children of the given annotation type as
-   * configured in the given annotation type's `miso.editing.contains` field.
+   * Returns the built-in types allowed as structural children of the given annotation type, from the nesting rules
+   * of its built-in type (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
    * `Null` means "no filter" - the node either has no declared children or is a leaf.
    *
-   * Even though technically all annotations can have a `contains` field, this function is only used
-   * for built-in block types (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
-   *
    * @param {string} type The annotation type
-   * @returns {string[] | null} The list of allowed child types or `null` if list is empty or non-existent
+   * @returns {readonly string[] | null} The list of allowed child types (editor roles) or `null` if list is empty or non-existent
    */
-  private getContainsList(type: string): string[] | null {
-    const config: AnnotationType | undefined = getStructuralAnnotationConfigs().find((c) => c.type === type);
-    const list: string[] | undefined = config?.miso?.editing?.contains;
+  private getContainsList(type: string): readonly string[] | null {
+    const list: readonly string[] | undefined =
+      BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.contains;
 
     return list && list.length > 0 ? list : null;
   }
@@ -202,7 +199,7 @@ export default class StandoffConverter {
    * @returns {Anno[]} The immediate structural children, sorted by start index
    */
   private findDirectChildren(parentType: string, startIndex: number, endIndex: number, allStructural: Anno[]): Anno[] {
-    const containsList: string[] | null = this.getContainsList(parentType);
+    const containsList: readonly string[] | null = this.getContainsList(parentType);
 
     const candidates: Anno[] = allStructural.filter(
       (a) =>
@@ -415,7 +412,7 @@ export default class StandoffConverter {
   // while tableRow/table/bulletList do NOT (their content is restricted to cells/rows/items),
   // so orphan gap text inside them must be clamped into an adjacent child instead.
   private parentAllowsParagraph(parentType: string): boolean {
-    const containsList: string[] | null = this.getContainsList(parentType);
+    const containsList: readonly string[] | null = this.getContainsList(parentType);
 
     // No declared children → treated as permissive (leaf types never reach gap-filling anyway).
     if (containsList === null) {

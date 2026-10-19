@@ -14,14 +14,12 @@ export interface IGuidelines {
       miso?: unknown;
       properties: PropertyConfig[];
       annotations: {
-        additionalTexts: string[];
         types: AnnotationType[];
         properties: PropertyConfig[];
         entities: AnnotationConfigEntity[];
       };
     }[];
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];
@@ -40,7 +38,6 @@ export interface IGuidelines {
     }[];
     /** Annotations of Content nodes */
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];

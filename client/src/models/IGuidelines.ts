@@ -12,7 +12,6 @@ export interface IGuidelines {
       additionalLabel: string;
       properties: PropertyConfig[];
       annotations: {
-        additionalTexts: string[];
         types: AnnotationType[];
         properties: PropertyConfig[];
         entities: AnnotationConfigEntity[];
@@ -21,7 +20,6 @@ export interface IGuidelines {
       miso?: NodeMisoConfig;
     }[];
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];
@@ -40,7 +38,6 @@ export interface IGuidelines {
     }[];
     /** Annotations of Content nodes, e.g. the annotation types of the text editor */
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];

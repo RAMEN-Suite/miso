@@ -29,7 +29,7 @@ const { parseShortcut } = useShortcutsStore();
 const guidelines = ref<IGuidelines>();
 const isFetching = ref<boolean>(false);
 const error = ref<Error | null>(null);
-const isInitialized = computed<boolean>(() => guidelines.value && !isFetching.value);
+const isInitialized = computed<boolean>(() => guidelines.value !== undefined && !isFetching.value);
 
 const groupedAnnotationTypes = ref<Record<string, AnnotationType[]>>();
 const availableCollectionLabels = ref<string[]>([]);
@@ -218,7 +218,7 @@ export function useGuidelinesStore() {
    * @return {AnnotationType} The configuration of the annotation type.
    */
   function getAnnotationConfig(type: string): AnnotationType {
-    return guidelines.value.contents.annotations.types.find((t) => t.type === type);
+    return getLoadedGuidelines().contents.annotations.types.find((t) => t.type === type);
   }
 
   /**
@@ -256,8 +256,9 @@ export function useGuidelinesStore() {
    * @return {PropertyConfig[]} The fields for the annotation type.
    */
   function getAnnotationFields(type: string): PropertyConfig[] {
-    const system: PropertyConfig[] = guidelines.value.contents.annotations.properties.system;
-    const base: PropertyConfig[] = guidelines.value.contents.annotations.properties.base;
+    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
+    const system: PropertyConfig[] = loadedGuidelines.contents.annotations.properties.system;
+    const base: PropertyConfig[] = loadedGuidelines.contents.annotations.properties.base;
     const additional: PropertyConfig[] = getAnnotationConfig(type)?.properties ?? [];
 
     return [...additional, ...system, ...base];
@@ -306,8 +307,9 @@ export function useGuidelinesStore() {
   }
 
   function getAvailableCollectionAnnotationConfigs(collectionNodeLabels: string[]): AnnotationType[] {
-    const base: AnnotationType[] = guidelines.value.collections.annotations.types;
-    const additional: AnnotationType[] = guidelines.value.collections.types.reduce((total: AnnotationType[], curr) => {
+    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
+    const base: AnnotationType[] = loadedGuidelines.collections.annotations.types;
+    const additional: AnnotationType[] = loadedGuidelines.collections.types.reduce((total: AnnotationType[], curr) => {
       if (collectionNodeLabels.includes(curr.additionalLabel)) {
         const nested: AnnotationType[] = curr.annotations?.types ?? [];
         total.push(...nested);
@@ -395,10 +397,10 @@ export function useGuidelinesStore() {
   }
 
   // TODO: This is a hack since the guidelines structure can change. It should be refactored to use the same structure as the annotations.
-  function getCollectionAnnotationConfig(collectionLabels: string[], annotationType: string): AnnotationType {
+  function getCollectionAnnotationConfig(collectionLabels: string[], annotationType: string): AnnotationType | undefined {
     const availableConfigs: AnnotationType[] = getAvailableCollectionAnnotationConfigs(collectionLabels);
 
-    const desired: AnnotationType = availableConfigs.find((t) => t.type === annotationType);
+    const desired: AnnotationType | undefined = availableConfigs.find((t) => t.type === annotationType);
 
     return desired;
   }
@@ -414,14 +416,16 @@ export function useGuidelinesStore() {
   function getCollectionAnnotationFields(collectionNodeLabels: string[], annotationType: string): PropertyConfig[] {
     // TODO: This is a hack since the guidelines structure can change. It should be refactored to use the same structure as the annotations.
 
+    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
+
     // Default properties for annotations that are in ALL collections
     const byDefault: PropertyConfig[] = [
-      ...(guidelines.value.collections.annotations?.properties.system ?? []),
-      ...(guidelines.value.collections.annotations?.properties.base ?? []),
+      ...(loadedGuidelines.collections.annotations?.properties.system ?? []),
+      ...(loadedGuidelines.collections.annotations?.properties.base ?? []),
     ];
 
     // Default properties for annotations that exists in the collections with given node labels
-    const byCollectionType: PropertyConfig[] = guidelines.value.collections.types.reduce((total: PropertyConfig[], curr) => {
+    const byCollectionType: PropertyConfig[] = loadedGuidelines.collections.types.reduce((total: PropertyConfig[], curr) => {
       if (collectionNodeLabels.includes(curr.additionalLabel)) {
         const nestedFields: PropertyConfig[] = curr.annotations?.properties ?? [];
 
@@ -511,6 +515,20 @@ export function useGuidelinesStore() {
   }
 
   /**
+   * Returns the loaded guidelines. Only call this from code that runs after {@linkcode initializeGuidelines}.
+   *
+   * @returns {IGuidelines} The loaded guidelines.
+   * @throws {Error} If the guidelines have not been loaded yet.
+   */
+  function getLoadedGuidelines(): IGuidelines {
+    if (!guidelines.value) {
+      throw new Error("Guidelines are not initialized");
+    }
+
+    return guidelines.value;
+  }
+
+  /**
    * Returns the nesting priority of a structural annotation type, from the rules of its built-in type.
    *
    * @param {string} type The project annotation type
@@ -530,17 +548,20 @@ export function useGuidelinesStore() {
    * @return {Record<string, AnnotationType[]>} An object where the keys are the categories and the values are arrays of annotation types belonging to that category.
    */
   function groupAnnotationTypes(): Record<string, AnnotationType[]> {
-    return guidelines.value.contents.annotations.types.reduce((grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
-      const category: string = current.miso?.group ?? DEFAULT_ANNOTATION_GROUP;
+    return getLoadedGuidelines().contents.annotations.types.reduce(
+      (grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
+        const category: string = current.miso?.group ?? DEFAULT_ANNOTATION_GROUP;
 
-      if (!grouped[category]) {
-        grouped[category] = [];
-      }
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
 
-      grouped[category].push(current);
+        grouped[category].push(current);
 
-      return grouped;
-    }, {});
+        return grouped;
+      },
+      {},
+    );
   }
 
   /**
@@ -655,7 +676,7 @@ export function useGuidelinesStore() {
    */
   function sortAnnotationTypesInGroup(): Record<string, AnnotationType[]> {
     return Object.fromEntries(
-      Object.entries(groupedAnnotationTypes.value).map(([category, types]) => [
+      Object.entries(groupedAnnotationTypes.value ?? {}).map(([category, types]) => [
         category,
         types.toSorted((a, b) => a.type.localeCompare(b.type)),
       ]),
@@ -699,7 +720,10 @@ export function useGuidelinesStore() {
         const options: string[] | undefined = propertyConfig?.options?.map(String);
 
         if (!propertyConfig) {
-          warn(config.type, `"${variant.property}" in miso.appearance.variants[${index}] is not a property of the annotation type`);
+          warn(
+            config.type,
+            `"${variant.property}" in miso.appearance.variants[${index}] is not a property of the annotation type`,
+          );
         }
 
         for (const [value, override] of Object.entries(variant.values)) {

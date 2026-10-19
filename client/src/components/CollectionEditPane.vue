@@ -200,7 +200,12 @@ function enrichCollectionData(): void {
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
   const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, data.type);
+
+  if (!config) {
+    console.error(`No annotation config found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+    return;
+  }
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
   // eslint-disable-next-line no-constant-condition -- Safe to delete
@@ -269,7 +274,17 @@ function handleEditAnnotation(uuid: string): void {
 
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+
+  if (!config) {
+    addToastMessage({
+      severity: "warn",
+      summary: "Annotation type not configured",
+      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this Collection.`,
+    });
+    return;
+  }
+
   const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
 
   createModalInstance(

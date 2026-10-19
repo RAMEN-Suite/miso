@@ -496,15 +496,6 @@
           }
         },
         {
-          "type": "head",
-          "properties": [],
-          "miso": {
-            "group": "structure",
-            "controls": {},
-            "editing": { "extent": "range", "representation": "blockClassification" }
-          }
-        },
-        {
           "type": "dateline",
           "properties": [
             {
@@ -585,24 +576,6 @@
           }
         },
         {
-          "type": "list",
-          "properties": [],
-          "miso": {
-            "group": "structure",
-            "controls": {},
-            "editing": { "extent": "range", "representation": "structure" }
-          }
-        },
-        {
-          "type": "item",
-          "properties": [],
-          "miso": {
-            "group": "structure",
-            "controls": {},
-            "editing": { "extent": "range", "representation": "structure" }
-          }
-        },
-        {
           "type": "address",
           "properties": [],
           "miso": {
@@ -613,24 +586,6 @@
         },
         {
           "type": "addrLine",
-          "properties": [],
-          "miso": {
-            "group": "structure",
-            "controls": {},
-            "editing": { "extent": "range", "representation": "blockClassification" }
-          }
-        },
-        {
-          "type": "row",
-          "properties": [],
-          "miso": {
-            "group": "structure",
-            "controls": {},
-            "editing": { "extent": "range", "representation": "structure" }
-          }
-        },
-        {
-          "type": "cell",
           "properties": [],
           "miso": {
             "group": "structure",
@@ -659,7 +614,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "structure" }
+            "editing": { "native": { "type": "table" } }
           }
         },
         {

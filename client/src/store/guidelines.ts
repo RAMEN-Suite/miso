@@ -277,7 +277,7 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns how an annotation type is represented in the text editor (`structure`/`inline`/`semanticBlock`),
+   * Returns how an annotation type is represented in the text editor (`structure`/`inline`/`blockClassification`),
    * computed on demand from the config. A built-in mapping always wins (early return); otherwise the configured
    * `miso.editing.representation` is used. Unknown/collection types degrade to `inline`.
    *

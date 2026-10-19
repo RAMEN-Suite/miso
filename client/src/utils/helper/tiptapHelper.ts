@@ -7,7 +7,7 @@ import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../
 
 /**
  * Converts an annotation into the object that is stored in tiptap node attributes
- * (`_annotation`, entries of `_semanticBlocks`) by dropping its top-level status.
+ * (`_annotation`, entries of `_blockClassifications`) by dropping its top-level status.
  *
  * Deep cloneed, so the document never shares object references with the caller.
  *
@@ -110,12 +110,12 @@ export function getAnnotationRevision(state: EditorState): number {
 }
 
 /**
- * Collects all unique semantic block annotations from the given document.
+ * Collects all unique block classification annotations from the given document.
  *
  * @param {Node} doc - The ProseMirror document node to traverse.
- * @returns {Map<string, DocAnnotation>} A map of semantic block annotations keyed by their UUID.
+ * @returns {Map<string, DocAnnotation>} A map of block classification annotations keyed by their UUID.
  */
-export function collectSemanticBlocks(doc: Node): Map<string, DocAnnotation> {
+export function collectBlockClassifications(doc: Node): Map<string, DocAnnotation> {
   const map = new Map<string, DocAnnotation>();
 
   doc.descendants((node: Node) => {
@@ -123,9 +123,9 @@ export function collectSemanticBlocks(doc: Node): Map<string, DocAnnotation> {
       return;
     }
 
-    const semanticBlocks: DocAnnotation[] = node.attrs?._semanticBlocks ?? [];
+    const blockClassifications: DocAnnotation[] = node.attrs?._blockClassifications ?? [];
 
-    for (const block of semanticBlocks) {
+    for (const block of blockClassifications) {
       const uuid: string = block.node.data.uuid;
 
       if (!map.has(uuid)) {
@@ -192,22 +192,22 @@ export function findNodeBoundariesByUuid(doc: Node, uuid: string): Range | null 
 }
 
 /**
- * Finds all semantic blocks carrying the given uuid and returns their combined document range.
+ * Finds all block classifications carrying the given uuid and returns their combined document range.
  *
- * Scans the document tree for nodes containing the uuid in their `_semanticBlocks` attribute,
+ * Scans the document tree for nodes containing the uuid in their `_blockClassifications` attribute,
  * accumulating the range from the first matching block to the last.
  *
  * @param {Node} doc The root document node to search
- * @param {string} uuid The uuid to match within each node's `_semanticBlocks` array
+ * @param {string} uuid The uuid to match within each node's `_blockClassifications` array
  * @returns {Range | null} The from/to range spanning all matching blocks, or null if none found
  */
-export function findSemanticBlockBoundariesByUuid(doc: Node, uuid: string): Range | null {
+export function findBlockClassificationBoundariesByUuid(doc: Node, uuid: string): Range | null {
   let result: Range | null = null;
 
   doc.descendants((node, pos) => {
-    const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+    const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-    const found: DocAnnotation | undefined = semanticBlocks.find((block) => block.node.data.uuid === uuid);
+    const found: DocAnnotation | undefined = blockClassifications.find((block) => block.node.data.uuid === uuid);
 
     if (found) {
       if (result) {

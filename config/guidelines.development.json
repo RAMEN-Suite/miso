@@ -447,7 +447,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 110,
               "contains": [
                 "opener",
@@ -484,7 +484,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 105,
               "contains": ["head", "p", "list", "lg", "lg-poem", "div"]
             }
@@ -498,7 +498,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 70,
               "contains": ["dateline", "salute", "addrLine", "address"]
             }
@@ -512,7 +512,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 70,
               "contains": ["dateline", "salute", "addrLine", "address", "signed"]
             }
@@ -526,7 +526,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 65,
               "contains": ["salute", "dateline", "p"]
             }
@@ -555,7 +555,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 55, "contains": [] }
           }
         },
         {
@@ -564,7 +564,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 60, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 60, "contains": [] }
           }
         },
         {
@@ -582,7 +582,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 55, "contains": [] }
           }
         },
         {
@@ -591,7 +591,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 55, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 55, "contains": [] }
           }
         },
         {
@@ -600,7 +600,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 50, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 50, "contains": [] }
           }
         },
         {
@@ -611,7 +611,7 @@
             "controls": {},
             "editing": {
               "extent": "range",
-              "representation": "semanticBlock",
+              "representation": "blockClassification",
               "priority": 80,
               "contains": ["l", "lg", "lg-poem"]
             }
@@ -632,7 +632,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 75, "contains": ["l", "lg"] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 75, "contains": ["l", "lg"] }
           }
         },
         {
@@ -649,7 +649,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 65, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 65, "contains": [] }
           }
         },
         {
@@ -676,7 +676,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 50, "contains": ["addrLine"] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 50, "contains": ["addrLine"] }
           }
         },
         {
@@ -685,7 +685,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 45, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 45, "contains": [] }
           }
         },
         {
@@ -703,7 +703,7 @@
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "extent": "range", "representation": "semanticBlock", "priority": 25, "contains": [] }
+            "editing": { "extent": "range", "representation": "blockClassification", "priority": 25, "contains": [] }
           }
         },
         {

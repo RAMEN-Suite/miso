@@ -27,7 +27,7 @@ export type Annotation = NodeStatusObject<AnnotationNode>;
 
 /**
  * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes
- * and each entry of `_semanticBlocks`.
+ * and each entry of `_blockClassifications`.
  *
  * The `meta` field that contains the status is omitted since it gets recalculated before save
  * for every block of the document.
@@ -47,17 +47,18 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
  * annotations on text content. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
- * - `semanticBlock`: whole-block labels. Are always attached to a whole built-in document blocks and give them as semantic meaning.
- *    Mirror TEI-like block elements (opener, closer, addrLine etc.) to a certain extent.
+ * - `blockClassification`: adds meaning to whole structural blocks (classifies them, like the Web Annotation motivation
+ *    `classifying`), without creating or containing them. Mirror TEI-like block elements (opener, closer, addrLine etc.)
+ *    to a certain extent. Unrelated to the classifiers (node types) of the data model.
  * - `inline`: user interpretation of a text range (font styling, commentaries, entities). Kind of the default annotation.
  */
-export type TextAnnotationRepresentation = "structure" | "inline" | "semanticBlock";
+export type TextAnnotationRepresentation = "structure" | "inline" | "blockClassification";
 
 /**
  * How far an annotation extends in its content, configured in `miso.editing.extent`. Both values correspond to a
  * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
  * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
- *    Required for annotations with representation `semanticBlock`.
+ *    Required for annotations with representation `blockClassification`.
  * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
  */
 export type AnnotationExtent = "zeroPoint" | "range";
@@ -234,7 +235,7 @@ export interface TiptapNodeAttrs {
   [key: string]: unknown;
   uuid?: string;
   _annotation?: DocAnnotation;
-  _semanticBlocks?: DocAnnotation[];
+  _blockClassifications?: DocAnnotation[];
 }
 
 export interface TiptapNode {
@@ -567,7 +568,7 @@ export interface Range {
   to: number;
 }
 
-export interface SemanticBlockRange {
+export interface BlockClassificationRange {
   startPos: number;
   endPos: number;
   type: string;
@@ -652,8 +653,8 @@ export type ToCItem = TreeNode & {
     text: string;
     /** Annotation of the node itself, as stored in its `_annotation` attribute. */
     _annotation: DocAnnotation;
-    /** Semantic blocks wrapping the node, as stored in its `_semanticBlocks` attribute. Empty when none. */
-    _semanticBlocks: DocAnnotation[];
+    /** Block classifications wrapping the node, as stored in its `_blockClassifications` attribute. Empty when none. */
+    _blockClassifications: DocAnnotation[];
   };
   children: ToCItem[];
 };

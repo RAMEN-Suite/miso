@@ -1,36 +1,36 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/vue-3";
 import { Annotation, AnnotationType, DocAnnotation } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
-import { VALID_SEMANTIC_BLOCK_TARGETS } from "../../../config/editor";
+import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../../../config/editor";
 import { normalizeAnnotation, normalizeDocAnnotation, toDocAnnotation } from "../../../utils/helper/tiptapHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     annotationAttributes: {
       /**
-       * Attaches a semantic block annotation to every valid semantic block target between the given positions
-       * by adding it to their `_semanticBlocks` attribute.
+       * Attaches a block classification annotation to every valid block classification target between the given positions
+       * by adding it to their `_blockClassifications` attribute.
        *
-       * @param {Annotation} annotation - The semantic block annotation to add.
+       * @param {Annotation} annotation - The block classification annotation to add.
        * @param {number} from - The document position where the block starts.
        * @param {number} to - The document position where the block ends.
        */
-      addSemanticBlock: (annotation: Annotation, from: number, to: number) => ReturnType;
+      addBlockClassification: (annotation: Annotation, from: number, to: number) => ReturnType;
       /**
-       * Updates a semantic block annotation, matched by its uuid, in the `_semanticBlocks` attribute of every node
+       * Updates a block classification annotation, matched by its uuid, in the `_blockClassifications` attribute of every node
        * that carries it.
        *
-       * @param {Annotation} annotation - The updated semantic block annotation.
+       * @param {Annotation} annotation - The updated block classification annotation.
        */
-      updateSemanticBlock: (annotation: Annotation) => ReturnType;
+      updateBlockClassification: (annotation: Annotation) => ReturnType;
       /**
-       * Removes a semantic block annotation from the `_semanticBlocks` attribute of every node that carries it.
+       * Removes a block classification annotation from the `_blockClassifications` attribute of every node that carries it.
        *
-       * @param {string} uuid - The uuid of the semantic block annotation to remove.
+       * @param {string} uuid - The uuid of the block classification annotation to remove.
        */
-      removeSemanticBlock: (uuid: string) => ReturnType;
+      removeBlockClassification: (uuid: string) => ReturnType;
       /**
-       * Brings the annotations in the node attributes (`_annotation`, `_semanticBlocks`) in line with the
+       * Brings the annotations in the node attributes (`_annotation`, `_blockClassifications`) in line with the
        * database state after a successful save: connected nodes that were deleted or removed are dropped,
        * the remaining ones are set to "unchanged". Zero-point annotations are set to "unchanged" themselves, too.
        *
@@ -49,15 +49,15 @@ const { getStructuralAnnotationConfigs, getEditorRole } = useGuidelinesStore();
  * - `_annotation`: the annotation of the node itself (e.g. the paragraph or table annotation). Defaults to an
  *   annotation that only carries the given type, so nodes created in the editor are usable before their first save which
  *   then adds uuid, indices etc.
- * - `_semanticBlocks`: the semantic block annotations that cover the node's range (e.g. an `opener` on the first
- *   paragraphs of a letter), sorted outermost-first. Empty when none. Only created for valid semantic block targets {@link VALID_SEMANTIC_BLOCK_TARGETS}.
+ * - `_blockClassifications`: the block classification annotations that cover the node's range (e.g. an `opener` on the first
+ *   paragraphs of a letter), sorted outermost-first. Empty when none. Only created for valid block classification targets {@link VALID_BLOCK_CLASSIFICATION_TARGETS}.
  *
  * @param {string} defaultType - The configured annotation type of the node type, used in the default `_annotation`.
- * @param {boolean} isSemanticBlockTarget - Whether the node type can be wrapped by semantic blocks and therefore
- *   needs the `_semanticBlocks` attribute.
+ * @param {boolean} isBlockClassificationTarget - Whether the node type can be wrapped by block classifications and therefore
+ *   needs the `_blockClassifications` attribute.
  * @returns {Record<string, Attribute>} The attribute definitions, keyed by attribute name.
  */
-function createDefaultAttrs(defaultType: string, isSemanticBlockTarget: boolean): Record<string, Attribute> {
+function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: boolean): Record<string, Attribute> {
   const defaultAnnotation: DocAnnotation = {
     node: { data: { type: defaultType }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
     connectedNodes: [],
@@ -70,12 +70,12 @@ function createDefaultAttrs(defaultType: string, isSemanticBlockTarget: boolean)
     },
   };
 
-  if (isSemanticBlockTarget) {
-    attributes._semanticBlocks = {
+  if (isBlockClassificationTarget) {
+    attributes._blockClassifications = {
       default: [],
       renderHTML: (attrs) => {
         return {
-          "data-semantic-block-types": attrs._semanticBlocks.map((b: DocAnnotation) => b.node.data.type).join(","),
+          "data-block-classification-types": attrs._blockClassifications.map((b: DocAnnotation) => b.node.data.type).join(","),
         };
       },
     };
@@ -85,15 +85,15 @@ function createDefaultAttrs(defaultType: string, isSemanticBlockTarget: boolean)
 }
 
 /**
- * Adds the `_annotation` attribute to all structural node types and the `_semanticBlocks` attribute
- * to those that can be wrapped by semantic blocks. Both hold {@link DocAnnotation} objects.
+ * Adds the `_annotation` attribute to all structural node types and the `_blockClassifications` attribute
+ * to those that can be wrapped by block classifications. Both hold {@link DocAnnotation} objects.
  *
  * Built-in types (paragraph, heading, ...) use their own tiptap node type name; their annotation
  * lives in `_annotation`, which defaults to the configured type so freshly created nodes are usable
  * without a neo4j round-trip.
  *
  * Custom block/structural types (address, addrLine, closer, ...) are no tiptap nodes. Their annotations
- * live in the `_semanticBlocks` attribute of every built-in block node they wrap.
+ * live in the `_blockClassifications` attribute of every built-in block node they wrap.
  */
 export const AnnotationAttributes = Extension.create({
   name: "annotationAttributes",
@@ -104,7 +104,7 @@ export const AnnotationAttributes = Extension.create({
 
       return {
         types: [editorRole],
-        attributes: createDefaultAttrs(config.type, VALID_SEMANTIC_BLOCK_TARGETS.includes(editorRole)),
+        attributes: createDefaultAttrs(config.type, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(editorRole)),
       };
     });
 
@@ -113,27 +113,27 @@ export const AnnotationAttributes = Extension.create({
 
   addCommands() {
     return {
-      addSemanticBlock:
+      addBlockClassification:
         (annotation: Annotation, from: number, to: number) =>
         ({ tr, dispatch }) => {
           const newAnnotation: DocAnnotation = toDocAnnotation(annotation);
 
           tr.doc.nodesBetween(from, to, (node, pos) => {
-            if (!VALID_SEMANTIC_BLOCK_TARGETS.includes(node.type.name) || node.isText) {
+            if (!VALID_BLOCK_CLASSIFICATION_TARGETS.includes(node.type.name) || node.isText) {
               return;
             }
 
-            const existing: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+            const existing: DocAnnotation[] = node.attrs._blockClassifications ?? [];
             const updated: DocAnnotation[] = [...existing, newAnnotation];
 
-            tr.setNodeAttribute(pos, "_semanticBlocks", updated);
+            tr.setNodeAttribute(pos, "_blockClassifications", updated);
           });
 
           dispatch?.(tr);
 
           return true;
         },
-      updateSemanticBlock:
+      updateBlockClassification:
         (annotation: Annotation) =>
         ({ tr, dispatch }) => {
           const updatedAnnotation: DocAnnotation = toDocAnnotation(annotation);
@@ -144,7 +144,7 @@ export const AnnotationAttributes = Extension.create({
               return;
             }
 
-            const existing: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+            const existing: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
             if (!existing.some((b) => b.node.data.uuid === uuid)) {
               return;
@@ -152,14 +152,14 @@ export const AnnotationAttributes = Extension.create({
 
             const updated: DocAnnotation[] = existing.map((b) => (b.node.data.uuid === uuid ? updatedAnnotation : b));
 
-            tr.setNodeAttribute(pos, "_semanticBlocks", updated);
+            tr.setNodeAttribute(pos, "_blockClassifications", updated);
           });
 
           dispatch?.(tr);
 
           return true;
         },
-      removeSemanticBlock:
+      removeBlockClassification:
         (uuid: string) =>
         ({ tr, dispatch }) => {
           tr.doc.descendants((node, pos) => {
@@ -167,7 +167,7 @@ export const AnnotationAttributes = Extension.create({
               return;
             }
 
-            const existing: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+            const existing: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
             if (!existing.some((b) => b.node.data.uuid === uuid)) {
               return;
@@ -176,10 +176,10 @@ export const AnnotationAttributes = Extension.create({
             // Do NOT set status to 'deleted' - this is determined during save preprocessing
             // when checked what annotations are in the document
 
-            // Remove semantic block from node's `_semanticBlocks` array
+            // Remove block classification from node's `_blockClassifications` array
             tr.setNodeAttribute(
               pos,
-              "_semanticBlocks",
+              "_blockClassifications",
               existing.filter((b) => b.node.data.uuid !== uuid),
             );
           });
@@ -213,13 +213,13 @@ export const AnnotationAttributes = Extension.create({
               tr.setNodeAttribute(pos, "_annotation", normalizeDocAnnotation(docAnnotation));
             }
 
-            const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+            const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-            if (semanticBlocks.some((b) => b.connectedNodes.length > 0)) {
+            if (blockClassifications.some((b) => b.connectedNodes.length > 0)) {
               tr.setNodeAttribute(
                 pos,
-                "_semanticBlocks",
-                semanticBlocks.map((b) => normalizeDocAnnotation(b)),
+                "_blockClassifications",
+                blockClassifications.map((b) => normalizeDocAnnotation(b)),
               );
             }
           });

@@ -16,7 +16,7 @@ import { Node } from "@tiptap/pm/model";
  *                             plain-text chars) and `zeroPointAnnotation` inline atoms (position between two chars)
  * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, …)
  *                             and `hardBreak` inline atoms (position between two chars)
- * - `semanticBlockIndexMap` – semantic blocks stored in the `_semanticBlocks` attribute of the block nodes they wrap
+ * - `blockClassificationIndexMap` – block classifications stored in the `_blockClassifications` attribute of the block nodes they wrap
  */
 export function useCreateIndexMaps() {
   const { tiptap } = useTiptapStore();
@@ -35,13 +35,13 @@ export function useCreateIndexMaps() {
    * Range and zero-point annotations are both inline annotations and therefore share one map,
    * just as blocks and hardBreaks do.
    *
-   * @returns {{ inlineIndexMap: IndexMap; structureIndexMap: IndexMap; semanticBlockIndexMap: IndexMap }} The index maps.
+   * @returns {{ inlineIndexMap: IndexMap; structureIndexMap: IndexMap; blockClassificationIndexMap: IndexMap }} The index maps.
    */
-  function buildIndexMaps(): { inlineIndexMap: IndexMap; structureIndexMap: IndexMap; semanticBlockIndexMap: IndexMap } {
+  function buildIndexMaps(): { inlineIndexMap: IndexMap; structureIndexMap: IndexMap; blockClassificationIndexMap: IndexMap } {
     return {
       inlineIndexMap: new Map([...buildDecorationIndexMap(), ...buildZeroPointIndexMap()]),
       structureIndexMap: new Map([...buildStructureIndexMap(), ...buildHardBreakIndexMap()]),
-      semanticBlockIndexMap: buildSemanticBlockIndexMap(),
+      blockClassificationIndexMap: buildBlockClassificationIndexMap(),
     };
   }
 
@@ -61,13 +61,13 @@ export function useCreateIndexMaps() {
    * Walks the document and builds a map of label annotation UUIDs → their live char range.
    *
    * Label annotations (e.g. `closer`, `address`) are not block nodes themselves; instead, their
-   * annotation data are stored in the `_semanticBlocks` attribute on the built-in block nodes that
+   * annotation data are stored in the `_blockClassifications` attribute on the built-in block nodes that
    * fall within their range. For each UUID found, this function accumulates the union of all
    * contributing nodes' char ranges, giving the annotation's current `startIndex`/`endIndex`.
    *
    * @returns The populated `IndexMap`.
    */
-  function buildSemanticBlockIndexMap(): IndexMap {
+  function buildBlockClassificationIndexMap(): IndexMap {
     const map: IndexMap = new Map();
 
     function walk(node: Node, charIndex: number): number {
@@ -82,9 +82,9 @@ export function useCreateIndexMaps() {
         current = walk(child, current);
       });
 
-      const semanticBlocks: DocAnnotation[] = node.attrs?._semanticBlocks ?? [];
+      const blockClassifications: DocAnnotation[] = node.attrs?._blockClassifications ?? [];
 
-      semanticBlocks.forEach((block) => {
+      blockClassifications.forEach((block) => {
         const { uuid } = block.node.data;
 
         const existing = map.get(uuid);

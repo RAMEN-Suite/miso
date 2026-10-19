@@ -1,42 +1,51 @@
-import { AnnotationConfigEntity, AnnotationType, PropertyConfig } from "./types.js";
+import { AnnotationType, PropertyConfig } from "./types.js";
 
 export interface IGuidelines {
+  /** Refinements of the Collection node, e.g. Letter or Abstract */
   collections: {
+    miso?: unknown;
     properties: {
       system: PropertyConfig[];
       base: PropertyConfig[];
     };
     types: {
       additionalLabel: string;
-      level: "primary" | "secondary" /* Quick fix to determine which collections should be loaded into the overview table */;
+      miso?: unknown;
       properties: PropertyConfig[];
       annotations: {
-        additionalTexts: string[];
         types: AnnotationType[];
         properties: PropertyConfig[];
-        entities: AnnotationConfigEntity[];
       };
     }[];
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];
         base: PropertyConfig[];
       };
-      entities: AnnotationConfigEntity[];
     };
   };
-  annotations: {
-    additionalTexts: string[];
-    types: AnnotationType[];
-    properties: {
-      system: PropertyConfig[];
-      base: PropertyConfig[];
+  /** Refinements of the Content node, e.g. Text or Image */
+  contents: {
+    miso?: unknown;
+    types: {
+      additionalLabel: string;
+      miso?: unknown;
+    }[];
+    annotations: {
+      types: AnnotationType[];
+      properties: {
+        system: PropertyConfig[];
+        base: PropertyConfig[];
+      };
     };
-    entities: AnnotationConfigEntity[];
   };
-  texts: {
-    additionalLabels: string[];
+  /** Refinements of the Entity node, e.g. Person or Place */
+  entities: {
+    miso?: unknown;
+    types: {
+      additionalLabel: string;
+      miso?: unknown;
+    }[];
   };
 }

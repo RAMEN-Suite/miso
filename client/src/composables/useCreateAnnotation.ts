@@ -23,16 +23,16 @@ interface UseCreateAnnotationReturnType {
  * @returns {UseCreateAnnotationReturnType} An object containing the functions to create annotations.
  */
 export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateAnnotationReturnType {
-  const { getAnnotationFields, getCollectionAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
+  const { getAnnotationFields, getCollectionAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
 
   /**
    * Creates an annotation object with the given parameters.
    *
-   * The annotation object contains three properties: `properties` (the annotation node data),
-   * `entities` (empty array) and `additionalTexts` (empty array). Entites and additionalTexts are added to keep the structure consistent.
+   * The annotation object contains the annotation node (with its data created from the fields), no connected nodes yet
+   * and the status `created`.
    *
    * @param {Object} params - The parameters object. Contains the fields, subType (optional) and type of the annotation.
-   * @returns {Annotation} An object containing the properties, entities and additional texts of the annotation.
+   * @returns {Annotation} The new annotation.
    */
   function createAnnotationObject(params: { fields: PropertyConfig[]; subType?: string | number; type: string }): Annotation {
     const nodeData: IAnnotation = createNodeData({ ...params });
@@ -122,7 +122,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
       // Empty string since value is added in createTextAnnotation().
       nodeData.text = "";
 
-      if (getAnnotationBehaviour(params.type) === "zeroPoint") {
+      if (getAnnotationExtent(params.type) === "zeroPoint") {
         nodeData.isZeroPoint = true;
       }
     }

@@ -5,7 +5,8 @@ import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
-import { Annotation } from "../../../models/types";
+import { IAnnotation } from "../../../models/IAnnotation";
+import { Annotation, AnnotationAppearance, AppearanceOverride, HighlightTextStyle } from "../../../models/types";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../../../utils/helper/indexHelper";
@@ -109,41 +110,18 @@ export interface AnnotationDecorationSpec {
   _annotation: Annotation;
 }
 
-function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
-  const { type, uuid, subType } = annotation.node.data;
-
-  const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
-
-  return Decoration.inline(
-    from,
-    to,
-    {
-      nodeName: "span",
-      "data-annotation-type": type,
-      "data-annotation-uuid": uuid,
-      "data-annotation-subtype": subType?.toString() ?? "",
-    },
-    { inclusiveEnd: true, ...spec },
-  );
+interface AnnotationDecorationOptions {
+  /**
+   * Returns the configured appearance of the given annotation type, used for the inline style of its decorations.
+   *
+   * @param {string} type The annotation type
+   * @returns {AnnotationAppearance | undefined} The configured appearance or undefined if not found
+   */
+  getAppearance: (type: string) => AnnotationAppearance | undefined;
 }
 
 function findDecorationsByUuid(decorationSet: DecorationSet, uuid: string): Decoration[] {
   return decorationSet.find(undefined, undefined, (spec: AnnotationDecorationSpec) => spec._uuid === uuid);
-}
-
-function createInitialDecorations(doc: Node, annotations: Map<string, Annotation>): Decoration[] {
-  const decos: Decoration[] = [];
-
-  for (const annotation of [...annotations.values()].toSorted((a, b) => a.node.data.startIndex - b.node.data.startIndex)) {
-    const { startIndex, endIndex } = annotation.node.data;
-
-    const start: number = indexToPosition(doc, startIndex);
-    const end: number = indexToPosition(doc, endIndex + 1);
-
-    decos.push(createDecoration(start, end, annotation));
-  }
-
-  return decos;
 }
 
 function createFilteredDecorations(
@@ -165,8 +143,92 @@ function createFilteredDecorations(
   return DecorationSet.create(doc, filteredDecorations);
 }
 
-export const AnnotationDecoration = Extension.create({
+/**
+ * Returns the inline style of a range annotation's decoration. The highlights of all variants matching the
+ * annotation's property values are merged onto the highlight of the annotation type, in config order.
+ *
+ * @param {AnnotationAppearance | undefined} appearance The configured appearance of the annotation type.
+ * @param {IAnnotation} data The annotation's data.
+ * @returns {string} The inline style, or an empty string if no highlight is configured.
+ *
+ * @example
+ * const appearance = {
+ *   highlight: { kind: "properties", fontWeight: "bold" },
+ *   variants: [
+ *     {
+ *       property: "subType",
+ *       values: { i: { highlight: { kind: "properties", fontStyle: "italic" } } },
+ *     },
+ *   ],
+ * };
+ *
+ * getHighlightStyle(appearance, { subType: "i", ... });
+ *
+ * // Returns
+ *
+ * "font-weight: bold; font-style: italic"
+ */
+function getHighlightStyle(appearance: AnnotationAppearance | undefined, data: IAnnotation): string {
+  let merged: HighlightTextStyle | undefined = appearance?.highlight;
+
+  for (const variant of appearance?.variants ?? []) {
+    const value: unknown = data[variant.property];
+    const override: AppearanceOverride | undefined =
+      typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? variant.values[String(value)]
+        : undefined;
+
+    if (override?.highlight) {
+      merged = { ...merged, ...override.highlight };
+    }
+  }
+
+  return highlightToDeclarations(merged);
+}
+
+/**
+ * Converts a highlight into CSS declarations. Values are not validated, since the configuration is trusted;
+ * invalid values are simply ignored by the browser.
+ *
+ * @param {HighlightTextStyle | undefined} style The highlight to convert.
+ * @returns {string} The CSS declarations, or an empty string if there is no highlight.
+ *
+ * @example
+ * highlightToDeclarations({ kind: "properties", fontWeight: "bold", fontStyle: "italic" });
+ *
+ * // Returns
+ *
+ * "font-weight: bold; font-style: italic"
+ */
+function highlightToDeclarations(style: HighlightTextStyle | undefined): string {
+  if (!style) {
+    return "";
+  }
+
+  return Object.entries(style)
+    .filter(([key, value]) => key !== "kind" && typeof value === "string")
+    .map(([key, value]) => `${toKebabCase(key)}: ${value}`)
+    .join("; ");
+}
+
+/**
+ * Converts a camelCase style key into its CSS property name, e.g. `textDecorationColor` -> `text-decoration-color`.
+ *
+ * @param {string} key The camelCase style key.
+ * @returns {string} The CSS property name in kebab-case.
+ */
+function toKebabCase(key: string): string {
+  return key.replace(/[A-Z]/g, (char: string) => `-${char.toLowerCase()}`);
+}
+
+export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions>({
   name: "annotationDecoration",
+
+  addOptions() {
+    return {
+      getAppearance: () => undefined,
+    };
+  },
 
   addCommands() {
     return {
@@ -312,6 +374,42 @@ export const AnnotationDecoration = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const { getAppearance } = this.options;
+
+    function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
+      const { type, uuid, subType } = annotation.node.data;
+
+      const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
+
+      return Decoration.inline(
+        from,
+        to,
+        {
+          nodeName: "span",
+          "data-annotation-type": type,
+          "data-annotation-uuid": uuid,
+          "data-annotation-subtype": subType?.toString() ?? "",
+          style: getHighlightStyle(getAppearance(type), annotation.node.data),
+        },
+        { inclusiveEnd: true, ...spec },
+      );
+    }
+
+    function createInitialDecorations(doc: Node, annotations: Map<string, Annotation>): Decoration[] {
+      const decos: Decoration[] = [];
+
+      for (const annotation of [...annotations.values()].toSorted((a, b) => a.node.data.startIndex - b.node.data.startIndex)) {
+        const { startIndex, endIndex } = annotation.node.data;
+
+        const start: number = indexToPosition(doc, startIndex);
+        const end: number = indexToPosition(doc, endIndex + 1);
+
+        decos.push(createDecoration(start, end, annotation));
+      }
+
+      return decos;
+    }
+
     return [
       new Plugin({
         key: ANNOTATION_DECORATION_KEY,

@@ -34,7 +34,7 @@ export class UpdateAnnotationStep extends Step {
     return new UpdateAnnotationStep(this.newAnnotation, this.oldAnnotation);
   }
 
-  map(): UpdateAnnotationStep {
+  map(): this {
     // No positions to map
     return this;
   }

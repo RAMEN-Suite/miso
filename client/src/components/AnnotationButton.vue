@@ -6,13 +6,14 @@ import { PropertyConfig, AnnotationType } from "../models/types";
 import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
 import { onMounted, ref } from "vue";
+import { resolveAnnotationIcon } from "../config/icons";
 
 const props = defineProps<{ type: string; disabled: boolean; config: AnnotationType }>();
 
 const emit = defineEmits<(e: "clicked", data: { type: string; subType?: string | number }) => void>();
 
 const { getAnnotationFields } = useGuidelinesStore();
-const { normalizeKeys, registerShortcut } = useShortcutsStore();
+const { registerShortcut } = useShortcutsStore();
 
 const fields: PropertyConfig[] = getAnnotationFields(props.type);
 const subTypeField: PropertyConfig = fields.find((field) => field.name === "subType");
@@ -24,12 +25,13 @@ const dropdownOptions = options.map((option: string | number) => {
   };
 });
 
-const hasIcon = ref<boolean>(true);
+const hasIcon: boolean = resolveAnnotationIcon(props.config) !== undefined;
 const buttonElm = ref(null);
 
-if (props.config.shortcut?.length > 0) {
-  const shortcutCombo: string = normalizeKeys(props.config.shortcut?.map((key) => key.toLowerCase()) ?? []);
-  registerShortcut(shortcutCombo, handleClick);
+const shortcut: string | undefined = props.config.miso?.controls?.shortcut;
+
+if (shortcut) {
+  registerShortcut(shortcut, handleClick);
 }
 
 // TODO: This is a temporary hack since PrimeVue makes problems with accessing the component's
@@ -37,20 +39,6 @@ if (props.config.shortcut?.length > 0) {
 onMounted(setButtonStylingManually);
 
 function setButtonStylingManually(): void {
-  // This function examines the DOM nodes of the annotation icon span. If the background image could not be loaded
-  // (since it wasn't provided, bad internet connection etc.), the buttons shows the annotation type as string
-  const iconElement: HTMLSpanElement = buttonElm.value.$el.querySelector(`.annotation-type-icon-${props.type}`);
-
-  // Return if element was not found
-  if (!iconElement) {
-    return;
-  }
-
-  // If no background image, set hasIcon to false. This will style normal annotation buttons correctly (see Button props)
-  const hasBackgroundImage: boolean = window.getComputedStyle(iconElement).backgroundImage !== "none";
-
-  hasIcon.value = hasBackgroundImage;
-
   // SplitButton has its flaws: Dropdown button and annotation button can not be accessed (wait for Primevue update),
   // therefore the DOM element need to be queried and styled manually. this is done via the subTypeField variable
   if (subTypeField) {
@@ -67,9 +55,9 @@ function setButtonStylingManually(): void {
       mainButton.style.paddingRight = "5px";
     }
 
-    // When there is no background image AND the annotation has a SplitButton component, the width is set to 'auto'
+    // When there is no icon AND the annotation has a SplitButton component, the width is set to 'auto'
     // with the tailwind utility class 'w-auto'.
-    if (!hasBackgroundImage) {
+    if (!hasIcon) {
       const splitButtonElm: HTMLButtonElement = buttonElm.value.$el.querySelector("button.p-splitbutton-button");
 
       splitButtonElm?.classList.add("w-auto");
@@ -105,7 +93,7 @@ function handleClick(dropdownOption?: string | number): void {
     @click="handleButtonClick"
   >
     <template #icon>
-      <AnnotationTypeIcon v-if="hasIcon" :annotation-type="props.type" />
+      <AnnotationTypeIcon v-if="hasIcon" :config="props.config" />
     </template>
     <template #default>
       <span v-if="!hasIcon"> {{ props.type }} </span>
@@ -135,7 +123,7 @@ function handleClick(dropdownOption?: string | number): void {
     @click="handleButtonClick"
   >
     <template #icon>
-      <AnnotationTypeIcon :annotation-type="props.type" />
+      <AnnotationTypeIcon :config="props.config" />
     </template>
     <template #default>
       <span v-if="!hasIcon"> {{ props.type }} </span>
@@ -144,7 +132,7 @@ function handleClick(dropdownOption?: string | number): void {
     <template #item="{ label }">
       <div class="flex p-1 gap-1 items-center select-none cursor-pointer">
         <span :style="{ display: 'block', width: '20px', height: '20px' }">
-          <AnnotationTypeIcon :annotation-type="label as string" />
+          <AnnotationTypeIcon :config="props.config" />
         </span>
         <span>{{ label }}</span>
       </div>

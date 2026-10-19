@@ -15,7 +15,7 @@
   display: flex;
   padding: 5px;
   text-decoration-skip-ink: none;
-  /* Positioning context for the teleported semantic-block-lines overlay. */
+  /* Positioning context for the teleported block-classification-lines overlay. */
   position: relative;
 }
 

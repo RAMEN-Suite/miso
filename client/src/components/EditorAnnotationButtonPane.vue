@@ -32,7 +32,7 @@ import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 
 const { isValid: isSelectionValid } = useValidateTextSelection();
-const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, getAnnotationRole, isZeroPoint } =
+const { groupedAnnotationTypes, annotationHasConstraints, getAnnotationConfig, getAnnotationRepresentation, isZeroPoint } =
   useGuidelinesStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
@@ -51,8 +51,8 @@ const annotationCategories = computed(() =>
 
 const selectedCategory = ref<string>("");
 
-const semanticBlockTypes = computed<AnnotationType[]>(() =>
-  (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRole(t.type) === "semanticBlock"),
+const blockClassificationTypes = computed<AnnotationType[]>(() =>
+  (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRepresentation(t.type) === "blockClassification"),
 );
 
 const blockTypeOptions: { label: string; value: BlockTypeValue }[] = [
@@ -335,7 +335,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       selectedText: textInSelection,
     });
 
-    tiptap.value?.commands.addSemanticBlock(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
   } catch (error: unknown) {
     if (error instanceof AnnotationRangeError) {
       addToastMessage({
@@ -362,7 +362,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   <Tabs v-model:value="selectedTab">
     <TabList>
       <Tab value="structure" title="Structure elements (paragraphs, lists, tables etc.)" v-bind="tabProps">Document</Tab>
-      <Tab value="semanticBlocks" title="Labels for structure elements (opener, closer, salute etc.)" v-bind="tabProps"
+      <Tab value="blockClassifications" title="Labels for structure elements (opener, closer, salute etc.)" v-bind="tabProps"
         >Block labels</Tab
       >
       <Tab value="annotations" title="Annotations (persons, places, transcriptions)" v-bind="tabProps">Annotations</Tab>
@@ -414,10 +414,10 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
           </Button>
         </div>
       </TabPanel>
-      <TabPanel value="semanticBlocks">
+      <TabPanel value="blockClassifications">
         <div class="buttons">
           <AnnotationButton
-            v-for="blockType in semanticBlockTypes"
+            v-for="blockType in blockClassificationTypes"
             :key="blockType.type"
             v-tooltip.hover.top="{ value: blockType.type, showDelay: 50 }"
             severity="secondary"

@@ -32,11 +32,11 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-const { getAnnotationConfig, getAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
+const { getAnnotationConfig, getAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
 
 const config: AnnotationType = getAnnotationConfig(props.annotation.node.data.type);
 
-const isZeroPointAnnotation: boolean = getAnnotationBehaviour(config.type) === "zeroPoint";
+const isZeroPointAnnotation: boolean = getAnnotationExtent(config.type) === "zeroPoint";
 // TODO: Maybe give whole config instead of only fields...?
 const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
 
@@ -109,7 +109,7 @@ function handleSpyClick() {
   let range: Range | null = null;
 
   const uuid: string = props.annotation.node.data.uuid;
-  const renderType: "range" | "zeroPoint" = getAnnotationBehaviour(config.type) === "zeroPoint" ? "zeroPoint" : "range";
+  const renderType: "range" | "zeroPoint" = getAnnotationExtent(config.type) === "zeroPoint" ? "zeroPoint" : "range";
 
   if (renderType === "range") {
     const decorationSet: DecorationSet | undefined = ANNOTATION_DECORATION_KEY.getState(tiptap.value.state)?.all;
@@ -132,7 +132,7 @@ function handleSpyClick() {
 }
 
 function handleSpyHover(direction: "on" | "off"): void {
-  const renderType: "range" | "zeroPoint" = getAnnotationBehaviour(config.type) === "zeroPoint" ? "zeroPoint" : "range";
+  const renderType: "range" | "zeroPoint" = getAnnotationExtent(config.type) === "zeroPoint" ? "zeroPoint" : "range";
 
   tiptap.value?.commands.toggleAnnotationHighlight(direction, props.annotation.node.data.uuid, { renderType });
 }
@@ -170,7 +170,7 @@ function updateData(updated: Annotation): void {
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :annotation-type="props.annotation.node.data.subType ?? props.annotation.node.data.type" />
+          <AnnotationTypeIcon :config="config" />
         </div>
         <span class="font-bold">{{ props.annotation.node.data.subType ?? props.annotation.node.data.type }}</span>
         <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.data.text">

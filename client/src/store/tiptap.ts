@@ -1,5 +1,13 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, ToCItem, SemanticBlockRange, DocAnnotation, StandoffParseIssue } from "../models/types";
+import {
+  NodeDto,
+  Annotation,
+  AnnotationAppearance,
+  ToCItem,
+  BlockClassificationRange,
+  DocAnnotation,
+  StandoffParseIssue,
+} from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
@@ -30,9 +38,11 @@ import { AnnotationHighlight } from "../editors/text/extensions/annotationHighli
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
 import { collectInlineAnnotations, pastedSliceToRawText } from "../utils/helper/tiptapHelper";
+import { useGuidelinesStore } from "./guidelines";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
+const { getAnnotationConfig } = useGuidelinesStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -43,7 +53,18 @@ let initialPlainText: string | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
 const tableOfContent = ref<ToCItem[]>([]);
-const semanticBlockRanges = ref<SemanticBlockRange[]>([]);
+const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
+
+/**
+ * Returns the configured appearance of an annotation type. Passed to the editor extensions, which render
+ * markers and highlights from it.
+ *
+ * @param {string} type The annotation type
+ * @returns {AnnotationAppearance | undefined} The configured appearance, if any
+ */
+function getAppearance(type: string): AnnotationAppearance | undefined {
+  return getAnnotationConfig(type)?.miso?.appearance;
+}
 
 function getConfiguredExtensions(): Extensions {
   return [
@@ -62,12 +83,12 @@ function getConfiguredExtensions(): Extensions {
     Gapcursor,
     HardBreak,
     UndoRedo,
-    ZeroPointAnnotation,
+    ZeroPointAnnotation.configure({ getAppearance }),
     InvisibleCharacters.configure({
       visible: false,
       builders: [new ParagraphNode(), new HardBreakNode()],
     }),
-    AnnotationDecoration,
+    AnnotationDecoration.configure({ getAppearance }),
     BlockDecorations,
     UniqueID.configure({
       types: "all",
@@ -177,11 +198,11 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
       initializeEventListeners(editor);
 
       updateTableOfContent(editor.state.doc);
-      computeSemanticBlockRanges(tiptap.value);
+      computeBlockClassificationRanges(tiptap.value);
     },
     onUpdate: ({ transaction }) => {
       updateTableOfContent(transaction.doc);
-      computeSemanticBlockRanges(tiptap.value);
+      computeBlockClassificationRanges(tiptap.value);
     },
     onDestroy: () => {
       resizeObserver?.disconnect();
@@ -192,21 +213,21 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
   return issues;
 }
 
-function computeSemanticBlockRanges(editor: TiptapEditor | null): void {
+function computeBlockClassificationRanges(editor: TiptapEditor | null): void {
   if (!editor) {
-    semanticBlockRanges.value = [];
+    blockClassificationRanges.value = [];
     return;
   }
 
-  const uuidMap = new Map<string, SemanticBlockRange>();
+  const uuidMap = new Map<string, BlockClassificationRange>();
 
   editor.state.doc.descendants((node, pos) => {
-    const semanticBlocks: DocAnnotation[] = node.attrs._semanticBlocks ?? [];
+    const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-    semanticBlocks.forEach((block) => {
+    blockClassifications.forEach((block) => {
       const { type, uuid } = block.node.data;
 
-      const existing: SemanticBlockRange | undefined = uuidMap.get(uuid);
+      const existing: BlockClassificationRange | undefined = uuidMap.get(uuid);
 
       if (existing) {
         existing.endPos = pos + (node.nodeSize - 1);
@@ -216,7 +237,7 @@ function computeSemanticBlockRanges(editor: TiptapEditor | null): void {
     });
   });
 
-  semanticBlockRanges.value = [...uuidMap.values()];
+  blockClassificationRanges.value = [...uuidMap.values()];
 }
 
 function initializeEventListeners(editor: TiptapEditor): void {
@@ -225,7 +246,7 @@ function initializeEventListeners(editor: TiptapEditor): void {
   // TODO: Should this maybe moved directly to the plugin?
   useEventListener(scrollContainer, "scroll", handleScroll);
 
-  resizeObserver = new ResizeObserver(() => computeSemanticBlockRanges(editor));
+  resizeObserver = new ResizeObserver(() => computeBlockClassificationRanges(editor));
   resizeObserver.observe(editor.view.dom);
 }
 
@@ -336,7 +357,7 @@ export function useTiptapStore() {
   return {
     initialAnnotations,
     initialStructuralAnnotations,
-    semanticBlockRanges,
+    blockClassificationRanges,
     tiptap,
     tableOfContent,
     destroyTiptap,

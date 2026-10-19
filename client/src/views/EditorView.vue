@@ -14,7 +14,7 @@ import EditorAnnotations from "../components/EditorAnnotations.vue";
 import EditorError from "../components/EditorError.vue";
 import EditorFilter from "../components/EditorFilter.vue";
 import EditorResizer from "../components/EditorResizer.vue";
-import SemanticBlockLines from "../components/SemanticBlockLines.vue";
+import BlockClassificationLines from "../components/BlockClassificationLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import { NodeDto, Annotation, NodeStatusObject, StandoffParseIssue, TextNode, TextUpdateDto } from "../models/types.ts";
@@ -479,7 +479,7 @@ watch(
     <section class="main flex flex-col grow px-4 pb-0 pt-4" :style="{ width: mainWidth + 'px' }">
       <EditorHeader ref="labelInputRef" />
       <EditorAnnotationButtonPane />
-      <SemanticBlockLines />
+      <BlockClassificationLines />
 
       <editor-content v-if="tiptap" id="editor" :editor="tiptap" spellcheck="false" />
 

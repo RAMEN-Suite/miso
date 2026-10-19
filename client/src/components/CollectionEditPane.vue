@@ -100,17 +100,17 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
       if (subTypeOptions.length === 0) {
         return {
           label: type.type,
-          annotationType: type.type,
+          annotationConfig: type,
           command: () => handleAnnotationButtonClick({ type: type.type }),
         };
       }
 
       return {
         label: type.type,
-        annotationType: type.type,
+        annotationConfig: type,
         items: subTypeOptions.map((option: string | number) => ({
           label: option.toString(),
-          annotationType: option,
+          annotationConfig: type,
           command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
         })),
       };
@@ -200,7 +200,12 @@ function enrichCollectionData(): void {
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
   const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, data.type);
+
+  if (!config) {
+    console.error(`No annotation config found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+    return;
+  }
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
   // eslint-disable-next-line no-constant-condition -- Safe to delete
@@ -269,7 +274,17 @@ function handleEditAnnotation(uuid: string): void {
 
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+
+  if (!config) {
+    addToastMessage({
+      severity: "warn",
+      summary: "Annotation type not configured",
+      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this Collection.`,
+    });
+    return;
+  }
+
   const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
 
   createModalInstance(
@@ -541,7 +556,7 @@ function showMessage(result: "success" | "error", error?: Error) {
               <template #item="{ item, props: itemProps, hasSubmenu }">
                 <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :annotation-type="item.annotationType" />
+                    <AnnotationTypeIcon :config="item.annotationConfig" />
                   </span>
                   <span>{{ item.label }}</span>
                   <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>

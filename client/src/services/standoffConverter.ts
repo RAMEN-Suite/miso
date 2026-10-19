@@ -1,5 +1,6 @@
 import { Schema } from "@tiptap/pm/model";
-import { VALID_SEMANTIC_BLOCK_TARGETS } from "../config/editor";
+import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
+import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
 import {
   ApiJson,
   TiptapNode,
@@ -7,10 +8,10 @@ import {
   TiptapJson,
   NodeStatusObject,
   AnnotationNode,
-  AnnotationType,
-  AnnotationRole,
+  BuiltinStructuralType,
   DocAnnotation,
   StandoffParseIssue,
+  TextAnnotationRepresentation,
 } from "../models/types";
 import { IAnnotation } from "../models/IAnnotation";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -29,12 +30,11 @@ interface IndexRange {
 }
 
 const {
-  getStructuralAnnotationConfigs,
   isZeroPoint,
   getEditorRole,
   getAnnotationType,
-  getAnnotationRole,
-  getAnnotationBehaviour,
+  getAnnotationRepresentation,
+  getAnnotationExtent,
   getPriorityForType,
   getEditorOwnedProperties,
   isConfiguredAnnotationType,
@@ -43,9 +43,9 @@ const {
 export default class StandoffConverter {
   // Built-in structural annotations (paragraph, heading, table, …) — form the TipTap tree.
   private structuralAnnotations = new Map<string, Anno>();
-  // Custom structural annotations (closer, address, addrLine, …) — attached as _semanticBlocks
-  // Semantic blocks on the built-in nodes that contain them (e.g. closer, div, ...), never form tree nodes.
-  private semanticBlockAnnotations = new Map<string, Anno>();
+  // Custom structural annotations (closer, address, addrLine, …) — attached as _blockClassifications
+  // Block classifications on the built-in nodes that contain them (e.g. closer, div, ...), never form tree nodes.
+  private blockClassificationAnnotations = new Map<string, Anno>();
   // Content annotations (person, place, …) — rendered as decorations.
   private inlineAnnotations = new Map<string, Anno>();
 
@@ -56,9 +56,6 @@ export default class StandoffConverter {
   private usedUuids = new Set<string>();
   /** Problems found during parsing, handed to the editor setup to be further processed there. */
   private issues: StandoffParseIssue[] = [];
-
-  // Types that are always handled inline and must never appear as block children.
-  private static readonly EXCLUDED_FROM_BLOCK_CHILDREN = new Set(["hardBreak"]);
 
   constructor(newStandoffJson: ApiJson, schema: Schema) {
     this.standoffJson = newStandoffJson;
@@ -75,7 +72,7 @@ export default class StandoffConverter {
   } {
     // Merge built-in structural + label annotations so the annotation panel can display and
     // edit all structural annotations regardless of whether they form tree nodes or labels.
-    const allStructural = new Map<string, Anno>([...this.structuralAnnotations, ...this.semanticBlockAnnotations]);
+    const allStructural = new Map<string, Anno>([...this.structuralAnnotations, ...this.blockClassificationAnnotations]);
 
     return {
       annotations: this.inlineAnnotations,
@@ -86,7 +83,7 @@ export default class StandoffConverter {
   }
 
   /**
-   * Sets up the stores for the different annotation categories (structural, inline, semantic block) and validates the document.
+   * Sets up the stores for the different annotation categories (structural, inline, block classification) and validates the document.
    *
    * The stores are used for all the subsequent parsing steps and will be exported to the editor setup afterwards. The issues
    * are also exported to the editor setup for further processing.
@@ -98,18 +95,18 @@ export default class StandoffConverter {
     const unconfiguredTypes = new Map<string, number>();
 
     for (const a of statusObjects) {
-      const documentRole: AnnotationRole = getAnnotationRole(a.node.data.type);
+      const representation: TextAnnotationRepresentation = getAnnotationRepresentation(a.node.data.type);
 
       if (!isConfiguredAnnotationType(a.node.data.type)) {
         unconfiguredTypes.set(a.node.data.type, (unconfiguredTypes.get(a.node.data.type) ?? 0) + 1);
       }
 
-      if (documentRole === "structure") {
+      if (representation === "structure") {
         // Built-in scaffolding (paragraph, heading, table, hardBreak, ...) — forms the TipTap tree.
         this.structuralAnnotations.set(a.node.data.uuid, a);
-      } else if (documentRole === "semanticBlock") {
-        // Whole-block label (opener, closer, addrLine, ...) — attached as _semanticBlocks, never a tree node.
-        this.semanticBlockAnnotations.set(a.node.data.uuid, a);
+      } else if (representation === "blockClassification") {
+        // Whole-block label (opener, closer, addrLine, ...) — attached as _blockClassifications, never a tree node.
+        this.blockClassificationAnnotations.set(a.node.data.uuid, a);
       } else {
         // Inline annotation — rendered as a range decoration or a zero-point atom.
         this.inlineAnnotations.set(a.node.data.uuid, a);
@@ -126,19 +123,16 @@ export default class StandoffConverter {
   }
 
   /**
-   * Returns the list of annotation types allowed as structural children of the given annotation type as
-   * configured in the given annotation type's `contains` field.
+   * Returns the built-in types allowed as structural children of the given annotation type, from the nesting rules
+   * of its built-in type (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
    * `Null` means "no filter" - the node either has no declared children or is a leaf.
    *
-   * Even though technically all annotations can have a `contains` field, this function is only used
-   * for built-in block types (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
-   *
    * @param {string} type The annotation type
-   * @returns {string[] | null} The list of allowed child types or `null` if list is empty or non-existent
+   * @returns {readonly string[] | null} The list of allowed child types (editor roles) or `null` if list is empty or non-existent
    */
-  private getContainsList(type: string): string[] | null {
-    const config: AnnotationType | undefined = getStructuralAnnotationConfigs().find((c) => c.type === type);
-    const list: string[] | undefined = config?.contains;
+  private getContainsList(type: string): readonly string[] | null {
+    const list: readonly string[] | undefined =
+      BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.contains;
 
     return list && list.length > 0 ? list : null;
   }
@@ -205,7 +199,7 @@ export default class StandoffConverter {
    * @returns {Anno[]} The immediate structural children, sorted by start index
    */
   private findDirectChildren(parentType: string, startIndex: number, endIndex: number, allStructural: Anno[]): Anno[] {
-    const containsList: string[] | null = this.getContainsList(parentType);
+    const containsList: readonly string[] | null = this.getContainsList(parentType);
 
     const candidates: Anno[] = allStructural.filter(
       (a) =>
@@ -287,7 +281,7 @@ export default class StandoffConverter {
 
     // Resolve to hardBreaks (the only built-in type configured the way below)
     const hardBreakEntries: InlineEntry[] = [...this.structuralAnnotations.values()]
-      .filter((a) => getAnnotationBehaviour(a.node.data.type) === "zeroPoint" && this.inRange(a, { startIndex, endIndex }))
+      .filter((a) => getAnnotationExtent(a.node.data.type) === "zeroPoint" && this.inRange(a, { startIndex, endIndex }))
       .map((a) => ({
         pos: a.node.data.startIndex,
         node: {
@@ -376,20 +370,20 @@ export default class StandoffConverter {
   }
 
   /**
-   * Splits a gap range [gapStart, gapEnd] at semantic block annotation boundaries (opener, closer etc.)
+   * Splits a gap range [gapStart, gapEnd] at block classification annotation boundaries (opener, closer etc.)
    * so that each resulting sub-range can become its own synthetic paragraph and receive the correct labels. Needed
-   * to created the flat structure of built-in blocks that have the semantic block labels on them.
-   * Without this, a single large synthetic paragraph would span the entire gap and no semantic block annotation
-   * (which starts mid-gap) would satisfy the "semantic block fully contains node" filter.
+   * to created the flat structure of built-in blocks that have the block classification labels on them.
+   * Without this, a single large synthetic paragraph would span the entire gap and no block classification annotation
+   * (which starts mid-gap) would satisfy the "block classification fully contains node" filter.
    *
    * @param {number} gapStart The start index of the gap
    * @param {number} gapEnd The end index of the gap
    * @returns {IndexRange[]} An array of sub-ranges for this gap
    */
-  private splitGapBySemanticBlocks(gapStart: number, gapEnd: number): IndexRange[] {
+  private splitGapByBlockClassifications(gapStart: number, gapEnd: number): IndexRange[] {
     const boundaries = new Set<number>([gapStart, gapEnd + 1]);
 
-    for (const anno of this.semanticBlockAnnotations.values()) {
+    for (const anno of this.blockClassificationAnnotations.values()) {
       const { startIndex, endIndex } = anno.node.data;
 
       if (startIndex <= gapEnd && endIndex >= gapStart) {
@@ -418,7 +412,7 @@ export default class StandoffConverter {
   // while tableRow/table/bulletList do NOT (their content is restricted to cells/rows/items),
   // so orphan gap text inside them must be clamped into an adjacent child instead.
   private parentAllowsParagraph(parentType: string): boolean {
-    const containsList: string[] | null = this.getContainsList(parentType);
+    const containsList: readonly string[] | null = this.getContainsList(parentType);
 
     // No declared children → treated as permissive (leaf types never reach gap-filling anyway).
     if (containsList === null) {
@@ -430,7 +424,7 @@ export default class StandoffConverter {
 
   /**
    * Emits paragraphs for a gap into given `content`, preserving EVERY character of [gapStart, gapEnd].
-   * The gap is split at semantic-block boundaries so each text run becomes its own paragraph and
+   * The gap is split at block-classification boundaries so each text run becomes its own paragraph and
    * receives the correct semantic labels. Used only when the parent accepts paragraphs (e.g. `bulletList` can not
    * contain paragraphs, only `tableRows`).
    *
@@ -447,7 +441,7 @@ export default class StandoffConverter {
       return;
     }
 
-    const subRanges: IndexRange[] = this.splitGapBySemanticBlocks(gapStart, gapEnd);
+    const subRanges: IndexRange[] = this.splitGapByBlockClassifications(gapStart, gapEnd);
 
     let leadingWhitespaceBuffer: IndexRange[] = [];
     let lastParagraph: TiptapNode | null = null;
@@ -684,14 +678,14 @@ export default class StandoffConverter {
   }
 
   /**
-   * A structure annotation with zero-point behaviour (currently only `hardBreak`): an inline atom that must never
+   * A structure annotation with zero-point extent (currently only `hardBreak`): an inline atom that must never
    * appear as a block child or a top-level node.
    *
    * @param {string} annotationType - The type of the annotation.
    * @returns {boolean} `true` if the type is a structural zero-point, `false` otherwise.
    */
   private isStructuralZeroPoint(annotationType: string): boolean {
-    return getAnnotationRole(annotationType) === "structure" && getAnnotationBehaviour(annotationType) === "zeroPoint";
+    return getAnnotationRepresentation(annotationType) === "structure" && getAnnotationExtent(annotationType) === "zeroPoint";
   }
 
   /** Checks if annotation of given type can be a top-level document node. Excludes structural zero-points
@@ -746,47 +740,47 @@ export default class StandoffConverter {
   }
 
   /**
-   * Attaches semantic block annotations to the whole tiptap document after it was created
+   * Attaches block classification annotations to the whole tiptap document after it was created
    * (= all built-in blocks are in place). Starting point for the recursive {@linkcode attachLabelsToNodes} function
    * that is called for level of the tree.
    *
    * @param {TiptapNode[]} nodes Sibling nodes of the tiptap document
    * @returns {void} This function does not return any value.
    */
-  private attachSemanticBlockLabels(nodes: TiptapNode[]): void {
-    const semanticBlockAnnotations: Anno[] = [...this.semanticBlockAnnotations.values()];
+  private attachBlockClassificationLabels(nodes: TiptapNode[]): void {
+    const blockClassificationAnnotations: Anno[] = [...this.blockClassificationAnnotations.values()];
 
-    if (semanticBlockAnnotations.length === 0) {
+    if (blockClassificationAnnotations.length === 0) {
       return;
     }
 
-    this.attachLabelsToNodes(nodes, semanticBlockAnnotations);
+    this.attachLabelsToNodes(nodes, blockClassificationAnnotations);
   }
 
   /**
-   * Recursively attaches information of semantic block annotations (opener, closer etc.) to document building blocks that have an
+   * Recursively attaches information of block classification annotations (opener, closer etc.) to document building blocks that have an
    * intersecting range, therefore "tainting" these building blocks with a semantic meaning.
    *
    * Performs the operation for every node in the given list and all of its children.
    *
    * @param {TiptapNode[]} nodes Sibling nodes of the tiptap document
-   * @param {Anno[]} annotations All semantic block annotations
+   * @param {Anno[]} annotations All block classification annotations
    */
   private attachLabelsToNodes(nodes: TiptapNode[], annotations: Anno[]): void {
     for (const node of nodes) {
       const docAnnotation: DocAnnotation | undefined = node.attrs?._annotation;
       const nodeStart: number | undefined = docAnnotation?.node.data.startIndex;
       const nodeEnd: number | undefined = docAnnotation?.node.data.endIndex;
-      const isValidBlockTarget: boolean = VALID_SEMANTIC_BLOCK_TARGETS.includes(getEditorRole(node.type));
+      const isValidBlockTarget: boolean = VALID_BLOCK_CLASSIFICATION_TARGETS.includes(getEditorRole(node.type));
 
       if (nodeStart !== undefined && nodeEnd !== undefined && isValidBlockTarget) {
         // Converted (= cloned) per node so the document never shares references with the annotation stores
-        const semanticBlocks: DocAnnotation[] = annotations
+        const blockClassifications: DocAnnotation[] = annotations
           .filter((a) => a.node.data.startIndex <= nodeEnd && a.node.data.endIndex >= nodeStart)
           .sort((a, b) => b.node.data.endIndex - b.node.data.startIndex - (a.node.data.endIndex - a.node.data.startIndex))
           .map((a) => toDocAnnotation(a));
 
-        node.attrs = { ...node.attrs, _semanticBlocks: semanticBlocks };
+        node.attrs = { ...node.attrs, _blockClassifications: blockClassifications };
       }
 
       if (node.content?.length) {
@@ -885,7 +879,7 @@ export default class StandoffConverter {
       this.appendGapParagraphs(docContent, cursor, textEnd);
     }
 
-    this.attachSemanticBlockLabels(docContent);
+    this.attachBlockClassificationLabels(docContent);
 
     this.tiptapJson = { type: "doc", content: docContent };
 

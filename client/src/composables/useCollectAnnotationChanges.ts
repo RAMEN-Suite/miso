@@ -5,7 +5,7 @@ import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
 import { cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
-import { collectInlineAnnotations, collectSemanticBlocks, toAnnotation } from "../utils/helper/tiptapHelper";
+import { collectInlineAnnotations, collectBlockClassifications, toAnnotation } from "../utils/helper/tiptapHelper";
 import { useCreateIndexMaps } from "./useCreateIndexMaps";
 
 /**
@@ -15,7 +15,7 @@ import { useCreateIndexMaps } from "./useCreateIndexMaps";
  * - inline annotations in the editor state: range annotations in their decoration, zero-points in the `_annotation`
  *   attribute of their node,
  * - structural nodes (blocks and hardBreaks) in the document, with their data in the `_annotation` attribute,
- * - semantic blocks in the `_semanticBlocks` attribute of the block nodes they wrap.
+ * - block classifications in the `_blockClassifications` attribute of the block nodes they wrap.
  *
  * Every collector works the same way: each annotation that is currently in the editor gets its live
  * indices, text and status and is reduced to the properties configured in the guidelines, and every annotation that was part of the last saved state but is gone
@@ -27,7 +27,7 @@ export function useCollectAnnotationChanges() {
   const { initialAnnotations, initialStructuralAnnotations, tiptap } = useTiptapStore();
 
   const {
-    getAnnotationBehaviour,
+    getAnnotationExtent,
     getAnnotationFields,
     getAnnotationType,
     getEditorOwnedProperties,
@@ -87,7 +87,7 @@ export function useCollectAnnotationChanges() {
     neo4jProperties.uuid = node.attrs.uuid;
     neo4jProperties.type = annotationType;
 
-    if (getAnnotationBehaviour(annotationType) === "zeroPoint") {
+    if (getAnnotationExtent(annotationType) === "zeroPoint") {
       neo4jProperties.isZeroPoint = true;
     }
 
@@ -122,18 +122,18 @@ export function useCollectAnnotationChanges() {
    * Collects all annotations that need to be sent to the backend, based on the current state of the editor.
    *
    * @returns {{ annotations: Annotation[]; structureElements: Annotation[] }} The affected inline annotations
-   *   and the affected structural annotations (structural nodes and semantic blocks).
+   *   and the affected structural annotations (structural nodes and block classifications).
    */
   function collectAnnotationChanges(): { annotations: Annotation[]; structureElements: Annotation[] } {
     const plainText: string = tiptap.value?.state.doc.textContent ?? "";
 
-    const { inlineIndexMap, structureIndexMap, semanticBlockIndexMap } = useCreateIndexMaps().buildIndexMaps();
+    const { inlineIndexMap, structureIndexMap, blockClassificationIndexMap } = useCreateIndexMaps().buildIndexMaps();
 
     return {
       annotations: collectInlineChanges(inlineIndexMap, plainText),
       structureElements: [
         ...collectStructureChanges(structureIndexMap, plainText),
-        ...collectSemanticBlockChanges(semanticBlockIndexMap, plainText),
+        ...collectBlockClassificationChanges(blockClassificationIndexMap, plainText),
       ],
     };
   }
@@ -199,19 +199,19 @@ export function useCollectAnnotationChanges() {
   }
 
   /**
-   * Collects the semantic blocks from the `_semanticBlocks` attributes in the document (the source of truth).
+   * Collects the block classifications from the `_blockClassifications` attributes in the document (the source of truth).
    *
-   * @param {IndexMap} indexMap - The live ranges of all semantic blocks in the editor.
+   * @param {IndexMap} indexMap - The live ranges of all block classifications in the editor.
    * @param {string} plainText - The plain text of the whole document.
-   * @returns {Annotation[]} The semantic block annotations in the editor and the deleted ones.
+   * @returns {Annotation[]} The block classification annotations in the editor and the deleted ones.
    */
-  function collectSemanticBlockChanges(indexMap: IndexMap, plainText: string): Annotation[] {
+  function collectBlockClassificationChanges(indexMap: IndexMap, plainText: string): Annotation[] {
     const affected: Annotation[] = [];
 
-    const semanticBlocks: Map<string, DocAnnotation> = tiptap.value ? collectSemanticBlocks(tiptap.value.state.doc) : new Map();
+    const blockClassifications: Map<string, DocAnnotation> = tiptap.value ? collectBlockClassifications(tiptap.value.state.doc) : new Map();
 
     indexMap.forEach((range, uuid) => {
-      const entry: DocAnnotation | undefined = semanticBlocks.get(uuid);
+      const entry: DocAnnotation | undefined = blockClassifications.get(uuid);
 
       if (!entry) {
         return;
@@ -301,7 +301,7 @@ export function useCollectAnnotationChanges() {
 
   /**
    * Removes all properties from the given annotation that are not configured in the guidelines, in place.
-   * Used for inline annotations and semantic blocks, whose data are sent as they are stored in the editor.
+   * Used for inline annotations and block classifications, whose data are sent as they are stored in the editor.
    *
    * Annotations of an unconfigured type are left untouched unless {@link PRUNE_UNCONFIGURED_ANNOTATION_TYPES} is set.
    *

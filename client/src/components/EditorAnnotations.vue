@@ -14,6 +14,8 @@ export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
   data?: NodeStatusObject;
+  /** Configuration of the annotation type, only set on nodes of type `type` */
+  config?: AnnotationType;
   key: string;
   label: string;
   type: "category" | "type" | "annotation";
@@ -69,6 +71,7 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
         key: i.toString() + "-" + j.toString(),
         label: annoType.type,
         type: "type",
+        config: annoType,
         children: [],
       } satisfies TreeNode;
 
@@ -160,7 +163,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
             </div>
             <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
               <div class="annotation-type-icon-container">
-                <AnnotationTypeIcon :annotation-type="slotProps.node.label" />
+                <AnnotationTypeIcon :config="slotProps.node.config" />
               </div>
               <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children.length }}]</div>
             </div>

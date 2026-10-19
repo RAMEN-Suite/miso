@@ -49,7 +49,7 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
         type: annotationType,
         level: child.attrs.level ?? null,
         _annotation: child.attrs._annotation,
-        _semanticBlocks: child.attrs._semanticBlocks ?? [],
+        _blockClassifications: child.attrs._blockClassifications ?? [],
       },
       children: buildDocChildren(child, childPos + 1),
     });
@@ -175,7 +175,7 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 /**
  * Removes all properties from the given node data that are not configured in the guidelines, in place.
  *
- * Is pplied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
+ * Is applied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
  *
  * @param {Record<string, unknown>} data - The node data to prune. Is mutated in place.
  * @param {PropertyConfig[]} fields - The properties configured for the node.

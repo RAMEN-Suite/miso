@@ -24,16 +24,6 @@ const filterableCategories: ComputedRef<Record<string, AnnotationType[]>> = comp
 });
 
 /**
- * Opens/closes the filter popover.
- *
- * @param {Event} event - The click that triggered it.
- * @returns {void} This function does not return a value.
- */
-function toggle(event: Event): void {
-  popover.value?.toggle(event);
-}
-
-/**
  * Retrieves the type names of the given annotation types.
  *
  * @param {AnnotationType[]} types - The annotation types of a category.
@@ -92,6 +82,16 @@ function toggleCategoryCollapse(category: string): void {
 
   collapsedCategories.value = updated;
 }
+
+/**
+ * Opens/closes the filter popover.
+ *
+ * @param {Event} event - The click that triggered it.
+ * @returns {void} This function does not return a value.
+ */
+function togglePopover(event: Event): void {
+  popover.value?.toggle(event);
+}
 </script>
 
 <template>
@@ -105,7 +105,7 @@ function toggleCategoryCollapse(category: string): void {
         severity="secondary"
         outlined
         :title="areAllOptionsSelected ? 'Filter annotation types' : 'Filter annotation types'"
-        @click="toggle"
+        @click="togglePopover"
       />
       <span v-if="!areAllOptionsSelected" class="changed-dot" aria-hidden="true"></span>
     </div>

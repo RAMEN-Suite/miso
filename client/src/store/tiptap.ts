@@ -52,7 +52,10 @@ let initialDoc: ReturnType<Editor["getJSON"]> | null = null;
 let initialPlainText: string | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-const tableOfContent = ref<ToCItem[]>([]);
+// Shallow: items are frozen and reused across transactions, so only the array reference needs to be reactive
+const tableOfContent = shallowRef<ToCItem[]>([]);
+// Recreated per editor, so a newly loaded text (or changed guidelines) never reuses stale items
+let tocItemCache = new WeakMap<Node, ToCItem>();
 const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
 
 /**
@@ -170,6 +173,8 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
 
   setAnnotations({ annotations, structuralAnnotations });
+
+  tocItemCache = new WeakMap();
 
   tiptap.value = new Editor({
     content: tipTapJson,
@@ -350,7 +355,7 @@ function setAnnotations(data: { structuralAnnotations?: Map<string, Annotation>;
 }
 
 function updateTableOfContent(doc: Node): void {
-  tableOfContent.value = buildDocStructure(doc);
+  tableOfContent.value = buildDocStructure(doc, tocItemCache);
 }
 
 export function useTiptapStore() {

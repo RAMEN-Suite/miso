@@ -1,4 +1,3 @@
-import { TreeNode } from "primevue/treenode";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
@@ -626,15 +625,19 @@ export interface TextUpdateDto {
   annotations: Annotation[];
 }
 
-export type ToCItem = TreeNode & {
+/**
+ * One block node of the document outline. Items of unchanged ProseMirror nodes are reused across transactions,
+ * so they deliberately carry no document position (which shifts with every edit before the node).
+ */
+export interface ToCItem {
+  /** The node's `uuid` attribute, or its position at build time as a fallback for nodes without one. */
+  key: string;
   data: {
-    nodeSize: number;
     nodeType: string;
     /** Canonical (project-configured) annotation type, derived from the live node, not _annotation. */
     type: string;
     /** Heading level when the node is a heading; read from the live native attr. */
     level?: number;
-    pos: number;
     text: string;
     /** Annotation of the node itself, as stored in its `_annotation` attribute. */
     _annotation: DocAnnotation;
@@ -642,7 +645,7 @@ export type ToCItem = TreeNode & {
     _blockClassifications: DocAnnotation[];
   };
   children: ToCItem[];
-};
+}
 
 /**
  * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text

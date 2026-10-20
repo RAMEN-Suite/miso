@@ -11,6 +11,7 @@ import {
   PropertyConfig,
   AnnotationType,
 } from "../../models/types";
+import { markRaw } from "vue";
 import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { useGuidelinesStore } from "../../store/guidelines";
@@ -25,9 +26,12 @@ const { getAnnotationType } = useGuidelinesStore();
  * @param node - The ProseMirror node whose block children to traverse.
  * @param contentStartPos - Absolute document position where `node`'s content begins.
  *   For the document root this is `0`; for any other block node it is `nodePos + 1`
- *   (skipping the opening token).
+ *   (skipping the opening token). Only used as fallback key for nodes without a uuid.
+ * @param cache - ToC items by the ProseMirror node they were built from. ProseMirror reuses unchanged node objects
+ *   across transactions, so a cache hit returns the identical item (and subtree), which lets the ToC skip
+ *   re-rendering it. Filled with the newly built items.
  */
-export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[] {
+export function buildDocChildren(node: Node, contentStartPos: number, cache: WeakMap<Node, ToCItem>): ToCItem[] {
   const result: ToCItem[] = [];
 
   node.forEach((child: Node, offset: number) => {
@@ -35,24 +39,32 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
       return;
     }
 
-    const annotationType: string = getAnnotationType(child.type.name);
+    const cached: ToCItem | undefined = cache.get(child);
+
+    if (cached) {
+      result.push(cached);
+      return;
+    }
+
     const childPos: number = contentStartPos + offset;
 
-    result.push({
-      key: child.attrs.uuid ?? childPos.toString(),
-      label: annotationType,
-      data: {
-        text: child.textContent ?? "",
-        pos: childPos,
-        nodeSize: child.nodeSize,
-        nodeType: child.type.name,
-        type: annotationType,
-        level: child.attrs.level ?? null,
-        _annotation: child.attrs._annotation,
-        _blockClassifications: child.attrs._blockClassifications ?? [],
-      },
-      children: buildDocChildren(child, childPos + 1),
-    });
+    const item: ToCItem = markRaw(
+      Object.freeze({
+        key: child.attrs.uuid ?? childPos.toString(),
+        data: {
+          text: child.textContent ?? "",
+          nodeType: child.type.name,
+          type: getAnnotationType(child.type.name),
+          level: child.attrs.level ?? null,
+          _annotation: child.attrs._annotation,
+          _blockClassifications: child.attrs._blockClassifications ?? [],
+        },
+        children: buildDocChildren(child, childPos + 1, cache),
+      }),
+    );
+
+    cache.set(child, item);
+    result.push(item);
   });
 
   return result;
@@ -61,16 +73,40 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
 /**
  * Builds a nested {@link ToCItem} tree representing the full block structure of a ProseMirror document.
  *
- * Each item carries the node's absolute position (`data.pos`), which can be passed directly to
- * `editor.commands.setTextSelection` or `editor.view.nodeDOM` for navigation.
+ * Items carry no positions; use {@link findNodePosByUuid} with the item's key to navigate to a node.
  *
  * @param doc - The ProseMirror document node (`editor.state.doc`).
+ * @param cache - Items of previous builds, see {@link buildDocChildren}.
  */
-export function buildDocStructure(doc: Node): ToCItem[] {
+export function buildDocStructure(doc: Node, cache: WeakMap<Node, ToCItem>): ToCItem[] {
   // doc has no opening token, so its content starts at position 0
-  const structure: ToCItem[] = buildDocChildren(doc, 0);
+  const structure: ToCItem[] = buildDocChildren(doc, 0, cache);
 
   return structure;
+}
+
+/**
+ * Finds the absolute position of the first node carrying the given `uuid` attribute.
+ *
+ * @param doc - The ProseMirror document node (`editor.state.doc`).
+ * @param uuid - The uuid to look for.
+ * @returns The node's position, or `null` when no node carries the uuid.
+ */
+export function findNodePosByUuid(doc: Node, uuid: string): number | null {
+  let result: number | null = null;
+
+  doc.descendants((node: Node, pos: number) => {
+    if (result !== null) {
+      return false;
+    }
+
+    if (node.attrs.uuid === uuid) {
+      result = pos;
+      return false;
+    }
+  });
+
+  return result;
 }
 
 /**

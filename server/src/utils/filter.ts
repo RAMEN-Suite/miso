@@ -11,6 +11,13 @@ import {
   PropertyConfig,
   PropertyConfigDataType,
 } from "../models/types.js";
+import { isArray, isBoolean, isDate, isNumeric, isString, isTime } from "./propertyType.js";
+
+/**
+ * A property config whose datatype is known. `distinct` has no entry in the guidelines, so the type is
+ * the only key guaranteed to be there.
+ */
+type TypedPropertyConfig = Partial<PropertyConfig> & Pick<PropertyConfig, "type">;
 
 /**
  * Max characters of a Content's text used as its `distinct` value. Bounds the sort key (and
@@ -23,14 +30,14 @@ export const SORT_KEY_MAX_LENGTH: number = 500;
  * Neo4j throw, so an impossible combination has to be a 400 here rather than a 500 later.
  */
 const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterComparator[]> = {
-  string: ["contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "in", "isEmpty", "isNotEmpty"],
-  integer: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
-  number: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
-  boolean: ["equals", "notEquals", "isEmpty", "isNotEmpty"],
-  date: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
-  "date-time": ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
-  time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
-  array: ["in", "isEmpty", "isNotEmpty"],
+  String: ["contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "in", "isEmpty", "isNotEmpty"],
+  Integer: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
+  Float: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
+  Boolean: ["equals", "notEquals", "isEmpty", "isNotEmpty"],
+  Date: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
+  DateTime: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
+  Time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
+  Array: ["in", "isEmpty", "isNotEmpty"],
 };
 
 /**
@@ -39,17 +46,6 @@ const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterComparator[]
  * its members a node carries.
  */
 const ENUM_COMPARATORS: FilterComparator[] = ["equals", "notEquals", "in", "isEmpty", "isNotEmpty"];
-
-/**
- * Names of the Cypher functions that convert temporal values to neo4j-native types.
- * `date()`, `datetime()` and `time()` parse both a stored temporal and a stored ISO string, so the comparison
- * works whatever the property's storage form is. Non-temporal datatypes pass through untouched.
- */
-const TEMPORAL_CYPHER_FUNCTIONS: Partial<Record<PropertyConfigDataType, string>> = {
-  date: "date",
-  "date-time": "datetime",
-  time: "time",
-};
 
 /** Comparators whose value is a list rather than a raw value. */
 const LIST_COMPARATORS: FilterComparator[] = ["in", "between"];
@@ -133,42 +129,43 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, Property
 }
 
 /**
- * The datatype a scalar target compares as. `labels` never gets here — it is a set, handled on its
+ * The property config a scalar target compares as. `labels` never gets here — it is a set, handled on its
  * own path in {@link parseFilterSpec} and {@link buildFilterCypher}.
  *
  * @param {FilterTarget} target - A validated target.
  * @param {Map<string, PropertyConfig>} properties - The allowlist.
- * @returns {PropertyConfigDataType} The datatype.
+ * @returns {TypedPropertyConfig} The config of the target's property, or a bare string config if it has none.
  */
-export function datatypeOf(target: FilterTarget, properties: Map<string, PropertyConfig>): PropertyConfigDataType {
+function configOf(target: FilterTarget, properties: Map<string, PropertyConfig>): TypedPropertyConfig {
   if (target.kind === "labels") {
     throw new ValidationError("Node labels have no datatype.");
   }
 
+  // `distinct` is `label` or a slice of `text` -> always a string
+  const fallback: TypedPropertyConfig = { type: "String" };
+
   if (target.kind === "distinct") {
-    // `distinct` is `label` or a slice of `text` -> always a string
-    return "string";
+    return fallback;
   } else {
-    return properties.get(target.field)?.type ?? "string";
+    return properties.get(target.field) ?? fallback;
   }
 }
 
 /**
- * Coerces one JSON value into what the driver should send. The inbound counterpart to
- * `toNativeTypes`: without it a date arrives as a string and gets compared lexically, which looks
- * right until it isn't.
+ * Coerces one JSON value into what the driver should send, and rejects values that cannot represent
+ * the datatype.
  *
  * Numbers stay JS numbers — Cypher compares INTEGER and FLOAT without complaint. Temporals are
- * normalized to ISO and parsed in the query by `date()`/`datetime()`/`time()` (see
- * {@link conditionCypher}), which accepts both a stored temporal and a stored string.
+ * normalized to the string form they are stored in (`YYYY-MM-DD`, ISO 8601, `HH:mm:ss`). These forms
+ * are fixed-width, so comparing them as strings orders them chronologically.
  *
  * @param {unknown} value - The raw value.
- * @param {PropertyConfigDataType} targetDatatype - The datatype to coerce to.
+ * @param {TypedPropertyConfig} config - The config of the property to coerce to.
  * @returns {string | number | boolean} The coerced value.
  * @throws {ValidationError} If the value cannot represent the datatype.
  */
-function coerceValue(value: unknown, targetDatatype: PropertyConfigDataType): string | number | boolean {
-  if (targetDatatype === "string" || targetDatatype === "array") {
+function coerceValue(value: unknown, config: TypedPropertyConfig): string | number | boolean {
+  if (isString(config) || isArray(config)) {
     if (typeof value !== "string") {
       throw new ValidationError(`Expected a string value, got ${typeof value}.`);
     }
@@ -176,7 +173,7 @@ function coerceValue(value: unknown, targetDatatype: PropertyConfigDataType): st
     return value;
   }
 
-  if (targetDatatype === "boolean") {
+  if (isBoolean(config)) {
     if (typeof value !== "boolean") {
       throw new ValidationError(`Expected a boolean value, got ${typeof value}.`);
     }
@@ -184,7 +181,7 @@ function coerceValue(value: unknown, targetDatatype: PropertyConfigDataType): st
     return value;
   }
 
-  if (targetDatatype === "integer" || targetDatatype === "number") {
+  if (isNumeric(config)) {
     const parsed: number = Number(value);
 
     if (Number.isNaN(parsed)) {
@@ -194,13 +191,28 @@ function coerceValue(value: unknown, targetDatatype: PropertyConfigDataType): st
     return parsed;
   }
 
+  // A bare time is no valid input for `Date`, so it is checked by its shape instead
+  if (isTime(config)) {
+    if (typeof value !== "string" || !/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+      throw new ValidationError(`Expected a time value (HH:mm:ss), got "${String(value)}".`);
+    }
+
+    return value;
+  }
+
   const parsed: Date = new Date(value as string | number);
 
   if (Number.isNaN(parsed.getTime())) {
     throw new ValidationError(`Expected a date value, got "${String(value)}".`);
   }
 
-  return parsed.toISOString();
+  const iso: string = parsed.toISOString();
+
+  if (isDate(config)) {
+    return iso.slice(0, 10);
+  } else {
+    return iso;
+  }
 }
 
 /**
@@ -214,20 +226,18 @@ function coerceValue(value: unknown, targetDatatype: PropertyConfigDataType): st
  * value has to be one of the declared members — otherwise a filter can silently match nothing.
  *
  * @param {unknown[]} raw - The rule's `conditions` array.
- * @param {PropertyConfigDataType} datatype - The datatype the target compares as.
- * @param {(string | number)[] | undefined} options - The declared members, if the property is an enum.
+ * @param {TypedPropertyConfig} config - The config of the property the target compares as.
  * @returns {FilterCondition[]} The validated, pruned conditions.
  * @throws {ValidationError} If a condition is malformed, its comparator does not fit the datatype,
  *   or its value is not a declared option.
  */
-function parsePropertyConditions(
-  raw: unknown[],
-  datatype: PropertyConfigDataType,
-  options?: string[] | number[],
-): FilterCondition[] {
+function parsePropertyConditions(raw: unknown[], config: TypedPropertyConfig): FilterCondition[] {
+  const options: string[] | number[] | undefined = config.options;
+  const supported: FilterComparator[] = COMPARATORS_BY_DATATYPE[config.type];
+
   const allowed: FilterComparator[] = options?.length
-    ? COMPARATORS_BY_DATATYPE[datatype].filter((comparator) => ENUM_COMPARATORS.includes(comparator))
-    : COMPARATORS_BY_DATATYPE[datatype];
+    ? supported.filter((comparator) => ENUM_COMPARATORS.includes(comparator))
+    : supported;
 
   const conditions: FilterCondition[] = [];
 
@@ -239,7 +249,7 @@ function parsePropertyConditions(
     const { comparator, value } = rawCondition as { comparator?: unknown; value?: unknown };
 
     if (typeof comparator !== "string" || !allowed.includes(comparator as FilterComparator)) {
-      throw new ValidationError(`Comparator "${String(comparator)}" cannot be used on a ${datatype} value.`);
+      throw new ValidationError(`Comparator "${String(comparator)}" cannot be used on a ${config.type} value.`);
     }
 
     if (VALUELESS_COMPARATORS.includes(comparator as FilterComparator)) {
@@ -263,7 +273,7 @@ function parsePropertyConditions(
 
       conditions.push({
         comparator: comparator as FilterComparator,
-        value: value.map((entry: unknown) => assertOption(coerceValue(entry, datatype), options)),
+        value: value.map((entry: unknown) => assertOption(coerceValue(entry, config), options)),
       });
 
       return;
@@ -271,7 +281,7 @@ function parsePropertyConditions(
 
     conditions.push({
       comparator: comparator as FilterComparator,
-      value: assertOption(coerceValue(value, datatype), options),
+      value: assertOption(coerceValue(value, config), options),
     });
   });
 
@@ -359,14 +369,12 @@ export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyCo
 
     // A label set is matched as a set, not compared as a scalar, so it never enters the datatype
     // machinery: one comparator, one Cypher fragment
-    const config: PropertyConfig | undefined = target.kind === "property" ? properties.get(target.field) : undefined;
-
-    let conditions: FilterCondition[] = [];
+    let conditions: FilterCondition[];
 
     if (target.kind === "labels") {
       conditions = parseLabelConditions(rule.conditions);
     } else {
-      conditions = parsePropertyConditions(rule.conditions, datatypeOf(target, properties), config?.options);
+      conditions = parsePropertyConditions(rule.conditions, configOf(target, properties));
     }
 
     if (conditions.length > 0) {
@@ -437,17 +445,13 @@ export function targetExpression(target: FilterTarget): string {
  * `isEmpty` comparator when the nodes *without* a value should be displayed.
  *
  * @param {string} expression - The left-hand side from {@link targetExpression}.
- * @param {PropertyConfigDataType} datatype - The datatype being compared.
+ * @param {TypedPropertyConfig} config - The config of the property being compared.
  * @param {FilterCondition} condition - The condition.
  * @param {string} name - The parameter name the value is bound under.
  * @returns {string} A Cypher boolean expression.
  */
-function conditionCypher(expression: string, datatype: PropertyConfigDataType, condition: FilterCondition, name: string): string {
-  const temporalFn: string | undefined = TEMPORAL_CYPHER_FUNCTIONS[datatype];
-  const lhs: string = temporalFn ? `${temporalFn}(${expression})` : expression;
-  const rhs: string = temporalFn ? `${temporalFn}($${name})` : `$${name}`;
-
-  const predicate: string = buildPredicate({ comparator: condition.comparator, lhs, rhs, name, temporal: temporalFn, datatype });
+function conditionCypher(expression: string, config: TypedPropertyConfig, condition: FilterCondition, name: string): string {
+  const predicate: string = buildPredicate({ comparator: condition.comparator, lhs: expression, rhs: `$${name}`, name, config });
 
   return `(${predicate})`;
 }
@@ -455,21 +459,20 @@ function conditionCypher(expression: string, datatype: PropertyConfigDataType, c
 /**
  * Builds the bare comparison Cypher predicate, value against value.
  *
- * `lhs` and `rhs` come already temporal-wrapped where the datatype needs it. Three cases need special treatment:
+ * Three cases need special treatment:
  *
  * - The substring comparators lower-case both sides.
  * - `between` reads its two bounds out of a single list parameter, so it needs the bare `name`
- *   instead of the ready-made `rhs`, and applies the temporal wrapping itself.
+ *   instead of the ready-made `rhs`.
  * - `isEmpty`/`isNotEmpty` treat an empty string as "no value", but only for text: comparing `''`
- *   against a number or a date would compare across types.
+ *   against a number would compare across types.
  *
  * @param {object} params - The prepared fragments of the comparison.
  * @param {FilterComparator} params.comparator - The comparator to render.
- * @param {string} params.lhs - The (possibly temporal-wrapped) left-hand side (= the node value).
- * @param {string} params.rhs - The (possibly temporal-wrapped) parameter reference.
+ * @param {string} params.lhs - The left-hand side (= the node value).
+ * @param {string} params.rhs - The parameter reference.
  * @param {string} params.name - The bare parameter name, for the list comparators.
- * @param {string | undefined} params.temporal - The temporal Cypher function, if the datatype needs one.
- * @param {PropertyConfigDataType} params.datatype - The datatype being compared.
+ * @param {TypedPropertyConfig} params.config - The config of the property being compared.
  * @returns {string} A Cypher boolean expression.
  * @throws {ValidationError} If the comparator is not one this function can render.
  */
@@ -478,10 +481,9 @@ function buildPredicate(params: {
   lhs: string;
   rhs: string;
   name: string;
-  temporal: string | undefined;
-  datatype: PropertyConfigDataType;
+  config: TypedPropertyConfig;
 }): string {
-  const { comparator, lhs, rhs, name, temporal, datatype } = params;
+  const { comparator, lhs, rhs, name, config } = params;
 
   switch (comparator) {
     case "contains":
@@ -507,18 +509,14 @@ function buildPredicate(params: {
       return `${lhs} > ${rhs}`;
     case "gte":
       return `${lhs} >= ${rhs}`;
-    case "between": {
-      const lower: string = temporal ? `${temporal}($${name}[0])` : `$${name}[0]`;
-      const upper: string = temporal ? `${temporal}($${name}[1])` : `$${name}[1]`;
-
-      return `${lhs} >= ${lower} AND ${lhs} <= ${upper}`;
-    }
+    case "between":
+      return `${lhs} >= $${name}[0] AND ${lhs} <= $${name}[1]`;
     case "in":
       return `${lhs} IN $${name}`;
     case "isEmpty":
-      return datatype === "string" ? `${lhs} IS NULL OR ${lhs} = ''` : `${lhs} IS NULL`;
+      return isString(config) ? `${lhs} IS NULL OR ${lhs} = ''` : `${lhs} IS NULL`;
     case "isNotEmpty":
-      return datatype === "string" ? `${lhs} IS NOT NULL AND ${lhs} <> ''` : `${lhs} IS NOT NULL`;
+      return isString(config) ? `${lhs} IS NOT NULL AND ${lhs} <> ''` : `${lhs} IS NOT NULL`;
     default:
       throw new ValidationError(`Unsupported comparator "${String(comparator)}".`);
   }
@@ -556,7 +554,7 @@ export function buildFilterCypher(
         return `(size(apoc.coll.intersection($${name}, labels(n))) > 0)`;
       }
 
-      return conditionCypher(targetExpression(rule.target), datatypeOf(rule.target, properties), condition, name);
+      return conditionCypher(targetExpression(rule.target), configOf(rule.target, properties), condition, name);
     });
 
     if (predicates.length > 0) {

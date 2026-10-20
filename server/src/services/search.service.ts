@@ -1,9 +1,7 @@
-import { QueryResult } from "neo4j-driver";
-import Neo4jDriver from "../database/neo4j.js";
-import { BaseNodeLabel, CollectionNode, EntityNode, NodeSearchParams, PaginationResult, TextNode } from "../models/types.js";
+import { CollectionNode, EntityNode, NodeSearchParams, PaginationResult, TextNode } from "../models/types.js";
 import CollectionService from "./collection.service.js";
 import EntityService from "./entity.service.js";
-import TextService from "./text.service.js";
+import ContentService from "./content.service.js";
 
 export default class SearchService {
   /**
@@ -31,9 +29,9 @@ export default class SearchService {
 
       return await entityService.search(options);
     } else if (scope === "Content") {
-      const textService = new TextService();
+      const contentService = new ContentService();
 
-      return await textService.search(options);
+      return await contentService.search(options);
     } else {
       return {} as PaginationResult<(CollectionNode | EntityNode | TextNode)[]>;
     }

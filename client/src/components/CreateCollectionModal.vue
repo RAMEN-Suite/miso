@@ -7,7 +7,8 @@ import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
-import { createCollectionNode } from "../utils/helper/helper";
+import { createCollectionNode } from "../config/ramen";
+import { isRequiredValueMissing } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -34,7 +35,11 @@ const newCollectionNode = ref<CollectionNode>(createCollectionNode());
 const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
 const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
 
-const inputIsValid = computed<boolean>(() => newCollectionNode.value.data.label.trim().length > 0);
+const inputIsValid = computed<boolean>(
+  () =>
+    newCollectionNode.value.data.label.trim().length > 0 &&
+    collectionFields.value.every((field) => !isRequiredValueMissing(newCollectionNode.value.data[field.name], field)),
+);
 
 watch(() => route.path, closeModal);
 
@@ -96,11 +101,13 @@ async function handleSubmit() {
 
 <template>
   <div class="modal-container flex flex-col gap-4 py-2">
+    <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <CollectionLabelInput
       v-model:label="newCollectionNode.data.label"
       :placeholder="`Provide a ${additionalNodeLabel} label`"
       autofocus
     />
+    <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <div class="flex flex-col gap-1">
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />

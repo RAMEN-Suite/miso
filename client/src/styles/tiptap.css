@@ -13,15 +13,18 @@
   overflow-y: scroll;
   flex-grow: 1;
   display: flex;
-  padding: 5px;
-  /* outline: 1px solid var(--purple); */
+  margin-left: 5px;
+  margin-right: 5px;
+  margin-top: 10px;
   text-decoration-skip-ink: none;
-  /* Positioning context for the teleported semantic-block-lines overlay. */
+  /* Positioning context for the teleported block-classification-lines overlay. */
   position: relative;
 }
 
 .tiptap-editor-pane {
   width: 100%;
+  height: fit-content;
+  min-height: 100%;
 
   /* ------------------ RESETS ------------------ */
 

@@ -1,4 +1,7 @@
-import { BaseNodeData, EdgeDescriptor, Node } from "../models/types.js";
+import { BaseNodeData, BaseNodeLabel, EdgeDescriptor, Node } from "../models/types.js";
+
+/** The RAMEN base node labels. */
+export const BASE_NODE_LABELS: readonly BaseNodeLabel[] = ["Annotation", "Collection", "Content", "Entity"];
 
 /**
  * Given a parent and child node from a node tree, returns the Neo4j relationship type
@@ -20,8 +23,8 @@ import { BaseNodeData, EdgeDescriptor, Node } from "../models/types.js";
  * @throws If the label combination has no known relationship rule.
  */
 export function inferRelationship(parent: Node<BaseNodeData>, child: Node<BaseNodeData>): EdgeDescriptor {
-  const parentUuid: string = (parent.data as BaseNodeData).uuid;
-  const childUuid: string = (child.data as BaseNodeData).uuid;
+  const parentUuid: string = parent.data.uuid;
+  const childUuid: string = child.data.uuid;
 
   const p: string[] = parent.nodeLabels;
   const c: string[] = child.nodeLabels;

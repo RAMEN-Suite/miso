@@ -23,16 +23,16 @@ interface UseCreateAnnotationReturnType {
  * @returns {UseCreateAnnotationReturnType} An object containing the functions to create annotations.
  */
 export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateAnnotationReturnType {
-  const { getAnnotationFields, getCollectionAnnotationFields, getAnnotationBehaviour } = useGuidelinesStore();
+  const { getAnnotationFields, getCollectionAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
 
   /**
    * Creates an annotation object with the given parameters.
    *
-   * The annotation object contains three properties: `properties` (the annotation node data),
-   * `entities` (empty array) and `additionalTexts` (empty array). Entites and additionalTexts are added to keep the structure consistent.
+   * The annotation object contains the annotation node (with its data created from the fields), no connected nodes yet
+   * and the status `created`.
    *
    * @param {Object} params - The parameters object. Contains the fields, subType (optional) and type of the annotation.
-   * @returns {Annotation} An object containing the properties, entities and additional texts of the annotation.
+   * @returns {Annotation} The new annotation.
    */
   function createAnnotationObject(params: { fields: PropertyConfig[]; subType?: string | number; type: string }): Annotation {
     const nodeData: IAnnotation = createNodeData({ ...params });
@@ -68,7 +68,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
     const baseNodeData: IAnnotation = {} as IAnnotation;
 
     fields.forEach((field: PropertyConfig) => {
-      baseNodeData[field.name] = field?.required ? getDefaultValueForProperty(field.type) : null;
+      baseNodeData[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
     });
 
     // Set explicitly after the fields are set to override default values if necessary
@@ -119,10 +119,10 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
       // Both can be 0 since the real values are created in the backend on save
       nodeData.startIndex = 0;
       nodeData.endIndex = 0;
-      // Empty string since value is added in createTextAnnotation() and will be calculated on save anyway (connected characters).
+      // Empty string since value is added in createTextAnnotation().
       nodeData.text = "";
 
-      if (getAnnotationBehaviour(params.type) === "zeroPoint") {
+      if (getAnnotationExtent(params.type) === "zeroPoint") {
         nodeData.isZeroPoint = true;
       }
     }
@@ -133,7 +133,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   /**
    * Creates a content annotation with the given type and subtype.
    *
-   * @param {Object} params - The parameters object. Currently consists only of the type, subtype (optional) and characters to be annotated.
+   * @param {Object} params - The parameters object. Currently consists only of the type and subtype (optional).
    * @returns {Annotation} - The created content annotation object.
    */
   function createTextAnnotation(params: { type: string; subType?: string | number; selectedText: string }): Annotation {

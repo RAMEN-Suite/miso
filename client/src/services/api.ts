@@ -114,7 +114,7 @@ export default class ApiService {
     }
   }
 
-  public async getAnnotations(nodeType: "collection" | "text", nodeUuid: string): Promise<NodeDto<AnnotationNode>[]> {
+  public async getAnnotations(nodeType: "collection" | "content", nodeUuid: string): Promise<NodeDto<AnnotationNode>[]> {
     try {
       const url: string = `${this.baseUrl}/${nodeType}s/${nodeUuid}/annotations`;
 
@@ -195,8 +195,9 @@ export default class ApiService {
 
   /**
    * Fetches one page of a hierarchy listing. What is listed is decided by the scope: a Collection's
-   * children, the top of the hierarchy, or an explicit set of uuids (everything carrying one tag).
-   * Filtering, sorting and cursor pagination are identical for all three.
+   * children or all of its descendants, the top of the hierarchy, every node of the hierarchy, or an
+   * explicit set of uuids (everything carrying one tag).
+   * Filtering, sorting and cursor pagination are identical for all of them.
    *
    * This is a read despite being a POST — the parameters do not reliably fit in a URI, and a body allows
    * more complex filters.
@@ -295,19 +296,6 @@ export default class ApiService {
     }
   }
 
-  public async getEntities(nodeLabel: string, searchString: string): Promise<EntityNode[]> {
-    try {
-      const url: string = `${this.baseUrl}/entities?node=${nodeLabel}&searchStr=${searchString}`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
   public async getGuidelines(): Promise<IGuidelines> {
     try {
       const url: string = `${this.baseUrl}/guidelines`;
@@ -322,23 +310,9 @@ export default class ApiService {
     }
   }
 
-  public async getStyles(): Promise<string> {
-    try {
-      const url: string = `${this.baseUrl}/styles`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.text();
-    } catch (error) {
-      this.handleApiError(error);
-    }
-  }
-
   public async getTextAccessObject(textUuid: string): Promise<TextAccessObject> {
     try {
-      const url: string = `${this.baseUrl}/texts/${textUuid}`;
+      const url: string = `${this.baseUrl}/contents/${textUuid}`;
 
       const response: Response = await fetch(url);
 
@@ -356,12 +330,12 @@ export default class ApiService {
    * Called in every `catch` block of the `ApiService` methods. The rethrowing allows the error
    * to propagate up the call stack and be caught by a higher-level error handler.
    *
-   * @param {ApiError | unknown} error - The error object to handle.
+   * @param {unknown} error - The error object to handle.
    * @returns {void} This function does not return any value.
    *
    * @throws {ApiError} - The API error (either the original or a subclass of it).
    */
-  private handleApiError(error: ApiError | unknown): never {
+  private handleApiError(error: unknown): never {
     console.error(error);
 
     throw error;
@@ -415,7 +389,7 @@ export default class ApiService {
 
   public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
     try {
-      const url: string = `${this.baseUrl}/texts/${uuid}`;
+      const url: string = `${this.baseUrl}/contents/${uuid}`;
 
       const response: Response = await fetch(url, {
         method: "POST",

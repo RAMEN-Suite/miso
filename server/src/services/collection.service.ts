@@ -8,9 +8,7 @@ import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatus
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import ValidationError from "../errors/validation.error.js";
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
--- db results can not be typed (only with assertion) which is too cumbersome for now
- */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
 export default class CollectionService {
   /**
@@ -173,8 +171,6 @@ export default class CollectionService {
     const flat = flattenNodeTree(root, guidelines);
 
     const query: string = buildSubgraphUpdateQuery("Collection");
-
-    console.dir(flat, { depth: null });
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
       uuid,

@@ -1,16 +1,9 @@
-import { TreeNode } from "primevue/treenode";
 import { IAnnotation } from "./IAnnotation";
-import ICharacter from "./ICharacter";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
 import type { BuiltinEditorAttribute } from "../config/editor";
 import type { AnnotationMapping } from "../config/editor";
-
-export interface AdditionalText {
-  annotation: IAnnotation;
-  text: TextNode;
-}
 
 /** A status object for nodes in the frontend and for API requests */
 export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
@@ -28,7 +21,17 @@ export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode 
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
+/** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
 export type Annotation = NodeStatusObject<AnnotationNode>;
+
+/**
+ * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes
+ * and each entry of `_blockClassifications`.
+ *
+ * The `meta` field that contains the status is omitted since it gets recalculated before save
+ * for every block of the document.
+ */
+export type DocAnnotation = Omit<Annotation, "meta">;
 
 export type AnnotationNode = Node<IAnnotation>;
 
@@ -38,62 +41,156 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
   connectedNodes: NodeDto[];
 }
 
-export interface AnnotationData {
-  additionalTexts: AdditionalText[];
-  entities: EntityNode[];
-  properties: IAnnotation;
-}
-
 /**
- * Miso-internal role of the annotation in a text document. Defines how an annotation is represented
- * in the tiptap editor. Options are:
+ * How an annotation is represented in the text editor, configured in `miso.editing.representation`. Only applies to
+ * annotations on text content. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
- * - `semanticBlock`: whole-block labels. Are always attached to a whole built-in document blocks and give them as semantic meaning.
- *    Mirror TEI-like block elements (opener, closer, addrLine etc.) to a certain extent.
+ * - `blockClassification`: adds meaning to whole structural blocks (classifies them, like the Web Annotation motivation
+ *    `classifying`), without creating or containing them. Mirror TEI-like block elements (opener, closer, addrLine etc.)
+ *    to a certain extent. Unrelated to the classifiers (node types) of the data model.
  * - `inline`: user interpretation of a text range (font styling, commentaries, entities). Kind of the default annotation.
  */
-export type AnnotationRole = "structure" | "inline" | "semanticBlock";
+export type TextAnnotationRepresentation = "structure" | "inline" | "blockClassification";
 
 /**
- * How an annotation sits in the text.
+ * How far an annotation extends in its content, configured in `miso.editing.extent`. Both values correspond to a
+ * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
  * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
- *    Required for annotations with role `semanticBlock`.
+ *    Required for annotations with representation `blockClassification`.
  * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
  */
-export type AnnotationBehaviour = "zeroPoint" | "range";
+export type AnnotationExtent = "zeroPoint" | "range";
 
 export interface AnnotationType {
-  category: string; // Miso
-  defaultSelected: boolean; // Miso
-  /** @deprecated Use `behaviour: "zeroPoint"`. Kept as a legacy input the normalization derives from. */
-  isZeroPoint?: boolean; // Miso and Nori
   hasEntities?: boolean; // Derived from Nori
   properties?: PropertyConfig[]; // Nori
-  shortcut: string[]; // Miso
-  text: string; // Miso
   type: string; // Nori -> discriminator, also property there
-  /** @deprecated Use `role`. Kept as a legacy input the normalization derives from. */
-  isBlock?: boolean; // Miso
-  contains?: string[]; // Miso -> only for builtin structural elements
-  topLevel?: boolean; // Miso -> deprecated, but keep for now
-  priority?: number; // Miso
-  role?: AnnotationRole; // Miso -> operational category (structure/inline/semanticBlock)
-  behaviour?: AnnotationBehaviour; // Miso -> zeroPoint vs range
+  /** Miso-only configuration (editor behaviour, controls, appearance) */
+  miso?: AnnotationMisoConfig;
 }
 
-export interface AnnotationReference {
-  isFirstCharacter: boolean;
-  isLastCharacter: boolean;
-  subType: string | null;
-  type: string;
-  uuid: string;
+/**
+ * Miso-only configuration of an annotation type. Everything in here is frontend-only and not part of the data model.
+ */
+export interface AnnotationMisoConfig {
+  /** Group the annotation type is listed under in the toolbar and the filter */
+  group?: string;
+  /** How the user creates and interacts with annotations of this type */
+  controls?: {
+    /** Keyboard shortcut in keymap notation, e.g. `Mod-Shift-e`. `Mod` is Cmd on macOS and Ctrl elsewhere. */
+    shortcut?: string;
+  };
+  /** How annotations of this type are placed and represented in the content */
+  editing?: {
+    extent?: AnnotationExtent;
+    representation?: TextAnnotationRepresentation;
+    /**
+     * The editor's native type that implements this annotation type. Its extent and representation are then taken
+     * from the native type.
+     */
+    native?: NativeTypeMapping;
+  };
+  appearance?: AnnotationAppearance;
 }
 
-export interface AnnotationConfigEntity {
-  category: string;
-  nodeLabel: string;
+/**
+ * Maps an annotation type to a native type of the editor, e.g. a TEI `cell` to the editor's `tableCell`.
+ *
+ * @example
+ * { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
+ */
+export interface NativeTypeMapping {
+  /** The native type */
+  type: BuiltinStructuralType;
+  /**
+   * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
+   * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
+   */
+  attributes?: Partial<Record<BuiltinEditorAttribute, string>>;
 }
+
+/** How annotations of a type are rendered */
+export interface AnnotationAppearance {
+  /** Icon in the toolbar and in annotation lists */
+  icon?: IconSpecInput;
+  /** Styling of the annotated text. Only applies to `range` annotations. */
+  highlight?: HighlightTextStyle;
+  /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
+  marker?: MarkerStyle;
+  /**
+   * Overrides for annotations with certain property values. They override the type's appearance and are applied in
+   * order, so later matches win. Highlights are merged field by field, a marker replaces the previous one. The icon
+   * can't be overridden, since it identifies the annotation type in places without annotation data (e.g. the toolbar).
+   *
+   * @example
+   * [{ "property": "hand", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
+   */
+  variants?: AppearanceVariant[];
+}
+
+/** Overrides of the appearance per value of one annotation property */
+export interface AppearanceVariant {
+  /** Name of the annotation property whose value is matched */
+  property: string;
+  /** Appearance overrides keyed by property value */
+  values: Record<string, AppearanceOverride>;
+}
+
+/** Appearance overrides for annotations with a certain property value */
+export type AppearanceOverride = Pick<AnnotationAppearance, "highlight" | "marker">;
+
+/**
+ * Styling of the text covered by a `range` annotation.
+ */
+export type HighlightTextStyle = PropertiesTextStyle;
+
+/** An icon rendered at the position of an annotation. */
+export interface IconStyle {
+  kind: "icon";
+  icon: IconSpecInput;
+}
+
+/**
+ * Styling of the position of a `zeroPoint` annotation.
+ */
+export type MarkerStyle = IconStyle;
+
+/** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
+export interface PropertiesTextStyle {
+  kind: "properties";
+  color?: string;
+  backgroundColor?: string;
+  fontWeight?: string;
+  fontStyle?: string;
+  fontVariant?: string;
+  fontSize?: string;
+  verticalAlign?: string;
+  textDecorationLine?: string;
+  textDecorationStyle?: string;
+  textDecorationColor?: string;
+  textDecorationThickness?: string;
+}
+
+/** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
+export interface NodeMisoConfig {
+  appearance?: NodeAppearance;
+}
+
+/** How nodes of a type are displayed, e.g. in the hierarchy */
+export interface NodeAppearance {
+  icon?: IconSpecInput;
+}
+
+/**
+ * The medium of a Content type, which decides how its nodes are edited and how annotation configs are applied.
+ */
+export type ContentMedium = "text" | "image";
+
+/** Miso-only configuration of a Content type */
+export type ContentTypeMisoConfig = NodeMisoConfig & {
+  medium?: ContentMedium;
+};
 
 export interface ApiJson {
   text: string;
@@ -107,7 +204,6 @@ export type BuiltinStructuralType =
   | "table"
   | "tableRow"
   | "tableCell"
-  | "tableHeader"
   | "bulletList"
   | "listItem";
 
@@ -118,14 +214,21 @@ export type { AnnotationMapping };
 
 export interface TiptapMark {
   type: string;
-  attrs: Record<string, any>;
+  attrs: Record<string, unknown>;
 }
 
 export type AllowedTiptapNodeTypes = string;
 
+export interface TiptapNodeAttrs {
+  [key: string]: unknown;
+  uuid?: string;
+  _annotation?: DocAnnotation;
+  _blockClassifications?: DocAnnotation[];
+}
+
 export interface TiptapNode {
   type: AllowedTiptapNodeTypes;
-  attrs?: Record<string, any>;
+  attrs?: TiptapNodeAttrs;
   content?: TiptapNode[];
   marks?: TiptapMark[];
   text?: string;
@@ -138,18 +241,13 @@ export interface BaseNodeData {
 }
 
 /** Base node labels in RAMEN */
-export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
+export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
 /** The base node labels that can be searched for and referenced from an Annotation */
 export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
 
 /** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
 export type LayoutName = "default" | "blank";
-
-export interface Character {
-  data: ICharacter;
-  annotations: AnnotationReference[];
-}
 
 export type CollectionNode = Node<ICollection>;
 
@@ -266,8 +364,8 @@ export type HierarchyRoot =
   | { kind: "database" }
   | { kind: "tag"; uuid: string }
   /**
-   * Same set and fetching mechanism as `database`, but seeds the first column with the {@linkcode SmartView}'s
-   * stored filter preset.
+   * Same fetching mechanism as `database`, but the first column lists the set chosen by the
+   * {@linkcode SmartView}'s stored scope and is seeded with its stored filter preset.
    */
   | { kind: "smartView"; uuid: string };
 
@@ -275,9 +373,23 @@ export type HierarchyRoot =
  * Which set of nodes a hierarchy listing is drawn from.
  *
  * This is the *scope*, not a filter: {@link HierarchyFilters} narrows a set, a scope defines it,
- * and the three kinds are mutually exclusive. All three are served by `POST /hierarchy/query`.
+ * and the five kinds are mutually exclusive. All of them are served by `POST /hierarchy/query`.
+ *
+ * - `children`: the direct `PART_OF` children of one Collection.
+ * - `descendants`: everything below one Collection, at any depth of the `PART_OF` hierarchy.
+ * - `top`: the top of the `PART_OF` hierarchy.
+ * - `all`: every Collection and Content, wherever it sits in the hierarchy.
+ * - `uuids`: an explicit set of nodes, independent of `PART_OF`.
  */
-export type HierarchyScope = { kind: "children"; parentUuid: string } | { kind: "top" } | { kind: "uuids"; uuids: string[] };
+export type HierarchyScope =
+  | { kind: "children"; parentUuid: string }
+  | { kind: "descendants"; ancestorUuid: string }
+  | { kind: "top" }
+  | { kind: "all" }
+  | { kind: "uuids"; uuids: string[] };
+
+/** The scopes a {@linkcode SmartView} can search in. The other kinds are bound to navigation or tags. */
+export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendants" }>;
 
 /** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
 export interface CollectionFocus {
@@ -417,40 +529,30 @@ export interface PropertyConfig {
   editable: boolean; // Miso
   /** Visible by user */
   visible: boolean; // Miso;
-  /** Render as normal input or textarea? */
-  template?: PropertyConfigStringTemplate; // Miso;
   // The rest here is Miso
-  /* Only relevant if type is "array" */
+  /* Only relevant if type is "Array" */
   items?: Partial<PropertyConfig>;
   minItems?: number;
   maxItems?: number;
-  /* Only relevant if type is "number"/"integer" */
+  /* Only relevant if type is "Float"/"Integer" */
   minimum?: number;
   maximum?: number;
   exclusiveMinimum?: number;
   exclusiveMaximum?: number;
-  /* Only relevant if type is "string" */
+  /* Only relevant if type is "String" */
   minLength?: number;
   maxLength?: number;
   options?: string[] | number[] /* Options if type is dropdown */;
 }
 
-export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
-
-export type PropertyConfigStringTemplate = "input" | "textarea";
+export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
 
 export interface Range {
   from: number;
   to: number;
 }
 
-export interface RedrawModeOptions {
-  direction: "on" | "off";
-  cause?: "success" | "cancel";
-  annotationUuid?: string;
-}
-
-export interface SemanticBlockRange {
+export interface BlockClassificationRange {
   startPos: number;
   endPos: number;
   type: string;
@@ -458,9 +560,10 @@ export interface SemanticBlockRange {
 }
 
 /**
- * A user-defined view: a named filter preset held in the browser. Selecting one lists the top of the
- * hierarchy pre-filtered by {@linkcode SmartView.config}. Unlike a {@linkcode Tag} it references no
- * nodes at all — membership is decided by the filters on every request, so it never goes stale.
+ * A user-defined view: a named scope and filter preset held in the browser. Selecting one lists the
+ * nodes of its scope, pre-filtered by its filters (see {@linkcode SmartView.config}). Unlike a
+ * {@linkcode Tag} it references no listed nodes at all — membership is decided by scope and filters
+ * on every request, so it never goes stale.
  */
 export interface SmartView {
   uuid: string;
@@ -469,12 +572,14 @@ export interface SmartView {
     icon?: string;
   };
   config: {
+    /** Where the view searches: everywhere, or everything below one Collection. */
+    scope: SmartViewScope;
     filters: FilterSpec;
   };
 }
 
 export interface StandoffAnnotation {
-  [key: string]: any;
+  [key: string]: unknown;
   startIndex: number;
   endIndex: number;
   text: string;
@@ -482,9 +587,17 @@ export interface StandoffAnnotation {
   subType?: string | number;
 }
 
-export interface StandoffJson {
-  annotations: StandoffAnnotation[];
-  text: string;
+/**
+ * A problem found while a standoff document is parsed into a tiptap document.
+ * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
+ *    are lost, the repaired state is written to the database on the next save.
+ * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
+ *    configured in the guidelines. Saving it can corrupt the stored data, so the user should be asked before continuing.
+ */
+export interface StandoffParseIssue {
+  severity: "warning" | "error";
+  reason: "clampedGap" | "textMismatch" | "unconfiguredType";
+  message: string;
 }
 
 /** Raw inline SVG markup. */
@@ -512,21 +625,27 @@ export interface TextUpdateDto {
   annotations: Annotation[];
 }
 
-export type ToCItem = TreeNode & {
+/**
+ * One block node of the document outline. Items of unchanged ProseMirror nodes are reused across transactions,
+ * so they deliberately carry no document position (which shifts with every edit before the node).
+ */
+export interface ToCItem {
+  /** The node's `uuid` attribute, or its position at build time as a fallback for nodes without one. */
+  key: string;
   data: {
-    nodeSize: number;
     nodeType: string;
-    /** Canonical (project-configured) annotation type, derived from the live node, not _annotationData. */
+    /** Canonical (project-configured) annotation type, derived from the live node, not _annotation. */
     type: string;
     /** Heading level when the node is a heading; read from the live native attr. */
     level?: number;
-    pos: number;
     text: string;
-    _annotationData: Record<string, any>;
-    _semanticBlocks: { uuid: string; annotationType: string }[] | null;
+    /** Annotation of the node itself, as stored in its `_annotation` attribute. */
+    _annotation: DocAnnotation;
+    /** Block classifications wrapping the node, as stored in its `_blockClassifications` attribute. Empty when none. */
+    _blockClassifications: DocAnnotation[];
   };
   children: ToCItem[];
-};
+}
 
 /**
  * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text

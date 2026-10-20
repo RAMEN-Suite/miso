@@ -16,12 +16,15 @@ import {
 import {
   camelCaseToTitleCase,
   cloneDeep,
-  filterBaseNodeLabel,
   formatPropertyValue,
   getDefaultValueForProperty,
   setNodeTreeStatus,
   pruneDeletedNodes,
+  pruneUnconfiguredProperties,
 } from "../utils/helper/helper";
+import { isArray } from "../utils/helper/propertyTypeHelper";
+import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
+import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
@@ -97,17 +100,17 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
       if (subTypeOptions.length === 0) {
         return {
           label: type.type,
-          annotationType: type.type,
+          annotationConfig: type,
           command: () => handleAnnotationButtonClick({ type: type.type }),
         };
       }
 
       return {
         label: type.type,
-        annotationType: type.type,
+        annotationConfig: type,
         items: subTypeOptions.map((option: string | number) => ({
           label: option.toString(),
-          annotationType: option,
+          annotationConfig: type,
           command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
         })),
       };
@@ -189,7 +192,7 @@ function enrichCollectionData(): void {
 
   allPossibleFields.forEach((field) => {
     if (!(field.name in temporaryWorkData.value.collection.node.data)) {
-      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field.type) : null;
+      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
     }
   });
 }
@@ -197,7 +200,12 @@ function enrichCollectionData(): void {
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
   const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, data.type);
+
+  if (!config) {
+    console.error(`No annotation config found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+    return;
+  }
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
   // eslint-disable-next-line no-constant-condition -- Safe to delete
@@ -266,7 +274,17 @@ function handleEditAnnotation(uuid: string): void {
 
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  const config: AnnotationType = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
+
+  if (!config) {
+    addToastMessage({
+      severity: "warn",
+      summary: "Annotation type not configured",
+      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this Collection.`,
+    });
+    return;
+  }
+
   const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
 
   createModalInstance(
@@ -422,15 +440,18 @@ function updateView() {
  * @returns {void} This function does not return any value.
  */
 function removeUnnecessaryDataBeforeSave(): void {
-  const configuredFieldNames: string[] = getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).map(
-    (f) => f.name,
-  );
+  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  Object.keys(temporaryWorkData.value.collection.node.data).forEach((key) => {
-    if (!configuredFieldNames.includes(key) && key !== "uuid") {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
-      delete temporaryWorkData.value.collection.node.data[key];
+  pruneUnconfiguredProperties(temporaryWorkData.value.collection.node.data, getCollectionConfigFields(nodeLabels), ["uuid"]);
+
+  temporaryWorkData.value.annotations.forEach((a: Annotation) => {
+    const type: string = a.node.data.type;
+
+    if (!getCollectionAnnotationConfig(nodeLabels, type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+      return;
     }
+
+    pruneUnconfiguredProperties(a.node.data, getCollectionAnnotationFields(nodeLabels, type), INTRINSIC_ANNOTATION_PROPERTIES);
   });
 }
 
@@ -475,25 +496,29 @@ function showMessage(result: "success" | "error", error?: Error) {
 <template>
   <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
-      <div class="buttons flex justify-end gap-1">
-        <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
-        <Button
-          as="a"
-          :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
-          target="_blank"
-          rel="noopener"
-          severity="secondary"
-          icon="icon-external-link"
-          size="small"
-          title="View collection on website"
-        />
+      <div class="buttons flex justify-between gap-1">
+        <div class="buttons-start flex justify-start gap-1">
+          <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
+        </div>
+        <div class="buttons-end flex justify-end gap-1">
+          <Button
+            as="a"
+            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
+            target="_blank"
+            rel="noopener"
+            severity="secondary"
+            icon="icon-external-link"
+            size="small"
+            title="View collection on website"
+          />
+        </div>
       </div>
 
       <div class="label-section">
         <h3 class="label-heading" aria-label="Collection label">
           <RAMENNodeIcon
             v-tooltip.hover.top="{
-              value: filterBaseNodeLabel(temporaryWorkData.collection.node.nodeLabels).join(', '),
+              value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
             :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
@@ -531,7 +556,7 @@ function showMessage(result: "success" | "error", error?: Error) {
               <template #item="{ item, props: itemProps, hasSubmenu }">
                 <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :annotation-type="item.annotationType" />
+                    <AnnotationTypeIcon :config="item.annotationConfig" />
                   </span>
                   <span>{{ item.label }}</span>
                   <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>
@@ -547,7 +572,7 @@ function showMessage(result: "success" | "error", error?: Error) {
                 v-for="field in collectionFields"
                 :key="field.name"
                 class="properties-row"
-                :class="{ 'is-multiline': mode === 'edit' && field.type === 'array' }"
+                :class="{ 'is-multiline': mode === 'edit' && isArray(field) }"
               >
                 <td class="properties-label">
                   <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
@@ -555,10 +580,10 @@ function showMessage(result: "success" | "error", error?: Error) {
                 </td>
                 <td class="properties-value">
                   <span v-if="mode === 'view'" class="properties-text">{{
-                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field.type)
+                    formatPropertyValue(temporaryWorkData.collection.node.data[field.name], field)
                   }}</span>
                   <DataInputGroup
-                    v-else-if="field.type === 'array'"
+                    v-else-if="isArray(field)"
                     v-model="temporaryWorkData.collection.node.data[field.name]"
                     :config="field"
                     :mode="mode"

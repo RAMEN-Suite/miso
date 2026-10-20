@@ -18,6 +18,7 @@ import {
 } from "../models/types";
 import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
+import { useSmartViewsStore } from "../store/smartViews";
 import { useGuidelinesStore } from "../store/guidelines";
 import FilterableMenu from "./FilterableMenu.vue";
 import FilterPopover from "./FilterPopover.vue";
@@ -55,6 +56,7 @@ const { addToastMessage, createModalInstance, destroyModalInstance } = useAppSto
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
 const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
+const { getSmartViewScope } = useSmartViewsStore();
 
 /** Derived state from the store. Shorthand since multiple use cases in the component */
 const state = computed<LevelState>(() => levels.value[props.index]?.state);
@@ -168,8 +170,8 @@ const isLoading = computed<boolean>(() => state.value.isLoading);
 const isReloading = computed<boolean>(() => state.value.isLoading && state.value.cursor === null);
 
 /**
- * Which set of nodes this column lists (db hierarchy, tags etc.). Only the first column depends on the active root — every
- * column below it always shows the `PART_OF` children of the item selected in the previous one.
+ * Which set of nodes this column lists (db hierarchy, tags, smart views etc.). Only the first column depends on the active
+ * root — every column below it always shows the `PART_OF` children of the item selected in the previous one.
  */
 const scope = computed<HierarchyScope>(() => {
   if (props.parentUuid) {
@@ -180,11 +182,16 @@ const scope = computed<HierarchyScope>(() => {
     return { kind: "uuids", uuids: getTagEntryUuids(root.value.uuid) };
   }
 
+  if (props.index === 0 && root.value.kind === "smartView") {
+    return getSmartViewScope(root.value.uuid) ?? { kind: "all" };
+  }
+
   return { kind: "top" };
 });
 
-/** Creating a node inside a tag listing should not be allowed, there is no place to put it in the database */
-const canCreateNodes = computed<boolean>(() => scope.value.kind !== "uuids");
+/** Creating a node inside a tag listing or a smart view with accumulated nodes across the database should not be allowed.
+ * There is no place to put it in the database and no reliable validation possible */
+const canCreateNodes = computed<boolean>(() => scope.value.kind === "top" || scope.value.kind === "children");
 
 const focusedUuid = computed<string | null>(() => {
   if (!focus.value) {
@@ -259,7 +266,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
           setMode("view");
           destroyModalInstance();
 
-          scrollElementIntoView(created.node.data.uuid);
+          await scrollElementIntoView(created.node.data.uuid);
         },
       },
       onClose: destroyModalInstance,

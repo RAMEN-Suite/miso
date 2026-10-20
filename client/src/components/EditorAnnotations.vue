@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ComputedRef, ref, watch } from "vue";
+import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
+import { useDebounceFn } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize, toggleTextHightlighting } from "../utils/helper/helper";
 import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
@@ -7,34 +8,51 @@ import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useTiptapStore } from "../store/tiptap";
+import { collectInlineAnnotations, getAnnotationRevision } from "../utils/helper/tiptapHelper";
 
 export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
   data?: NodeStatusObject;
+  /** Configuration of the annotation type, only set on nodes of type `type` */
+  config?: AnnotationType;
   key: string;
   label: string;
   type: "category" | "type" | "annotation";
 }
 
 const { groupedAndSortedAnnotationTypes } = useGuidelinesStore();
-const { annotations } = useTiptapStore();
+const { tiptap } = useTiptapStore();
 
-const displayedAnnotations = ref<NodeStatusObject<AnnotationNode>[]>([]);
+/** Delay in ms before the list is rebuilt after a change in the editor. */
+const UPDATE_DELAY: number = 300;
+
+const displayedAnnotations = shallowRef<NodeStatusObject<AnnotationNode>[]>([]);
 
 const expandedKeys = ref<Record<string, boolean>>({});
 
+/** Keys of the categories that were displayed (and expanded) once, so that collapsing them is not undone. */
+const knownCategoryKeys = new Set<string>();
+
+function updateDisplayedAnnotations(): void {
+  const current: NodeStatusObject<AnnotationNode>[] = tiptap.value
+    ? [...collectInlineAnnotations(tiptap.value.state).values()]
+    : [];
+
+  const hasChanged: boolean =
+    current.length !== displayedAnnotations.value.length || current.some((a, i) => a !== displayedAnnotations.value[i]);
+
+  if (hasChanged) {
+    displayedAnnotations.value = current;
+  }
+}
+
 watch(
-  () => annotations.value?.size,
-  () => {
-    if (!annotations.value) {
-      displayedAnnotations.value = [];
-    } else {
-      displayedAnnotations.value = [...annotations.value.values()].filter((a: NodeStatusObject) => a.meta.status !== "deleted");
-    }
-  },
-  { deep: false, immediate: true },
+  [() => (tiptap.value ? getAnnotationRevision(tiptap.value.state) : 0), () => tiptap.value?.state.doc],
+  useDebounceFn(updateDisplayedAnnotations, UPDATE_DELAY),
 );
+
+updateDisplayedAnnotations();
 
 const nodes: ComputedRef<TreeNode[]> = computed(() => {
   const nodes: TreeNode[] = [];
@@ -53,6 +71,7 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
         key: i.toString() + "-" + j.toString(),
         label: annoType.type,
         type: "type",
+        config: annoType,
         children: [],
       } satisfies TreeNode;
 
@@ -84,10 +103,18 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
   return nodes;
 });
 
-// Set initially expanded nodes -> Categories
-nodes.value.forEach((node) => {
-  expandedKeys.value[node.key] = true;
-});
+watch(
+  nodes,
+  (newNodes: TreeNode[]) => {
+    newNodes.forEach((node) => {
+      if (!knownCategoryKeys.has(node.key)) {
+        knownCategoryKeys.add(node.key);
+        expandedKeys.value[node.key] = true;
+      }
+    });
+  },
+  { immediate: true },
+);
 
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
   const annotationUuid: string | undefined = (event.target as HTMLElement).dataset.annotationUuid;
@@ -136,13 +163,14 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
             </div>
             <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
               <div class="annotation-type-icon-container">
-                <AnnotationTypeIcon :annotation-type="slotProps.node.label" />
+                <AnnotationTypeIcon :config="slotProps.node.config" />
               </div>
               <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children.length }}]</div>
             </div>
             <div
               v-else
               tabindex="0"
+              role="button"
               :style="{ 'text-wrap': 'nowrap' }"
               @mouseover="toggleTextHightlighting(slotProps.node.data, 'on')"
               @mouseout="toggleTextHightlighting(slotProps.node.data, 'off')"

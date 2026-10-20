@@ -69,7 +69,7 @@ onMounted(() => focusFirstInput());
 
 <template>
   <div class="flex flex-col gap-4 annotation-modal">
-    <div class="content">
+    <div class="content px-1">
       <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
       <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
     </div>

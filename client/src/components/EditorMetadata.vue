@@ -78,9 +78,7 @@ watch(
         <span :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></span>
       </template>
       <div class="flex justify-center items-center">
-        <template v-for="path in paths">
-          <HierarchyBreadcrumbs :path="path" />
-        </template>
+        <HierarchyBreadcrumbs v-for="(path, index) in paths" :key="index" :path="path" />
       </div>
     </Fieldset>
   </Panel>

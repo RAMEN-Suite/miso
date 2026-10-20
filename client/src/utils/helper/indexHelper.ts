@@ -13,14 +13,14 @@ export function indexToPosition(doc: Node, index: number): number {
     if (node.isText) {
       // Count characters in text node. If annotation index is inside it, return its position. Else,
       // subtract the number of characters in the text node from the remaining index.
-      if (remaining <= node.text!.length) {
+      if (remaining <= node.nodeSize) {
         pos = nodePos + remaining;
         remaining = -1;
 
         return false;
       }
 
-      remaining -= node.text!.length;
+      remaining -= node.nodeSize;
     }
   });
 

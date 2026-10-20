@@ -36,7 +36,7 @@ function handleRedirect(req: Request, res: Response, next: NextFunction): void {
 
     try {
       targetUrl = new URL(targetStr);
-    } catch (error: unknown) {
+    } catch {
       throw new ValidationError("Invalid redirect target");
     }
 

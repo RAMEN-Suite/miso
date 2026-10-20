@@ -7,7 +7,8 @@ import InputGroupAddon from "primevue/inputgroupaddon";
 import { EntityNode, NodeStatusObject } from "../models/types.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
-import { createEntityNodeStatusObject, filterBaseNodeLabel } from "../utils/helper/helper.ts";
+import { createEntityNodeStatusObject } from "../utils/helper/helper.ts";
+import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = defineProps<{
   nodeLabels: string[];
@@ -20,7 +21,7 @@ const emit = defineEmits<{
 
 const labelInput = useTemplateRef<ComponentPublicInstance>("label-input");
 
-const additionalNodeLabels: string[] = filterBaseNodeLabel(props.nodeLabels);
+const additionalNodeLabels: string[] = filterBaseNodeLabels(props.nodeLabels);
 
 const draft = ref<NodeStatusObject<EntityNode>>(createEntityNodeStatusObject({ additionalNodeLabels }));
 

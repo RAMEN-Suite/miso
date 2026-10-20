@@ -21,7 +21,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  const data: NetworkPostData = req.body;
+  const data: NetworkPostData = req.body as NetworkPostData;
   const actionType: CollectionNetworkActionType = data.type;
 
   try {

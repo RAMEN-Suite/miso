@@ -9,6 +9,4 @@ This version does not always reflect the latest changes of the development proce
 
 ## Further instructions
 
-- [Installation](./docs/installation.md)
-- [Customization](./docs/customization.md)
-- Deployment (to be updated)
+tbd

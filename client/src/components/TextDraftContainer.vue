@@ -3,7 +3,8 @@ import { ComponentPublicInstance, computed, onMounted, ref, useTemplateRef } fro
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { NodeStatusObject, TextNode } from "../models/types";
-import { createContentNodeStatusObject, filterBaseNodeLabel } from "../utils/helper/helper";
+import { createContentNodeStatusObject } from "../utils/helper/helper";
+import { filterBaseNodeLabels } from "../config/ramen";
 
 const props = defineProps<{
   nodeLabels: string[];
@@ -16,7 +17,7 @@ const emit = defineEmits<{
 
 const textInput = useTemplateRef<ComponentPublicInstance>("text-input");
 
-const additionalNodeLabels: string[] = filterBaseNodeLabel(props.nodeLabels);
+const additionalNodeLabels: string[] = filterBaseNodeLabels(props.nodeLabels);
 
 const draft = ref<NodeStatusObject<TextNode>>(createContentNodeStatusObject({ additionalNodeLabels }));
 

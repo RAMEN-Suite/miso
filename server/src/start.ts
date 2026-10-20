@@ -23,7 +23,7 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello");
 });
 
-Neo4jDriver.createDatabaseConnection();
+void Neo4jDriver.createDatabaseConnection();
 
 app.listen(process.env.APP_PORT, (): void =>
   console.log(`Running an Express API server at ${process.env.PROTOCOL}://${process.env.APP_HOST}:${process.env.APP_PORT}/api`),

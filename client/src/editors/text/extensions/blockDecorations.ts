@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { EditorSettings } from "../../../models/types";
+import { DocAnnotation, EditorSettings } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
 
 const { getAnnotationType } = useGuidelinesStore();
@@ -39,7 +39,7 @@ const DECORATED_ROLES: ReadonlySet<string> = new Set(["paragraph", "heading", "b
 
 // Paragraphs nested directly inside these containers are skipped to avoid visual clutter
 // (paragraphs inside cells e.g. do not have to be displayed)
-const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "tableHeader", "listItem"]);
+const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "listItem"]);
 
 /**
  * Build the decoration set, consisting of node decorations and widget decorations depending on the user settings.
@@ -92,7 +92,7 @@ function buildDecorations(doc: Node, settings: EditorSettings | null): Decoratio
  *
  * @param {Node} node - The current node.
  * @param {boolean} showBase - Whether to show the base block tag
- * @param {boolean} showSemantic - Whether to show the semantic block tags
+ * @param {boolean} showSemantic - Whether to show the block classification tags
  * @returns {TagData[]} An array of tag data objects
  */
 function buildTags(node: Node, showBase: boolean, showSemantic: boolean): TagData[] {
@@ -108,14 +108,16 @@ function buildTags(node: Node, showBase: boolean, showSemantic: boolean): TagDat
   }
 
   if (showSemantic) {
-    const semanticBlocks: { uuid: string; type: string }[] = node.attrs._semanticBlocks ?? [];
+    const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-    for (const block of semanticBlocks) {
+    for (const block of blockClassifications) {
+      const { type, uuid } = block.node.data;
+
       tags.push({
         kind: "semantic",
-        label: getSemanticLabel(block.type),
-        type: block.type,
-        uuid: block.uuid,
+        label: getSemanticLabel(type),
+        type,
+        uuid,
       });
     }
   }
@@ -164,7 +166,7 @@ function getBaseLabel(node: Node): string {
 }
 
 /**
- * Get label of block type that should be displayed in a semantic block tag.
+ * Get label of block type that should be displayed in a block classification tag.
  * Currently just returns the type, but might be extende later.
  *
  * @param {string} type - The annotation type
@@ -220,7 +222,7 @@ function renderTagBar(tags: TagData[]): HTMLElement {
     el.title = `Block type: ${tag.label}`;
 
     if (tag.kind === "semantic") {
-      el.title = `Semantic block type: ${tag.label}`;
+      el.title = `Block classification type: ${tag.label}`;
       // Carried for future interactivity (click-to-select / remove); unused today.
     }
 
@@ -269,7 +271,7 @@ export const BlockDecorations = Extension.create({
             }
 
             if (tr.docChanged) {
-              // Cheap to rebuild — there are that many blocks, tags/outlines depend on live node attrs (e.g. _semanticBlocks)
+              // Cheap to rebuild — there are that many blocks, tags/outlines depend on live node attrs (e.g. _blockClassifications)
               // and existing decorations are cached with a key anyway.
               return {
                 decoSet: buildDecorations(tr.doc, oldState.settings),

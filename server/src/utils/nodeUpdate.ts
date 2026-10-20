@@ -17,7 +17,7 @@ import { inferRelationship } from "./ramen.js";
 function convertNodeToNeo4jFormat(
   node: EntityNode | AnnotationNode | CollectionNode | ContentNode,
   guidelines: IGuidelines,
-): Node<Record<string, any>> {
+): Node<object> {
   const guidelineService = new GuidelinesService();
   const fields: PropertyConfig[] = [];
 

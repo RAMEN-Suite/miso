@@ -18,6 +18,10 @@
   --z-index-max: 99999;
 }
 
+* {
+  scrollbar-width: thin;
+}
+
 a {
   text-decoration: none;
 }

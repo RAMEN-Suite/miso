@@ -6,11 +6,11 @@ import { Node } from "@tiptap/pm/model";
 import {
   findDecorationBoundariesByUuid,
   findNodeBoundariesByUuid,
-  findSemanticBlockBoundariesByUuid,
+  findBlockClassificationBoundariesByUuid,
 } from "../../../utils/helper/tiptapHelper";
 import { Range } from "../../../models/types";
 
-type RenderType = "range" | "zeroPoint" | "block" | "semanticBlock";
+type RenderType = "range" | "zeroPoint" | "block" | "blockClassification";
 type ToggleDirection = "on" | "off";
 
 interface HighlightOptions {
@@ -41,7 +41,7 @@ export const ANNOTATION_HIGHLIGHT_KEY = new PluginKey<HighlightState>("annotatio
 /**
  * Builds the decoration set used to highlight the annotation with the given uuid.
  *
- * Currently consists of only one decoration, but might change if semantic blocks/building blocks are implemented.
+ * Currently consists of only one decoration, but might change if block classifications/building blocks are implemented.
  *
  * @param {EditorState} editorState The editor state to read the document and decorations from
  * @param {string} uuid The uuid of the annotation to highlight
@@ -68,8 +68,8 @@ function buildDecorationSet(editorState: EditorState, uuid: string, options: Hig
     range = findDecorationBoundariesByUuid(decorationSet, uuid);
   } else if (renderType === "zeroPoint") {
     range = findNodeBoundariesByUuid(editorState.doc, uuid);
-  } else if (renderType === "semanticBlock") {
-    range = findSemanticBlockBoundariesByUuid(editorState.doc, uuid);
+  } else if (renderType === "blockClassification") {
+    range = findBlockClassificationBoundariesByUuid(editorState.doc, uuid);
   }
 
   if (!range) {
@@ -164,11 +164,11 @@ export const AnnotationHighlight = Extension.create({
               const currDecos: Decoration[] = ANNOTATION_HIGHLIGHT_KEY.getState(view.state)?.decorations?.find() ?? [];
               const lastHighlightAnnotationType = ANNOTATION_HIGHLIGHT_KEY.getState(view.state)?.renderType;
 
-              // Only scroll on the off->on transition (empty -> non-empty) AND if it is not a semantic block (can span multiple blocks)
+              // Only scroll on the off->on transition (empty -> non-empty) AND if it is not a block classification (can span multiple blocks)
               if (
                 prevDecos.length > 0 ||
                 currDecos.length === 0 ||
-                (lastHighlightAnnotationType && lastHighlightAnnotationType === "semanticBlock")
+                (lastHighlightAnnotationType && lastHighlightAnnotationType === "blockClassification")
               ) {
                 return;
               }

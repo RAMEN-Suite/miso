@@ -1,42 +1,51 @@
-import { AnnotationConfigEntity, AnnotationType, PropertyConfig } from "./types";
+import { AnnotationType, ContentTypeMisoConfig, NodeMisoConfig, PropertyConfig } from "./types";
 
 export interface IGuidelines {
+  /** Refinements of the Collection node, e.g. Letter or Abstract */
   collections: {
+    miso?: NodeMisoConfig;
     properties: {
       system: PropertyConfig[];
       base: PropertyConfig[];
     };
     types: {
       additionalLabel: string;
-      level: "primary" | "secondary" /* Quick fix to determine which collections should be loaded into the overview table */;
       properties: PropertyConfig[];
       annotations: {
-        additionalTexts: string[];
         types: AnnotationType[];
         properties: PropertyConfig[];
-        entities: AnnotationConfigEntity[];
       };
+      miso?: NodeMisoConfig;
     }[];
     annotations: {
-      additionalTexts: string[];
       types: AnnotationType[];
       properties: {
         system: PropertyConfig[];
         base: PropertyConfig[];
       };
-      entities: AnnotationConfigEntity[];
     };
   };
-  annotations: {
-    additionalTexts: string[];
-    types: AnnotationType[];
-    properties: {
-      system: PropertyConfig[];
-      base: PropertyConfig[];
+  /** Refinements of the Content node, e.g. Text or Image */
+  contents: {
+    miso?: NodeMisoConfig;
+    types: {
+      additionalLabel: string;
+      miso?: ContentTypeMisoConfig;
+    }[];
+    annotations: {
+      types: AnnotationType[];
+      properties: {
+        system: PropertyConfig[];
+        base: PropertyConfig[];
+      };
     };
-    entities: AnnotationConfigEntity[];
   };
-  texts: {
-    additionalLabels: string[];
+  /** Refinements of the Entity node, e.g. Person or Place */
+  entities: {
+    miso?: NodeMisoConfig;
+    types: {
+      additionalLabel: string;
+      miso?: NodeMisoConfig;
+    }[];
   };
 }

@@ -3,14 +3,14 @@ import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, AnnotationType, SemanticBlockRange } from "../models/types";
+import type { Annotation, AnnotationType, DocAnnotation, NodeStatus, BlockClassificationRange } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { Menu } from "primevue";
-import { collectSemanticBlocks } from "../utils/helper/tiptapHelper";
+import { collectBlockClassifications, toAnnotation } from "../utils/helper/tiptapHelper";
 import { Node } from "@tiptap/pm/model";
 import { useEditorSettingsStore } from "../store/editorSettings.ts";
 
@@ -22,7 +22,7 @@ interface PositionedLine {
   left: number;
 }
 
-const { tiptap, semanticBlockRanges } = useTiptapStore();
+const { tiptap, blockClassificationRanges, initialStructuralAnnotations } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
 const { getAnnotationConfig } = useGuidelinesStore();
 const dialog = useDialog();
@@ -106,17 +106,17 @@ async function refreshTarget(): Promise<void> {
  * Assign each range a column index so that two ranges which overlap in document
  * positions never share the same column (greedy interval colouring).
  *
- * @param {SemanticBlockRange[]} ranges - The ranges which need to be assigned to columns
+ * @param {BlockClassificationRange[]} ranges - The ranges which need to be assigned to columns
  * @returns {Map<string, number>} A map where each range's uuid is mapped to its assigned column index
  */
-function assignColumns(ranges: SemanticBlockRange[]): Map<string, number> {
+function assignColumns(ranges: BlockClassificationRange[]): Map<string, number> {
   const columns = new Map<string, number>();
   const columnEnds: number[] = [];
 
-  const sorted: SemanticBlockRange[] = ranges.toSorted((a, b) => a.startPos - b.startPos);
+  const sorted: BlockClassificationRange[] = ranges.toSorted((a, b) => a.startPos - b.startPos);
 
   // TODO: This leads to a visual when multiple table cells in the same row should have different
-  // semantic Blocks. The sorted ranges are cell1 -> cell2, in the same column because nothing overlaps.
+  // block classifications. The sorted ranges are cell1 -> cell2, in the same column because nothing overlaps.
   // But since these ranges are displayed horizontally in the editor they share the same vertical coordinates
   // and get assigned the same `left` offset and are stacked on top of each other. Overhaul, but this might
   // not be the case very often anyway.
@@ -180,7 +180,7 @@ function measureVerticalDimensions(editorEl: HTMLElement, columns: Map<string, n
 
   const next: PositionedLine[] = [];
 
-  for (const range of semanticBlockRanges.value) {
+  for (const range of blockClassificationRanges.value) {
     try {
       const startCoords = tiptap.value.view.coordsAtPos(range.startPos);
       const endCoords = tiptap.value.view.coordsAtPos(Math.max(range.startPos, range.endPos));
@@ -204,19 +204,19 @@ function measureVerticalDimensions(editorEl: HTMLElement, columns: Map<string, n
 }
 
 /**
- * Updates the semantic block annotation data coming from the edit modal.
+ * Updates the block classification annotation data coming from the edit modal.
  *
  * @param {Annotation} updated - The updated annotation data
  * @returns {void} This function does not return any value
  */
 function updateAnnotation(updated: Annotation): void {
-  tiptap.value?.commands.updateSemanticBlock(updated);
+  tiptap.value?.commands.updateBlockClassification(updated);
 }
 
 /**
- * Opens the {@linkcode AnnotationDetailsModal} for the given line's semantic block. The
+ * Opens the {@linkcode AnnotationDetailsModal} for the given line's block classification. The
  * annotation is assembled from the doc attrs (the source of truth); on submit the edited data is
- * written back into the doc via the `updateSemanticBlockData` command (undoable, save reads it).
+ * written back into the doc via the `updateBlockClassification` command (undoable, save reads it).
  *
  * @param {PositionedLine} line - The line whose annotation should be shown and edited
  * @returns {void} This function does not return any value.
@@ -228,11 +228,14 @@ function handleDetailsClick(line: PositionedLine): void {
     return;
   }
 
-  const annotation: Annotation | undefined = collectSemanticBlocks(doc).get(line.uuid);
+  const docAnnotation: DocAnnotation | undefined = collectBlockClassifications(doc).get(line.uuid);
 
-  if (!annotation) {
+  if (!docAnnotation) {
     return;
   }
+
+  const status: NodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
+  const annotation: Annotation = toAnnotation(docAnnotation, status);
 
   const config: AnnotationType | undefined = getAnnotationConfig(annotation.node.data.type);
 
@@ -260,13 +263,13 @@ function handleDetailsClick(line: PositionedLine): void {
 }
 
 /**
- * Removes the semantic-block annotation of the given line from the document.
+ * Removes the block-classification annotation of the given line from the document.
  *
  * @param {PositionedLine} line - The line whose annotation should be removed
  * @returns {void} This function does not return any value.
  */
 function handleDeleteClick(line: PositionedLine): void {
-  tiptap.value?.commands.removeSemanticBlock(line.uuid);
+  tiptap.value?.commands.removeBlockClassification(line.uuid);
 }
 
 /**
@@ -310,7 +313,7 @@ function recompute(): void {
     return;
   }
 
-  const columns: Map<string, number> = assignColumns(semanticBlockRanges.value);
+  const columns: Map<string, number> = assignColumns(blockClassificationRanges.value);
   const maxColumn: number = Math.max(-1, ...columns.values());
 
   const gutterWidthChanged: boolean = applyGutter(editorEl, maxColumn);
@@ -326,7 +329,7 @@ function recompute(): void {
 
 /**
  * Schedules a {@linkcode recompute} once the DOM and its layout have settled.
- * Serves as the single entry point for every recompute trigger (initial mount, semantic-block-range changes and window resize).
+ * Serves as the single entry point for every recompute trigger (initial mount, block-classification-range changes and window resize).
  *
  * Uses two delay concepts: `nextTick` waits for Vue to flush pending reactive updates into the DOM,
  * then `requestAnimationFrame` waits for the browser to lay them out - so the measurements taken
@@ -364,15 +367,15 @@ function handleLineClick(event: MouseEvent | KeyboardEvent, line: PositionedLine
   menu.value?.toggle(event);
 }
 
-function highlightSemanticBlock(uuid: string): void {
-  tiptap.value?.commands.toggleAnnotationHighlight("on", uuid, { renderType: "semanticBlock" });
+function highlightBlockClassification(uuid: string): void {
+  tiptap.value?.commands.toggleAnnotationHighlight("on", uuid, { renderType: "blockClassification" });
 }
 
 function removeHighlight(uuid: string): void {
-  tiptap.value?.commands.toggleAnnotationHighlight("off", uuid, { renderType: "semanticBlock" });
+  tiptap.value?.commands.toggleAnnotationHighlight("off", uuid, { renderType: "blockClassification" });
 }
 
-watch(semanticBlockRanges, async () => await schedule());
+watch(blockClassificationRanges, async () => await schedule());
 
 watch(
   () => settings.value.blockDecorations,
@@ -388,7 +391,7 @@ watch(hoveredUuid, (newUuid, oldUuid) => {
   }
 
   if (newUuid) {
-    highlightSemanticBlock(newUuid);
+    highlightBlockClassification(newUuid);
   }
 });
 
@@ -403,9 +406,9 @@ useEventListener(window, "resize", () => void schedule());
 
 <template>
   <Teleport v-if="isTargetReady" to="#editor">
-    <div class="semantic-block-lines-layer">
+    <div class="block-classification-lines-layer">
       <!-- Type of the last hovered line, shown directly above its top edge. -->
-      <div v-if="lastHovered" class="semantic-block-line__label" :style="labelStyle">
+      <div v-if="lastHovered" class="block-classification-line__label" :style="labelStyle">
         {{ lastHovered.type }}
       </div>
 
@@ -413,7 +416,7 @@ useEventListener(window, "resize", () => void schedule());
         v-for="line in lines"
         :key="line.uuid"
         tabindex="0"
-        class="semantic-block-line"
+        class="block-classification-line"
         :style="{
           top: `${line.top}px`,
           height: `${line.height}px`,
@@ -445,7 +448,7 @@ useEventListener(window, "resize", () => void schedule());
 </template>
 
 <style scoped>
-.semantic-block-lines-layer {
+.block-classification-lines-layer {
   position: absolute;
   top: 0;
   left: 0;
@@ -453,7 +456,7 @@ useEventListener(window, "resize", () => void schedule());
   pointer-events: none;
 }
 
-.semantic-block-line {
+.block-classification-line {
   position: absolute;
   border-radius: 2px;
   background-color: #c2c2c2;
@@ -462,11 +465,11 @@ useEventListener(window, "resize", () => void schedule());
   transition: background-color 0.12s ease;
 }
 
-.semantic-block-line:hover {
+.block-classification-line:hover {
   background-color: #5f5f5f;
 }
 
-.semantic-block-line__label {
+.block-classification-line__label {
   position: absolute;
   transform: translateY(-100%);
   padding: 1px 4px;

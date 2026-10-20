@@ -4,10 +4,10 @@ import { IconSpec, IconSpecInput } from "../models/types";
 import { normalizeIconSpec } from "../config/icons";
 import { LUCIDE_ICON_PREFIX } from "../config/constants";
 
-type IconSpecProps = {
+interface IconSpecProps {
   spec?: IconSpecInput;
   size?: number;
-};
+}
 
 const props = withDefaults(defineProps<IconSpecProps>(), {
   spec: undefined,
@@ -19,7 +19,7 @@ const normalized = computed<IconSpec | null>(() => normalizeIconSpec(props.spec)
 const lucideClass = computed<string>(() => resolveLucideIconClass(normalized.value));
 
 function resolveLucideIconClass(spec: IconSpec | null): string {
-  if (!spec || spec.kind !== "lucide") {
+  if (spec?.kind !== "lucide") {
     return "";
   }
 
@@ -29,13 +29,14 @@ function resolveLucideIconClass(spec: IconSpec | null): string {
 
 <template>
   <img v-if="normalized?.kind === 'url'" class="app-icon" :src="normalized.url" alt="" :width="props.size" :height="props.size" />
-  <!-- eslint-disable-next-line vue/no-v-html -- Icon specs come from project configuration, which is supplied by whoever deploys the app. Rendering it unsanitized is a deliberate decision, not an oversight. -->
+  <!-- eslint-disable vue/no-v-html -- Icon specs come from project configuration, which is supplied by whoever deploys the app. -->
   <span
     v-else-if="normalized?.kind === 'svg'"
     class="app-icon app-icon--raw"
     :style="{ width: `${props.size}px`, height: `${props.size}px` }"
     v-html="normalized.svg"
   />
+  <!-- eslint-enable vue/no-v-html -->
   <!--
     The `v-else` is load-bearing: without it this template is a fragment whenever no branch matches,
     and Vue then silently stops applying `class`/`style` passed in by the parent.

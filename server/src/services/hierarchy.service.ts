@@ -7,7 +7,7 @@ import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
-import { buildFilterCypher, datatypeOf, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
+import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
   FilterSpec,
   FilterTarget,
@@ -19,15 +19,10 @@ import {
   NodeUpdateObject,
   PaginationResult,
   PropertyConfig,
-  PropertyConfigDataType,
 } from "../models/types.js";
+import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call 
--- db results can not be typed (only with assertion) which is too cumbersome for now
- */
-
-/** Base RAMEN labels — everything else on a node counts as an "additional" (domain) label. */
-const BASE_LABELS: string[] = ["Annotation", "Character", "Collection", "Entity", "Content"];
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
 export interface HierarchyListOptions {
   filters: FilterSpec;
@@ -46,40 +41,6 @@ export interface HierarchyListOptions {
  * and the planned directory / tree views with the same endpoints.
  */
 export default class HierarchyService {
-  /**
-   * Creates the Cypher statement used for the sort key in the final query
-   *
-   * Dates are wrapped in `toString()`. This is because the cursor stores the sort value of the
-   * last row in JSON format — which has no date type. Therefore, the comparison value also must be
-   * a string to compare lexicographically. Otherwise, paging would break.
-   *
-   * @param {FilterTarget} sort - The validated sort target.
-   * @param {PropertyConfigDataType} datatype - The datatype the target compares as.
-   * @returns {string} A Cypher expression evaluating to the node's sort value.
-   * @example
-   * // Sorting by a node's "status" property:
-   * {
-   *   kind: "property",
-   *   field: "status"
-   * }
-   *
-   * // returns:
-   *
-   * `n.status`
-   *
-   * // and will be used in the final query as:
-   *
-   * `WITH n.status AS sortValue
-   *  ...
-   *  ORDER BY sortValue`
-   */
-  private sortValueExpression(sort: FilterTarget, datatype: PropertyConfigDataType): string {
-    const expression: string = targetExpression(sort);
-    const isTemporal: boolean = datatype === "date" || datatype === "date-time" || datatype === "time";
-
-    return isTemporal ? `toString(${expression})` : expression;
-  }
-
   /**
      * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID.
      *
@@ -161,8 +122,16 @@ export default class HierarchyService {
       case "children": {
         return `MATCH (parent:Collection {uuid: $parentUuid})<-[:PART_OF]-(n:Collection|Content)`;
       }
+      case "descendants": {
+        return `MATCH (ancestor:Collection {uuid: $ancestorUuid})<-[:PART_OF*1..]-(n:Collection|Content)
+                WHERE n <> ancestor
+                WITH DISTINCT n`;
+      }
       case "top": {
         return `MATCH (n:Collection|Content) WHERE NOT EXISTS { ()<-[:PART_OF]-(n) }`;
+      }
+      case "all": {
+        return `MATCH (n:Collection|Content)`;
       }
       case "uuids": {
         return `UNWIND $uuids AS scopeUuid
@@ -174,10 +143,11 @@ export default class HierarchyService {
 
   /**
    * Retrieves a paginated page of a hierarchy listing. What is listed is decided by the
-   * {@link HierarchyScope}: a Collection's direct children, the top of the hierarchy, or an
-   * explicit set of uuids (a client-side tag, whose nodes may sit anywhere in the graph).
+   * {@link HierarchyScope}: a Collection's direct children or all of its descendants, the top of the
+   * hierarchy, every node of the hierarchy, or an explicit set of uuids (a client-side tag, whose
+   * nodes may sit anywhere in the graph).
    *
-   * Everything but the scope is identical across the three: Collections always sort before
+   * Everything but the scope is identical across all of them: Collections always sort before
    * Contents (Finder-style); within each group the nodes sort by the requested target (the distinct
    * property by default), tie-broken by uuid; pagination is keyset (cursor) based.
    *
@@ -205,7 +175,7 @@ export default class HierarchyService {
     }
 
     const op: "<" | ">" = orderDirection(order);
-    const sortValue: string = this.sortValueExpression(sort, datatypeOf(sort, properties));
+    const sortValue: string = targetExpression(sort);
     const scopeMatch: string = this.scopeMatchClause(scope);
 
     const { clause: filterClause, params: filterParams } = buildFilterCypher(filters, properties);
@@ -249,9 +219,10 @@ export default class HierarchyService {
 
     const queryParams = {
       ...(scope.kind === "children" && { parentUuid: scope.parentUuid }),
+      ...(scope.kind === "descendants" && { ancestorUuid: scope.ancestorUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       ...filterParams,
-      baseLabels: BASE_LABELS,
+      baseLabels: BASE_NODE_LABELS,
       previewLength: int(SORT_KEY_MAX_LENGTH),
       limit: int(limit + 1),
       ...(cursor && {
@@ -268,7 +239,7 @@ export default class HierarchyService {
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
     const rawChildren: {
-      node: { nodeLabels: string[]; data: Record<string, any> };
+      node: { nodeLabels: string[]; data: { uuid: string; [key: string]: unknown } };
       groupRank: number;
       sortValue: unknown;
     }[] = dataResult.records[0]?.get("children") ?? [];
@@ -290,7 +261,7 @@ export default class HierarchyService {
       const cursorObject: HierarchyCursor = {
         v: CURSOR_VERSION,
         g: last.groupRank,
-        k: [valueToNativeType(last.sortValue)],
+        k: [valueToNativeType(last.sortValue) as string | number],
         u: last.node.data.uuid,
         s: signature,
       };

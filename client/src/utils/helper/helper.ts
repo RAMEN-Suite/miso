@@ -1,10 +1,5 @@
-import { Ref } from "vue";
 import {
   NodeDto,
-  Character,
-  PropertyConfigDataType,
-  StandoffAnnotation,
-  StandoffJson,
   TextNode,
   NodeStatusObject,
   NodeStatus,
@@ -13,13 +8,15 @@ import {
   CollectionNode,
   ToCItem,
   Annotation,
-  BaseNodeLabel,
   PropertyConfig,
   AnnotationType,
 } from "../../models/types";
+import { markRaw } from "vue";
 import { EditorView } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { useGuidelinesStore } from "../../store/guidelines";
+import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
+import { isArray, isBoolean, isDate, isDateTime, isNumeric, isString, isTime } from "./propertyTypeHelper";
 
 const { getAnnotationType } = useGuidelinesStore();
 
@@ -29,9 +26,12 @@ const { getAnnotationType } = useGuidelinesStore();
  * @param node - The ProseMirror node whose block children to traverse.
  * @param contentStartPos - Absolute document position where `node`'s content begins.
  *   For the document root this is `0`; for any other block node it is `nodePos + 1`
- *   (skipping the opening token).
+ *   (skipping the opening token). Only used as fallback key for nodes without a uuid.
+ * @param cache - ToC items by the ProseMirror node they were built from. ProseMirror reuses unchanged node objects
+ *   across transactions, so a cache hit returns the identical item (and subtree), which lets the ToC skip
+ *   re-rendering it. Filled with the newly built items.
  */
-export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[] {
+export function buildDocChildren(node: Node, contentStartPos: number, cache: WeakMap<Node, ToCItem>): ToCItem[] {
   const result: ToCItem[] = [];
 
   node.forEach((child: Node, offset: number) => {
@@ -39,24 +39,32 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
       return;
     }
 
-    const annotationType: string = getAnnotationType(child.type.name);
+    const cached: ToCItem | undefined = cache.get(child);
+
+    if (cached) {
+      result.push(cached);
+      return;
+    }
+
     const childPos: number = contentStartPos + offset;
 
-    result.push({
-      key: child.attrs.uuid ?? childPos.toString(),
-      label: annotationType,
-      data: {
-        text: child.textContent ?? "",
-        pos: childPos,
-        nodeSize: child.nodeSize,
-        nodeType: child.type.name,
-        type: annotationType,
-        level: child.attrs.level ?? null,
-        _annotationData: child.attrs._annotationData,
-        _semanticBlocks: child.attrs._semanticBlocks ?? [],
-      },
-      children: buildDocChildren(child, childPos + 1),
-    });
+    const item: ToCItem = markRaw(
+      Object.freeze({
+        key: child.attrs.uuid ?? childPos.toString(),
+        data: {
+          text: child.textContent ?? "",
+          nodeType: child.type.name,
+          type: getAnnotationType(child.type.name),
+          level: child.attrs.level ?? null,
+          _annotation: child.attrs._annotation,
+          _blockClassifications: child.attrs._blockClassifications ?? [],
+        },
+        children: buildDocChildren(child, childPos + 1, cache),
+      }),
+    );
+
+    cache.set(child, item);
+    result.push(item);
   });
 
   return result;
@@ -65,33 +73,40 @@ export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[]
 /**
  * Builds a nested {@link ToCItem} tree representing the full block structure of a ProseMirror document.
  *
- * Each item carries the node's absolute position (`data.pos`), which can be passed directly to
- * `editor.commands.setTextSelection` or `editor.view.nodeDOM` for navigation.
+ * Items carry no positions; use {@link findNodePosByUuid} with the item's key to navigate to a node.
  *
  * @param doc - The ProseMirror document node (`editor.state.doc`).
+ * @param cache - Items of previous builds, see {@link buildDocChildren}.
  */
-export function buildDocStructure(doc: Node): ToCItem[] {
+export function buildDocStructure(doc: Node, cache: WeakMap<Node, ToCItem>): ToCItem[] {
   // doc has no opening token, so its content starts at position 0
-  const structure: ToCItem[] = buildDocChildren(doc, 0);
+  const structure: ToCItem[] = buildDocChildren(doc, 0, cache);
 
   return structure;
 }
 
 /**
- * Converts the given characters and annotations into a single StandoffJson object.
+ * Finds the absolute position of the first node carrying the given `uuid` attribute.
  *
- * @param characters - The list of characters.
- * @param annotations - The list of annotations.
- * @returns {StandoffJson} The assembled Standoff JSON object.
+ * @param doc - The ProseMirror document node (`editor.state.doc`).
+ * @param uuid - The uuid to look for.
+ * @returns The node's position, or `null` when no node carries the uuid.
  */
-export function buildStandoffJson(characters: Character[], annotations: Annotation[]): StandoffJson {
-  const text: string = characters.map((c) => c.data.text).join("");
-  const standoffAnnotations: StandoffAnnotation[] = annotations.map((a) => a.node.data);
+export function findNodePosByUuid(doc: Node, uuid: string): number | null {
+  let result: number | null = null;
 
-  return {
-    text,
-    annotations: standoffAnnotations,
-  };
+  doc.descendants((node: Node, pos: number) => {
+    if (result !== null) {
+      return false;
+    }
+
+    if (node.attrs.uuid === uuid) {
+      result = pos;
+      return false;
+    }
+  });
+
+  return result;
 }
 
 /**
@@ -124,7 +139,7 @@ export function capitalize(inputString: string): string {
  */
 export function cloneDeep<T>(input: T): T {
   if (input instanceof Map) {
-    const clonedMap = new Map<any, any>();
+    const clonedMap = new Map<unknown, unknown>();
 
     // new Map(input) would not work since the reference to nested objects would still be the same
     input.forEach((value, key) => {
@@ -144,16 +159,6 @@ export function cloneDeep<T>(input: T): T {
 
   // Default for primitive types like string, number, boolean, etc.
   return input;
-}
-
-export function createNewCharacter(char: string): Character {
-  return {
-    data: {
-      uuid: crypto.randomUUID(),
-      text: char,
-    },
-    annotations: [],
-  };
 }
 
 /**
@@ -204,61 +209,28 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 }
 
 /**
- * Creates a new Collection object with default values.
+ * Removes all properties from the given node data that are not configured in the guidelines, in place.
  *
- * This function is used to generate a new Collection object with default values for the node labels and data properties.
+ * Is applied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
  *
- * @return {CollectionNode} A new Collection object with default values.
+ * @param {Record<string, unknown>} data - The node data to prune. Is mutated in place.
+ * @param {PropertyConfig[]} fields - The properties configured for the node.
+ * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are configured or not.
+ * @returns {void} This function does not return any value.
  */
-export function createCollectionNode(): CollectionNode {
-  return {
-    nodeLabels: ["Collection"],
-    data: {
-      uuid: crypto.randomUUID(),
-      label: "",
-    },
-  };
-}
+export function pruneUnconfiguredProperties(
+  data: Record<string, unknown>,
+  fields: PropertyConfig[],
+  intrinsic: readonly string[],
+): void {
+  const allowed = new Set<string>([...fields.map((f) => f.name), ...intrinsic]);
 
-/**
- * Creates a new Text object with default values.
- *
- * This function is used to generate a new Text object with default values for the node labels and data properties.
- * The additional (domain) labels are applied on creation so that the node never needs its labels mutated later.
- *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Content" base label.
- *   Defaults to none, leaving the node with the base label only.
- * @return {TextNode} A new Text object with default values.
- */
-export function createTextNode(params?: { additionalNodeLabels: string[] }): TextNode {
-  return {
-    nodeLabels: ["Content", ...(params?.additionalNodeLabels ?? [])],
-    data: {
-      uuid: crypto.randomUUID(),
-      text: "",
-    },
-  };
-}
-
-/**
- * Creates a new Entity object with default values.
- *
- * There are no guidelines for Entities yet, so a new Entity only consists of a UUID and an (empty) label.
- *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.
- *   Defaults to none, leaving the node with the base label only.
- * @return {EntityNode} A new Entity object with default values.
- */
-export function createEntityNode(params?: { additionalNodeLabels: string[] }): EntityNode {
-  return {
-    nodeLabels: ["Entity", ...(params?.additionalNodeLabels ?? [])],
-    data: {
-      uuid: crypto.randomUUID(),
-      label: "",
-    },
-  };
+  Object.keys(data).forEach((key: string) => {
+    if (!allowed.has(key)) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
+      delete data[key];
+    }
+  });
 }
 
 /**
@@ -315,41 +287,6 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
 }
 
 /**
- * Returns a list of all labels that are not one of the RAMEN base node labels.
- *
- * Mainly used for visual purposes (base node labels do not need to be displayed).
- *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {string[]} List of all labels that are not one of the RAMEN base node labels
- */
-export function filterBaseNodeLabel(labels: string[]): string[] {
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity"];
-
-  return labels.filter((l: string) => !baseNodeLabels.includes(l));
-}
-
-/**
- * Returns the RAMEN base node label for a node from its full list of labels.
- *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {BaseNodeLabel} The node's base label
- * @throws {Error} If none of the base labels is present
- */
-export function getBaseNodeLabel(labels: string[]): BaseNodeLabel {
-  if (labels.includes("Entity")) {
-    return "Entity";
-  } else if (labels.includes("Collection")) {
-    return "Collection";
-  } else if (labels.includes("Content")) {
-    return "Content";
-  } else if (labels.includes("Annotation")) {
-    return "Annotation";
-  } else {
-    throw new Error("Node does not have a valid base label");
-  }
-}
-
-/**
  * Checks whether an annotation matches the requirements of its configuration.
  *
  * Currently only property fields are validated. Will be extended when rules for connected
@@ -362,54 +299,11 @@ export function getBaseNodeLabel(labels: string[]): BaseNodeLabel {
 export function checkAnnotationValidity(annotation: Annotation, config: AnnotationType): boolean {
   const fields: PropertyConfig[] = config.properties ?? [];
 
-  return fields.every((field: PropertyConfig) => {
-    if (!field.required) {
-      return true;
-    }
-
-    const value: unknown = annotation.node.data[field.name];
-
-    if (value === null || value === undefined) {
-      return false;
-    }
-
-    if (field.type === "string" && (value as string).trim().length === 0) {
-      return false;
-    }
-
-    return true;
-  });
+  return fields.every((field: PropertyConfig) => !isRequiredValueMissing(annotation.node.data[field.name], field));
 }
 
 /**
- * A function that compares two objects to check if they are equal. Works only for non-nested objects
- * where values are strings or numbers.
- *
- * @param {Record<string, any>} obj1 - The first object to compare.
- * @param {Record<string, any>} obj2 - The second object to compare.
- * @return {boolean} Returns true if the objects are equal, otherwise false.
- */
-export function areObjectsEqual(obj1: Record<string, any>, obj2: Record<string, any>): boolean {
-  // TODO: This function needs to be rewritten when there are more complex objects...
-  const keys1: string[] = Object.keys(obj1);
-  const keys2: string[] = Object.keys(obj2);
-
-  if (keys1.length !== keys2.length) {
-    return false;
-  }
-
-  for (const key of keys1) {
-    if (!keys2.includes(key) || obj1[key] !== obj2[key]) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Checks if two sets are equal by comparing their sizes and elements. Used for comparing
- * character annotations.
+ * Checks if two sets are equal by comparing their sizes and elements.
  *
  * @param {Set<string>} setA - The first set to compare.
  * @param {Set<string>} setB - The second set to compare.
@@ -445,25 +339,6 @@ export function ellipsize(text: string, maxLength: number): string {
 }
 
 /**
- * Filters out the RAMEN base node labels (`"Annotation"`, `"Collection"`, `"Content"`, `"Entity"`, `"Text"`)
- * from the given array, returning only the domain-specific labels.
- *
- * This function is mostly used for displaying labels in node previews (e.g. in annotation forms,
- * collection column entries etc.).
- *
- * // TODO: Don't forget to remove the "Text" label.
- *
- * @param {string[]} nodeLabels - The full list of node labels to filter.
- * @returns {string[]} The labels with all base node labels removed.
- */
-export function filterDefaultLabels(nodeLabels: string[]): string[] {
-  // TODO: Remove "Text" check ("Content") is enough. Only kept for legacy reasons :)
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity", "Content"];
-
-  return nodeLabels.filter((l) => !baseNodeLabels.includes(l));
-}
-
-/**
  * Format a file size in bytes into a human-readable string.
  *
  * @param {number} bytes The file size in bytes
@@ -484,28 +359,34 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * Formats a raw property value for read-only display. When a field's configured type is known it is used,
+ * Formats a raw property value for read-only display. When a field's config is known its type is used,
  * otherwise the type is derived from the raw value itself (e.g. for untyped/unconfigured node properties).
  *
  * @param {unknown} value - The raw property value.
- * @param {PropertyConfigDataType} [type] - The configured type of the property, if known.
+ * @param {Partial<PropertyConfig>} [config] - The config of the property, if known.
  * @returns {string} The formatted, human-readable value.
  */
-export function formatPropertyValue(value: unknown, type?: PropertyConfigDataType): string {
+export function formatPropertyValue(value: unknown, config?: Partial<PropertyConfig>): string {
   if (value === null || value === undefined || value === "") {
     return "—";
   }
 
-  if (type === "array" || Array.isArray(value)) {
+  if (isArray(config) || Array.isArray(value)) {
     return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
   }
 
-  return String(value);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 }
 
 /**
  * Returns the ProseMirror document positions that correspond to the top and bottom edges
  * of the editor's scroll container (i.e. the currently visible range of the document).
+ *
+ * Requires the editor element to be as tall as its content, otherwise `posAtCoords` returns `null`.
  *
  * Falls back to `0` for `from` and `doc.content.size` for `to` when `posAtCoords` returns
  * `null` — which happens when the editor content does not yet fill the container or the
@@ -516,22 +397,20 @@ export function formatPropertyValue(value: unknown, type?: PropertyConfigDataTyp
  */
 export function getVisibleDocRange(editorView: EditorView): { from: number; to: number } {
   // TODO: Add viewport buffer so that annotation directly above/below are included...
-  const rect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
+  const scrollPaneRect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
 
-  if (!rect) {
+  if (!scrollPaneRect) {
     return { from: 0, to: editorView.state.doc.content.size };
   }
 
-  const { top: parentTopOffset, left: parentLeftOffset, height } = rect;
+  const contentRect: DOMRect = editorView.dom.getBoundingClientRect();
 
-  const startPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset,
-  });
-  const endPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset + height,
-  });
+  const left: number = contentRect.left + 1;
+  const top: number = Math.max(scrollPaneRect.top, contentRect.top) + 1;
+  const bottom: number = Math.min(scrollPaneRect.bottom, contentRect.bottom) - 1;
+
+  const startPos = editorView.posAtCoords({ left, top });
+  const endPos = editorView.posAtCoords({ left, top: bottom });
 
   // Catch edge cases
   const from: number = startPos?.pos ?? 0;
@@ -540,21 +419,33 @@ export function getVisibleDocRange(editorView: EditorView): { from: number; to: 
   return { from, to };
 }
 
-// TODO: These functions should actually check the node, not the status object...refactor later
-export function isEntityNode(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
-  return node.node.nodeLabels.includes("Entity");
-}
+/**
+ * Checks whether a required property is left without a usable value.
+ *
+ * Used for input checks in forms.
+ *
+ * @param {unknown} value - The raw property value.
+ * @param {Partial<PropertyConfig>} field - The config of the property the value belongs to.
+ * @return {boolean} Returns `true` if the property is required but has no value, `false` otherwise.
+ */
+export function isRequiredValueMissing(value: unknown, field: Partial<PropertyConfig>): boolean {
+  if (!field?.required) {
+    return false;
+  }
 
-export function isAnnotationNode(node: NodeStatusObject): node is NodeStatusObject<AnnotationNode> {
-  return node.node.nodeLabels.includes("Annotation");
-}
+  if (value === null || value === undefined) {
+    return true;
+  }
 
-export function isCollectionNode(node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
-  return node.node.nodeLabels.includes("Collection");
-}
+  if (typeof value === "string" && value.trim().length === 0) {
+    return true;
+  }
 
-export function isContentNode(node: NodeStatusObject): node is NodeStatusObject<TextNode> {
-  return node.node.nodeLabels.includes("Content");
+  if (Array.isArray(value) && value.length === 0) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -613,36 +504,46 @@ export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
 }
 
 /**
- * Returns a default value based on the data type.
+ * Returns a default value based on the data type of a property.
  *
  * Used during import, editing and saving of Collections or Annotations.
  *
- * @param {PropertyConfigDataType} type - The data type.
- * @return {any} The appropriate default value for the data type.
+ * @param {Partial<PropertyConfig>} config - The config of the property.
+ * @return {unknown} The appropriate default value for the data type.
  */
-export function getDefaultValueForProperty(type: PropertyConfigDataType): any {
-  switch (type) {
-    case "boolean":
-      return false;
-    case "date":
-      const today: Date = new Date();
-      const year: number = today.getUTCFullYear();
-      const month: number = today.getUTCMonth();
-      const day: number = today.getUTCDate();
-      return new Date(Date.UTC(year, month, day, 0, 0, 0)).toISOString();
-    case "date-time":
-      return new Date().toISOString();
-    case "integer":
-      return 0;
-    case "number":
-      return 0;
-    case "string":
-      return "";
-    case "time":
-      return "00:00:00";
-    case "array":
-      return [];
-    default:
-      return null;
+export function getDefaultValueForProperty(config: Partial<PropertyConfig>): unknown {
+  if (isBoolean(config)) {
+    return false;
+  } else if (isDate(config)) {
+    // Today (UTC) as YYYY-MM-DD
+    return new Date().toISOString().slice(0, 10);
+  } else if (isDateTime(config)) {
+    // Now (UTC), cut to whole seconds like the values the inputs produce
+    return `${new Date().toISOString().slice(0, 19)}.000Z`;
+  } else if (isNumeric(config)) {
+    return 0;
+  } else if (isString(config)) {
+    return "";
+  } else if (isTime(config)) {
+    return "00:00:00";
+  } else if (isArray(config)) {
+    return [];
+  } else {
+    return null;
   }
+}
+
+/**
+ * Returns a display string for a Content node.
+ *
+ * This is currently a hack since multi-level RAMEN refinements are not yet supported.
+ * TODO: Will be fixed as soon as Nori export is implemented.
+ *
+ * @param {string[]} nodeLabels - All node labels of the Content node.
+ * @returns {string} The labels joined with " › " (empty string if none).
+ */
+export function getContentLabelText(nodeLabels: string[]): string {
+  return filterBaseNodeLabels(nodeLabels)
+    .filter((l: string) => l !== "Text")
+    .join(" › ");
 }

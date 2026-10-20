@@ -6,8 +6,8 @@
 
    ```sh
    cd <your-directory-name>
-   git clone https://github.com/THM-Graphs/atag-editor.git
-   cd atag-editor
+   git clone https://github.com/RAMEN-Suite/miso.git
+   cd miso
    ```
 
 3. Copy the `.env.example` file to create your `.env` file.

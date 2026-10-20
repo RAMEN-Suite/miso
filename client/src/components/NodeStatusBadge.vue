@@ -22,7 +22,7 @@ const severity = computed<string>(() => {
     case "added":
       return "success";
     case "created":
-      return "info";
+      return "success";
     case "removed":
       return "danger";
     case "modified":

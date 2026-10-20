@@ -1,6 +1,6 @@
 import { Node, Schema } from "@tiptap/pm/model";
 import { Step, StepResult, Mapping } from "@tiptap/pm/transform";
-import { AnnotationNode } from "../../../models/types";
+import { Annotation } from "../../../models/types";
 import { AddAnnotationStep } from "./addAnnotationStep";
 
 /**
@@ -10,12 +10,19 @@ import { AddAnnotationStep } from "./addAnnotationStep";
  * indirection is that ProseMirror's history plugin only records `tr.steps`, not plugin state.
  * By placing the annotation data into an actual step, the history plugin records it and calls
  * `invert()` on undo, producing an {@link AddAnnotationStep} that the plugin then acts on.
+ *
+ * The step carries the whole annotation (data, status and connected nodes) as it was stored in the removed
+ * decoration, so that undo restores it completely.
+ *
+ * The positions are deliberately not named `from`/`to`: tiptap's `getChangedRanges` treats every step
+ * without a step map but with `from`/`to` fields as a changed document range, which breaks extensions
+ * relying on it (e.g. UniqueID) on undo/redo.
  */
 export class RemoveAnnotationStep extends Step {
   constructor(
-    readonly annotation: AnnotationNode,
-    readonly from: number,
-    readonly to: number,
+    readonly annotation: Annotation,
+    readonly annotationFrom: number,
+    readonly annotationTo: number,
   ) {
     super();
   }
@@ -27,12 +34,12 @@ export class RemoveAnnotationStep extends Step {
 
   invert(): AddAnnotationStep {
     // Returns the opposite step
-    return new AddAnnotationStep(this.annotation, this.from, this.to);
+    return new AddAnnotationStep(this.annotation, this.annotationFrom, this.annotationTo);
   }
 
   map(mapping: Mapping): RemoveAnnotationStep {
-    const from: number = mapping.map(this.from);
-    const to: number = mapping.map(this.to);
+    const from: number = mapping.map(this.annotationFrom);
+    const to: number = mapping.map(this.annotationTo);
 
     return new RemoveAnnotationStep(this.annotation, from, to);
   }
@@ -43,12 +50,12 @@ export class RemoveAnnotationStep extends Step {
     return {
       stepType: "removeAnnotation",
       annotation: this.annotation,
-      from: this.from,
-      to: this.to,
+      from: this.annotationFrom,
+      to: this.annotationTo,
     };
   }
 
-  static fromJSON(_schema: Schema, json: any): RemoveAnnotationStep {
+  static fromJSON(_schema: Schema, json: { annotation: Annotation; from: number; to: number }): RemoveAnnotationStep {
     // Kept for consistency, not really needed (JSON serialization is only relevant during collaboration when
     // steps need to be sent over the network). Here, everything is kept in memory anyway.
     return new RemoveAnnotationStep(json.annotation, json.from, json.to);

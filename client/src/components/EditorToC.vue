@@ -1,23 +1,38 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useTiptapStore } from "../store/tiptap";
-import Tree from "primevue/tree";
 import Panel from "primevue/panel";
 import { ToCItem } from "../models/types.ts";
+import { findNodePosByUuid } from "../utils/helper/helper.ts";
 import EditorToCItem from "./EditorToCItem.vue";
 
 const { tiptap, tableOfContent } = useTiptapStore();
 
-const expandedKeys = ref<Record<string, boolean>>({});
+const expandedKeys = ref<Set<string>>(new Set());
+
+function handleToggle(key: string): void {
+  if (expandedKeys.value.has(key)) {
+    expandedKeys.value.delete(key);
+  } else {
+    expandedKeys.value.add(key);
+  }
+}
 
 function handleNodeClick(node: ToCItem) {
   if (!tiptap.value) {
     return;
   }
 
-  tiptap.value.chain().setTextSelection(node.data.pos).focus().run();
+  // Resolved on click since items carry no positions (they would shift with every edit)
+  const pos: number | null = findNodePosByUuid(tiptap.value.state.doc, node.key);
 
-  const domNode = tiptap.value.view.nodeDOM(node.data.pos);
+  if (pos === null) {
+    return;
+  }
+
+  tiptap.value.chain().setTextSelection(pos).focus().run();
+
+  const domNode = tiptap.value.view.nodeDOM(pos);
 
   // This does not work reliably, maybe CSS attributes on scroll containers need to be more strict...
   if (domNode instanceof Element) {
@@ -51,50 +66,17 @@ function handleNodeClick(node: ToCItem) {
           </div>
         </template>
         <template v-else>
-          <Tree
-            v-model:expanded-keys="expandedKeys"
-            :value="tableOfContent"
-            selection-mode="single"
-            :meta-key-selection="false"
-            class="w-full"
-            :pt="{
-              root: {
-                style: {
-                  paddingLeft: 0,
-                },
-              },
-              nodeContent: {
-                style: {
-                  gap: 0,
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                },
-              },
-              nodeLabel: {
-                style: {
-                  width: '100%',
-                },
-              },
-              nodeToggleButton: ({ context }) => ({
-                style: {
-                  visibility: 'visible',
-                  pointerEvents: context.node.children?.length !== 0 ? 'auto' : 'none',
-                },
-              }),
-            }"
-          >
-            <template #nodetoggleicon="{ node, expanded }">
-              <template v-if="node.children?.length !== 0">
-                <i :class="`icon-chevron-${expanded ? 'down' : 'right'}`"></i>
-              </template>
-              <template v-else>
-                <i class="icon-minus"></i>
-              </template>
-            </template>
-            <template #default="slotProps">
-              <EditorToCItem :key="slotProps.node.key" :item="slotProps.node as ToCItem" @item-click="handleNodeClick" />
-            </template>
-          </Tree>
+          <ul role="tree" aria-label="Table of Contents" class="w-full">
+            <EditorToCItem
+              v-for="item in tableOfContent"
+              :key="item.key"
+              :item="item"
+              :expanded-keys="expandedKeys"
+              :level="1"
+              @item-click="handleNodeClick"
+              @toggle="handleToggle"
+            />
+          </ul>
         </template>
       </template>
     </div>

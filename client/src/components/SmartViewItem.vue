@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ComponentPublicInstance, DeepReadonly, ref, useTemplateRef } from "vue";
+import { DeepReadonly, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Menu from "primevue/menu";
 import { MenuItem } from "primevue/menuitem";
-import { useSmartViewsStore } from "../store/smartViews";
 import { SmartView } from "../models/types";
 
-const SMART_VIEW_ICON: string = "icon-folder";
-const SMART_VIEW_ICON_ACTIVE: string = "icon-folder";
+const SMART_VIEW_ICON: string = "icon-folder-cog";
+const SMART_VIEW_ICON_ACTIVE: string = "icon-folder-cog";
 
 const props = defineProps<{
   view: DeepReadonly<SmartView>;
@@ -16,12 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<(e: "select" | "edit" | "delete") => void>();
 
-const { updateSmartView } = useSmartViewsStore();
-
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
-
-const isRenaming = ref<boolean>(false);
-const renameDraft = ref<string>("");
 
 const menuItems: MenuItem[] = [
   { label: "Edit", icon: "icon-pencil", command: () => emit("edit") },
@@ -30,72 +24,6 @@ const menuItems: MenuItem[] = [
 
 function handleOpenMenu(event: Event): void {
   menu.value?.toggle(event);
-}
-
-/**
- * Turns the label into an input. Reached from the row menu and from a double click on the label.
- *
- * @returns {void} This function does not return any value.
- */
-function startRename(): void {
-  isRenaming.value = true;
-  renameDraft.value = props.view.label;
-}
-
-/**
- * Focuses the rename input and selects its text, so typing replaces the old label.
- *
- * @param {Element | ComponentPublicInstance | null} element - The input, or null on unmount.
- * @returns {void} This function does not return any value.
- */
-function focusRenameInput(element: Element | ComponentPublicInstance | null): void {
-  if (!(element instanceof HTMLInputElement) || document.activeElement === element) {
-    return;
-  }
-
-  element.focus();
-  element.select();
-}
-
-/**
- * Persists the rename. Called from both Enter and blur, hence the guard: leaving edit mode
- * unmounts the input, which can itself fire a blur.
- *
- * An empty label is discarded rather than saved — a nameless view cannot be told apart in the list.
- *
- * @returns {void} This function does not return any value.
- */
-function handleCommitRename(): void {
-  if (!isRenaming.value) {
-    return;
-  }
-
-  const label: string = renameDraft.value.trim();
-
-  isRenaming.value = false;
-
-  if (label === "") {
-    return;
-  }
-
-  updateSmartView({ uuid: props.view.uuid, label });
-}
-
-/**
- * Handles keys inside the rename input, and keeps every one of them from reaching the row: the row
- * treats Enter and Space as "select this view", which would otherwise swallow the space bar.
- *
- * @param {KeyboardEvent} event - The keydown event.
- * @returns {void} This function does not return any value.
- */
-function handleRenameKeydown(event: KeyboardEvent): void {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    handleCommitRename();
-  } else if (event.key === "Escape") {
-    event.preventDefault();
-    isRenaming.value = false;
-  }
 }
 </script>
 
@@ -114,24 +42,13 @@ function handleRenameKeydown(event: KeyboardEvent): void {
     >
       <i :class="[props.isActive ? SMART_VIEW_ICON_ACTIVE : SMART_VIEW_ICON, 'shrink-0']" />
 
-      <input
-        v-if="isRenaming"
-        :ref="focusRenameInput"
-        v-model="renameDraft"
-        class="rename-input text-sm grow min-w-0"
-        spellcheck="false"
-        :aria-label="`Rename ${props.view.label}`"
-        @blur="handleCommitRename"
-        @keydown="handleRenameKeydown"
-      />
       <span
-        v-else
         role="button"
         tabindex="0"
         class="text-sm grow min-w-0 text-ellipsis overflow-hidden whitespace-nowrap select-none"
-        @dblclick="startRename"
-        @keydown.enter="startRename"
-        @keydown.space="startRename"
+        @dblclick="emit('edit')"
+        @keydown.enter="emit('edit')"
+        @keydown.space="emit('edit')"
       >
         {{ props.view.label }}
       </span>
@@ -178,14 +95,5 @@ function handleRenameKeydown(event: KeyboardEvent): void {
   &:focus-within .row-action {
     opacity: 1;
   }
-}
-
-.rename-input {
-  padding: 0;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--p-primary-color);
-  outline: none;
-  font-family: inherit;
 }
 </style>

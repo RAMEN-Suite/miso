@@ -5,7 +5,7 @@ import { getDefaultValueForProperty } from "../utils/helper/helper";
 import { PropertyConfig } from "../models/types";
 import Button from "primevue/button";
 
-const modelValue = defineModel<any[]>();
+const modelValue = defineModel<unknown[]>();
 const props = defineProps<{
   config: Partial<PropertyConfig>;
   mode?: "edit" | "view";
@@ -27,9 +27,9 @@ const maxItems: number | null | undefined = props.config.maxItems;
  */
 function handleAddItem(): void {
   if (!modelValue.value) {
-    modelValue.value = [getDefaultValueForProperty(props.config.items.type)];
+    modelValue.value = [getDefaultValueForProperty(props.config.items)];
   } else {
-    modelValue.value.push(getDefaultValueForProperty(props.config.items.type));
+    modelValue.value.push(getDefaultValueForProperty(props.config.items));
   }
 }
 
@@ -58,7 +58,7 @@ function handleDeleteItem(itemIndex: number): void {
 
 <template>
   <div class="w-full">
-    <div v-for="(_, index) in modelValue" class="flex gap-1 items-center">
+    <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
       <DataInputComponent v-model="modelValue[index]" :config="props.config.items" :mode="props.mode" />
       <Button
         v-if="isEditable"

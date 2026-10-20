@@ -132,8 +132,8 @@ function isSmartViewActive(uuid: string): boolean {
 }
 
 /**
- * Switches the columns to a smart view: the first column lists the top of the hierarchy, narrowed by
- * the view's stored filter preset. Everything below behaves as it does under the database root.
+ * Switches the columns to a smart view: the first column lists the nodes of the view's stored scope,
+ * narrowed by its stored filter preset. Everything below behaves as it does under the database root.
  *
  * @param {string} uuid - The view UUID.
  * @returns {void} This function does not return any value.
@@ -167,8 +167,13 @@ function handleOpenSmartViewModal(view?: DeepReadonly<SmartView>): void {
     dialog.open(SmartViewModal, {
       props: {
         ...BASE_MODAL_PROPS,
-        header: view ? `Edit Smart View "${view.label}"` : "Create a new Smart View",
-        style: { width: "560px" },
+        // The form brings its own title row (including the close button), width and padding
+        showHeader: false,
+        pt: {
+          ...BASE_MODAL_PROPS.pt,
+          root: { "aria-label": view ? `Edit smart view "${view.label}"` : "Create a new smart view" },
+          content: { style: { padding: "0" } },
+        },
       },
       data: { viewUuid: view?.uuid ?? null },
       emits: {

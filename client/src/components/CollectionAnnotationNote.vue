@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation, PropertyConfig } from "../models/types";
+import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
@@ -16,17 +16,18 @@ const props = defineProps<{
   collectionNodeLabels: string[];
 }>();
 
-const emit = defineEmits<{
-  (e: "edit"): void;
-  (e: "remove"): void;
-}>();
+const emit = defineEmits<(e: "edit" | "remove") => void>();
 
-const { getCollectionAnnotationFields } = useGuidelinesStore();
+const { getCollectionAnnotationConfig, getCollectionAnnotationFields } = useGuidelinesStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
 const propertyFields: ComputedRef<PropertyConfig[]> = computed(() =>
   getCollectionAnnotationFields(props.collectionNodeLabels, annotation.value.node.data.type),
+);
+
+const config: ComputedRef<AnnotationType | undefined> = computed(() =>
+  getCollectionAnnotationConfig(props.collectionNodeLabels, annotation.value.node.data.type),
 );
 
 function handleToggleView(event: MouseEvent): void {
@@ -39,7 +40,7 @@ function handleToggleView(event: MouseEvent): void {
     <div class="header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :annotation-type="annotation.node.data.subType ?? annotation.node.data.type" />
+          <AnnotationTypeIcon :config="config" />
         </div>
         <span class="font-bold">{{ annotation.node.data.subType ?? annotation.node.data.type }}</span>
         <NodeStatusBadge :status="annotation.meta.status" badge-style="dot" />

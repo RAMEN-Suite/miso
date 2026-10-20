@@ -23,6 +23,7 @@ function toggle(event: PointerEvent): void {
       <span class="font-bold">Document structures</span>
 
       <div class="flex items-center justify-between gap-4" title="Toggle line break and paragraph symbols">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="doc-structures">Show formatting marks</label>
         <ToggleSwitch v-model="settings.documentStructures" input-id="doc-structures" />
       </div>
@@ -30,11 +31,13 @@ function toggle(event: PointerEvent): void {
       <span class="font-bold">Block decorations</span>
 
       <div class="flex items-center justify-between gap-4" title="Toggle outlines for document blocks (paragraphs, lists)">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="deco-outline">Show block outlines</label>
         <ToggleSwitch v-model="settings.blockDecorations.outline" input-id="deco-outline" />
       </div>
 
       <div class="flex items-center justify-between gap-4" title="Display block names (paragraphs, lists) on top of each block">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="deco-base">Show block names</label>
         <ToggleSwitch v-model="settings.blockDecorations.baseType" input-id="deco-base" />
       </div>

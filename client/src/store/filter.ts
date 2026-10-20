@@ -35,15 +35,6 @@ export function useFilterStore() {
   }
 
   /**
-   * Resets the selected options to the default, which are all options.
-   *
-   * @return {void} This function does not return any value.
-   */
-  function selectDefaultOptions(): void {
-    selectedOptions.value = [...allOptions.value];
-  }
-
-  /**
    * Toggles a group of options at once (e.g. all types of a category). If every given option is already selected,
    * all of them are deselected. Otherwise the missing ones are added to the selection.
    *
@@ -66,7 +57,6 @@ export function useFilterStore() {
     selectedOptions,
     initializeFilter,
     selectAllOptions,
-    selectDefaultOptions,
     toggleOptions,
   };
 }

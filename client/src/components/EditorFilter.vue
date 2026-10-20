@@ -9,8 +9,7 @@ import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
 
-const { allOptions, areAllOptionsSelected, selectedOptions, selectAllOptions, selectDefaultOptions, toggleOptions } =
-  useFilterStore();
+const { areAllOptionsSelected, selectedOptions, selectAllOptions, toggleOptions } = useFilterStore();
 const { groupedAndSortedAnnotationTypes } = useGuidelinesStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
@@ -22,18 +21,6 @@ const filterableCategories: ComputedRef<Record<string, AnnotationType[]>> = comp
   return Object.fromEntries(
     Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
   );
-});
-
-const badgeContent: ComputedRef<string> = computed(() => {
-  return `${selectedOptions.value.length}/${allOptions.value.length}`;
-});
-
-const badgeSeverity: ComputedRef<string> = computed(() => {
-  if (areAllOptionsSelected.value) {
-    return "secondary";
-  }
-
-  return "danger";
 });
 
 /**
@@ -109,62 +96,29 @@ function toggleCategoryCollapse(category: string): void {
 
 <template>
   <div class="flex justify-end">
-    <Button
-      type="button"
-      icon="icon-filter"
-      label="Filter"
-      size="small"
-      severity="secondary"
-      outlined
-      title="Filter annotation types"
-      :badge="badgeContent"
-      :badge-severity="badgeSeverity"
-      @click="toggle"
-    />
+    <div class="relative">
+      <Button
+        type="button"
+        icon="icon-filter"
+        label="Filter"
+        size="small"
+        severity="secondary"
+        outlined
+        :title="areAllOptionsSelected ? 'Filter annotation types' : 'Filter annotation types'"
+        @click="toggle"
+      />
+      <span v-if="!areAllOptionsSelected" class="changed-dot" aria-hidden="true"></span>
+    </div>
     <Popover ref="popover">
-      <div class="filter-panel flex flex-col">
-        <div class="panel-header flex items-center justify-between gap-2 pb-2 mb-2">
-          <span class="panel-title text-sm font-semibold">Annotation types</span>
-          <div class="flex items-center gap-1">
-            <Button
-              class="header-button"
-              :label="areAllOptionsSelected ? 'Select none' : 'Select all'"
-              :title="areAllOptionsSelected ? 'Deselect all types' : 'Select all types'"
-              size="small"
-              severity="secondary"
-              text
-              @click="selectAllOptions"
-            />
-            <span class="separator" aria-hidden="true"></span>
-            <Button
-              class="header-button"
-              label="Default"
-              title="Reset to default selection"
-              size="small"
-              severity="secondary"
-              text
-              @click="selectDefaultOptions"
-            />
-          </div>
-        </div>
+      <div class="filter-panel flex flex-col gap-2">
         <div class="categories flex flex-col">
           <section v-for="(annotationTypes, category) in filterableCategories" :key="category" class="category">
-            <div class="category-header flex items-center gap-2">
-              <Button
-                :icon="`icon-chevron-${collapsedCategories.has(category) ? 'right' : 'down'}`"
-                :title="collapsedCategories.has(category) ? 'Expand category' : 'Collapse category'"
-                :aria-expanded="!collapsedCategories.has(category)"
-                size="small"
-                severity="secondary"
-                text
-                rounded
-                @click="toggleCategoryCollapse(category)"
-              />
+            <div class="category-header flex items-center gap-1">
               <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
                 :for="`filter-category-${category}`"
                 :title="`Toggle all types of category ${category}`"
-                class="category-toggle flex flex-1 items-center gap-2 px-1.5 py-0.5 rounded cursor-pointer min-w-0"
+                class="row category-toggle flex flex-1 items-center gap-2 min-w-0"
               >
                 <Checkbox
                   :model-value="isCategoryFullySelected(annotationTypes)"
@@ -174,10 +128,21 @@ function toggleCategoryCollapse(category: string): void {
                   size="small"
                   @update:model-value="toggleOptions(getCategoryTypes(annotationTypes))"
                 />
-                <span class="category-name font-semibold truncate">
+                <span class="category-name truncate">
                   {{ capitalize(category) }}
                 </span>
               </label>
+              <Button
+                class="chevron-button"
+                :icon="`icon-chevron-${collapsedCategories.has(category) ? 'right' : 'down'}`"
+                :title="collapsedCategories.has(category) ? 'Expand category' : 'Collapse category'"
+                :aria-expanded="!collapsedCategories.has(category)"
+                size="small"
+                severity="secondary"
+                text
+                rounded
+                @click="toggleCategoryCollapse(category)"
+              />
             </div>
             <div v-show="!collapsedCategories.has(category)" class="options flex flex-col">
               <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
@@ -185,7 +150,7 @@ function toggleCategoryCollapse(category: string): void {
                 v-for="annotationType of annotationTypes"
                 :key="annotationType.type"
                 :for="`filter-type-${annotationType.type}`"
-                class="option flex items-center gap-2 px-5 py-0.5 rounded cursor-pointer"
+                class="row option flex items-center gap-2"
               >
                 <Checkbox
                   v-model="selectedOptions"
@@ -193,13 +158,24 @@ function toggleCategoryCollapse(category: string): void {
                   :value="annotationType.type"
                   size="small"
                 />
-                <div class="annotation-type-icon-container shrink-0">
-                  <AnnotationTypeIcon :annotation-type="annotationType.type" />
-                </div>
+                <span class="annotation-type-icon-container shrink-0">
+                  <AnnotationTypeIcon :config="annotationType" :size="16" />
+                </span>
                 <span class="option-name">{{ annotationType.type }}</span>
               </label>
             </div>
           </section>
+        </div>
+        <div class="panel-footer flex justify-end">
+          <button
+            type="button"
+            class="action-link flex items-center gap-1"
+            :title="areAllOptionsSelected ? 'Deselect all types' : 'Select all types'"
+            @click="selectAllOptions"
+          >
+            <i :class="areAllOptionsSelected ? 'icon-x' : 'icon-check'" aria-hidden="true"></i>
+            {{ areAllOptionsSelected ? "Deselect all" : "Select all" }}
+          </button>
         </div>
       </div>
     </Popover>
@@ -207,28 +183,40 @@ function toggleCategoryCollapse(category: string): void {
 </template>
 
 <style scoped>
+/* ---------- Trigger ---------- */
+
+.changed-dot {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--p-orange-500);
+  box-shadow: 0 0 0 2px var(--p-content-background);
+}
+
+/* ---------- Panel ---------- */
+
 .filter-panel {
   /* Fixed width so collapsing categories or showing the scrollbar does not resize the popover */
-  width: 22rem;
+  width: 20rem;
   max-height: 60vh;
 }
 
-.panel-header {
+.panel-footer {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--p-content-border-color);
 }
 
-.panel-title {
-  color: var(--p-text-muted-color);
-}
-
-.header-button {
+.action-link {
   padding: 0.125rem 0.375rem;
-  font-size: 0.875rem;
+  border-radius: var(--p-content-border-radius);
+  color: var(--p-primary-color);
+  cursor: pointer;
 }
 
-.separator {
-  color: var(--p-text-muted-color);
+.action-link:hover {
+  background-color: var(--p-content-hover-background);
 }
 
 .categories {
@@ -238,16 +226,33 @@ function toggleCategoryCollapse(category: string): void {
   scrollbar-gutter: stable;
 }
 
+.category + .category {
+  margin-top: 0.25rem;
+}
+
+/* Shared row look for category toggles and options */
+.row {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--p-content-border-radius);
+  cursor: pointer;
+}
+
+.row:hover {
+  background-color: var(--p-content-hover-background);
+}
+
+.category-name {
+  font-weight: 600;
+}
+
+.chevron-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+}
+
 .option-name {
   overflow-wrap: anywhere;
-}
-
-.category-header .counter {
-  color: var(--p-text-muted-color);
-}
-
-.options {
-  padding-left: 2.75rem;
 }
 
 .annotation-type-icon-container {
@@ -255,8 +260,8 @@ function toggleCategoryCollapse(category: string): void {
   height: 16px;
 }
 
-.option:hover,
-.category-toggle:hover {
-  background-color: var(--p-content-hover-background);
+.options {
+  /* Indent options by one checkbox + gap so they sit under the category name */
+  padding-left: 1.5rem;
 }
 </style>

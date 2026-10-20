@@ -3,8 +3,8 @@ import { onMounted, ref, useId, watch } from "vue";
 import Checkbox from "primevue/checkbox";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
-import IconField from "primevue/iconfield";
-import InputIcon from "primevue/inputicon";
+import InputGroup from "primevue/inputgroup";
+import InputGroupAddon from "primevue/inputgroupaddon";
 import { useGuidelinesStore } from "../store/guidelines";
 import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec, PropertyConfig } from "../models/types";
 import { availableComparators, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
@@ -213,10 +213,20 @@ defineExpose({ sync });
       </div>
     </div>
 
-    <IconField>
-      <InputIcon class="icon-search" />
-      <InputText v-model="search" size="small" placeholder="Search..." title="Search in label or text" class="w-full" />
-    </IconField>
+    <InputGroup>
+      <InputGroupAddon :id="`${instanceId}-search-target`" class="search-addon">
+        <i class="icon-search" />
+        <span>Label / text</span>
+      </InputGroupAddon>
+      <InputText
+        v-model="search"
+        size="small"
+        placeholder="Label or text…"
+        title="Matches labels and the full text"
+        :aria-labelledby="`${instanceId}-search-target`"
+        class="w-full"
+      />
+    </InputGroup>
 
     <div class="rules flex flex-col gap-2">
       <FilterRuleRow
@@ -232,7 +242,7 @@ defineExpose({ sync });
           label="Add rule"
           icon="icon-plus"
           title="Add new filter rule"
-          severity="info"
+          severity="success"
           text
           size="small"
           class="w-full"
@@ -245,39 +255,43 @@ defineExpose({ sync });
 
 <style scoped>
 .node-label-checkbox-container {
-  --dark-green: var(--p-button-primary-background);
-  --middle-green: var(--p-button-primary-hover-background);
-  --light-green: var(--p-button-text-success-active-background);
+  --primary: var(--p-primary-color);
+  --tint: color-mix(in srgb, var(--p-primary-300) 12%, transparent);
+  --tint-strong: color-mix(in srgb, var(--p-primary-300) 20%, transparent);
 
-  --bg: transparent;
-  --ring: 1px solid var(--dark-green);
-
-  background: var(--bg);
-  outline: var(--ring);
+  /* Neutral outline when off, light tint with a primary outline when on */
+  border: 1px solid var(--p-content-border-color);
   border-radius: 5px;
   padding: 0.25rem 0.5rem;
   user-select: none;
-  transition: all 0.2s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 
   &,
   & :deep(*) {
     cursor: pointer;
   }
 
+  &:hover {
+    background: var(--p-content-hover-background);
+  }
+
   &:has(input:checked) {
-    --bg: var(--dark-green);
+    border-color: var(--primary);
+    background: var(--tint);
+    color: var(--primary);
 
     &:hover {
-      --bg: var(--middle-green);
+      background: var(--tint-strong);
     }
   }
+}
 
-  &:not(:has(input:checked)) {
-    --ring: 1px solid #6be0bb;
-
-    &:hover {
-      --bg: var(--light-green);
-    }
-  }
+.search-addon {
+  gap: 0.375rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 </style>

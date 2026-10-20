@@ -183,8 +183,6 @@ function toggleCategoryCollapse(category: string): void {
 </template>
 
 <style scoped>
-/* ---------- Trigger ---------- */
-
 .changed-dot {
   position: absolute;
   top: -0.2rem;
@@ -196,10 +194,7 @@ function toggleCategoryCollapse(category: string): void {
   box-shadow: 0 0 0 2px var(--p-content-background);
 }
 
-/* ---------- Panel ---------- */
-
 .filter-panel {
-  /* Fixed width so collapsing categories or showing the scrollbar does not resize the popover */
   width: 20rem;
   max-height: 60vh;
 }
@@ -220,7 +215,6 @@ function toggleCategoryCollapse(category: string): void {
 }
 
 .categories {
-  /* Allows the list to shrink inside the max-height flex column so it scrolls instead of overflowing */
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -230,7 +224,6 @@ function toggleCategoryCollapse(category: string): void {
   margin-top: 0.25rem;
 }
 
-/* Shared row look for category toggles and options */
 .row {
   padding: 0.25rem 0.5rem;
   border-radius: var(--p-content-border-radius);
@@ -261,7 +254,6 @@ function toggleCategoryCollapse(category: string): void {
 }
 
 .options {
-  /* Indent options by one checkbox + gap so they sit under the category name */
   padding-left: 1.5rem;
 }
 </style>

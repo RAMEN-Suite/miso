@@ -13,7 +13,9 @@
   overflow-y: scroll;
   flex-grow: 1;
   display: flex;
-  padding: 5px;
+  margin-left: 5px;
+  margin-right: 5px;
+  margin-top: 10px;
   text-decoration-skip-ink: none;
   /* Positioning context for the teleported block-classification-lines overlay. */
   position: relative;

@@ -12,7 +12,6 @@ import EditorHeader from "../components/EditorHeader.vue";
 import EditorActionButtonsPane from "../components/EditorActionButtonsPane.vue";
 import EditorAnnotations from "../components/EditorAnnotations.vue";
 import EditorError from "../components/EditorError.vue";
-import EditorFilter from "../components/EditorFilter.vue";
 import EditorResizer from "../components/EditorResizer.vue";
 import BlockClassificationLines from "../components/BlockClassificationLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
@@ -498,7 +497,6 @@ watch(
       @toggle-sidebar="toggleSidebar"
     />
     <EditorSidebar position="right" :is-collapsed="sidebars['right'].isCollapsed === true" :width="sidebars['right'].width">
-      <EditorFilter />
       <EditorAnnotationPanel />
     </EditorSidebar>
   </div>

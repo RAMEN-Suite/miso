@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
@@ -40,7 +40,8 @@ const isZeroPointAnnotation: boolean = getAnnotationExtent(config.type) === "zer
 // TODO: Maybe give whole config instead of only fields...?
 const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
 
-const isCollapsed = ref<boolean>(true);
+/** Whether the card body is hidden. Can be controlled by the parent via `v-model:collapsed`. */
+const isCollapsed = defineModel<boolean>("collapsed", { default: true });
 
 const previewText = computed<string>(() => {
   if (!tiptap.value) {

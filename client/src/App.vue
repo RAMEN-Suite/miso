@@ -4,6 +4,7 @@ import { RouteLocationNormalized, useRoute } from "vue-router";
 import { useAppStore } from "./store/app";
 import { resolveLayout } from "./config/layouts";
 import DatabaseConnectionError from "./utils/errors/databaseConnection.error";
+import GuidelinesValidationError from "./utils/errors/guidelinesValidation.error";
 import LoadingSpinner from "./components/LoadingSpinner.vue";
 import DynamicDialog from "primevue/dynamicdialog";
 import Toast from "primevue/toast";
@@ -30,6 +31,9 @@ onMounted(async () => {
   <template v-else>
     <div v-if="appError instanceof DatabaseConnectionError">
       The connection to the database could not be established. Reload the page please.
+    </div>
+    <div v-else-if="appError instanceof GuidelinesValidationError">
+      The configuration is not in the right format. See the browser console for details.
     </div>
     <div v-else>Error fetching app configurations. Reload the page please.</div>
   </template>

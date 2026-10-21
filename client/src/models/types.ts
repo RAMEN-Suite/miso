@@ -41,171 +41,38 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
   connectedNodes: NodeDto[];
 }
 
-/**
- * How an annotation is represented in the text editor, configured in `miso.editing.representation`. Only applies to
- * annotations on text content. Options are:
- * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
- *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
- * - `blockClassification`: adds meaning to whole structural blocks (classifies them, like the Web Annotation motivation
- *    `classifying`), without creating or containing them. Mirror TEI-like block elements (opener, closer, addrLine etc.)
- *    to a certain extent. Unrelated to the classifiers (node types) of the data model.
- * - `inline`: user interpretation of a text range (font styling, commentaries, entities). Kind of the default annotation.
- */
-export type TextAnnotationRepresentation = "structure" | "inline" | "blockClassification";
-
-/**
- * How far an annotation extends in its content, configured in `miso.editing.extent`. Both values correspond to a
- * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
- * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
- *    Required for annotations with representation `blockClassification`.
- * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
- */
-export type AnnotationExtent = "zeroPoint" | "range";
-
-export interface AnnotationType {
-  hasEntities?: boolean; // Derived from Nori
-  properties?: PropertyConfig[]; // Nori
-  type: string; // Nori -> discriminator, also property there
-  /** Miso-only configuration (editor behaviour, controls, appearance) */
-  miso?: AnnotationMisoConfig;
-}
-
-/**
- * Miso-only configuration of an annotation type. Everything in here is frontend-only and not part of the data model.
- */
-export interface AnnotationMisoConfig {
-  /** Group the annotation type is listed under in the toolbar and the filter */
-  group?: string;
-  /** How the user creates and interacts with annotations of this type */
-  controls?: {
-    /** Keyboard shortcut in keymap notation, e.g. `Mod-Shift-e`. `Mod` is Cmd on macOS and Ctrl elsewhere. */
-    shortcut?: string;
-  };
-  /** How annotations of this type are placed and represented in the content */
-  editing?: {
-    extent?: AnnotationExtent;
-    representation?: TextAnnotationRepresentation;
-    /**
-     * The editor's native type that implements this annotation type. Its extent and representation are then taken
-     * from the native type.
-     */
-    native?: NativeTypeMapping;
-  };
-  appearance?: AnnotationAppearance;
-}
-
-/**
- * Maps an annotation type to a native type of the editor, e.g. a TEI `cell` to the editor's `tableCell`.
- *
- * @example
- * { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
- */
-export interface NativeTypeMapping {
-  /** The native type */
-  type: BuiltinStructuralType;
-  /**
-   * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
-   * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
-   */
-  attributes?: Partial<Record<BuiltinEditorAttribute, string>>;
-}
-
-/** How annotations of a type are rendered */
-export interface AnnotationAppearance {
-  /** Icon in the toolbar and in annotation lists */
-  icon?: IconSpecInput;
-  /** Styling of the annotated text. Only applies to `range` annotations. */
-  highlight?: HighlightTextStyle;
-  /** Marker that is rendered at the position of the annotation. Only applies to `zeroPoint` annotations. */
-  marker?: MarkerStyle;
-  /**
-   * Overrides for annotations with certain property values. They override the type's appearance and are applied in
-   * order, so later matches win. Highlights are merged field by field, a marker replaces the previous one. The icon
-   * can't be overridden, since it identifies the annotation type in places without annotation data (e.g. the toolbar).
-   *
-   * @example
-   * [{ "property": "hand", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
-   */
-  variants?: AppearanceVariant[];
-}
-
-/** Overrides of the appearance per value of one annotation property */
-export interface AppearanceVariant {
-  /** Name of the annotation property whose value is matched */
-  property: string;
-  /** Appearance overrides keyed by property value */
-  values: Record<string, AppearanceOverride>;
-}
-
-/** Appearance overrides for annotations with a certain property value */
-export type AppearanceOverride = Pick<AnnotationAppearance, "highlight" | "marker">;
-
-/**
- * Styling of the text covered by a `range` annotation.
- */
-export type HighlightTextStyle = PropertiesTextStyle;
-
-/** An icon rendered at the position of an annotation. */
-export interface IconStyle {
-  kind: "icon";
-  icon: IconSpecInput;
-}
-
-/**
- * Styling of the position of a `zeroPoint` annotation.
- */
-export type MarkerStyle = IconStyle;
-
-/** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
-export interface PropertiesTextStyle {
-  kind: "properties";
-  color?: string;
-  backgroundColor?: string;
-  fontWeight?: string;
-  fontStyle?: string;
-  fontVariant?: string;
-  fontSize?: string;
-  verticalAlign?: string;
-  textDecorationLine?: string;
-  textDecorationStyle?: string;
-  textDecorationColor?: string;
-  textDecorationThickness?: string;
-}
-
-/** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
-export interface NodeMisoConfig {
-  appearance?: NodeAppearance;
-}
-
-/** How nodes of a type are displayed, e.g. in the hierarchy */
-export interface NodeAppearance {
-  icon?: IconSpecInput;
-}
-
-/**
- * The medium of a Content type, which decides how its nodes are edited and how annotation configs are applied.
- */
-export type ContentMedium = "text" | "image";
-
-/** Miso-only configuration of a Content type */
-export type ContentTypeMisoConfig = NodeMisoConfig & {
-  medium?: ContentMedium;
-};
+// Types of the guidelines, inferred from their schema. Re-exported here so existing importers keep working.
+export type {
+  AnnotationAppearance,
+  AnnotationExtent,
+  AnnotationMisoConfig,
+  AnnotationType,
+  AppearanceOverride,
+  AppearanceVariant,
+  BuiltinStructuralType,
+  ContentMedium,
+  ContentTypeMisoConfig,
+  HighlightTextStyle,
+  IconSpec,
+  IconSpecInput,
+  IconStyle,
+  LucideIconSpec,
+  MarkerStyle,
+  NativeTypeMapping,
+  NodeAppearance,
+  NodeMisoConfig,
+  PropertiesTextStyle,
+  PropertyConfig,
+  PropertyConfigDataType,
+  SvgIconSpec,
+  TextAnnotationRepresentation,
+  UrlIconSpec,
+} from "../schemas/guidelines.schema";
 
 export interface ApiJson {
   text: string;
   annotations: NodeDto[];
 }
-
-export type BuiltinStructuralType =
-  | "paragraph"
-  | "heading"
-  | "hardBreak"
-  | "table"
-  | "tableRow"
-  | "tableCell"
-  | "bulletList"
-  | "listItem";
 
 // Editor-framework facts live in `config/editor` (imported above). Re-exported here for convenience
 // so existing model-type importers keep working.
@@ -272,20 +139,6 @@ export interface NodeSearchParams {
 
 export type EntityNode = Node<IEntity>;
 
-/**
- * Description of an icon that can be injected by the configuration to describe annotation types,
- * RAMEN node refinements etc.
- *
- * Can be configured in different ways, e.g. as a Lucide icon name, a URL, or a SVG icon.
- */
-export type IconSpec = LucideIconSpec | UrlIconSpec | SvgIconSpec;
-
-/**
- * What a configuration may write: the full object form, or a bare Lucide name as shorthand.
- * Used to allow users to write `icon: "folder-open"` instead of `icon: { kind: "lucide", name: "folder-open" }`.
- */
-export type IconSpecInput = IconSpec | string;
-
 export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
@@ -345,13 +198,6 @@ export interface LevelState {
   isLoading: boolean;
   /** False until the first page has been fetched */
   initialized: boolean;
-}
-
-/** An icon from the Lucide set. */
-export interface LucideIconSpec {
-  kind: "lucide";
-  /** Name of the lucide icon, in kebab-case (e.g. `folder-open`) */
-  name: string;
 }
 
 /**
@@ -518,35 +364,6 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export interface PropertyConfig {
-  /** folioEnd, label, websiteUrl */
-  name: string; // Miso -> name to display. Or remove kompletely, type is type
-  /** data type (raw string, dropdown, multiple options) */
-  type: PropertyConfigDataType; // Nori
-  /** required or optional */
-  required: boolean; // Nori
-  /** Editable by user */
-  editable: boolean; // Miso
-  /** Visible by user */
-  visible: boolean; // Miso;
-  // The rest here is Miso
-  /* Only relevant if type is "Array" */
-  items?: Partial<PropertyConfig>;
-  minItems?: number;
-  maxItems?: number;
-  /* Only relevant if type is "Float"/"Integer" */
-  minimum?: number;
-  maximum?: number;
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
-  /* Only relevant if type is "String" */
-  minLength?: number;
-  maxLength?: number;
-  options?: string[] | number[] /* Options if type is dropdown */;
-}
-
-export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
-
 export interface Range {
   from: number;
   to: number;
@@ -598,13 +415,6 @@ export interface StandoffParseIssue {
   severity: "warning" | "error";
   reason: "clampedGap" | "textMismatch" | "unconfiguredType";
   message: string;
-}
-
-/** Raw inline SVG markup. */
-export interface SvgIconSpec {
-  kind: "svg";
-  /** Raw SVG markup. */
-  svg: string;
 }
 
 export type TextNode = Node<IText>;
@@ -669,11 +479,4 @@ export interface Tag {
 export interface TagEntry {
   uuid: string;
   createdAt: string; // ISO 8601 string
-}
-
-/** An icon loaded from an external URL. */
-export interface UrlIconSpec {
-  kind: "url";
-  /** URL of the icon. */
-  url: string;
 }

@@ -1,5 +1,4 @@
 import { DeepReadonly } from "vue";
-import { IGuidelines } from "../models/IGuidelines";
 import {
   NodeDto,
   CollectionNode,
@@ -296,7 +295,12 @@ export default class ApiService {
     }
   }
 
-  public async getGuidelines(): Promise<IGuidelines> {
+  /**
+   * Fetches the guidelines. They are returned as received and validated by the caller.
+   *
+   * @returns {Promise<unknown>} The parsed JSON response.
+   */
+  public async getGuidelines(): Promise<unknown> {
     try {
       const url: string = `${this.baseUrl}/guidelines`;
 

@@ -4,6 +4,8 @@ import { useGuidelinesStore } from "./guidelines";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { ToastMessageOptions, ToastServiceMethods } from "primevue";
 import AppError from "../utils/errors/app.error";
+import { IGuidelines } from "../models/IGuidelines";
+import { parseGuidelines } from "../schemas/guidelines.schema";
 
 const { error: guidelinesError, initializeGuidelines } = useGuidelinesStore();
 
@@ -72,12 +74,13 @@ export function useAppStore() {
   }
 
   /**
-   * Fetches the guidelines and initializes the store with the fetched data.
+   * Fetches the guidelines, validates their format and initializes the store with them.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
+   * @throws {GuidelinesValidationError} If the fetched guidelines do not have the expected format.
    */
   async function fetchAndInitializeGuidelines(): Promise<void> {
-    const guidelines = await api.getGuidelines();
+    const guidelines: IGuidelines = parseGuidelines(await api.getGuidelines());
 
     initializeGuidelines(guidelines);
   }
@@ -111,6 +114,7 @@ export function useAppStore() {
         throw guidelinesError.value;
       }
     } catch (e: unknown) {
+      console.error("Error initializing the app:", e);
       error.value = e as AppError;
     } finally {
       isFetching.value = false;

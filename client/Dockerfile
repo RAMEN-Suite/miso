@@ -18,13 +18,18 @@ CMD ["npm", "run", "dev", "--", "--host"]
 FROM caddy:2.11.2-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S webuser \
-  && adduser -S webuser -G webuser
+RUN addgroup -S -g 10001 webuser \
+  && adduser -S -u 10001 webuser -G webuser \
+  && setcap -r /usr/bin/caddy
 
 COPY --from=build --chown=webuser:webuser /app/dist /usr/share/caddy
 COPY NOTICES.md NOTICES.md
 
 RUN cat > /etc/caddy/Caddyfile <<'EOF'
+{
+    admin off
+    persist_config off
+}
 :8080 {
 	root * /usr/share/caddy
 	encode gzip

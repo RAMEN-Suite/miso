@@ -58,6 +58,7 @@ export type {
   IconStyle,
   LucideIconSpec,
   MarkerStyle,
+  MathTextStyle,
   NativeTypeMapping,
   NodeAppearance,
   NodeMisoConfig,

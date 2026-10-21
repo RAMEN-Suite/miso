@@ -72,9 +72,17 @@ const propertiesTextStyleSchema = z.strictObject({
 
 const iconStyleSchema = z.strictObject({ kind: z.literal("icon"), icon: iconSpecInputSchema });
 
+const mathTextStyleSchema = z.strictObject({
+  kind: z.literal("math"),
+  /** Name of the annotation property that holds the LaTeX notation */
+  property: z.string(),
+  /** CSS `display` of the formula. `block` also renders it in display mode (own line, larger operators). */
+  display: z.string().optional(),
+});
+
 const highlightTextStyleSchema = z.discriminatedUnion("kind", [propertiesTextStyleSchema]);
 
-const markerStyleSchema = z.discriminatedUnion("kind", [iconStyleSchema]);
+const markerStyleSchema = z.discriminatedUnion("kind", [iconStyleSchema, mathTextStyleSchema]);
 
 /** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
 export type PropertiesTextStyle = z.infer<typeof propertiesTextStyleSchema>;
@@ -83,12 +91,22 @@ export type PropertiesTextStyle = z.infer<typeof propertiesTextStyleSchema>;
 export type IconStyle = z.infer<typeof iconStyleSchema>;
 
 /**
+ * A formula rendered at the position of an annotation with KaTeX, from the LaTeX notation stored in the annotation
+ * property `property`. The other keys are predefined CSS properties applied to the marker, keyed by their camelCase
+ * names (like {@linkcode PropertiesTextStyle}).
+ *
+ * @example
+ * { "kind": "math", "property": "latex", "display": "block" }
+ */
+export type MathTextStyle = z.infer<typeof mathTextStyleSchema>;
+
+/**
  * Styling of the text covered by a `range` annotation.
  */
 export type HighlightTextStyle = z.infer<typeof highlightTextStyleSchema>;
 
 /**
- * Styling of the position of a `zeroPoint` annotation.
+ * Styling of the position of a `zeroPoint` annotation: an icon or a formula.
  */
 export type MarkerStyle = z.infer<typeof markerStyleSchema>;
 

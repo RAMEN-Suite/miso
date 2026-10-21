@@ -1,6 +1,16 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { IAnnotation } from "../../../models/IAnnotation";
-import { Annotation, AnnotationAppearance, AppearanceOverride, IconSpecInput, MarkerStyle, Range } from "../../../models/types";
+import {
+  Annotation,
+  AnnotationAppearance,
+  AppearanceOverride,
+  IconSpecInput,
+  MarkerStyle,
+  MathTextStyle,
+  Range,
+} from "../../../models/types";
 import { cloneDeep } from "../../../utils/helper/helper";
 import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
 
@@ -52,6 +62,9 @@ const ICON_BOX_STYLES: MarkerElementStyles = { width: "1em", height: "1em", line
 /** Styles of the icon element inside the box. */
 const ICON_CONTENT_STYLES: MarkerElementStyles = { display: "block", width: "100%", height: "100%" };
 
+/** Shown instead of a formula whose notation is empty or missing. */
+const EMPTY_MATH_PLACEHOLDER = "∅" as const;
+
 interface ZeroPointOptions {
   /** Returns the configured appearance of the given annotation type, used to render its marker. */
   getAppearance: (type: string) => AnnotationAppearance | undefined;
@@ -85,18 +98,55 @@ function resolveMarker(appearance: AnnotationAppearance | undefined, data: IAnno
 
 /**
  * Creates the content of a zero-point annotation's marker. New kinds of {@linkcode MarkerStyle} get their own branch
- * and create function here (e.g. `createFormulaElement`), plus their own typed style constant applied in the node view.
+ * and create function here (e.g. {@linkcode createMathElement}), plus their own styles applied in the node view.
  *
  * @param {MarkerStyle} marker The marker to render.
- * @param {Annotation | null} _annotation The annotation, for kinds that render one of its properties (unused until such a kind exists).
+ * @param {Annotation | null} annotation The annotation, for kinds that render one of its properties (e.g. a formula).
  * @returns {HTMLElement | null} The marker content, or `null` if the marker is malformed.
  */
-function createMarkerElement(marker: MarkerStyle, _annotation: Annotation | null): HTMLElement | null {
+function createMarkerElement(marker: MarkerStyle, annotation: Annotation | null): HTMLElement | null {
   if (marker.kind === "icon") {
     return createIconElement(marker.icon);
+  } else if (marker.kind === "math") {
+    return createMathElement(marker, annotation);
   }
 
   return null;
+}
+
+/**
+ * Renders the LaTeX notation stored in the annotation property `marker.property` with KaTeX. A `display: "block"`
+ * renders it in display mode. Invalid notation is shown as KaTeX error text instead of throwing.
+ *
+ * @param {MathTextStyle} marker The math marker to render.
+ * @param {Annotation | null} annotation The annotation holding the notation.
+ * @returns {HTMLSpanElement} The formula element, or a placeholder if the notation is empty or missing.
+ */
+function createMathElement(marker: MathTextStyle, annotation: Annotation | null): HTMLSpanElement {
+  const element: HTMLSpanElement = document.createElement("span");
+  const notation: unknown = annotation?.node.data[marker.property];
+
+  const renderAsBlock: boolean = marker.display === "block";
+
+  if (typeof notation !== "string" || notation.trim() === "") {
+    element.textContent = EMPTY_MATH_PLACEHOLDER;
+  } else {
+    katex.render(notation, element, { displayMode: renderAsBlock, throwOnError: false });
+  }
+
+  return element;
+}
+
+/**
+ * Returns the CSS properties of a math marker, which are all its keys except `kind` and `property`.
+ *
+ * @param {MathTextStyle} marker The math marker.
+ * @returns {MarkerElementStyles} The CSS properties, keyed by their camelCase names.
+ */
+function getMathStyles(marker: MathTextStyle): MarkerElementStyles {
+  const { kind: _kind, property: _property, ...styles } = marker;
+
+  return styles;
 }
 
 /**
@@ -260,6 +310,9 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
 
       if (!markerElement || marker?.kind === "icon") {
         Object.assign(elm.style, ICON_BOX_STYLES);
+      } else if (marker?.kind === "math") {
+        // Applied after the base styles, so a configured `display` overrides `inline-block`
+        Object.assign(elm.style, getMathStyles(marker));
       }
 
       elm.appendChild(markerElement ?? createFallbackElement());

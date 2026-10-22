@@ -10,7 +10,6 @@ import {
   AnnotationType,
   AppearanceOverride,
   BaseNodeLabel,
-  BuiltinEditorAttribute,
   BuiltinStructuralType,
   ContentMedium,
   NativeTypeMapping,
@@ -18,7 +17,7 @@ import {
   TextAnnotationRepresentation,
 } from "../models/types";
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
-import { EDITOR_OWNED_ATTRIBUTES, DEFAULT_ANNOTATION_MAPPING } from "../config/editor";
+import { DEFAULT_ANNOTATION_MAPPING } from "../config/editor";
 import { registerNodeIcon } from "../config/icons";
 
 /** Group for annotation types without a configured `miso.group`.*/
@@ -125,7 +124,7 @@ export function useGuidelinesStore() {
    */
   function buildAnnotationMapping(guidelinesData: IGuidelines): AnnotationMapping {
     const typeByRole: Partial<Record<BuiltinStructuralType, string>> = { ...DEFAULT_ANNOTATION_MAPPING.typeByRole };
-    const attrByRole: Partial<Record<BuiltinStructuralType, Partial<Record<BuiltinEditorAttribute, string>>>> = {
+    const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {
       ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
     };
 
@@ -166,7 +165,7 @@ export function useGuidelinesStore() {
 
       const properties: PropertyConfig[] = (config.properties ?? []).map((p) => ({
         ...p,
-        name: propertyByAttribute[p.name as BuiltinEditorAttribute] ?? p.name,
+        name: propertyByAttribute[p.name] ?? p.name,
       }));
 
       return {
@@ -470,7 +469,7 @@ export function useGuidelinesStore() {
    * applying TEI semantics, `rows` instead of the native `rowspan`.
    *
    * @param {string} annotationType The project (configured) structural annotation type
-   * @returns {{ property: string; attribute: BuiltinEditorAttribute }[]} The editor-owned properties
+   * @returns {{ property: string; attribute: string }[]} The editor-owned properties
    * @example
    * getEditorOwnedProperties("heading")
    *
@@ -481,20 +480,16 @@ export function useGuidelinesStore() {
    *    property: 'n',
    * }]
    */
-  function getEditorOwnedProperties(annotationType: string): { property: string; attribute: BuiltinEditorAttribute }[] {
+  function getEditorOwnedProperties(annotationType: string): { property: string; attribute: string }[] {
     const editorRole: string = getEditorRole(annotationType);
-    const propertyByAttribute: Partial<Record<BuiltinEditorAttribute, string | undefined>> =
+    const propertyByAttribute: Record<string, string> =
       annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
 
     const config: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
 
-    const attributes: BuiltinEditorAttribute[] = (config?.properties ?? [])
-      .filter((p) => EDITOR_OWNED_ATTRIBUTES.includes(p.name as BuiltinEditorAttribute))
-      .map((p) => p.name as BuiltinEditorAttribute);
-
-    return attributes.map((attribute: BuiltinEditorAttribute) => ({
-      attribute,
-      property: propertyByAttribute[attribute] ?? attribute,
+    return (config?.properties ?? []).map((p: PropertyConfig) => ({
+      attribute: p.name,
+      property: propertyByAttribute[p.name] ?? p.name,
     }));
   }
 

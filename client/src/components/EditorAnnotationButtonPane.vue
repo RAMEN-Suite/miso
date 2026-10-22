@@ -206,15 +206,28 @@ function buildTableMenuItems(): MenuItem[] {
     },
     {
       label: "Header",
-      title: "Toggle header row or column",
+      title: "Toggle header cells, row or column",
       icon: "icon-list",
-      disabled: true,
+      disabled: !inTable,
       items: [
-        { label: "Toggle header row", title: "Toggle header row", command: () => runTableCommand((c) => c.toggleHeaderRow()) },
+        {
+          label: "Toggle header cell",
+          title: "Toggle header for the selected cells",
+          command: () => {
+            const isHeader: boolean = tiptap.value?.isActive("tableCell", { role: "label" }) ?? false;
+
+            runTableCommand((c) => c.setCellAttribute("role", isHeader ? null : "label"));
+          },
+        },
+        {
+          label: "Toggle header row",
+          title: "Toggle header for the first row",
+          command: () => runTableCommand((c) => c.toggleLabelRow()),
+        },
         {
           label: "Toggle header column",
-          title: "Toggle header column",
-          command: () => runTableCommand((c) => c.toggleHeaderColumn()),
+          title: "Toggle header for the first column",
+          command: () => runTableCommand((c) => c.toggleLabelColumn()),
         },
       ],
     },

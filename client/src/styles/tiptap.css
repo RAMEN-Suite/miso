@@ -63,7 +63,8 @@
       }
     }
 
-    th {
+    th,
+    td[data-role="label"] {
       background-color: var(--gray-1);
       font-weight: bold;
       text-align: left;

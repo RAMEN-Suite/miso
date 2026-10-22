@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EDITOR_OWNED_ATTRIBUTES } from "../config/editor";
+import { BUILTIN_STRUCTURAL_CONFIGS } from "../config/constants";
 import GuidelinesValidationError from "../utils/errors/guidelinesValidation.error";
 
 // Schemas and types of the guidelines. The types are inferred from the schemas, so the format is defined only once.
@@ -157,15 +157,30 @@ const annotationAppearanceSchema = z.strictObject({
   variants: z.array(appearanceVariantSchema).optional(),
 });
 
-const nativeTypeMappingSchema = z.strictObject({
-  /** The native type */
-  type: builtinStructuralTypeSchema,
-  /**
-   * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
-   * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
-   */
-  attributes: z.partialRecord(z.enum(EDITOR_OWNED_ATTRIBUTES), z.string()).optional(),
-});
+const nativeTypeMappingSchema = z
+  .strictObject({
+    /** The native type */
+    type: builtinStructuralTypeSchema,
+    /**
+     * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
+     * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
+     */
+    attributes: z.record(z.string(), z.string()).optional(),
+  })
+  .superRefine((mapping, ctx) => {
+    const nativeAttributes: string[] =
+      BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.type)?.properties?.map((p) => p.name) ?? [];
+
+    for (const attribute of Object.keys(mapping.attributes ?? {})) {
+      if (!nativeAttributes.includes(attribute)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Unknown attribute "${attribute}" for native type "${mapping.type}"`,
+          path: ["attributes", attribute],
+        });
+      }
+    }
+  });
 
 const annotationMisoConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */

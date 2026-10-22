@@ -63,7 +63,7 @@ function handleItemSelect(): void {
       <div class="tags flex">
         <span v-for="color in tagColors" :key="color" class="tag-dot" :style="{ backgroundColor: color }"></span>
       </div>
-      <i v-if="isCollection" class="pi pi-angle-right chevron shrink-0" />
+      <i v-if="isCollection" class="icon-chevron-right chevron shrink-0" />
     </div>
   </div>
 </template>

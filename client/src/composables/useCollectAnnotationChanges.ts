@@ -75,10 +75,11 @@ export function useCollectAnnotationChanges() {
       }
     });
 
-    // 2. Editor-owned properties: read the live native node's attribute (level/colspan/rowspan) and store it
-    // under its configured project property name (e.g. native `level` -> project `n`).
+    // 2. Editor-owned properties: read the live native node's attribute (level/colspan/rowspan/role) and store it
+    // under its configured project property name (e.g. native `level` -> project `n`). Unset attributes (e.g. a
+    // cell without role) are left out, which removes the property from the saved node.
     for (const { property, attribute } of editorOwned) {
-      if (node.attrs[attribute] !== undefined) {
+      if (node.attrs[attribute] !== undefined && node.attrs[attribute] !== null) {
         neo4jProperties[property] = node.attrs[attribute];
       }
     }

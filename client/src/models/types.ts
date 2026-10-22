@@ -2,7 +2,6 @@ import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
-import type { BuiltinEditorAttribute } from "../config/editor";
 import type { AnnotationMapping } from "../config/editor";
 
 /** A status object for nodes in the frontend and for API requests */
@@ -75,9 +74,6 @@ export interface ApiJson {
   annotations: NodeDto[];
 }
 
-// Editor-framework facts live in `config/editor` (imported above). Re-exported here for convenience
-// so existing model-type importers keep working.
-export type { BuiltinEditorAttribute };
 export type { AnnotationMapping };
 
 export interface TiptapMark {

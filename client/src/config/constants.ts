@@ -1,4 +1,4 @@
-import { AnnotationType } from "../models/types";
+import type { AnnotationType } from "../models/types";
 
 /**
  * Delay in miliseconds before fetching new data based on changed parameters
@@ -64,7 +64,12 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
   },
   {
     type: "tableRow",
-    properties: [],
+    // TEI `att.tableDecoration`. Optional on rows: only kept from stored data, the editor doesn't set them.
+    properties: [
+      { name: "rowspan", type: "Integer", required: false, editable: false, visible: true },
+      { name: "colspan", type: "Integer", required: false, editable: false, visible: true },
+      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
+    ],
     miso: {
       group: "structure",
       controls: {},
@@ -73,9 +78,12 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
   },
   {
     type: "tableCell",
+    // TEI `att.tableDecoration`. Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the
+    // header toggles (`data` is accepted, but not set).
     properties: [
       { name: "rowspan", type: "Integer", required: true, editable: true, visible: true },
       { name: "colspan", type: "Integer", required: true, editable: true, visible: true },
+      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
     ],
     miso: {
       group: "structure",

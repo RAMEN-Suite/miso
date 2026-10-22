@@ -2,18 +2,12 @@ import { DeepReadonly } from "vue";
 import type { BuiltinStructuralType } from "../models/types";
 
 /**
- * Tiptap-native attribute owned by a loaded editor extension (`heading` -> `level`,
- * `tableCell` -> `colspan`/`rowspan`). Derived from the {@link EDITOR_OWNED_ATTRIBUTES} union.
- */
-export type BuiltinEditorAttribute = (typeof EDITOR_OWNED_ATTRIBUTES)[number];
-
-/**
  * Mapping between built-in structural annotation types/attributes and their (optional) project-specific override.
  * Exists because a project might want to use names from a namespace like TEI for the built-in elements, like
  * ["p"](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-p.html) for paragraph annotations
  * or [`rows`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.rows)
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
- * as rowspan/colspan properties in tableCell annotations.
+ * as rowspan/colspan properties in tableRow and tableCell annotations.
  *
  * Built from {@link DEFAULT_ANNOTATION_MAPPING} and the `miso.editing.native` keys of the guidelines.
  *
@@ -38,24 +32,19 @@ export type AnnotationMapping = DeepReadonly<{
    * { paragraph: 'p', hardBreak: 'lb' }
    */
   typeByRole: Partial<Record<BuiltinStructuralType, string>>;
-  /** Mapping from built-in structural types to project-specific attributes
+  /** Mapping from built-in structural types to project-specific attributes. The keys are the editor-owned
+   * attributes of the type, i.e. the property names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
    * @example
    * attrByRole: {
    *    tableCell: {
    *        colspan: 'cols',
    *        rowspan: 'rows',
+   *        role: 'role',
    *    },
    * },
    */
-  attrByRole: Partial<Record<BuiltinStructuralType, Partial<Record<BuiltinEditorAttribute, string>>>>;
+  attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>>;
 }>;
-
-/**
- * Tiptap-native attributes owned by the loaded editor extensions (`heading` -> `level`,
- * `tableCell` -> `colspan`/`rowspan`). Single source of truth for both the runtime membership set and
- * the {@link BuiltinEditorAttribute} union — add a new editor-owned attribute here only.
- */
-export const EDITOR_OWNED_ATTRIBUTES = ["level", "colspan", "rowspan"] as const;
 
 /**
  * Annotation properties the model and editor needs, whatever the guidelines list. They will never removed automatically
@@ -113,9 +102,15 @@ export const DEFAULT_ANNOTATION_MAPPING: AnnotationMapping = {
     heading: {
       level: "level",
     },
+    tableRow: {
+      colspan: "cols",
+      rowspan: "rows",
+      role: "role",
+    },
     tableCell: {
       colspan: "cols",
       rowspan: "rows",
+      role: "role",
     },
   },
 };

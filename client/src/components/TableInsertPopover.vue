@@ -4,6 +4,7 @@ import Popover from "primevue/popover";
 import InputNumber from "primevue/inputnumber";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
+import type { ChainedCommands } from "@tiptap/core";
 import { useTiptapStore } from "../store/tiptap";
 const { tiptap } = useTiptapStore();
 
@@ -11,18 +12,31 @@ const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 
 const columns = ref<number>(3);
 const rows = ref<number>(3);
-const hasHeaderRow = ref<boolean>(false);
+const hasHeaderRow = ref<boolean>(true);
 
 function toggle(event: Event): void {
   popover.value?.toggle(event);
 }
 
 function addTable(): void {
-  tiptap.value?.chain().focus().insertTable({ cols: columns.value, rows: rows.value, withHeaderRow: hasHeaderRow.value }).run();
+  if (!tiptap.value) {
+    return;
+  }
+
+  const chain: ChainedCommands = tiptap.value
+    .chain()
+    .focus()
+    .insertTable({ cols: columns.value, rows: rows.value, withHeaderRow: false });
+
+  if (hasHeaderRow.value) {
+    chain.toggleLabelRow();
+  }
+
+  chain.run();
 
   columns.value = 3;
   rows.value = 3;
-  hasHeaderRow.value = false;
+  hasHeaderRow.value = true;
 
   popover.value?.hide();
 }
@@ -45,7 +59,7 @@ defineExpose({ toggle });
       </div>
     </div>
     <div class="flex items-center gap-2 mt-2 justify-center">
-      <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary disabled />
+      <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary />
       <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
       <label for="header-row"> Add header row </label>
     </div>

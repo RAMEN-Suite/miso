@@ -604,9 +604,14 @@ export default class StandoffConverter {
       _annotation: toDocAnnotation(annotation),
     };
 
-    // Apply editor attributes (level/colspan/rowspan) from the node's value under its project property name
+    // Apply editor attributes (level/colspan/rowspan/role) from the node's value under its project property name.
+    // Missing values are left out, so the node's defaults apply (e.g. colspan 1 on cells, no role).
     for (const { property, attribute } of getEditorOwnedProperties(type)) {
-      attrs[attribute] = annotation.node.data[property] ?? 1;
+      const value: unknown = annotation.node.data[property];
+
+      if (value !== undefined && value !== null) {
+        attrs[attribute] = value;
+      }
     }
 
     // Is heading or paragraph -> can only hold text

@@ -2,7 +2,12 @@ import { Attribute, Extension, GlobalAttributes } from "@tiptap/vue-3";
 import { Annotation, AnnotationType, DocAnnotation } from "../../../models/types";
 import { useGuidelinesStore } from "../../../store/guidelines";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../../../config/editor";
-import { normalizeAnnotation, normalizeDocAnnotation, toDocAnnotation } from "../../../utils/helper/tiptapHelper";
+import {
+  createDefaultDocAnnotation,
+  normalizeAnnotation,
+  normalizeDocAnnotation,
+  toDocAnnotation,
+} from "../../../utils/helper/tiptapHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -30,13 +35,21 @@ declare module "@tiptap/core" {
        */
       removeBlockClassification: (uuid: string) => ReturnType;
       /**
-       * Brings the annotations in the node attributes (`_annotation`, `_blockClassifications`) in line with the
-       * database state after a successful save: connected nodes that were deleted or removed are dropped,
-       * the remaining ones are set to "unchanged". Zero-point annotations are set to "unchanged" themselves, too.
+       * Replaces the `_annotation` attribute of a structural node.
        *
-       * Not added to the undo history, since it does not reflect a user action.
+       * @param {string} uuid - The node's `uuid` attribute.
+       * @param {Annotation} annotation - The updated annotation.
        */
-      resetDocAnnotationStatuses: () => ReturnType;
+      updateStructuralAnnotation: (uuid: string, annotation: Annotation) => ReturnType;
+      /**
+       * Brings the node attributes (`_annotation`, `_blockClassifications`) in line with the database after a save:
+       * structural annotations and block classifications are replaced by their saved version, deleted/removed connectedNodes
+       * are dropped and all statuses are set to "unchanged". Not added to the undo history.
+       *
+       * @param {Map<string, Annotation>} savedStructuralAnnotations - The saved structural annotations and block
+       *   classifications, keyed by uuid.
+       */
+      applySavedDocAnnotations: (savedStructuralAnnotations: Map<string, Annotation>) => ReturnType;
     };
   }
 }
@@ -44,13 +57,16 @@ declare module "@tiptap/core" {
 const { getStructuralAnnotationConfigs, getEditorRole } = useGuidelinesStore();
 
 /**
- * Creates the annotation attributes for a structural node type. Both attributes hold {@link DocAnnotation} objects.
+ * Creates the annotation attributes for a structural node type. Both hold {@link DocAnnotation} objects.
  *
- * - `_annotation`: the annotation of the node itself (e.g. the paragraph or table annotation). Defaults to an
- *   annotation that only carries the given type, so nodes created in the editor are usable before their first save which
- *   then adds uuid, indices etc.
- * - `_blockClassifications`: the block classification annotations that cover the node's range (e.g. an `opener` on the first
- *   paragraphs of a letter), sorted outermost-first. Empty when none. Only created for valid block classification targets {@link VALID_BLOCK_CLASSIFICATION_TARGETS}.
+ * - `_annotation`: the annotation of the node itself. Defaults to one that only carries the given type, so new nodes
+ *   are usable before their first save.
+ * - `_blockClassifications`: the block classifications covering the node (e.g. an `opener`), sorted outermost-first.
+ *   Only created for {@link VALID_BLOCK_CLASSIFICATION_TARGETS}.
+ *
+ * Only properties and connected nodes are kept up to date during editing. Type, uuid, indices, text and editor-owned
+ * properties come from the document on save and are stale until the saved version is written back
+ * (command applySavedDocAnnotations).
  *
  * @param {string} defaultType - The configured annotation type of the node type, used in the default `_annotation`.
  * @param {boolean} isBlockClassificationTarget - Whether the node type can be wrapped by block classifications and therefore
@@ -58,14 +74,9 @@ const { getStructuralAnnotationConfigs, getEditorRole } = useGuidelinesStore();
  * @returns {Record<string, Attribute>} The attribute definitions, keyed by attribute name.
  */
 function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: boolean): Record<string, Attribute> {
-  const defaultAnnotation: DocAnnotation = {
-    node: { data: { type: defaultType }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
-    connectedNodes: [],
-  };
-
   const attributes: Record<string, Attribute> = {
     _annotation: {
-      default: defaultAnnotation,
+      default: createDefaultDocAnnotation(defaultType),
       rendered: false,
     },
   };
@@ -85,15 +96,11 @@ function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: bo
 }
 
 /**
- * Adds the `_annotation` attribute to all structural node types and the `_blockClassifications` attribute
- * to those that can be wrapped by block classifications. Both hold {@link DocAnnotation} objects.
+ * Adds `_annotation` to all structural node types and `_blockClassifications` to the block classification targets
+ * (see {@linkcode createDefaultAttrs}).
  *
- * Built-in types (paragraph, heading, ...) use their own tiptap node type name; their annotation
- * lives in `_annotation`, which defaults to the configured type so freshly created nodes are usable
- * without a neo4j round-trip.
- *
- * Custom block/structural types (address, addrLine, closer, ...) are no tiptap nodes. Their annotations
- * live in the `_blockClassifications` attribute of every built-in block node they wrap.
+ * Built-in types (paragraph, heading, ...) are tiptap nodes with their annotation in `_annotation`. Block
+ * classifications (address, closer, ...) are no nodes; they live in `_blockClassifications` of every node they cover.
  */
 export const AnnotationAttributes = Extension.create({
   name: "annotationAttributes",
@@ -173,10 +180,6 @@ export const AnnotationAttributes = Extension.create({
               return;
             }
 
-            // Do NOT set status to 'deleted' - this is determined during save preprocessing
-            // when checked what annotations are in the document
-
-            // Remove block classification from node's `_blockClassifications` array
             tr.setNodeAttribute(
               pos,
               "_blockClassifications",
@@ -188,15 +191,44 @@ export const AnnotationAttributes = Extension.create({
 
           return true;
         },
-      resetDocAnnotationStatuses:
-        () =>
+      updateStructuralAnnotation:
+        (uuid: string, annotation: Annotation) =>
         ({ tr, dispatch }) => {
+          let isFound: boolean = false;
+
+          tr.doc.descendants((node, pos) => {
+            if (isFound) {
+              return false;
+            }
+
+            if (node.attrs.uuid === uuid) {
+              tr.setNodeAttribute(pos, "_annotation", toDocAnnotation(annotation));
+              isFound = true;
+
+              return false;
+            }
+          });
+
+          dispatch?.(tr);
+
+          return isFound;
+        },
+      applySavedDocAnnotations:
+        (savedStructuralAnnotations: Map<string, Annotation>) =>
+        ({ tr, dispatch }) => {
+          // Saved version if there is one, else the stored one; normalized either way
+          const toSaved = (docAnnotation: DocAnnotation, uuid: string): DocAnnotation => {
+            const saved: Annotation | undefined = savedStructuralAnnotations.get(uuid);
+
+            return normalizeDocAnnotation(saved ? toDocAnnotation(saved) : docAnnotation);
+          };
+
           tr.doc.descendants((node, pos) => {
             if (node.type.isText) {
               return;
             }
 
-            // Zero-point annotations carry their own status, which needs to be reset as well
+            // Zero-point annotations carry their own status
             if (node.type.name === "zeroPointAnnotation") {
               const annotation: Annotation | null = node.attrs._annotation ?? null;
 
@@ -209,17 +241,17 @@ export const AnnotationAttributes = Extension.create({
 
             const docAnnotation: DocAnnotation | null = node.attrs._annotation ?? null;
 
-            if (docAnnotation && docAnnotation.connectedNodes.length > 0) {
-              tr.setNodeAttribute(pos, "_annotation", normalizeDocAnnotation(docAnnotation));
+            if (docAnnotation) {
+              tr.setNodeAttribute(pos, "_annotation", toSaved(docAnnotation, node.attrs.uuid));
             }
 
             const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-            if (blockClassifications.some((b) => b.connectedNodes.length > 0)) {
+            if (blockClassifications.length > 0) {
               tr.setNodeAttribute(
                 pos,
                 "_blockClassifications",
-                blockClassifications.map((b) => normalizeDocAnnotation(b)),
+                blockClassifications.map((b) => toSaved(b, b.node.data.uuid)),
               );
             }
           });

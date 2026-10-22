@@ -321,16 +321,7 @@
       "types": [
         {
           "type": "p",
-          "properties": [
-            {
-              "name": "rendition",
-              "type": "String",
-              "options": ["#et"],
-              "required": false,
-              "editable": true,
-              "visible": true
-            }
-          ],
+          "properties": [],
           "miso": {
             "group": "structure",
             "controls": {},
@@ -341,9 +332,11 @@
           "type": "head",
           "properties": [
             {
-              "name": "lang",
-              "type": "String",
-              "required": false,
+              "name": "level",
+              "type": "Integer",
+              "minimum": 1,
+              "maximum": 6,
+              "required": true,
               "editable": true,
               "visible": true
             }
@@ -356,11 +349,36 @@
         },
         {
           "type": "row",
-          "properties": [],
+          "properties": [
+            {
+              "name": "rows",
+              "type": "Integer",
+              "required": false,
+              "editable": false,
+              "visible": true
+            },
+            {
+              "name": "cols",
+              "type": "Integer",
+              "required": false,
+              "editable": false,
+              "visible": true
+            },
+            {
+              "name": "role",
+              "type": "String",
+              "required": false,
+              "editable": false,
+              "visible": true,
+              "options": ["data", "label"]
+            }
+          ],
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "native": { "type": "tableRow" } }
+            "editing": {
+              "native": { "type": "tableRow", "attributes": { "colspan": "cols", "rowspan": "rows", "role": "role" } }
+            }
           }
         },
         {
@@ -376,24 +394,34 @@
           "type": "cell",
           "properties": [
             {
-              "name": "cols",
-              "type": "String",
+              "name": "rows",
+              "type": "Integer",
               "required": false,
               "editable": true,
               "visible": true
             },
             {
-              "name": "rows",
-              "type": "String",
+              "name": "cols",
+              "type": "Integer",
               "required": false,
               "editable": true,
               "visible": true
+            },
+            {
+              "name": "role",
+              "type": "String",
+              "required": false,
+              "editable": false,
+              "visible": true,
+              "options": ["data", "label"]
             }
           ],
           "miso": {
             "group": "structure",
             "controls": {},
-            "editing": { "native": { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } } }
+            "editing": {
+              "native": { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows", "role": "role" } }
+            }
           }
         },
         {
@@ -603,22 +631,7 @@
         },
         {
           "type": "table",
-          "properties": [
-            {
-              "name": "cols",
-              "type": "String",
-              "required": false,
-              "editable": true,
-              "visible": true
-            },
-            {
-              "name": "rows",
-              "type": "String",
-              "required": false,
-              "editable": true,
-              "visible": true
-            }
-          ],
+          "properties": [],
           "miso": {
             "group": "structure",
             "controls": {},

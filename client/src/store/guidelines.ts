@@ -148,10 +148,9 @@ export function useGuidelinesStore() {
    * {@linkcode BUILTIN_STRUCTURAL_NESTING}.
    *
    * Each built-in role becomes an entry under its project type name (`typeByRole[role] ?? role`), with
-   * its editor-owned properties renamed to their project names (`attrByRole[role][attr] ?? attr`) but
-   * keeping the built-in constraints. A project JSON entry whose type matches one of those entries
-   * merges its domain properties onto it; an entry that matches none is kept as a custom structural
-   * type.
+   * its editor-owned properties renamed to their project names (`attrByRole[role][attr] ?? attr`). A project
+   * entry with the same type extends it (see {@linkcode extendBuiltinProperties}); any other structural entry
+   * is kept as a custom structural type.
    *
    * @param {IGuidelines} guidelinesData The domain guidelines
    * @returns {AnnotationType[]} The merged structural configs keyed by project type name
@@ -184,7 +183,7 @@ export function useGuidelinesStore() {
       const existing: AnnotationType | undefined = builtInDerived.find((c) => c.type === entry.type);
 
       if (existing) {
-        existing.properties = mergeDomainProperties(existing.properties ?? [], entry.properties ?? []);
+        existing.properties = extendBuiltinProperties(existing, entry);
       } else {
         builtInDerived.push({ ...entry, properties: [...(entry.properties ?? [])] });
       }
@@ -466,10 +465,10 @@ export function useGuidelinesStore() {
    * Returns the editor-owned properties of a structural annotation type: each pairs the editor
    * `attribute` (the tiptap-native attr the editor needs, e.g. `level`) with the `property` (the
    * project's name for it). The property equals the attribute unless the project mapped it — e.g.
-   * applying TEI semantics, `rows` instead of the native `rowspan`.
+   * applying TEI semantics, `rows` instead of the native `rowspan`. `required` is taken from the built-in config.
    *
    * @param {string} annotationType The project (configured) structural annotation type
-   * @returns {{ property: string; attribute: string }[]} The editor-owned properties
+   * @returns {{ property: string; attribute: string; required: boolean }[]} The editor-owned properties
    * @example
    * getEditorOwnedProperties("heading")
    *
@@ -478,9 +477,10 @@ export function useGuidelinesStore() {
    * [{
    *    attribute: 'level',
    *    property: 'n',
+   *    required: true,
    * }]
    */
-  function getEditorOwnedProperties(annotationType: string): { property: string; attribute: string }[] {
+  function getEditorOwnedProperties(annotationType: string): { property: string; attribute: string; required: boolean }[] {
     const editorRole: string = getEditorRole(annotationType);
     const propertyByAttribute: Record<string, string> =
       annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
@@ -490,6 +490,7 @@ export function useGuidelinesStore() {
     return (config?.properties ?? []).map((p: PropertyConfig) => ({
       attribute: p.name,
       property: propertyByAttribute[p.name] ?? p.name,
+      required: p.required,
     }));
   }
 
@@ -622,30 +623,46 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Merges project-defined properties onto a built-in-derived property list when they are configured for the
-   * same annotation type.
+   * Extends the properties of a built-in structural type with the new properties of the project's entry for it,
+   * e.g. a `rend` property for paragraphs. Built-in properties can't be redefined: a differing definition is ignored
+   * with a warning.
    *
-   * This is the case when the project extends built-in structural annotation types, e.g. when a "paragraph" annotation
-   * should have a "rendtition" property.
-   *
-   * @param {PropertyConfig[]} base Built-in-derived properties
-   * @param {PropertyConfig[]} incoming Project-defined properties
-   * @returns {PropertyConfig[]} The merged property list
+   * @param {AnnotationType} builtin The built-in-derived config, with properties already renamed to the project's names
+   * @param {AnnotationType} entry The project's entry for the same annotation type
+   * @returns {PropertyConfig[]} The built-in properties followed by the new project properties
    */
-  function mergeDomainProperties(base: PropertyConfig[], incoming: PropertyConfig[]): PropertyConfig[] {
-    const combined: PropertyConfig[] = [...base];
+  function extendBuiltinProperties(builtin: AnnotationType, entry: AnnotationType): PropertyConfig[] {
+    const combined: PropertyConfig[] = [...(builtin.properties ?? [])];
 
-    for (const prop of incoming) {
-      const index: number = combined.findIndex((p) => p.name === prop.name);
+    for (const prop of entry.properties ?? []) {
+      const builtinProp: PropertyConfig | undefined = combined.find((p) => p.name === prop.name);
 
-      if (index !== -1) {
-        combined[index] = { ...combined[index], ...prop };
-      } else {
+      if (!builtinProp) {
         combined.push(prop);
+      } else if (!isSamePropertyConfig(builtinProp, prop)) {
+        console.warn(
+          `Property "${prop.name}" of annotation type "${entry.type}" is defined by the editor, the differing configured definition is ignored`,
+        );
       }
     }
 
     return combined;
+  }
+
+  /**
+   * Checks if two property configs are identical, independent of the order of their keys.
+   *
+   * @param {PropertyConfig} a The first property config
+   * @param {PropertyConfig} b The second property config
+   * @returns {boolean} `true` if both have the same keys with the same values, `false` otherwise
+   */
+  function isSamePropertyConfig(a: PropertyConfig, b: PropertyConfig): boolean {
+    const keys = new Set<string>([...Object.keys(a), ...Object.keys(b)]);
+
+    return [...keys].every(
+      (key: string) =>
+        JSON.stringify(a[key as keyof PropertyConfig]) === JSON.stringify(b[key as keyof PropertyConfig]),
+    );
   }
 
   /**

@@ -16,7 +16,6 @@ import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { BulletList, ListItem } from "@tiptap/extension-list";
-import UniqueID from "@tiptap/extension-unique-id";
 import HardBreak from "@tiptap/extension-hard-break";
 import { TableKit } from "@tiptap/extension-table";
 import { UndoRedo } from "@tiptap/extensions";
@@ -31,6 +30,7 @@ import { useEventListener } from "@vueuse/core";
 import { AnnotationAttributes } from "../editors/text/extensions/annotationAttributes";
 import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
 import { TableRowWithoutHeader } from "../editors/text/extensions/tableRow";
+import { UniqueIDWithDuplicateCheck } from "../editors/text/extensions/uniqueId";
 import { history } from "prosemirror-history";
 import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
@@ -93,7 +93,7 @@ function getConfiguredExtensions(): Extensions {
     }),
     AnnotationDecoration.configure({ getAppearance }),
     BlockDecorations,
-    UniqueID.configure({
+    UniqueIDWithDuplicateCheck.configure({
       types: "all",
       attributeName: "uuid",
       generateID: () => crypto.randomUUID(),

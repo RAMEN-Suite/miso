@@ -122,10 +122,13 @@ function cleanUpAfterSave(
   text.value = cloneDeep(updatedText.node);
 
   cleanUpAnnotations(updatedAnnotations.annotations);
-  cleanUpStructureElements(updatedAnnotations.structureElements);
+
+  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(
+    updatedAnnotations.structureElements,
+  );
 
   // Needs to happen before the new initial state is set, since the document is part of it
-  tiptap.value?.commands.resetDocAnnotationStatuses();
+  tiptap.value?.commands.applySavedDocAnnotations(savedStructuralAnnotations);
 
   setNewInitialState();
 }
@@ -146,11 +149,19 @@ function cleanUpAnnotations(updatedAnnotations: Annotation[]): void {
     }
   });
 
-  // Range annotations are updated here, zero-point annotations along with the document (resetDocAnnotationStatuses)
+  // Range annotations are updated here, zero-point annotations along with the document (applySavedDocAnnotations)
   tiptap.value?.commands.applySavedAnnotations(savedAnnotations);
 }
 
-function cleanUpStructureElements(structureElements: Annotation[]): void {
+/**
+ * Updates the initial structural annotations (structural nodes and block classifications) to the saved state.
+ *
+ * @param {Annotation[]} structureElements - The saved structural annotations, including the deleted ones.
+ * @returns {Map<string, Annotation>} The saved (not deleted) annotations by uuid, to be written back into the document.
+ */
+function cleanUpStructureElements(structureElements: Annotation[]): Map<string, Annotation> {
+  const savedStructuralAnnotations = new Map<string, Annotation>();
+
   structureElements.forEach((elm: Annotation) => {
     const uuid: string = elm.node.data.uuid;
 
@@ -158,10 +169,13 @@ function cleanUpStructureElements(structureElements: Annotation[]): void {
       // Can be removed from the map safely
       initialStructuralAnnotations.value?.delete(uuid);
     } else {
-      // Update value
+      // Update value. Two separate clones, since the editor takes over the annotation object itself
       initialStructuralAnnotations.value?.set(uuid, normalizeAnnotation(elm));
+      savedStructuralAnnotations.set(uuid, normalizeAnnotation(elm));
     }
   });
+
+  return savedStructuralAnnotations;
 }
 
 function getEmptyNodes(): DocNode[] {

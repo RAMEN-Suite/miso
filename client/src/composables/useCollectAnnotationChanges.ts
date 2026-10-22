@@ -76,12 +76,23 @@ export function useCollectAnnotationChanges() {
     });
 
     // 2. Editor-owned properties: read the live native node's attribute (level/colspan/rowspan/role) and store it
-    // under its configured project property name (e.g. native `level` -> project `n`). Unset attributes (e.g. a
-    // cell without role) are left out, which removes the property from the saved node.
-    for (const { property, attribute } of editorOwned) {
-      if (node.attrs[attribute] !== undefined && node.attrs[attribute] !== null) {
-        neo4jProperties[property] = node.attrs[attribute];
+    // under its configured project property name (e.g. native `level` -> project `n`). Left out (which removes the
+    // property from the saved node) are unset attributes (e.g. a cell without role) and, like in TEI, optional ones
+    // with the node's default value (e.g. colspan 1), unless they were stored before.
+    for (const { property, attribute, required } of editorOwned) {
+      const value: unknown = node.attrs[attribute];
+
+      if (value === undefined || value === null) {
+        continue;
       }
+
+      const isDefault: boolean = value === node.type.spec.attrs?.[attribute]?.default;
+
+      if (!required && isDefault && !(property in annotationData)) {
+        continue;
+      }
+
+      neo4jProperties[property] = value;
     }
 
     // 3. Authorative properties: type and uuid non-configurable, must always exist

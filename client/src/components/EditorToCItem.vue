@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import Button from "primevue/button";
 import { ToCItem } from "../models/types";
 import { ellipsize } from "../utils/helper/helper.ts";
 
@@ -14,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   itemClick: [item: ToCItem];
   toggle: [key: string];
+  openMenu: [event: Event, item: ToCItem];
 }>();
 
 const hasChildren = computed<boolean>(() => props.item.children.length > 0);
@@ -55,7 +57,7 @@ function handleArrowLeft(): void {
 
 <template>
   <li role="treeitem" :aria-level="level" :aria-expanded="hasChildren ? isExpanded : undefined" aria-selected="false">
-    <div class="flex items-center gap-2">
+    <div class="toc-row flex items-center gap-2">
       <button
         v-if="hasChildren"
         type="button"
@@ -84,6 +86,17 @@ function handleArrowLeft(): void {
           {{ displayedText }}
         </small>
       </div>
+      <Button
+        class="row-action"
+        icon="icon-ellipsis-vertical"
+        severity="secondary"
+        text
+        rounded
+        size="small"
+        :title="`More options for ${displayedLabel}`"
+        :aria-label="`More options for ${displayedLabel}`"
+        @click.stop="emit('openMenu', $event, props.item)"
+      />
     </div>
     <ul v-if="hasChildren && isExpanded" role="group" class="pl-4">
       <EditorToCItem
@@ -94,6 +107,7 @@ function handleArrowLeft(): void {
         :level="level + 1"
         @item-click="emit('itemClick', $event)"
         @toggle="emit('toggle', $event)"
+        @open-menu="(event: Event, child: ToCItem) => emit('openMenu', event, child)"
       />
     </ul>
   </li>
@@ -114,6 +128,19 @@ button.toggle-button {
 
   &:hover {
     background: var(--p-content-hover-background);
+  }
+}
+
+/* The menu button stays out of the way until the row is hovered or keyboard-focused */
+.toc-row {
+  .row-action {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  &:hover .row-action,
+  &:focus-within .row-action {
+    opacity: 1;
   }
 }
 

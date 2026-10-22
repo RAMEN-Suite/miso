@@ -6,6 +6,20 @@ import { cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "./helper";
 import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../editors/text/extensions/annotationDecoration";
 
 /**
+ * Creates the annotation of a structural node that is new in the editor (stored in its `_annotation` attribute). It
+ * only carries the type; uuid, indices etc. are added on the first save.
+ *
+ * @param {string} type - The configured annotation type of the node (e.g. `p` for a paragraph).
+ * @returns {DocAnnotation} The new annotation.
+ */
+export function createDefaultDocAnnotation(type: string): DocAnnotation {
+  return {
+    node: { data: { type }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
+    connectedNodes: [],
+  };
+}
+
+/**
  * Converts an annotation into the object that is stored in tiptap node attributes
  * (`_annotation`, entries of `_blockClassifications`) by dropping its top-level status.
  *

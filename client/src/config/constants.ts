@@ -12,8 +12,9 @@ export const FETCH_DELAY: number = 300;
 export const LUCIDE_ICON_PREFIX = "icon-" as const;
 
 /**
- * Configurations of built-in structural annotation types. Is combined with the project-specifig configuration
- * on load, so these types can be overridden.
+ * Configurations of built-in structural annotation types. Is combined with the project-specific configuration
+ * on load: these types can be renamed (type and attributes) via `miso.editing.native` and extended with new
+ * properties, but their properties can't be redefined.
  */
 export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
   {
@@ -81,8 +82,8 @@ export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
     // TEI `att.tableDecoration`. Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the
     // header toggles (`data` is accepted, but not set).
     properties: [
-      { name: "rowspan", type: "Integer", required: true, editable: true, visible: true },
-      { name: "colspan", type: "Integer", required: true, editable: true, visible: true },
+      { name: "rowspan", type: "Integer", required: false, editable: true, visible: true },
+      { name: "colspan", type: "Integer", required: false, editable: true, visible: true },
       { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
     ],
     miso: {

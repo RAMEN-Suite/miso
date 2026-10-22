@@ -5,7 +5,7 @@ import { getDefaultValueForProperty } from "../utils/helper/helper";
 import { PropertyConfig } from "../models/types";
 import Button from "primevue/button";
 
-const modelValue = defineModel<unknown[]>();
+const modelValue = defineModel<unknown[] | null>();
 const props = defineProps<{
   config: Partial<PropertyConfig>;
   mode?: "edit" | "view";
@@ -14,8 +14,13 @@ const props = defineProps<{
 // Check if form either in edit mode or no mode is specified at all (assume edit mode)
 const isEditable = computed(() => props.mode === "edit" || !props.mode);
 
-const minItems: number | null | undefined = props.config.minItems;
-const maxItems: number | null | undefined = props.config.maxItems;
+// Items config is optional in the schema. Without it, items fall back to the defaults of an unconfigured property.
+const itemConfig = computed<Partial<PropertyConfig>>(() => props.config.items ?? {});
+
+const minItems: number | undefined = props.config.minItems;
+const maxItems: number | undefined = props.config.maxItems;
+
+const itemCount = computed<number>(() => modelValue.value?.length ?? 0);
 
 /**
  * Adds a new input item to the input group. If the input group's value is null (because the entry did not exist before),
@@ -27,9 +32,9 @@ const maxItems: number | null | undefined = props.config.maxItems;
  */
 function handleAddItem(): void {
   if (!modelValue.value) {
-    modelValue.value = [getDefaultValueForProperty(props.config.items)];
+    modelValue.value = [getDefaultValueForProperty(itemConfig.value)];
   } else {
-    modelValue.value.push(getDefaultValueForProperty(props.config.items));
+    modelValue.value.push(getDefaultValueForProperty(itemConfig.value));
   }
 }
 
@@ -44,6 +49,10 @@ function handleAddItem(): void {
  * @returns {void} This function does not return any value.
  */
 function handleDeleteItem(itemIndex: number): void {
+  if (!modelValue.value) {
+    return;
+  }
+
   if (modelValue.value.length === 1) {
     if (props.config?.required === true) {
       modelValue.value = modelValue.value.filter((_, i) => i !== itemIndex);
@@ -58,20 +67,22 @@ function handleDeleteItem(itemIndex: number): void {
 
 <template>
   <div class="w-full">
-    <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
-      <DataInputComponent v-model="modelValue[index]" :config="props.config.items" :mode="props.mode" />
-      <Button
-        v-if="isEditable"
-        title="Delete item"
-        :style="{ width: '1rem', height: '1rem', padding: '10px' }"
-        severity="danger"
-        outlined
-        icon="icon-x"
-        size="small"
-        :disabled="modelValue?.length <= (minItems || 0)"
-        @click="handleDeleteItem(index)"
-      />
-    </div>
+    <template v-if="modelValue">
+      <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
+        <DataInputComponent v-model="modelValue[index]" :config="itemConfig" :mode="props.mode" />
+        <Button
+          v-if="isEditable"
+          title="Delete item"
+          :style="{ width: '1rem', height: '1rem', padding: '10px' }"
+          severity="danger"
+          outlined
+          icon="icon-x"
+          size="small"
+          :disabled="itemCount <= (minItems ?? 0)"
+          @click="handleDeleteItem(index)"
+        />
+      </div>
+    </template>
     <Button
       v-if="isEditable"
       class="mt-2 w-full h-8"
@@ -79,7 +90,7 @@ function handleDeleteItem(itemIndex: number): void {
       size="small"
       severity="secondary"
       label="Add item"
-      :disabled="maxItems && modelValue?.length >= maxItems"
+      :disabled="maxItems !== undefined && itemCount >= maxItems"
       :title="`Add new ${props.config.type} item`"
       @click="handleAddItem"
     />

@@ -200,7 +200,7 @@ function getEmptyNodes(): DocNode[] {
 }
 
 async function handleSaveChanges(): Promise<void> {
-  if (!tiptap.value) {
+  if (!tiptap.value || !text.value) {
     return;
   }
 
@@ -423,7 +423,7 @@ watch(
     // TODO: This needs refactoring. Centralize fetches, split fetch/initialize logic
     await fetchAndInitializeText(textUuid.value);
 
-    if (!isValidText.value) {
+    if (!isValidText.value || !text.value) {
       isLoading.value = false;
       return;
     }

@@ -16,6 +16,8 @@ export function useNavigationGuard() {
     if (!answer) {
       return false;
     }
+
+    return true;
   }
 
   /**

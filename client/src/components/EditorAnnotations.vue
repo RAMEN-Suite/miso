@@ -57,12 +57,12 @@ updateDisplayedAnnotations();
 const nodes: ComputedRef<TreeNode[]> = computed(() => {
   const nodes: TreeNode[] = [];
 
-  Object.entries(groupedAndSortedAnnotationTypes.value).forEach(([category, annotationType], i: number) => {
+  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).forEach(([category, annotationType], i: number) => {
     const newCategory = {
       key: i.toString(),
       label: category,
       type: "category",
-      children: [],
+      children: [] as TreeNode[],
       annotationCount: 0,
     } satisfies TreeNode;
 
@@ -72,12 +72,14 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
         label: annoType.type,
         type: "type",
         config: annoType,
-        children: [],
+        children: [] as TreeNode[],
       } satisfies TreeNode;
 
-      const annos: NodeStatusObject[] = displayedAnnotations.value.filter((a) => a.node.data.type === annoType.type);
+      const annos: NodeStatusObject<AnnotationNode>[] = displayedAnnotations.value.filter(
+        (a) => a.node.data.type === annoType.type,
+      );
 
-      annos.forEach((anno: NodeStatusObject, k: number) => {
+      annos.forEach((anno: NodeStatusObject<AnnotationNode>, k: number) => {
         const newAnnotation: TreeNode = {
           key: i.toString() + "-" + j.toString() + "-" + k.toString(),
           label: anno.node.data.text,
@@ -165,7 +167,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
               <div class="annotation-type-icon-container">
                 <AnnotationTypeIcon :config="slotProps.node.config" />
               </div>
-              <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children.length }}]</div>
+              <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children?.length ?? 0 }}]</div>
             </div>
             <div
               v-else

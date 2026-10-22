@@ -5,7 +5,7 @@ import { useShortcutsStore } from "../store/shortcuts";
 import { PropertyConfig, AnnotationType } from "../models/types";
 import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
-import { onMounted, ref } from "vue";
+import { ComponentPublicInstance, onMounted, useTemplateRef } from "vue";
 import { resolveAnnotationIcon } from "../config/icons";
 
 const props = defineProps<{ type: string; disabled: boolean; config: AnnotationType }>();
@@ -16,7 +16,7 @@ const { getAnnotationFields } = useGuidelinesStore();
 const { registerShortcut } = useShortcutsStore();
 
 const fields: PropertyConfig[] = getAnnotationFields(props.type);
-const subTypeField: PropertyConfig = fields.find((field) => field.name === "subType");
+const subTypeField: PropertyConfig | undefined = fields.find((field) => field.name === "subType");
 const options: string[] | number[] = subTypeField?.options ?? [];
 const dropdownOptions = options.map((option: string | number) => {
   return {
@@ -26,7 +26,7 @@ const dropdownOptions = options.map((option: string | number) => {
 });
 
 const hasIcon: boolean = resolveAnnotationIcon(props.config) !== undefined;
-const buttonElm = ref(null);
+const buttonElm = useTemplateRef<ComponentPublicInstance<typeof Button | typeof SplitButton>>("buttonElm");
 
 const shortcut: string | undefined = props.config.miso?.controls?.shortcut;
 
@@ -41,9 +41,11 @@ onMounted(setButtonStylingManually);
 function setButtonStylingManually(): void {
   // SplitButton has its flaws: Dropdown button and annotation button can not be accessed (wait for Primevue update),
   // therefore the DOM element need to be queried and styled manually. this is done via the subTypeField variable
-  if (subTypeField) {
-    const dropdownButton: HTMLButtonElement | null = buttonElm.value.$el.querySelector(".p-splitbutton-dropdown");
-    const mainButton: HTMLButtonElement | null = buttonElm.value.$el.querySelector(".p-splitbutton-button");
+  const rootElm: HTMLElement | undefined = buttonElm.value?.$el;
+
+  if (subTypeField && rootElm) {
+    const dropdownButton: HTMLButtonElement | null = rootElm.querySelector(".p-splitbutton-dropdown");
+    const mainButton: HTMLButtonElement | null = rootElm.querySelector(".p-splitbutton-button");
 
     if (dropdownButton) {
       dropdownButton.style.width = "15px";
@@ -58,7 +60,7 @@ function setButtonStylingManually(): void {
     // When there is no icon AND the annotation has a SplitButton component, the width is set to 'auto'
     // with the tailwind utility class 'w-auto'.
     if (!hasIcon) {
-      const splitButtonElm: HTMLButtonElement = buttonElm.value.$el.querySelector("button.p-splitbutton-button");
+      const splitButtonElm: HTMLButtonElement | null = rootElm.querySelector("button.p-splitbutton-button");
 
       splitButtonElm?.classList.add("w-auto");
     }

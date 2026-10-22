@@ -213,9 +213,9 @@ export function useGuidelinesStore() {
    * This function is only used for Text annotations, not Collections annotations.
    *
    * @param {string} type - The type of the annotation.
-   * @return {AnnotationType} The configuration of the annotation type.
+   * @return {AnnotationType | undefined} The configuration of the annotation type, `undefined` if the type is not configured.
    */
-  function getAnnotationConfig(type: string): AnnotationType {
+  function getAnnotationConfig(type: string): AnnotationType | undefined {
     return getLoadedGuidelines().contents.annotations.types.find((t) => t.type === type);
   }
 

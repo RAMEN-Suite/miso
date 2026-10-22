@@ -39,7 +39,7 @@ export function useSearchParams(options: {
 }): UseSearchParamsReturn {
   const { getAvailableNodeLabels } = useGuidelinesStore();
 
-  const DEFAULT_ROW_COUNT: number | null = options?.rowCount ?? null;
+  const DEFAULT_ROW_COUNT: number | undefined = options?.rowCount;
 
   const defaultNodeLabels: string[] = options.nodeLabels ?? toValue(getAvailableNodeLabels(options.scope));
 
@@ -104,7 +104,7 @@ export function useSearchParams(options: {
   function updateParams(params: NodeSearchParams): void {
     for (const [name, value] of Object.entries(params)) {
       if (value !== undefined && name in searchParams.value) {
-        searchParams.value[name] = value;
+        (searchParams.value as Record<string, unknown>)[name] = value;
       }
     }
   }

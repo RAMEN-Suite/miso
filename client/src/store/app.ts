@@ -13,14 +13,14 @@ const { error: guidelinesError, initializeGuidelines } = useGuidelinesStore();
 const api: ApiService = new ApiService();
 
 // Modals anywhere in the app are set to this variable
-const activeModal = ref<DynamicDialogInstance>(null);
+const activeModal = ref<DynamicDialogInstance | null>(null);
 
 // App-wide toast service
-const toast = ref<ToastServiceMethods>(null);
+const toast = ref<ToastServiceMethods | null>(null);
 
 // Fetch status
 const isFetching = ref<boolean>(false);
-const error = ref<AppError>(null);
+const error = ref<AppError | null>(null);
 
 /**
  * Returns an object containing methods for fetching data from the API and initializing the application.

@@ -493,8 +493,14 @@ export function toggleTextHightlighting(annotation: Annotation, direction: "on" 
  * @return {void}
  */
 export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
+  const container: Element | null = document.querySelector(".text-container");
+
+  if (!container) {
+    return;
+  }
+
   const spanRect: DOMRect = span.getBoundingClientRect();
-  const containerRect: DOMRect = document.querySelector(".text-container").getBoundingClientRect();
+  const containerRect: DOMRect = container.getBoundingClientRect();
 
   const isOutsideViewport: boolean = spanRect.top <= containerRect.top || spanRect.bottom >= containerRect.bottom;
 

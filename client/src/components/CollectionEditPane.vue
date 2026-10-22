@@ -48,6 +48,9 @@ const props = defineProps<{
   focus: CollectionFocus;
 }>();
 
+// Union types can't be written inline in the template, since the linter reads `|` as a (deprecated) filter
+type ArrayPropertyValue = unknown[] | null;
+
 const { api, addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 
 const dialog: ReturnType<typeof useDialog> = useDialog();
@@ -67,8 +70,8 @@ const { levels, mode, path, findEntryInHierarchy, updatePath, setMode } = useHie
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
-const temporaryWorkData = ref<CollectionFocus | null>(null);
-const initialTemporaryWorkData = ref<CollectionFocus | null>(null);
+const temporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
+const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 
 const asyncOperationRunning = ref<boolean>(false);
 
@@ -92,7 +95,7 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
     .toSorted((a, b) => a.type.localeCompare(b.type))
     .map((type: AnnotationType) => {
       const subTypeOptions: (string | number)[] = SHOW_ANNOTATION_SUBTYPES
-        ? getCollectionAnnotationFields(temporaryWorkData.value?.collection.node.nodeLabels ?? [], type.type).find(
+        ? getCollectionAnnotationFields(temporaryWorkData.value.collection.node.nodeLabels, type.type).find(
             (field) => field.name === "subType",
           )?.options ?? []
         : [];
@@ -127,7 +130,6 @@ watch(
     temporaryWorkData.value = cloneDeep(props.focus);
     initialTemporaryWorkData.value = cloneDeep(props.focus);
   },
-  { immediate: true },
 );
 
 /**
@@ -137,7 +139,7 @@ watch(
  * @throws {AppError} If the collection data are not valid.
  */
 function checkValidity(): boolean {
-  if (!form.value.reportValidity()) {
+  if (!form.value?.reportValidity()) {
     return false;
   }
 
@@ -161,7 +163,7 @@ function checkValidity(): boolean {
 }
 
 function findAnnotationByUuid(uuid: string): Annotation | undefined {
-  const found: Annotation | undefined = temporaryWorkData.value?.annotations.find((a) => a.node.data.uuid === uuid);
+  const found: Annotation | undefined = temporaryWorkData.value.annotations.find((a) => a.node.data.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
@@ -404,7 +406,7 @@ function handleDeleteColletion(): void {
       },
       data: {
         action: "delete",
-        node: temporaryWorkData.value?.collection.node,
+        node: temporaryWorkData.value.collection.node,
       },
       emits: {
         onDeleted: handleSuccessfullDeletion,
@@ -494,7 +496,7 @@ function showMessage(result: "success" | "error", error?: Error) {
 </script>
 
 <template>
-  <div v-if="temporaryWorkData" class="edit-pane-container h-full flex flex-col items-center p-2">
+  <div class="edit-pane-container h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between gap-1">
         <div class="buttons-start flex justify-start gap-1">
@@ -584,9 +586,10 @@ function showMessage(result: "success" | "error", error?: Error) {
                   }}</span>
                   <DataInputGroup
                     v-else-if="isArray(field)"
-                    v-model="temporaryWorkData.collection.node.data[field.name]"
+                    :model-value="temporaryWorkData.collection.node.data[field.name] as ArrayPropertyValue"
                     :config="field"
                     :mode="mode"
+                    @update:model-value="(value) => (temporaryWorkData.collection.node.data[field.name] = value)"
                   />
                   <DataInputComponent
                     v-else

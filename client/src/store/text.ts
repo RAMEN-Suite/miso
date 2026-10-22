@@ -6,9 +6,9 @@ import { cloneDeep } from "../utils/helper/helper";
 const { api } = useAppStore();
 
 // Data
-const text = ref<TextNode>(null);
-const initialText = ref<TextNode>(null);
-const correspondingCollection = ref<CollectionNode>(null);
+const text = ref<TextNode | null>(null);
+const initialText = ref<TextNode | null>(null);
+const correspondingCollection = ref<CollectionNode | null>(null);
 const paths = ref<NodeAncestry[]>([]);
 
 // Fetch status

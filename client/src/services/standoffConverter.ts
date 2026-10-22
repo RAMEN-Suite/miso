@@ -74,6 +74,11 @@ export default class StandoffConverter {
     // edit all structural annotations regardless of whether they form tree nodes or labels.
     const allStructural = new Map<string, Anno>([...this.structuralAnnotations, ...this.blockClassificationAnnotations]);
 
+    // Set by the conversion in the constructor, so this only guards against a conversion that ended early
+    if (!this.tiptapJson) {
+      throw new Error("Standoff conversion did not produce a TipTap document.");
+    }
+
     return {
       annotations: this.inlineAnnotations,
       issues: this.issues,

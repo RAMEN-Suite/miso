@@ -34,9 +34,9 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
 
 const { getAnnotationConfig, getAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
 
-const config: AnnotationType = getAnnotationConfig(props.annotation.node.data.type);
+const config: AnnotationType | undefined = getAnnotationConfig(props.annotation.node.data.type);
 
-const isZeroPointAnnotation: boolean = getAnnotationExtent(config.type) === "zeroPoint";
+const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.data.type) === "zeroPoint";
 // TODO: Maybe give whole config instead of only fields...?
 const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
 
@@ -83,6 +83,11 @@ function handleDeleteAnnotation(): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(): void {
+  if (!config) {
+    console.error(`No annotation config found for type "${props.annotation.node.data.type}"`);
+    return;
+  }
+
   createModalInstance(
     dialog.open(AnnotationDetailsModal, {
       props: {
@@ -110,7 +115,7 @@ function handleSpyClick() {
   let range: Range | null = null;
 
   const uuid: string = props.annotation.node.data.uuid;
-  const renderType: "range" | "zeroPoint" = getAnnotationExtent(config.type) === "zeroPoint" ? "zeroPoint" : "range";
+  const renderType: "range" | "zeroPoint" = isZeroPointAnnotation ? "zeroPoint" : "range";
 
   if (renderType === "range") {
     const decorationSet: DecorationSet | undefined = ANNOTATION_DECORATION_KEY.getState(tiptap.value.state)?.all;
@@ -133,7 +138,7 @@ function handleSpyClick() {
 }
 
 function handleSpyHover(direction: "on" | "off"): void {
-  const renderType: "range" | "zeroPoint" = getAnnotationExtent(config.type) === "zeroPoint" ? "zeroPoint" : "range";
+  const renderType: "range" | "zeroPoint" = isZeroPointAnnotation ? "zeroPoint" : "range";
 
   tiptap.value?.commands.toggleAnnotationHighlight(direction, props.annotation.node.data.uuid, { renderType });
 }

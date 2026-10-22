@@ -269,7 +269,12 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
   }
 
   try {
-    const config: AnnotationType = getAnnotationConfig(data.type);
+    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
+
+    if (!config) {
+      console.error(`No annotation config found for type "${data.type}"`);
+      return;
+    }
 
     isAnnotationTypeEnabled(data.type);
     isSelectionValid(selection, config);
@@ -363,7 +368,12 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   }
 
   try {
-    const config: AnnotationType = getAnnotationConfig(data.type);
+    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
+
+    if (!config) {
+      console.error(`No annotation config found for type "${data.type}"`);
+      return;
+    }
 
     isAnnotationTypeEnabled(data.type);
     isSelectionValid(selection, config);
@@ -487,7 +497,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
                   :key="type.type"
                   :type="type.type"
                   :disabled="!selectedOptions.includes(type.type)"
-                  :config="getAnnotationConfig(type.type)"
+                  :config="getAnnotationConfig(type.type)!"
                   @clicked="handleInlineAnnotationButtonClick($event)"
                 />
               </div>

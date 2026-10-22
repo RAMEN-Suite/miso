@@ -170,9 +170,9 @@ export default class ApiService {
     const urlParams: URLSearchParams = new URLSearchParams();
 
     urlParams.set("scope", baseNodeLabel);
-    urlParams.set("order", sortDirection);
-    urlParams.set("search", searchInput);
-    urlParams.set("nodeLabels", nodeLabels.join(","));
+    urlParams.set("order", sortDirection ?? "asc");
+    urlParams.set("search", searchInput ?? "");
+    urlParams.set("nodeLabels", (nodeLabels ?? []).join(","));
     urlParams.set("limit", rowCount?.toString() ?? DEFAULT_ROW_COUNT.toString());
 
     if (offset) {

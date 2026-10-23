@@ -109,11 +109,11 @@ async function handleSubmit() {
     />
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
-    <div class="flex flex-col gap-1">
+    <div class="modal-body flex flex-col gap-1 px-1">
       <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
     </div>
 
-    <div class="flex justify-center gap-2">
+    <div class="modal-footer flex justify-center gap-2">
       <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
     </div>
   </div>
@@ -122,5 +122,18 @@ async function handleSubmit() {
 <style scoped>
 .modal-container {
   min-width: 350px;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.modal-body {
+  flex-grow: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.modal-footer {
+  flex-shrink: 0;
 }
 </style>

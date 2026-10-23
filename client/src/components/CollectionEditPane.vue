@@ -532,41 +532,41 @@ function showMessage(result: "success" | "error", error?: Error) {
           </span>
         </h3>
       </div>
-      <div class="content">
-        <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
-          <template v-for="(annotation, index) in temporaryWorkData.annotations" :key="annotation.node.data.uuid">
-            <CollectionAnnotationNote
-              v-if="annotation.meta.status !== 'deleted'"
-              v-model="temporaryWorkData.annotations[index]"
-              :mode="mode"
-              :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
-              @edit="handleEditAnnotation(annotation.node.data.uuid)"
-              @remove="handleRemoveAnnotation(annotation.node.data.uuid)"
-            />
-          </template>
-          <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane">
-            <Button
-              icon="icon-plus"
-              severity="secondary"
-              outlined
-              size="small"
-              title="Add new annotation"
-              aria-haspopup="true"
-              @click="openAnnotationMenu($event)"
-            />
-            <TieredMenu ref="annotation-menu" :model="annotationMenuItems" popup>
-              <template #item="{ item, props: itemProps, hasSubmenu }">
-                <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
-                  <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :config="item.annotationConfig" />
-                  </span>
-                  <span>{{ item.label }}</span>
-                  <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>
-                </a>
-              </template>
-            </TieredMenu>
-          </div>
+      <div class="annotations-pane flex flex-wrap items-center gap-1 mt-4 mb-6">
+        <template v-for="(annotation, index) in temporaryWorkData.annotations" :key="annotation.node.data.uuid">
+          <CollectionAnnotationNote
+            v-if="annotation.meta.status !== 'deleted'"
+            v-model="temporaryWorkData.annotations[index]"
+            :mode="mode"
+            :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
+            @edit="handleEditAnnotation(annotation.node.data.uuid)"
+            @remove="handleRemoveAnnotation(annotation.node.data.uuid)"
+          />
+        </template>
+        <div v-if="mode === 'edit' && availabeAnnotationTypes.length > 0" class="annotation-button-pane">
+          <Button
+            icon="icon-plus"
+            severity="secondary"
+            outlined
+            size="small"
+            title="Add new annotation"
+            aria-haspopup="true"
+            @click="openAnnotationMenu($event)"
+          />
+          <TieredMenu ref="annotation-menu" :model="annotationMenuItems" popup>
+            <template #item="{ item, props: itemProps, hasSubmenu }">
+              <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
+                <span class="annotation-menu-icon">
+                  <AnnotationTypeIcon :config="item.annotationConfig" />
+                </span>
+                <span>{{ item.label }}</span>
+                <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>
+              </a>
+            </template>
+          </TieredMenu>
         </div>
+      </div>
+      <div class="content">
         <div class="properties-pane">
           <form ref="form">
             <table v-if="collectionFields.length > 0" class="properties-table">
@@ -695,11 +695,22 @@ function showMessage(result: "success" | "error", error?: Error) {
   font-weight: normal;
 }
 
+.annotations-pane {
+  flex-shrink: 0;
+}
+
 .content {
-  margin-top: 1rem;
   flex-grow: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-gutter: stable;
+}
+
+.label-text,
+.properties-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .annotation-menu-item {

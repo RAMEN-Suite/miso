@@ -3,6 +3,11 @@ import Button from "primevue/button";
 
 const isDevelopment: boolean = import.meta.env.DEV;
 
+defineProps<{
+  /** Disables save and cancel, e.g. while a save is running. */
+  disabled: boolean;
+}>();
+
 const emit = defineEmits(["save", "cancel", "log-json", "log-text"]);
 
 function handleSave(): void {
@@ -24,8 +29,10 @@ function handleCancel(): void {
 
 <template>
   <div class="editor-button-container flex justify-center gap-4 p-4">
-    <Button aria-label="Save changes" title="Save changes" @click="handleSave">Save</Button>
-    <Button severity="secondary" title="Discard changes" aria-label="Cancel changes" @click="handleCancel">Cancel</Button>
+    <Button aria-label="Save changes" title="Save changes" :disabled="disabled" :loading="disabled" @click="handleSave">Save</Button>
+    <Button severity="secondary" title="Discard changes" aria-label="Cancel changes" :disabled="disabled" @click="handleCancel">
+      Cancel
+    </Button>
     <Button v-if="isDevelopment" aria-label="Log doc" title="Log doc" severity="info" @click="handleLogJson">JSON</Button>
 
     <Button v-if="isDevelopment" aria-label="Log text" title="Log text" severity="info" @click="handleLogText">Text</Button>

@@ -74,6 +74,10 @@ function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionN
 }
 
 async function handleSubmit() {
+  if (isLoading.value) {
+    return;
+  }
+
   const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: toValue(nodeLabels.value) };
 
   isLoading.value = true;
@@ -114,7 +118,7 @@ async function handleSubmit() {
     </div>
 
     <div class="modal-footer flex justify-center gap-2">
-      <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
+      <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
     </div>
   </div>
 </template>

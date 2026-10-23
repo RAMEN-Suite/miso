@@ -65,6 +65,10 @@ function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | nul
 }
 
 async function handleSubmit() {
+  if (isLoading.value) {
+    return;
+  }
+
   const text: string = newContentNode.value.data.text.replace(/(\r\n|\n|\r)/g, " ");
 
   const contentNodeToAdd: TextNode = {
@@ -103,7 +107,7 @@ async function handleSubmit() {
       <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Add some text" autofocus />
     </div>
     <div class="modal-footer flex justify-center gap-2">
-      <Button :disabled="!inputIsValid" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
+      <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
     </div>
   </div>
 </template>

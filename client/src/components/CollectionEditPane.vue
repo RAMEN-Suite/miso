@@ -278,6 +278,10 @@ function handleClickEditButton(): void {
 }
 
 function handleDiscardChanges(): void {
+  if (asyncOperationRunning.value) {
+    return;
+  }
+
   temporaryWorkData.value = cloneDeep(initialTemporaryWorkData.value);
 
   setMode("view");
@@ -383,6 +387,10 @@ function cleanupDataAfterSave(): void {
 }
 
 async function handleApplyChanges(): Promise<void> {
+  if (asyncOperationRunning.value) {
+    return;
+  }
+
   try {
     if (!checkValidity()) {
       return;
@@ -653,6 +661,7 @@ function showMessage(result: "success" | "error", error?: Error) {
       ></Button>
       <Button
         v-if="mode === 'edit'"
+        :disabled="asyncOperationRunning"
         :loading="asyncOperationRunning"
         label="Save"
         icon="icon-save"

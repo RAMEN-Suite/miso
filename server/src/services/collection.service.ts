@@ -7,6 +7,7 @@ import { IGuidelines } from "../models/IGuidelines.js";
 import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatusObject } from "../models/types.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import ValidationError from "../errors/validation.error.js";
+import logger from "../logger.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -172,6 +173,8 @@ export default class CollectionService {
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
+    const start: number = performance.now();
+
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
       uuid,
       delete: flat.delete,
@@ -179,6 +182,17 @@ export default class CollectionService {
       update: flat.update,
       remove: flat.remove,
       attach: flat.attach,
+    });
+
+    // Compared with the response time of the request, this shows how much of a save is spent in the database
+    logger.debug("Collection subgraph updated", {
+      uuid,
+      dbDurationMs: Math.round(performance.now() - start),
+      create: flat.create.length,
+      update: flat.update.length,
+      delete: flat.delete.length,
+      attach: flat.attach.length,
+      remove: flat.remove.length,
     });
 
     const updatedNode: CollectionNode = result.records[0]?.get("node");

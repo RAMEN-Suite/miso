@@ -345,11 +345,12 @@ export default class ApiService {
     throw error;
   }
 
-  public async updateCollection(uuid: string, data: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
+  public async updateCollection(uuid: string, data: NodeStatusObject, signal?: AbortSignal): Promise<NodeDto<CollectionNode>> {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
       const response: Response = await fetch(url, {
+        signal,
         method: "POST",
         cache: "no-cache",
         credentials: "same-origin",

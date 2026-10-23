@@ -11,6 +11,30 @@ export const FETCH_DELAY: number = 300;
  */
 export const LUCIDE_ICON_PREFIX = "icon-" as const;
 
+export type CollectionFieldStyle = "ghost" | "outlined" | "underline";
+
+/**
+ * How the always-editable property fields in the Collection edit pane look.
+ *
+ * - `ghost`: Read like plain text. A light background on hover, the regular input border on focus.
+ * - `outlined`: Regular inputs with a border, always visible.
+ * - `underline`: Only a bottom border, which turns into the primary color on focus.
+ */
+export const COLLECTION_FIELD_STYLE: CollectionFieldStyle = "ghost";
+
+export type CollectionAnnotationVariant = "chip" | "popover" | "list" | "card";
+
+/**
+ * How annotations are displayed and accessed in the Collection edit pane.
+ *
+ * - `chip`: Compact chips. A click opens the edit modal, a hover-revealed button removes it.
+ * - `popover`: Compact chips. A click opens a details popover with edit and remove buttons (removal is confirmed inline).
+ * - `list`: Full-width rows with a short summary of the property values. A click opens the edit modal, a hover-revealed button removes it.
+ * - `card`: Grid of small cards listing the first property values with their names. A click opens the edit modal,
+ *   a hover-revealed button in the corner removes it.
+ */
+export const COLLECTION_ANNOTATION_VARIANT: CollectionAnnotationVariant = "card";
+
 /**
  * Configurations of built-in structural annotation types. Is combined with the project-specific configuration
  * on load: these types can be renamed (type and attributes) via `miso.editing.native` and extended with new

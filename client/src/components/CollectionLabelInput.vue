@@ -1,9 +1,54 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ placeholder?: string }>(), {
-  placeholder: "No label provided",
-});
+import { nextTick } from "vue";
+
+withDefaults(
+  defineProps<{
+    placeholder?: string;
+    /** Hides the dashed border until the label is hovered or focused, so it reads as plain text. */
+    subtle?: boolean;
+  }>(),
+  {
+    placeholder: "No label provided",
+    subtle: false,
+  },
+);
 
 const label = defineModel<string>("label", { required: true });
+
+const emit = defineEmits<{
+  /** The user is done editing (blur or Enter). */
+  commit: [];
+  /** The user wants the saved value back (Escape). The parent resets `label`. */
+  revert: [];
+}>();
+
+/**
+ * Enter finishes editing (a label is single-line), which commits via the blur handler.
+ *
+ * @param {KeyboardEvent} event - The keydown event.
+ * @returns {void} This function does not return any value.
+ */
+function handleEnter(event: KeyboardEvent): void {
+  event.preventDefault();
+  (event.target as HTMLSpanElement).blur();
+}
+
+/**
+ * Escape restores the saved label. The DOM is synced manually, since the directive skips updates while the element
+ * is focused. The following blur then finds nothing to commit.
+ *
+ * @param {KeyboardEvent} event - The keydown event.
+ * @returns {Promise<void>} Resolves when the label was reverted and the element blurred.
+ */
+async function handleEscape(event: KeyboardEvent): Promise<void> {
+  const el: HTMLSpanElement = event.target as HTMLSpanElement;
+
+  emit("revert");
+  await nextTick();
+
+  el.textContent = label.value;
+  el.blur();
+}
 
 /**
  * Handles the input event on the contenteditable span.
@@ -28,12 +73,16 @@ function handleInput(event: Event): void {
   <span
     v-contenteditable="label"
     class="label-text"
+    :class="{ 'is-subtle': subtle }"
     contenteditable="true"
     role="textbox"
     aria-multiline="false"
     :data-placeholder="placeholder"
     title="Click to edit the label"
     @input="handleInput"
+    @blur="emit('commit')"
+    @keydown.enter="handleEnter"
+    @keydown.escape="handleEscape"
   ></span>
 </template>
 
@@ -62,6 +111,10 @@ function handleInput(event: Event): void {
 
 .label-text[contenteditable="true"]:hover {
   border-color: var(--middle-green);
+}
+
+.label-text.is-subtle:not(:hover, :focus) {
+  border-color: transparent;
 }
 
 .label-text:focus {

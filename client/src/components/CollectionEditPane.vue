@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ComputedRef, ref, useTemplateRef, watch } from "vue";
+import { computed, ComputedRef, nextTick, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
@@ -55,6 +55,7 @@ const { api, addToastMessage, createModalInstance, destroyModalInstance } = useA
 
 const dialog: ReturnType<typeof useDialog> = useDialog();
 const form = useTemplateRef<HTMLFormElement>("form");
+const labelInput = useTemplateRef<InstanceType<typeof CollectionLabelInput>>("labelInput");
 
 const {
   guidelines,
@@ -131,6 +132,31 @@ watch(
     initialTemporaryWorkData.value = cloneDeep(props.focus);
   },
 );
+
+watch(mode, async (newMode) => {
+  if (newMode === "edit") {
+    await nextTick();
+
+    focusLabelInput();
+  }
+});
+
+/**
+ * Focuses the label input and places the caret at the end of the label.
+ *
+ * @returns {void} This function does not return any value.
+ */
+function focusLabelInput(): void {
+  const el: HTMLElement | undefined = labelInput.value?.$el;
+
+  if (!el) {
+    return;
+  }
+
+  el.focus();
+  window.getSelection()?.selectAllChildren(el);
+  window.getSelection()?.collapseToEnd();
+}
 
 /**
  * Checks the validity of the Collection edit pane data and throws errors if criteria are not met.
@@ -526,7 +552,11 @@ function showMessage(result: "success" | "error", error?: Error) {
             :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
             :size="30"
           />
-          <CollectionLabelInput v-if="mode === 'edit'" v-model:label="temporaryWorkData.collection.node.data.label" />
+          <CollectionLabelInput
+            v-if="mode === 'edit'"
+            ref="labelInput"
+            v-model:label="temporaryWorkData.collection.node.data.label"
+          />
           <span v-else class="label-text" data-placeholder="No label provided">
             {{ temporaryWorkData.collection.node.data.label }}
           </span>

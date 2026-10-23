@@ -32,7 +32,6 @@ function handleInput(event: Event): void {
     role="textbox"
     aria-multiline="false"
     :data-placeholder="placeholder"
-    title="Click to edit the label"
     @input="handleInput"
   ></span>
 </template>

@@ -38,6 +38,7 @@ const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterComparator[]
   DateTime: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Array: ["in", "isEmpty", "isNotEmpty"],
+  Object: ["isEmpty", "isNotEmpty"],
 };
 
 /**

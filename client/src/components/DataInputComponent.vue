@@ -8,6 +8,7 @@ import {
   isFloat,
   isInteger,
   isNumeric,
+  isObject,
   isString,
   isTemporal,
   toStoredTemporal,
@@ -50,6 +51,15 @@ const temporalValue = computed<string>({
   set: (value: string) => {
     modelValue.value = toStoredTemporal(value, props.config);
   },
+});
+
+/** Read-only display of an `Object` property. Functionality will be implemented later */
+const objectValue = computed<string>(() => {
+  if (modelValue.value === null || modelValue.value === undefined) {
+    return "—";
+  } else {
+    return JSON.stringify(modelValue.value, null, 2);
+  }
 });
 </script>
 
@@ -120,6 +130,7 @@ const temporalValue = computed<string>({
       binary
     />
   </div>
+  <pre v-else-if="isObject(config)" class="object-field">{{ objectValue }}</pre>
   <div v-else class="default-field" :style="{ backgroundColor: '#ffb1c0', borderRadius: '5px' }">
     {{ modelValue }}
   </div>
@@ -130,5 +141,19 @@ const temporalValue = computed<string>({
   padding-block: var(--p-inputtext-sm-padding-y);
   border-block: 1px solid transparent;
   line-height: normal;
+}
+
+.object-field {
+  margin: 0;
+  padding: var(--p-inputtext-sm-padding-y) var(--p-inputtext-sm-padding-x);
+  border: 1px solid var(--p-inputtext-disabled-background);
+  border-radius: var(--p-inputtext-border-radius);
+  background: var(--p-inputtext-disabled-background);
+  color: var(--p-inputtext-disabled-color);
+  font-size: var(--p-inputtext-sm-font-size);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow: auto;
 }
 </style>

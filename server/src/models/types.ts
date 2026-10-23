@@ -218,7 +218,16 @@ export interface PropertyConfig {
   options?: string[] | number[] /* Options if type is dropdown */;
 }
 
-export type PropertyConfigDataType = "Array" | "Boolean" | "Date" | "DateTime" | "Float" | "Integer" | "String" | "Time";
+export type PropertyConfigDataType =
+  | "Array"
+  | "Boolean"
+  | "Date"
+  | "DateTime"
+  | "Float"
+  | "Integer"
+  | "Object"
+  | "String"
+  | "Time";
 
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default

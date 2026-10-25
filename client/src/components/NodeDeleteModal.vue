@@ -46,6 +46,10 @@ const deleteMessage = computed<string>(() => {
 watch(() => route.path, closeModal);
 
 async function handleSubmitClick(): Promise<void> {
+  if (asyncOperationRunning.value) {
+    return;
+  }
+
   asyncOperationRunning.value = true;
 
   try {
@@ -75,6 +79,10 @@ function showMessage(result: "success" | "error", error?: Error) {
 }
 
 function handleCancelClick(): void {
+  if (asyncOperationRunning.value) {
+    return;
+  }
+
   closeModal();
 }
 </script>
@@ -91,11 +99,20 @@ function handleCancelClick(): void {
       type="submit"
       label="Yes, delete"
       severity="danger"
+      :disabled="asyncOperationRunning"
       :loading="asyncOperationRunning"
       @click="handleSubmitClick"
     ></Button>
     <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
-    <Button type="button" label="Cancel" title="Cancel" severity="secondary" autofocus @click="handleCancelClick"></Button>
+    <Button
+      type="button"
+      label="Cancel"
+      title="Cancel"
+      severity="secondary"
+      :disabled="asyncOperationRunning"
+      autofocus
+      @click="handleCancelClick"
+    ></Button>
   </div>
 </template>
 

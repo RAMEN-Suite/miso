@@ -866,9 +866,10 @@ function updateView() {
 }
 
 .content {
-  margin-top: 1rem;
   flex-grow: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-gutter: stable;
 }
 

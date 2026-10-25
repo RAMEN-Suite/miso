@@ -200,7 +200,7 @@ function getEmptyNodes(): DocNode[] {
 }
 
 async function handleSaveChanges(): Promise<void> {
-  if (!tiptap.value || !text.value) {
+  if (asyncOperationRunning.value || !tiptap.value || !text.value) {
     return;
   }
 
@@ -261,6 +261,10 @@ async function handleSaveChanges(): Promise<void> {
 }
 
 function handleCancelChanges(): void {
+  if (asyncOperationRunning.value) {
+    return;
+  }
+
   text.value = cloneDeep(initialText.value);
 
   resetToInitialState();
@@ -497,6 +501,7 @@ watch(
       <editor-content v-if="tiptap" id="editor" :editor="tiptap" spellcheck="false" />
 
       <EditorActionButtonsPane
+        :disabled="asyncOperationRunning"
         @save="handleSaveChanges"
         @cancel="handleCancelChanges"
         @log-json="console.log(tiptap?.state.doc)"

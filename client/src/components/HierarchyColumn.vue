@@ -31,7 +31,7 @@ import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
-import { BASE_MODAL_PROPS } from "../config/modals.ts";
+import { FIXED_FOOTER_MODAL_PROPS } from "../config/modals.ts";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
 /**
@@ -246,7 +246,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
   createModalInstance(
     dialog.open(modalComponent, {
       props: {
-        ...BASE_MODAL_PROPS,
+        ...FIXED_FOOTER_MODAL_PROPS,
         header: `Create new ${params.additionalNodeLabel}`,
         style: { width: "420px" },
       },

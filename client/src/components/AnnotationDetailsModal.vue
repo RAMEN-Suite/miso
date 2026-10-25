@@ -74,7 +74,7 @@ onMounted(() => focusFirstInput());
       <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
     </div>
 
-    <div class="footer flex justify-center gap-2 w-full">
+    <div class="footer flex justify-center gap-2 w-full shrink-0">
       <Button :disabled="!inputIsValid" v-bind="submitButtonConfig[mode]" @click="handleSubmitClick" />
     </div>
   </div>
@@ -83,13 +83,15 @@ onMounted(() => focusFirstInput());
 <style scoped>
 .annotation-modal {
   padding: 0.25rem;
-  height: 100%;
+  flex-grow: 1;
+  min-height: 0;
 }
 
 .content {
   overflow-y: auto;
   scrollbar-gutter: stable;
   flex-grow: 1;
+  min-height: 0;
 
   > * {
     margin-bottom: 2rem;

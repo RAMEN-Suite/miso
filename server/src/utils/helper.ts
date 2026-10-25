@@ -10,7 +10,7 @@ import {
   PropertyConfig,
 } from "../models/types.js";
 import { parseFilterSpec, parseFilterTarget } from "./filter.js";
-import { isArray, isInteger } from "./propertyType.js";
+import { isArray, isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
@@ -402,9 +402,12 @@ export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Reco
  * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. integers and floats are both numbers in JavaScript).
  *
+ * Objects can not be stored as Neo4j properties, so a property of type `Object` only accepts an empty value for now.
+ *
  * @param {unknown} value
  * @param {Partial<PropertyConfig> | undefined} config
  * @returns {unknown}
+ * @throws {ValidationError} If a value is given for a property of type `Object`.
  */
 function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | undefined): unknown {
   // TODO: How handle empty string?
@@ -450,6 +453,12 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
       }
     } else {
       return types.Integer.fromValue(value as number | string);
+    }
+  } else if (isObject(config)) {
+    if (valueIsNull) {
+      return null;
+    } else {
+      throw new ValidationError(`Property "${config.name}" is of type Object, which can not be stored yet.`);
     }
   } else {
     // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates, date times

@@ -69,6 +69,16 @@ export function isInteger(config: Partial<PropertyConfig> | undefined): boolean 
 }
 
 /**
+ * Checks whether a property holds a JSON object.
+ *
+ * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
+ * @returns {boolean} `true` if the property is an object.
+ */
+export function isObject(config: Partial<PropertyConfig> | undefined): boolean {
+  return config?.type === "Object";
+}
+
+/**
  * Checks whether a property holds plain text.
  *
  * @param {Partial<PropertyConfig> | undefined} config - The config of the property.

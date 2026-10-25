@@ -255,7 +255,17 @@ export type AnnotationMisoConfig = z.infer<typeof annotationMisoConfigSchema>;
 
 // ----- Properties -----
 
-const propertyConfigDataTypeSchema = z.enum(["Array", "Boolean", "Date", "DateTime", "Float", "Integer", "String", "Time"]);
+const propertyConfigDataTypeSchema = z.enum([
+  "Array",
+  "Boolean",
+  "Date",
+  "DateTime",
+  "Float",
+  "Integer",
+  "Object",
+  "String",
+  "Time",
+]);
 
 const propertyConfigShape = {
   /** folioEnd, label, websiteUrl */

@@ -16,6 +16,7 @@ export const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterCompa
   DateTime: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Array: ["in", "isEmpty", "isNotEmpty"],
+  Object: ["isEmpty", "isNotEmpty"],
 };
 
 /** Comparators allowed on a property declaring `options`. Mirrors `ENUM_COMPARATORS` server-side. */

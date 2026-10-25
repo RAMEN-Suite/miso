@@ -78,7 +78,6 @@ function handleInput(event: Event): void {
     tabindex="0"
     aria-multiline="false"
     :data-placeholder="placeholder"
-    title="Click to edit the label"
     @input="handleInput"
     @blur="emit('commit')"
     @keydown.enter="handleEnter"

@@ -93,6 +93,9 @@ function handleInput(event: Event): void {
   --label-field-radius: var(--p-inputtext-border-radius);
   --label-placeholder-color: var(--p-inputtext-placeholder-color);
 
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-weight: bold;
   padding: 0.25rem 0.5rem;
   border: 1px solid transparent;

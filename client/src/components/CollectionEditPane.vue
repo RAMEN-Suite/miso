@@ -908,6 +908,7 @@ function updateView() {
 
 .label-input-wrapper {
   position: relative;
+  min-width: 0;
 }
 
 .label-status {

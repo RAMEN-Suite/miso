@@ -37,13 +37,13 @@ const config: ComputedRef<AnnotationType | undefined> = computed(() =>
 const label: ComputedRef<string> = computed(() => String(annotation.value.node.data.subType ?? annotation.value.node.data.type));
 
 /**
- * Shows or hides the details popover, unless the note is disabled.
+ * Shows or hides the details popover. Ignores remove clicks (not stopped, the confirmation needs them to position).
  *
  * @param {Event} event - The click or key event, used to anchor the popover.
  * @returns {void} This function does not return any value.
  */
 function handleTogglePopover(event: Event): void {
-  if (props.disabled) {
+  if (props.disabled || (event.target as HTMLElement).closest(".note-remove")) {
     return;
   }
 
@@ -88,7 +88,7 @@ function handleEditFromPopover(event: MouseEvent): void {
       :aria-label="`Remove ${label}`"
       :title="`Remove ${label}`"
       :disabled="props.disabled"
-      @click.stop="emit('remove', $event)"
+      @click="emit('remove', $event)"
     />
 
     <NodePreviewPopover ref="popover">

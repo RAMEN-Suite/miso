@@ -2,8 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_APP_HOST: string;
-  readonly VITE_PROTOCOL: "http" | "https";
-  // more env variables...
+  readonly VITE_PROTOCOL: "http" | "https";  // more env variables...
 }
 
 interface ImportMeta {

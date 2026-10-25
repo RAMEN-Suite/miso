@@ -1,5 +1,6 @@
 import { DeepReadonly } from "vue";
 import {
+  Annotation,
   NodeDto,
   CollectionNode,
   NodeSearchParams,
@@ -345,11 +346,12 @@ export default class ApiService {
     throw error;
   }
 
-  public async updateCollection(uuid: string, data: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
+  public async updateCollection(uuid: string, data: NodeStatusObject, signal?: AbortSignal): Promise<NodeDto<CollectionNode>> {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
       const response: Response = await fetch(url, {
+        signal,
         method: "POST",
         cache: "no-cache",
         credentials: "same-origin",
@@ -366,6 +368,59 @@ export default class ApiService {
     } catch (error: unknown) {
       this.handleApiError(error);
     }
+  }
+
+  /**
+   * Updates only the given properties of a Collection. `null` removes a property, all others stay untouched.
+   *
+   * @param {CollectionNode} collection - The Collection. Its node labels decide which properties are valid.
+   * @param {Record<string, unknown>} properties - The changed properties.
+   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
+   * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
+   */
+  public async patchCollection(
+    collection: CollectionNode,
+    properties: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<NodeDto<CollectionNode>> {
+    const uuid: string = collection.data.uuid;
+    const url: string = `${this.baseUrl}/collections/${uuid}`;
+
+    try {
+      const response: Response = await fetch(url, {
+        signal,
+        method: "PATCH",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({ nodeLabels: collection.nodeLabels, properties }),
+      });
+
+      await this.assertResponseOk(response);
+
+      return await response.json();
+    } catch (error: unknown) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
+   * Saves a single annotation of a Collection. Its status (`created`, `modified`, `deleted`) decides the operation,
+   * the Collection node itself is left unchanged.
+   *
+   * @param {CollectionNode} collection - The Collection the annotation belongs to.
+   * @param {Annotation} annotation - The annotation to save.
+   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   */
+  public async updateCollectionAnnotation(collection: CollectionNode, annotation: Annotation): Promise<NodeDto<CollectionNode>> {
+    return this.updateCollection(collection.data.uuid, {
+      node: collection,
+      meta: { status: "unchanged" },
+      connectedNodes: [annotation],
+    });
   }
 
   public async updateNetwork(data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {

@@ -1,12 +1,21 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import GuidelinesService from "./guidelines.service.js";
-import { toNativeTypes } from "../utils/helper.js";
+import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
 import { IGuidelines } from "../models/IGuidelines.js";
-import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatusObject } from "../models/types.js";
+import {
+  PaginationResult,
+  CollectionNode,
+  NodeSearchParams,
+  NodeDto,
+  NodeStatusObject,
+  PropertyConfig,
+} from "../models/types.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
+import { validatePropertyValue } from "../utils/propertyValidation.js";
 import ValidationError from "../errors/validation.error.js";
+import logger from "../logger.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -172,6 +181,8 @@ export default class CollectionService {
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
+    const start: number = performance.now();
+
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
       uuid,
       delete: flat.delete,
@@ -179,6 +190,17 @@ export default class CollectionService {
       update: flat.update,
       remove: flat.remove,
       attach: flat.attach,
+    });
+
+    // Compared with the response time of the request, this shows how much of a save is spent in the database
+    logger.debug("Collection subgraph updated", {
+      uuid,
+      dbDurationMs: Math.round(performance.now() - start),
+      create: flat.create.length,
+      update: flat.update.length,
+      delete: flat.delete.length,
+      attach: flat.attach.length,
+      remove: flat.remove.length,
     });
 
     const updatedNode: CollectionNode = result.records[0]?.get("node");
@@ -189,6 +211,71 @@ export default class CollectionService {
 
     return {
       node: updatedNode,
+      connectedNodes: [],
+    };
+  }
+
+  /**
+   * Updates only the given properties of a Collection node (JSON Merge Patch semantics: `null` removes a property).
+   * The properties are validated against the config of the given node labels.
+   *
+   * @param {string} uuid - UUID of the Collection node.
+   * @param {string[]} nodeLabels - The node labels of the Collection, to derive the property configs.
+   * @param {Record<string, unknown>} properties - The changed properties.
+   * @throws {NotFoundError} If no Collection with the given UUID exists.
+   * @throws {ValidationError} If a property is not configured for the node labels, not editable or its value is invalid.
+   * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
+   */
+  public async patchCollectionProperties(
+    uuid: string,
+    nodeLabels: string[],
+    properties: Record<string, unknown>,
+  ): Promise<NodeDto<CollectionNode>> {
+    const guidelineService: GuidelinesService = new GuidelinesService();
+    const guidelines: IGuidelines = await guidelineService.getGuidelines();
+    const fields: PropertyConfig[] = guidelineService.getCollectionConfigFieldsFromGuidelines(guidelines, nodeLabels);
+
+    Object.entries(properties).forEach(([name, value]: [string, unknown]) => {
+      const config: PropertyConfig | undefined = fields.find((field) => field.name === name);
+
+      if (!config) {
+        throw new ValidationError(`"${name}" is not a property of this Collection.`);
+      }
+
+      if (!config.editable) {
+        throw new ValidationError(`"${name}" can not be edited.`);
+      }
+
+      validatePropertyValue(value, config);
+
+      if (name === "label" && typeof value === "string" && value.trim() === "") {
+        throw new ValidationError('The "label" property must not consist of only whitespace characters.');
+      }
+    });
+
+    const query: string = `
+    MATCH (c:Collection {uuid: $uuid})
+    SET c += $properties
+
+    RETURN {
+      nodeLabels: labels(c),
+      data: c {.*}
+    } AS node
+    `;
+
+    const result: QueryResult = await Neo4jDriver.runQuery(query, {
+      uuid,
+      properties: toNeo4jTypes(properties, fields),
+    });
+
+    const updatedNode: CollectionNode | undefined = result.records[0]?.get("node");
+
+    if (!updatedNode) {
+      throw new NotFoundError(`Collection with UUID ${uuid} not found`);
+    }
+
+    return {
+      node: toNativeTypes(updatedNode) as CollectionNode,
       connectedNodes: [],
     };
   }

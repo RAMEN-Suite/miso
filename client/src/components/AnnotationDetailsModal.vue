@@ -25,12 +25,6 @@ const submitButtonConfig = {
   edit: { icon: "icon-check", label: "Update", title: "Update annotation" },
 } as const;
 
-// Hosts that persist on submit (instead of applying to a draft) override the wording
-const submitButtonProps = {
-  ...submitButtonConfig[mode],
-  ...(dialogRef.value.data.submitButton as { icon?: string; label?: string; title?: string } | undefined),
-};
-
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
 const config: AnnotationType = dialogRef.value.data.config;
@@ -47,38 +41,15 @@ const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 
-/**
- * Optional handler for hosts that save on submit. The modal stays open (with a loading button) until it resolves,
- * and only closes if it resolves to `true`. Without it, the modal emits `submit` and closes immediately.
- */
-const submitHandler: ((data: Annotation) => Promise<boolean>) | undefined = dialogRef.value.data.submitHandler;
-
-const submitRunning = ref<boolean>(false);
-
 watch(() => route.path, closeModal);
 
-async function handleSubmitClick(): Promise<void> {
+function handleSubmitClick(): void {
   if (annotation.value.meta.status !== "created") {
     annotation.value.meta.status = "modified";
   }
 
-  if (!submitHandler) {
-    emit("submit", toValue(annotation));
-    closeModal();
-
-    return;
-  }
-
-  submitRunning.value = true;
-
-  // Hand over a copy, so a failed attempt can't leave changes (e.g. pruning) in the form
-  const saved: boolean = await submitHandler(cloneDeep(toValue(annotation)));
-
-  submitRunning.value = false;
-
-  if (saved) {
-    closeModal();
-  }
+  emit("submit", toValue(annotation));
+  closeModal();
 }
 
 function closeModal(): void {
@@ -104,7 +75,7 @@ onMounted(() => focusFirstInput());
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">
-      <Button :disabled="!inputIsValid" :loading="submitRunning" v-bind="submitButtonProps" @click="handleSubmitClick" />
+      <Button :disabled="!inputIsValid" v-bind="submitButtonConfig[mode]" @click="handleSubmitClick" />
     </div>
   </div>
 </template>

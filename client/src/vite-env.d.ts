@@ -2,10 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_APP_HOST: string;
-  readonly VITE_PROTOCOL: "http" | "https";
-  /** Minimum level of the client logger (`debug`, `info`, `warn`, `error`). */
-  readonly VITE_LOG_LEVEL?: string;
-  // more env variables...
+  readonly VITE_PROTOCOL: "http" | "https";  // more env variables...
 }
 
 interface ImportMeta {

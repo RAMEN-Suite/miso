@@ -46,8 +46,7 @@ function resolveLucideIconClass(spec: IconSpec | null): string {
 
 <style scoped>
 .app-icon {
-  display: inline-block;
-  vertical-align: middle;
+  display: block;
   line-height: var(--icon-size);
   flex: none;
 }

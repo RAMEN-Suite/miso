@@ -68,7 +68,7 @@ function closeModal(): void {
 function showMessage(result: "success" | "error", error?: Error) {
   addToastMessage({
     severity: result,
-    summary: result === "success" ? "Changes saved successfully" : "Error saving changes",
+    summary: result === "success" ? "Deleted" : "Not deleted",
     detail: error?.message ?? "",
     life: 2000,
   });

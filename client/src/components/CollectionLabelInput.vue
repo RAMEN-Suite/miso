@@ -4,7 +4,7 @@ import { nextTick } from "vue";
 withDefaults(
   defineProps<{
     placeholder?: string;
-    /** Hides the dashed border until the label is hovered or focused, so it reads as plain text. */
+    /** Shows the dashed border only on hover or focus. */
     subtle?: boolean;
   }>(),
   {
@@ -16,14 +16,14 @@ withDefaults(
 const label = defineModel<string>("label", { required: true });
 
 const emit = defineEmits<{
-  /** The user is done editing (blur or Enter). */
+  /** Editing finished (blur or Enter). */
   commit: [];
-  /** The user wants the saved value back (Escape). The parent resets `label`. */
+  /** Saved value requested back (Escape). The parent resets `label`. */
   revert: [];
 }>();
 
 /**
- * Enter finishes editing (a label is single-line), which commits via the blur handler.
+ * Finishes editing on Enter, which commits via blur.
  *
  * @param {KeyboardEvent} event - The keydown event.
  * @returns {void} This function does not return any value.
@@ -34,8 +34,7 @@ function handleEnter(event: KeyboardEvent): void {
 }
 
 /**
- * Escape restores the saved label. The DOM is synced manually, since the directive skips updates while the element
- * is focused. The following blur then finds nothing to commit.
+ * Restores the saved label on Escape. The DOM is synced manually, since the directive skips focused elements.
  *
  * @param {KeyboardEvent} event - The keydown event.
  * @returns {Promise<void>} Resolves when the label was reverted and the element blurred.

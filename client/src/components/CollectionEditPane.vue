@@ -23,8 +23,7 @@ import {
   pruneUnconfiguredProperties,
 } from "../utils/helper/helper";
 import { isArray, isBoolean } from "../utils/helper/propertyTypeHelper";
-import { FieldSaveState, SaveJobMeta, useCollectionSave } from "../composables/useCollectionSave";
-import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
+import { FieldSaveState, SaveJobMeta, useSaveCollection } from "../composables/useSaveCollection.ts";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -37,8 +36,7 @@ import TieredMenu from "primevue/tieredmenu";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useConfirm } from "primevue/useconfirm";
 import { MenuItem } from "primevue/menuitem";
-import { COLLECTION_ANNOTATION_VARIANT, COLLECTION_FIELD_STYLE, CollectionAnnotationVariant } from "../config/constants";
-import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
+import CreateCollectionAnnotationModal from "./CreateCollectionAnnotationModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
@@ -53,7 +51,7 @@ const props = defineProps<{
 // Union types can't be written inline in the template, since the linter reads `|` as a (deprecated) filter
 type ArrayPropertyValue = unknown[] | null;
 
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
+const { api, addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 
 const dialog: ReturnType<typeof useDialog> = useDialog();
 const confirm: ReturnType<typeof useConfirm> = useConfirm();
@@ -72,32 +70,18 @@ const { levels, path, findEntryInHierarchy, updatePath, setMode } = useHierarchy
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
-const { status: saveStatus, lastError, pendingCount, enqueue, skip, clearFieldState, getFieldState } = useCollectionSave();
+const { pendingCount, enqueue, setFieldError, clearFieldState, getFieldState } = useSaveCollection();
 
-// Every property is always editable and saved on its own: `temporaryWorkData` holds what is shown in the inputs,
-// `initialTemporaryWorkData` what is in the database
+// `temporaryWorkData` holds what the inputs show, `initialTemporaryWorkData` what is saved
 const temporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
-
-// Values that are queued for saving but not saved yet, per saved state. Changes are compared against them, so a value
-// changed back while a save is still queued is not mistaken for "unchanged"
-const queuedValues = new WeakMap<CollectionFocus, Record<string, unknown>>();
 
 // Annotations are saved directly and are not part of the Collection draft (`temporaryWorkData`)
 const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
 
-const annotationOperationRunning = ref<boolean>(false);
-
-/** Wording of the annotation modal's submit button, since it saves directly instead of applying to a draft. */
-const ANNOTATION_SUBMIT_BUTTON = { label: "Save", title: "Save annotation" } as const;
-
-/** Layout of the annotations container, per display variant. */
-const ANNOTATION_PANE_CLASSES: Record<CollectionAnnotationVariant, string> = {
-  chip: "flex flex-wrap items-center",
-  popover: "flex flex-wrap items-center",
-  list: "flex flex-col",
-  card: "annotation-card-grid",
-};
+// The annotation the removal confirmation is open for, and whether its deletion is running
+const annotationPendingRemoval = ref<string | null>(null);
+const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
   return guidelines.value
@@ -144,7 +128,7 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
 });
 
 /**
- * Opens the annotation type menu. If there is only a single type without subtypes, the menu is skipped.
+ * Opens the annotation type menu, or the modal directly if there is only one type without subtypes.
  *
  * @param {Event} event - The click event, used to anchor the menu.
  * @returns {void} This function does not return any value.
@@ -178,7 +162,7 @@ watch(
 onBeforeUnmount(commitActiveField);
 
 /**
- * Blurs the focused element if it's inside the pane, which saves it via the regular focusout/blur handlers.
+ * Blurs the focused element inside the pane, which saves it via the focusout/blur handlers.
  *
  * @returns {void} This function does not return any value.
  */
@@ -191,7 +175,7 @@ function commitActiveField(): void {
 }
 
 /**
- * Compares two property values. A missing value and `null` are the same, arrays are compared including their order.
+ * Compares two property values. `undefined` equals `null`, array order matters.
  *
  * @param {unknown} a - The first value.
  * @param {unknown} b - The second value.
@@ -202,30 +186,14 @@ function isSameValue(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Returns the value a property will have in the database once all queued saves are done.
+ * Builds the request for a property change: the saved data, pruned to the configured properties.
  *
  * @param {CollectionFocus} saved - The saved state of the Collection.
- * @param {string} name - The property name.
- * @returns {unknown} The saved or queued value.
- */
-function getBaselineValue(saved: CollectionFocus, name: string): unknown {
-  const queued: Record<string, unknown> | undefined = queuedValues.get(saved);
-
-  return queued && name in queued ? queued[name] : saved.collection.node.data[name];
-}
-
-/**
- * Builds the request for a single property change: the saved Collection data plus the changed value, pruned to the
- * configured properties. Is called when the save starts, so it includes the results of earlier saves.
- *
- * @param {CollectionFocus} saved - The saved state of the Collection.
- * @param {string} name - The property name.
- * @param {unknown} value - The new value.
  * @returns {NodeStatusObject} The request payload.
  */
-function buildPropertyPayload(saved: CollectionFocus, name: string, value: unknown): NodeStatusObject {
+function buildPropertyPayload(saved: CollectionFocus): NodeStatusObject {
   const node: CollectionNode = saved.collection.node;
-  const data: CollectionNode["data"] = { ...cloneDeep(node.data), [name]: value };
+  const data: CollectionNode["data"] = cloneDeep(node.data);
 
   pruneUnconfiguredProperties(data, getCollectionConfigFields(node.nodeLabels), ["uuid"]);
 
@@ -233,7 +201,8 @@ function buildPropertyPayload(saved: CollectionFocus, name: string, value: unkno
 }
 
 /**
- * Saves a single property if it changed and is valid. Invalid values are not sent, but marked at the field.
+ * Queues a save of the property if it changed and is valid. Invalid values are marked at the field instead.
+ * The value counts as saved right away and is rolled back if the request fails.
  *
  * @param {string} name - The property name.
  * @param {(value: unknown) => string | null} validate - Returns a message if the value is invalid.
@@ -242,11 +211,12 @@ function buildPropertyPayload(saved: CollectionFocus, name: string, value: unkno
 function commitProperty(name: string, validate: (value: unknown) => string | null): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
   const collectionUuid: string = saved.collection.node.data.uuid;
-  const meta: SaveJobMeta = { kind: "field", target: name, collectionUuid };
+  const meta: SaveJobMeta = { target: name, collectionUuid };
   const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.data[name]);
+  const previous: unknown = saved.collection.node.data[name];
 
-  if (isSameValue(value, getBaselineValue(saved, name))) {
-    skip(meta, "unchanged");
+  if (isSameValue(value, previous)) {
+    clearFieldState(meta);
 
     return;
   }
@@ -254,35 +224,29 @@ function commitProperty(name: string, validate: (value: unknown) => string | nul
   const invalidMessage: string | null = validate(value);
 
   if (invalidMessage) {
-    skip(meta, "invalid", invalidMessage);
+    setFieldError(meta, invalidMessage);
 
     return;
   }
 
-  const queued: Record<string, unknown> = queuedValues.get(saved) ?? {};
   const pathIndex: number = path.value.length - 1;
 
-  queued[name] = value;
-  queuedValues.set(saved, queued);
+  saved.collection.node.data[name] = value;
 
   void enqueue({
     ...meta,
-    buildPayload: () => buildPropertyPayload(saved, name, value),
-    onSuccess: (result: NodeDto<CollectionNode>) => {
-      saved.collection.node.data[name] = value;
-      transferDataToListItem(collectionUuid, pathIndex, result);
-    },
-  }).finally(() => {
-    // Only drop it if no newer value was queued in the meantime
-    if (queued[name] === value) {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
-      delete queued[name];
+    buildPayload: () => buildPropertyPayload(saved),
+    onSuccess: (result: NodeDto<CollectionNode>) => transferDataToListItem(collectionUuid, pathIndex, result),
+  }).then((success: boolean) => {
+    // Roll back, unless a newer value was committed in the meantime
+    if (!success && saved.collection.node.data[name] === value) {
+      saved.collection.node.data[name] = previous;
     }
   });
 }
 
 /**
- * Validates a property value against its config and the native constraints of its inputs (min/max, lengths).
+ * Validates a value against its config and the native constraints of its inputs.
  *
  * @param {PropertyConfig} field - The property config.
  * @param {unknown} value - The value to check.
@@ -299,13 +263,18 @@ function validateField(field: PropertyConfig, value: unknown, row: HTMLElement |
   return invalidInput ? invalidInput.validationMessage : null;
 }
 
+/**
+ * Validates the Collection label.
+ *
+ * @param {unknown} value - The label.
+ * @returns {string | null} The validation message, or `null` if the label is valid.
+ */
 function validateLabel(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? null : "The name must not be empty.";
 }
 
 /**
- * Whether a property is saved as soon as its value changes (instead of when its field is left), since its value is
- * picked, not typed.
+ * Whether a property saves on change instead of on leaving the field, since its value is picked, not typed.
  *
  * @param {PropertyConfig} field - The property config.
  * @returns {boolean} Whether the property saves on change.
@@ -314,6 +283,13 @@ function savesOnChange(field: PropertyConfig): boolean {
   return isBoolean(field) || (Boolean(field.options) && !isArray(field));
 }
 
+/**
+ * Saves an editable property, validated against its config and the inputs in its row.
+ *
+ * @param {PropertyConfig} field - The property config.
+ * @param {HTMLElement | null} row - The table row of the property, for the native input constraints.
+ * @returns {void} This function does not return any value.
+ */
 function commitField(field: PropertyConfig, row: HTMLElement | null): void {
   if (!field.editable) {
     return;
@@ -322,6 +298,13 @@ function commitField(field: PropertyConfig, row: HTMLElement | null): void {
   commitProperty(field.name, (value) => validateField(field, value, row));
 }
 
+/**
+ * Writes an input value to the draft and saves it right away if the property saves on change.
+ *
+ * @param {PropertyConfig} field - The property config.
+ * @param {unknown} value - The new value.
+ * @returns {void} This function does not return any value.
+ */
 function handleFieldInput(field: PropertyConfig, value: unknown): void {
   temporaryWorkData.value.collection.node.data[field.name] = value;
 
@@ -332,7 +315,7 @@ function handleFieldInput(field: PropertyConfig, value: unknown): void {
 }
 
 /**
- * Returns the save state of a property of the shown Collection, for the indicator next to it.
+ * Returns the save state of a property of the shown Collection.
  *
  * @param {string} name - The property name.
  * @returns {FieldSaveState | undefined} The state, or `undefined` if there is nothing to show.
@@ -341,6 +324,12 @@ function getShownFieldState(name: string): FieldSaveState | undefined {
   return getFieldState(temporaryWorkData.value.collection.node.data.uuid, name);
 }
 
+/**
+ * Returns the icon classes for a field's save state.
+ *
+ * @param {FieldSaveState | undefined} state - The save state.
+ * @returns {string} The icon classes, empty if there is no state.
+ */
 function getFieldStatusIcon(state: FieldSaveState | undefined): string {
   if (state?.state === "saving") {
     return "icon-loader-circle animate-spin";
@@ -352,8 +341,7 @@ function getFieldStatusIcon(state: FieldSaveState | undefined): string {
 }
 
 /**
- * Saves the property once the focus leaves its row. Moving between the inputs of a multi-value property does not
- * count, so half-finished lists are not saved.
+ * Saves the property once the focus leaves its row (not when moving between the inputs of a multi-value property).
  *
  * @param {PropertyConfig} field - The property config.
  * @param {FocusEvent} event - The focusout event of the row.
@@ -369,6 +357,12 @@ function handleFieldFocusOut(field: PropertyConfig, event: FocusEvent): void {
   commitField(field, row);
 }
 
+/**
+ * Leaves a text or number input on Enter, which saves it.
+ *
+ * @param {KeyboardEvent} event - The keydown event of the row.
+ * @returns {void} This function does not return any value.
+ */
 function handleFieldEnter(event: KeyboardEvent): void {
   if (event.target instanceof HTMLInputElement && event.target.type !== "checkbox") {
     event.target.blur();
@@ -376,7 +370,7 @@ function handleFieldEnter(event: KeyboardEvent): void {
 }
 
 /**
- * Restores the saved (or queued) value of a property and leaves the field.
+ * Restores the saved value of a property and clears its error.
  *
  * @param {string} name - The property name.
  * @returns {void} This function does not return any value.
@@ -384,10 +378,17 @@ function handleFieldEnter(event: KeyboardEvent): void {
 function revertProperty(name: string): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
 
-  temporaryWorkData.value.collection.node.data[name] = cloneDeep(getBaselineValue(saved, name) ?? null);
-  clearFieldState({ kind: "field", target: name, collectionUuid: saved.collection.node.data.uuid });
+  temporaryWorkData.value.collection.node.data[name] = cloneDeep(saved.collection.node.data[name] ?? null);
+  clearFieldState({ target: name, collectionUuid: saved.collection.node.data.uuid });
 }
 
+/**
+ * Restores the saved value on Escape and leaves the field.
+ *
+ * @param {PropertyConfig} field - The property config.
+ * @param {KeyboardEvent} event - The keydown event of the row.
+ * @returns {void} This function does not return any value.
+ */
 function handleFieldEscape(field: PropertyConfig, event: KeyboardEvent): void {
   revertProperty(field.name);
   (event.target as HTMLElement).blur();
@@ -406,75 +407,27 @@ function findAnnotationByUuid(uuid: string): Annotation | undefined {
 }
 
 /**
- * Removes annotation properties that are not configured for the annotation type on this Collection, in place.
+ * Saves an annotation without a modal (create or delete by its status) and updates the pane on success.
  *
- * @param {Annotation} annotation - The annotation to prune. Is mutated in place.
- * @param {string[]} nodeLabels - The node labels of the Collection.
- * @returns {void} This function does not return any value.
- */
-function pruneAnnotationData(annotation: Annotation, nodeLabels: string[]): void {
-  const type: string = annotation.node.data.type;
-
-  if (!getCollectionAnnotationConfig(nodeLabels, type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
-    return;
-  }
-
-  pruneUnconfiguredProperties(annotation.node.data, getCollectionAnnotationFields(nodeLabels, type), INTRINSIC_ANNOTATION_PROPERTIES);
-}
-
-/**
- * Saves a single annotation change (create, update or delete, depending on its status) directly, through the same
- * queue as the properties. The Collection node itself is sent as "unchanged", so it is not touched.
- *
- * @param {Annotation} annotation - The annotation to save. Its status decides the operation.
+ * @param {Annotation} annotation - The annotation to save.
  * @returns {Promise<boolean>} Whether the annotation was saved.
  */
-async function persistAnnotation(annotation: Annotation): Promise<boolean> {
-  const saved: CollectionFocus = initialTemporaryWorkData.value;
+async function saveAnnotation(annotation: Annotation): Promise<boolean> {
+  try {
+    await api.updateCollectionAnnotation(initialTemporaryWorkData.value.collection.node, annotation);
 
-  pruneAnnotationData(annotation, saved.collection.node.nodeLabels);
+    applyPersistedAnnotation(annotation);
 
-  annotationOperationRunning.value = true;
+    return true;
+  } catch (error: unknown) {
+    addToastMessage({ severity: "error", summary: "Not saved", detail: (error as Error).message, life: 4000 });
 
-  const success: boolean = await enqueue({
-    kind: "annotation",
-    target: annotation.node.data.uuid,
-    collectionUuid: saved.collection.node.data.uuid,
-    buildPayload: () => ({ node: saved.collection.node, meta: { status: "unchanged" }, connectedNodes: [annotation] }),
-    onSuccess: () => {
-      // The pane might show another Collection by now
-      if (initialTemporaryWorkData.value === saved) {
-        applyPersistedAnnotation(annotation);
-      }
-    },
-  });
-
-  annotationOperationRunning.value = false;
-
-  return success;
-}
-
-/**
- * Deletes the annotation directly, without confirmation.
- *
- * @param {string} uuid - UUID of the annotation in `annotations`.
- * @returns {void} This function does not return any value.
- */
-function deleteAnnotation(uuid: string): void {
-  const annotation: Annotation | undefined = findAnnotationByUuid(uuid);
-
-  if (!annotation) {
-    return;
+    return false;
   }
-
-  const deleted: Annotation = cloneDeep(annotation);
-
-  deleted.meta.status = "deleted";
-  void persistAnnotation(deleted);
 }
 
 /**
- * Brings the local annotation list in sync with the database after an annotation was saved.
+ * Applies a saved annotation to the local list.
  *
  * @param {Annotation} annotation - The annotation that was saved.
  * @returns {void} This function does not return any value.
@@ -528,42 +481,34 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
   // eslint-disable-next-line no-constant-condition -- Safe to delete
   if (annotationHasConstraints(config) || true) {
-    openAnnotationCreateModal(newAnnotation, config, getCollectionAnnotationFields(nodeLabels, data.type));
+    openAnnotationModal(newAnnotation, config, "create", `Add new ${data.subType ?? data.type} annotation`);
   } else {
-    void persistAnnotation(newAnnotation);
+    void saveAnnotation(newAnnotation);
   }
 }
 
 /**
- * Opens the {@linkcode AnnotationDetailsModal} for a new Collection annotation. Saves it on submit only.
+ * Opens the {@linkcode CreateCollectionAnnotationModal}, which saves the annotation itself.
  *
- * @param {Annotation} annotation - The annotation template to fill in.
+ * @param {Annotation} annotation - The annotation to edit, or the template of a new one.
  * @param {AnnotationType} config - The Collection-scoped annotation config.
- * @param {PropertyConfig[]} propertyFields - The Collection-scoped property fields.
+ * @param {"create" | "edit"} mode - Whether the annotation is new.
+ * @param {string} header - The modal header.
  * @returns {void} This function does not return any value.
  */
-function openAnnotationCreateModal(annotation: Annotation, config: AnnotationType, propertyFields: PropertyConfig[]): void {
+function openAnnotationModal(annotation: Annotation, config: AnnotationType, mode: "create" | "edit", header: string): void {
   createModalInstance(
-    dialog.open(AnnotationDetailsModal, {
-      props: {
-        ...ANNOTATION_MODAL_PROPS,
-        header: `Add new ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
-      },
-      data: {
-        annotation,
-        config,
-        propertyFields,
-        mode: "create",
-        submitButton: ANNOTATION_SUBMIT_BUTTON,
-        submitHandler: persistAnnotation,
-      },
+    dialog.open(CreateCollectionAnnotationModal, {
+      props: { ...ANNOTATION_MODAL_PROPS, header },
+      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, config, mode },
+      emits: { onSaved: applyPersistedAnnotation },
       onClose: destroyModalInstance,
     }),
   );
 }
 
 /**
- * Asks for confirmation and deletes the annotation directly, since this can't be undone with "Cancel".
+ * Opens the removal confirmation next to the annotation.
  *
  * @param {string} uuid - UUID of the annotation in `annotations`.
  * @param {Event} event - The click event, used to anchor the confirmation popup.
@@ -572,22 +517,51 @@ function openAnnotationCreateModal(annotation: Annotation, config: AnnotationTyp
 function handleRemoveAnnotation(uuid: string, event: Event): void {
   const annotation: Annotation | undefined = findAnnotationByUuid(uuid);
 
-  if (!annotation) {
+  // Don't switch to another annotation while a deletion is running
+  if (!annotation || removalRunning.value) {
     return;
   }
+
+  annotationPendingRemoval.value = uuid;
 
   confirm.require({
     group: "annotation-remove",
     target: event.currentTarget as HTMLElement,
-    message: `Remove this ${annotation.node.data.subType ?? annotation.node.data.type} annotation?`,
-    rejectProps: { label: "Cancel", severity: "secondary", outlined: true, size: "small" },
-    acceptProps: { label: "Remove", severity: "danger", size: "small" },
-    accept: () => deleteAnnotation(uuid),
+    message: `Remove this “${annotation.node.data.subType ?? annotation.node.data.type}” annotation?`,
   });
 }
 
 /**
- * Opens the {@linkcode AnnotationDetailsModal} for a Collection annotation and saves it on submit.
+ * Deletes the annotation of the open confirmation and closes the popup on success.
+ *
+ * @param {() => void} closePopup - Closes the confirmation popup.
+ * @returns {Promise<void>} Resolves when the deletion is done.
+ */
+async function handleConfirmRemoval(closePopup: () => void): Promise<void> {
+  const uuid: string | null = annotationPendingRemoval.value;
+  const annotation: Annotation | undefined = uuid ? findAnnotationByUuid(uuid) : undefined;
+
+  if (!annotation || removalRunning.value) {
+    return;
+  }
+
+  const deleted: Annotation = cloneDeep(annotation);
+
+  deleted.meta.status = "deleted";
+  removalRunning.value = true;
+
+  try {
+    if (await saveAnnotation(deleted)) {
+      annotationPendingRemoval.value = null;
+      closePopup();
+    }
+  } finally {
+    removalRunning.value = false;
+  }
+}
+
+/**
+ * Opens the {@linkcode CreateCollectionAnnotationModal} for an existing annotation.
  *
  * @param {string} uuid - UUID of the annotation in `annotations`.
  * @returns {void} This function does not return any value.
@@ -612,25 +586,7 @@ function handleEditAnnotation(uuid: string): void {
     return;
   }
 
-  const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(nodeLabels, annotation.node.data.type);
-
-  createModalInstance(
-    dialog.open(AnnotationDetailsModal, {
-      props: {
-        ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${annotation.node.data.type} annotation`,
-      },
-      data: {
-        annotation,
-        config,
-        propertyFields,
-        mode: "edit",
-        submitButton: ANNOTATION_SUBMIT_BUTTON,
-        submitHandler: persistAnnotation,
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
+  openAnnotationModal(annotation, config, "edit", `Edit ${annotation.node.data.type} annotation`);
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
@@ -643,6 +599,10 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 }
 
 function handleDeleteColletion(): void {
+  if (pendingCount.value > 0) {
+    return;
+  }
+
   createModalInstance(
     dialog.open(NodeDeleteModal, {
       props: {
@@ -663,7 +623,7 @@ function handleDeleteColletion(): void {
 }
 
 function handleSuccessfullDeletion() {
-  showMessage("success");
+  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
   destroyModalInstance();
   updateView();
 }
@@ -681,15 +641,6 @@ function updateView() {
 
   setMode("view");
 }
-
-function showMessage(result: "success" | "error", error?: Error) {
-  addToastMessage({
-    severity: result,
-    summary: result === "success" ? "Changes saved successfully" : "Error saving changes",
-    detail: error?.message ?? "",
-    life: 2000,
-  });
-}
 </script>
 
 <template>
@@ -698,20 +649,6 @@ function showMessage(result: "success" | "error", error?: Error) {
       <div class="buttons flex justify-between items-center gap-1">
         <div class="buttons-start flex justify-start gap-1">
           <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
-        </div>
-        <div class="save-status" :class="`is-${saveStatus}`" role="status" aria-live="polite">
-          <template v-if="saveStatus === 'saving'">
-            <span class="icon-loader-circle animate-spin" aria-hidden="true"></span>
-            <span>Saving…</span>
-          </template>
-          <template v-else-if="saveStatus === 'saved'">
-            <span class="icon-check" aria-hidden="true"></span>
-            <span>Saved</span>
-          </template>
-          <template v-else-if="saveStatus === 'error'">
-            <span v-tooltip.bottom="lastError" class="icon-alert-circle" aria-hidden="true"></span>
-            <span v-tooltip.bottom="lastError">Not saved</span>
-          </template>
         </div>
         <div class="buttons-end flex justify-end gap-1">
           <Button
@@ -737,44 +674,42 @@ function showMessage(result: "success" | "error", error?: Error) {
             :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
             :size="30"
           />
-          <CollectionLabelInput
-            v-model:label="temporaryWorkData.collection.node.data.label"
-            :subtle="COLLECTION_FIELD_STYLE !== 'outlined'"
-            @commit="commitProperty('label', validateLabel)"
-            @revert="revertProperty('label')"
-          />
-          <span
-            v-if="getShownFieldState('label')"
-            v-tooltip.bottom="getShownFieldState('label')?.message"
-            class="field-status"
-            :class="[`is-${getShownFieldState('label')?.state}`, getFieldStatusIcon(getShownFieldState('label'))]"
-          ></span>
+          <span class="label-input-wrapper">
+            <CollectionLabelInput
+              v-model:label="temporaryWorkData.collection.node.data.label"
+              subtle
+              @commit="commitProperty('label', validateLabel)"
+              @revert="revertProperty('label')"
+            />
+            <span
+              v-if="getShownFieldState('label')"
+              v-tooltip.bottom="getShownFieldState('label')?.message"
+              class="field-status label-status"
+              :class="[`is-${getShownFieldState('label')?.state}`, getFieldStatusIcon(getShownFieldState('label'))]"
+            ></span>
+          </span>
         </h3>
       </div>
       <div class="content">
-        <div class="annotations-pane gap-1 mb-6" :class="ANNOTATION_PANE_CLASSES[COLLECTION_ANNOTATION_VARIANT]">
+        <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
           <CollectionAnnotationNote
             v-for="(annotation, index) in annotations"
             :key="annotation.node.data.uuid"
             v-model="annotations[index]"
-            :variant="COLLECTION_ANNOTATION_VARIANT"
             :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
-            :disabled="annotationOperationRunning"
+            :disabled="removalRunning && annotationPendingRemoval === annotation.node.data.uuid"
             @edit="handleEditAnnotation(annotation.node.data.uuid)"
             @remove="handleRemoveAnnotation(annotation.node.data.uuid, $event)"
-            @remove-confirmed="deleteAnnotation(annotation.node.data.uuid)"
           />
           <div v-if="availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button
               class="add-annotation-button"
-              :class="{ 'w-full h-full': COLLECTION_ANNOTATION_VARIANT === 'list' || COLLECTION_ANNOTATION_VARIANT === 'card' }"
               icon="icon-plus"
               label="Add annotation"
               severity="secondary"
               variant="outlined"
               size="small"
               aria-haspopup="true"
-              :loading="annotationOperationRunning"
               @click="handleAddAnnotationClick($event)"
             />
             <TieredMenu ref="annotation-menu" :model="annotationMenuItems" popup>
@@ -789,10 +724,25 @@ function showMessage(result: "success" | "error", error?: Error) {
               </template>
             </TieredMenu>
           </div>
-          <ConfirmPopup group="annotation-remove" />
+          <ConfirmPopup group="annotation-remove">
+            <template #container="{ message, acceptCallback }">
+              <div class="remove-confirmation">
+                <span>{{ message.message }}</span>
+                <Button
+                  icon="icon-trash-2"
+                  label="Remove"
+                  severity="danger"
+                  size="small"
+                  :loading="removalRunning"
+                  :disabled="removalRunning"
+                  @click="handleConfirmRemoval(acceptCallback)"
+                />
+              </div>
+            </template>
+          </ConfirmPopup>
         </div>
         <div class="properties-pane">
-          <table v-if="collectionFields.length > 0" class="properties-table" :class="`fields-${COLLECTION_FIELD_STYLE}`">
+          <table v-if="collectionFields.length > 0" class="properties-table">
             <tr
               v-for="field in collectionFields"
               :key="field.name"
@@ -805,14 +755,14 @@ function showMessage(result: "success" | "error", error?: Error) {
               <td class="properties-label">
                 <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
                 <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+              </td>
+              <td class="properties-value value-with-status">
                 <span
                   v-if="getShownFieldState(field.name)"
                   v-tooltip.top="getShownFieldState(field.name)?.message"
-                  class="field-status"
+                  class="field-status input-status"
                   :class="[`is-${getShownFieldState(field.name)?.state}`, getFieldStatusIcon(getShownFieldState(field.name))]"
                 ></span>
-              </td>
-              <td class="properties-value">
                 <DataInputGroup
                   v-if="isArray(field)"
                   :model-value="temporaryWorkData.collection.node.data[field.name] as ArrayPropertyValue"
@@ -835,13 +785,7 @@ function showMessage(result: "success" | "error", error?: Error) {
     </div>
 
     <div class="buttons flex justify-center gap-2 mt-2">
-      <Button
-        :disabled="pendingCount > 0"
-        icon="icon-trash-2"
-        title="Delete collection"
-        severity="danger"
-        @click="handleDeleteColletion"
-      ></Button>
+      <Button icon="icon-trash-2" title="Delete collection" severity="danger" @click="handleDeleteColletion"></Button>
     </div>
   </div>
 </template>
@@ -888,27 +832,51 @@ function showMessage(result: "success" | "error", error?: Error) {
   scrollbar-gutter: stable;
 }
 
-.save-status {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.8125rem;
-  color: var(--p-text-muted-color);
-}
-
-.save-status.is-saved {
-  color: var(--p-green-600);
-}
-
-.save-status.is-error {
-  color: var(--p-red-600);
-  cursor: help;
-}
-
 .field-status {
-  margin-left: 0.375rem;
   font-size: 0.8125rem;
   color: var(--p-text-muted-color);
+}
+
+.value-with-status {
+  position: relative;
+}
+
+.input-status {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  z-index: 1;
+  height: 1em;
+  margin-top: -0.5em;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.input-status.is-error {
+  pointer-events: auto;
+}
+
+.properties-row.is-multiline .input-status {
+  top: calc(var(--properties-cell-padding-y) + 1rem);
+  right: 2.25rem;
+}
+
+.value-with-status :deep(.p-inputtext) {
+  padding-right: 1.75rem;
+}
+
+.label-input-wrapper {
+  position: relative;
+}
+
+.label-status {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  height: 1em;
+  margin-top: -0.5em;
+  margin-left: 0.375rem;
+  line-height: 1;
 }
 
 .field-status.is-error {
@@ -916,56 +884,38 @@ function showMessage(result: "success" | "error", error?: Error) {
   cursor: help;
 }
 
-/* Field style "ghost": inputs read like text until hovered or focused */
-.fields-ghost :deep(.p-inputtext),
-.fields-ghost :deep(.p-select) {
+.properties-table :deep(.p-inputtext),
+.properties-table :deep(.p-select) {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
 }
 
-.fields-ghost :deep(.p-inputtext:enabled:hover),
-.fields-ghost :deep(.p-select:not(.p-disabled):hover) {
+.properties-table :deep(.p-inputtext:enabled:hover),
+.properties-table :deep(.p-select:not(.p-disabled):hover) {
   background: var(--p-content-hover-background);
 }
 
-.fields-ghost :deep(.p-inputtext:enabled:focus),
-.fields-ghost :deep(.p-select.p-focus) {
+.properties-table :deep(.p-inputtext:enabled:focus),
+.properties-table :deep(.p-select.p-focus) {
   border-color: var(--p-inputtext-focus-border-color);
   background: var(--p-inputtext-background);
 }
 
-.fields-ghost :deep(.p-inputnumber-button-group),
-.fields-ghost :deep(.p-select-dropdown) {
+.properties-table :deep(.p-inputnumber-button-group),
+.properties-table :deep(.p-select-dropdown) {
   opacity: 0;
   transition: opacity 0.15s;
 }
 
-.fields-ghost .properties-row:hover :deep(.p-inputnumber-button-group),
-.fields-ghost .properties-row:focus-within :deep(.p-inputnumber-button-group),
-.fields-ghost .properties-row:hover :deep(.p-select-dropdown),
-.fields-ghost .properties-row:focus-within :deep(.p-select-dropdown) {
+.properties-row:hover :deep(.p-inputnumber-button-group),
+.properties-row:focus-within :deep(.p-inputnumber-button-group),
+.properties-row:hover :deep(.p-select-dropdown),
+.properties-row:focus-within :deep(.p-select-dropdown) {
   opacity: 1;
 }
 
-/* Field style "underline": only a bottom border */
-.fields-underline :deep(.p-inputtext),
-.fields-underline :deep(.p-select) {
-  border-color: transparent;
-  border-bottom-color: var(--p-inputtext-border-color);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.fields-underline :deep(.p-inputtext:enabled:focus),
-.fields-underline :deep(.p-select.p-focus) {
-  border-bottom-color: var(--p-primary-color);
-}
-
-/* Missing required values stay visible in all styles */
-.fields-ghost :deep(.p-invalid),
-.fields-underline :deep(.p-invalid) {
+.properties-table :deep(.p-invalid) {
   border-color: var(--p-inputtext-invalid-border-color);
 }
 
@@ -973,9 +923,11 @@ function showMessage(result: "success" | "error", error?: Error) {
   border-style: dashed;
 }
 
-.annotation-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+.remove-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 .annotation-menu-item {

@@ -1,5 +1,6 @@
 import { DeepReadonly } from "vue";
 import {
+  Annotation,
   NodeDto,
   CollectionNode,
   NodeSearchParams,
@@ -367,6 +368,22 @@ export default class ApiService {
     } catch (error: unknown) {
       this.handleApiError(error);
     }
+  }
+
+  /**
+   * Saves a single annotation of a Collection. Its status (`created`, `modified`, `deleted`) decides the operation,
+   * the Collection node itself is left unchanged.
+   *
+   * @param {CollectionNode} collection - The Collection the annotation belongs to.
+   * @param {Annotation} annotation - The annotation to save.
+   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   */
+  public async updateCollectionAnnotation(collection: CollectionNode, annotation: Annotation): Promise<NodeDto<CollectionNode>> {
+    return this.updateCollection(collection.data.uuid, {
+      node: collection,
+      meta: { status: "unchanged" },
+      connectedNodes: [annotation],
+    });
   }
 
   public async updateNetwork(data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {

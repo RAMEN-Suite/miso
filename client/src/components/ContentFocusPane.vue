@@ -47,17 +47,8 @@ function handleDeleteContent(): void {
   );
 }
 
-function showMessage(result: "success" | "error", error?: Error) {
-  addToastMessage({
-    severity: result,
-    summary: result === "success" ? "Changes saved successfully" : "Error saving changes",
-    detail: error?.message ?? "",
-    life: 2000,
-  });
-}
-
 function handleSuccessfullDeletion() {
-  showMessage("success");
+  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
   destroyModalInstance();
   updateView();
 }

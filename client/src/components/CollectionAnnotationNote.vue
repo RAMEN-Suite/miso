@@ -67,7 +67,7 @@ function handleEditFromPopover(event: MouseEvent): void {
     class="note"
     :class="{ 'is-disabled': props.disabled }"
     role="button"
-    :tabindex="props.disabled ? -1 : 0"
+    tabindex="0"
     :aria-disabled="props.disabled"
     :title="`Show ${label} details`"
     :data-annotation-uuid="annotation.node.data.uuid"

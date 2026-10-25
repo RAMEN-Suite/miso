@@ -75,6 +75,7 @@ function handleInput(event: Event): void {
     :class="{ 'is-subtle': subtle }"
     contenteditable="true"
     role="textbox"
+    tabindex="0"
     aria-multiline="false"
     :data-placeholder="placeholder"
     title="Click to edit the label"

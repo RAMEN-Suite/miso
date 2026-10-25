@@ -11,7 +11,6 @@ import {
   HierarchyEntry,
   PropertyConfig,
   NodeDto,
-  NodeStatusObject,
 } from "../models/types";
 import {
   camelCaseToTitleCase,
@@ -20,10 +19,8 @@ import {
   isRequiredValueMissing,
   setNodeTreeStatus,
   pruneDeletedNodes,
-  pruneUnconfiguredProperties,
 } from "../utils/helper/helper";
 import { isArray, isBoolean } from "../utils/helper/propertyTypeHelper";
-import { FieldSaveState, SaveJobMeta, useSaveCollection } from "../composables/useSaveCollection.ts";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -51,6 +48,16 @@ const props = defineProps<{
 // Union types can't be written inline in the template, since the linter reads `|` as a (deprecated) filter
 type ArrayPropertyValue = unknown[] | null;
 
+/** Save state of a single property, shown as an indicator at its field. */
+interface FieldSaveState {
+  state: "saving" | "error";
+  /** Why the field could not be saved (validation or request error). */
+  message?: string;
+}
+
+/** A save that takes longer than this is aborted. */
+const SAVE_TIMEOUT_MS: number = 15_000;
+
 const { api, addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 
 const dialog: ReturnType<typeof useDialog> = useDialog();
@@ -70,11 +77,15 @@ const { levels, path, findEntryInHierarchy, updatePath, setMode } = useHierarchy
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
-const { pendingCount, enqueue, setFieldError, clearFieldState, getFieldState } = useSaveCollection();
-
 // `temporaryWorkData` holds what the inputs show, `initialTemporaryWorkData` what is saved
 const temporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
+
+/** Save state per property name of the shown Collection. Properties without a state are idle. */
+const fieldStates = ref<Record<string, FieldSaveState>>({});
+
+/** Number of property saves still running. */
+const pendingSaves = ref<number>(0);
 
 // Annotations are saved directly and are not part of the Collection draft (`temporaryWorkData`)
 const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
@@ -154,6 +165,7 @@ watch(
     temporaryWorkData.value = cloneDeep(props.focus);
     initialTemporaryWorkData.value = cloneDeep(props.focus);
     annotations.value = cloneDeep(props.focus.annotations);
+    fieldStates.value = {};
 
     enrichCollectionData();
   },
@@ -186,37 +198,58 @@ function isSameValue(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Builds the request for a property change: the saved data, pruned to the configured properties.
+ * Sets or clears the save state of a property, unless the pane shows another Collection by now.
  *
- * @param {CollectionFocus} saved - The saved state of the Collection.
- * @returns {NodeStatusObject} The request payload.
+ * @param {CollectionFocus} saved - The saved state of the Collection the property belongs to.
+ * @param {string} name - The property name.
+ * @param {FieldSaveState | null} state - The new state, `null` to clear it.
+ * @returns {void} This function does not return any value.
  */
-function buildPropertyPayload(saved: CollectionFocus): NodeStatusObject {
-  const node: CollectionNode = saved.collection.node;
-  const data: CollectionNode["data"] = cloneDeep(node.data);
+function setFieldState(saved: CollectionFocus, name: string, state: FieldSaveState | null): void {
+  if (initialTemporaryWorkData.value !== saved) {
+    return;
+  }
 
-  pruneUnconfiguredProperties(data, getCollectionConfigFields(node.nodeLabels), ["uuid"]);
-
-  return { node: { ...node, data }, meta: { status: "modified" }, connectedNodes: [] };
+  if (state) {
+    fieldStates.value[name] = state;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
+    delete fieldStates.value[name];
+  }
 }
 
 /**
- * Queues a save of the property if it changed and is valid. Invalid values are marked at the field instead.
+ * Returns a readable message for a failed request.
+ *
+ * @param {unknown} error - The caught error.
+ * @returns {string} The message.
+ */
+function getErrorMessage(error: unknown): string {
+  const err: Error = error as Error;
+
+  if (err?.name === "TimeoutError") {
+    return `No response after ${SAVE_TIMEOUT_MS / 1000} seconds.`;
+  }
+
+  return err?.message || "Unknown error";
+}
+
+/**
+ * Saves a single property if it changed and is valid. Invalid values are marked at the field instead.
  * The value counts as saved right away and is rolled back if the request fails.
  *
  * @param {string} name - The property name.
  * @param {(value: unknown) => string | null} validate - Returns a message if the value is invalid.
- * @returns {void} This function does not return any value.
+ * @returns {Promise<void>} Resolves when the save is done.
  */
-function commitProperty(name: string, validate: (value: unknown) => string | null): void {
+async function commitProperty(name: string, validate: (value: unknown) => string | null): Promise<void> {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
   const collectionUuid: string = saved.collection.node.data.uuid;
-  const meta: SaveJobMeta = { target: name, collectionUuid };
   const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.data[name]);
   const previous: unknown = saved.collection.node.data[name];
 
   if (isSameValue(value, previous)) {
-    clearFieldState(meta);
+    setFieldState(saved, name, null);
 
     return;
   }
@@ -224,25 +257,41 @@ function commitProperty(name: string, validate: (value: unknown) => string | nul
   const invalidMessage: string | null = validate(value);
 
   if (invalidMessage) {
-    setFieldError(meta, invalidMessage);
+    setFieldState(saved, name, { state: "error", message: invalidMessage });
 
     return;
   }
 
   const pathIndex: number = path.value.length - 1;
-
   saved.collection.node.data[name] = value;
+  setFieldState(saved, name, { state: "saving" });
+  pendingSaves.value++;
 
-  void enqueue({
-    ...meta,
-    buildPayload: () => buildPropertyPayload(saved),
-    onSuccess: (result: NodeDto<CollectionNode>) => transferDataToListItem(collectionUuid, pathIndex, result),
-  }).then((success: boolean) => {
-    // Roll back, unless a newer value was committed in the meantime
-    if (!success && saved.collection.node.data[name] === value) {
+  try {
+    const result: NodeDto<CollectionNode> = await api.patchCollection(
+      saved.collection.node,
+      { [name]: value ?? null },
+      AbortSignal.timeout(SAVE_TIMEOUT_MS),
+    );
+
+    transferDataToListItem(collectionUuid, pathIndex, result);
+
+    // A newer value of the same property might be on its way already
+    if (saved.collection.node.data[name] === value) {
+      setFieldState(saved, name, null);
+    }
+  } catch (error: unknown) {
+    const message: string = getErrorMessage(error);
+
+    if (saved.collection.node.data[name] === value) {
       saved.collection.node.data[name] = previous;
     }
-  });
+
+    setFieldState(saved, name, { state: "error", message });
+    addToastMessage({ severity: "error", summary: "Not saved", detail: message, life: 4000 });
+  } finally {
+    pendingSaves.value--;
+  }
 }
 
 /**
@@ -295,7 +344,7 @@ function commitField(field: PropertyConfig, row: HTMLElement | null): void {
     return;
   }
 
-  commitProperty(field.name, (value) => validateField(field, value, row));
+  void commitProperty(field.name, (value) => validateField(field, value, row));
 }
 
 /**
@@ -312,16 +361,6 @@ function handleFieldInput(field: PropertyConfig, value: unknown): void {
   if (savesOnChange(field)) {
     commitField(field, null);
   }
-}
-
-/**
- * Returns the save state of a property of the shown Collection.
- *
- * @param {string} name - The property name.
- * @returns {FieldSaveState | undefined} The state, or `undefined` if there is nothing to show.
- */
-function getShownFieldState(name: string): FieldSaveState | undefined {
-  return getFieldState(temporaryWorkData.value.collection.node.data.uuid, name);
 }
 
 /**
@@ -379,7 +418,7 @@ function revertProperty(name: string): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
 
   temporaryWorkData.value.collection.node.data[name] = cloneDeep(saved.collection.node.data[name] ?? null);
-  clearFieldState({ target: name, collectionUuid: saved.collection.node.data.uuid });
+  setFieldState(saved, name, null);
 }
 
 /**
@@ -599,7 +638,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 }
 
 function handleDeleteColletion(): void {
-  if (pendingCount.value > 0) {
+  if (pendingSaves.value > 0) {
     return;
   }
 
@@ -665,7 +704,8 @@ function updateView() {
       </div>
 
       <div class="label-section">
-        <h3 class="label-heading" aria-label="Collection label">
+        <h3 class="label-heading">
+          <span class="sr-only">{{ temporaryWorkData.collection.node.data.label }}</span>
           <RAMENNodeIcon
             v-tooltip.hover.top="{
               value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
@@ -682,10 +722,10 @@ function updateView() {
               @revert="revertProperty('label')"
             />
             <span
-              v-if="getShownFieldState('label')"
-              v-tooltip.bottom="getShownFieldState('label')?.message"
+              v-if="fieldStates.label"
+              v-tooltip.bottom="fieldStates.label.message"
               class="field-status label-status"
-              :class="[`is-${getShownFieldState('label')?.state}`, getFieldStatusIcon(getShownFieldState('label'))]"
+              :class="[`is-${fieldStates.label.state}`, getFieldStatusIcon(fieldStates.label)]"
             ></span>
           </span>
         </h3>
@@ -758,10 +798,10 @@ function updateView() {
               </td>
               <td class="properties-value value-with-status">
                 <span
-                  v-if="getShownFieldState(field.name)"
-                  v-tooltip.top="getShownFieldState(field.name)?.message"
+                  v-if="fieldStates[field.name]"
+                  v-tooltip.top="fieldStates[field.name].message"
                   class="field-status input-status"
-                  :class="[`is-${getShownFieldState(field.name)?.state}`, getFieldStatusIcon(getShownFieldState(field.name))]"
+                  :class="[`is-${fieldStates[field.name].state}`, getFieldStatusIcon(fieldStates[field.name])]"
                 ></span>
                 <DataInputGroup
                   v-if="isArray(field)"

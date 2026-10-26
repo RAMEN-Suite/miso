@@ -43,6 +43,7 @@ function handleDeleteClick(): void {
         :label="`Delete ${props.selection.items.length} items`"
         :title="`Delete ${props.selection.items.length} items`"
         severity="danger"
+        text
         @click="handleDeleteClick"
       ></Button>
     </div>

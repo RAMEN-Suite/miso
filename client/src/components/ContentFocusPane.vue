@@ -101,6 +101,7 @@ function updateView() {
         rel="noopener noreferrer"
         icon="icon-external-link"
         size="small"
+        text
         label="Open in Editor"
         severity="contrast"
         title="Open this Content in the Editor"
@@ -110,6 +111,7 @@ function updateView() {
         :disabled="asyncOperationRunning"
         icon="icon-trash"
         size="small"
+        text
         title="Delete collection"
         severity="danger"
         @click="handleDeleteContent"

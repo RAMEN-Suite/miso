@@ -16,9 +16,23 @@ import { SmartView, Tag } from "../models/types.ts";
 import { useTagsStore } from "../store/tags.ts";
 import { normalizeTagColor } from "../config/tags.ts";
 import { useScroll } from "@vueuse/core";
+import { useHotkey } from "@tanstack/vue-hotkeys";
+import { useBatchDeletion } from "../composables/useBatchDeletion.ts";
 
-const { addToastMessage } = useAppStore();
-const { canNavigate, levels, path, root, clearSelection, initialize, updatePath } = useHierarchyStore();
+const { activeModal, addToastMessage } = useAppStore();
+const {
+  canNavigate,
+  levels,
+  multiSelection,
+  path,
+  root,
+  clearMultiSelection,
+  clearSelection,
+  initialize,
+  selectAll,
+  updatePath,
+} = useHierarchyStore();
+const { deleteMultiSelection } = useBatchDeletion();
 const { getSmartView } = useSmartViewsStore();
 const { getTag } = useTagsStore();
 
@@ -40,6 +54,17 @@ const columnsContainer = useTemplateRef<HTMLDivElement>("columns-container");
 const columnsTrack = useTemplateRef<HTMLDivElement>("columns-track");
 
 initialize();
+
+// Hotkeys only fire while the focus is inside the columns (not in their search inputs) and nothing blocks navigation
+const canUseHotkeys = (): boolean => canNavigate.value && !activeModal.value;
+const canUseSelectionHotkeys = (): boolean => canUseHotkeys() && !!multiSelection.value;
+
+const selectionHotkeyOptions = { target: columnsContainer, ignoreInputs: true, enabled: canUseSelectionHotkeys };
+
+useHotkey("Escape", () => clearMultiSelection(), selectionHotkeyOptions);
+useHotkey("Delete", () => deleteMultiSelection(), selectionHotkeyOptions);
+useHotkey("Mod+Backspace", () => deleteMultiSelection(), selectionHotkeyOptions);
+useHotkey("Mod+A", () => handleSelectAll(), { ...selectionHotkeyOptions, enabled: canUseHotkeys });
 
 useScroll(columnsContainer, { onStop: releaseTrackWidth });
 
@@ -71,6 +96,26 @@ async function applyScrollingBehaviour(): Promise<void> {
   await nextTick();
 
   scrollToLastColumn("smooth");
+}
+
+/**
+ * Selects all loaded entries of the column holding the multiselection, or else of the column the
+ * keyboard focus is in.
+ *
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectAll(): void {
+  if (multiSelection.value) {
+    selectAll(multiSelection.value.depth);
+    return;
+  }
+
+  const column: HTMLElement | null = (document.activeElement as HTMLElement | null)?.closest("[data-level-index]") ?? null;
+  const depth: number = Number(column?.dataset.levelIndex);
+
+  if (column && !Number.isNaN(depth)) {
+    selectAll(depth);
+  }
 }
 
 function handleBreadcrumbItemClick(data: { index: number; uuid: string }): void {

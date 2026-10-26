@@ -650,8 +650,7 @@ function handleDeleteColletion(): void {
         style: { width: "25rem" },
       },
       data: {
-        action: "delete",
-        node: temporaryWorkData.value.collection.node,
+        nodes: [temporaryWorkData.value.collection.node],
       },
       emits: {
         onDeleted: handleSuccessfullDeletion,
@@ -687,7 +686,7 @@ function updateView() {
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between items-center gap-1">
         <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
+          <TagAssignmentButton :nodes="[temporaryWorkData.collection.node]" />
         </div>
         <div class="buttons-end flex justify-end gap-1">
           <Button

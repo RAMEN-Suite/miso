@@ -36,8 +36,7 @@ function handleDeleteContent(): void {
         style: { width: "25rem" },
       },
       data: {
-        action: "delete",
-        node: props.focus.content.node,
+        nodes: [props.focus.content.node],
       },
       emits: {
         onDeleted: handleSuccessfullDeletion,
@@ -73,7 +72,7 @@ function updateView() {
     <div class="main grow flex flex-col w-full">
       <div class="buttons flex justify-between gap-1">
         <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
+          <TagAssignmentButton :nodes="[contentNode]" />
         </div>
         <div class="buttons-end flex justify-end gap-1"></div>
       </div>

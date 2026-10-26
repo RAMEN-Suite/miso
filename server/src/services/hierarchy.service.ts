@@ -433,6 +433,38 @@ export default class HierarchyService {
   }
 
   /**
+   * Deletes several nodes in one transaction, cascading like {@link deleteNode}. Unknown UUIDs are skipped
+   * instead of failing the batch, since a node may already be gone together with a deleted parent
+   * (e.g. a Collection and its Content both selected in a tag listing).
+   *
+   * @param {string[]} uuids - The UUIDs of the nodes to delete.
+   * @returns {Promise<string[]>} The UUIDs of the nodes that were actually deleted, including cascaded Contents.
+   */
+  public async deleteNodes(uuids: string[]): Promise<string[]> {
+    const query: string = `
+      MATCH (n:Collection|Content)
+      WHERE n.uuid IN $uuids
+      OPTIONAL MATCH (n)<-[:PART_OF]-(content:Content)
+
+      WITH collect(DISTINCT n) + collect(DISTINCT content) AS nodes
+      UNWIND nodes AS node
+      WITH DISTINCT node
+
+      OPTIONAL MATCH (node)-[:HAS_ANNOTATION]->(a:Annotation)
+      WITH node, node.uuid AS uuid, collect(a) AS annotations
+
+      FOREACH (annotation IN annotations | DETACH DELETE annotation)
+      DETACH DELETE node
+
+      RETURN collect(uuid) AS deleted
+      `;
+
+    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuids });
+
+    return result.records[0]?.get("deleted") ?? [];
+  }
+
+  /**
    * Depth-first search for the node with the given UUID inside a {@link NodeStatusObject} tree,
    * returning its labels.
    *

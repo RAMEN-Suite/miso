@@ -74,6 +74,9 @@ function isFixedSizeItem(item: MenuItem): boolean {
             padding: 0,
           },
         },
+        list: {
+          class: 'min-h-6',
+        },
         item: ({ context }) => {
           return {
             title: context.item.title,
@@ -87,7 +90,7 @@ function isFixedSizeItem(item: MenuItem): boolean {
           };
         },
         itemLabel: {
-          class: 'truncate min-w-0',
+          class: 'truncate min-w-0 leading-6',
         },
         separator: {
           class: 'shrink-0',

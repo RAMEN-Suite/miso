@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { CollectionNode, HierarchyEntry, IconSpec } from "../models/types";
+import { detectPlatform } from "@tanstack/vue-hotkeys";
+import { CollectionNode, HierarchyEntry, IconSpec, SelectionModifiers } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 import { getContentLabelText } from "../utils/helper/helper";
 
-const emit = defineEmits(["itemSelected"]);
+const emit = defineEmits<{
+  itemSelected: [uuid: string, modifiers: SelectionModifiers];
+}>();
 
 const props = defineProps<{
   entry: HierarchyEntry;
   isActive: boolean;
+  /** Whether the item is part of a multiselection. */
+  isSelected: boolean;
 }>();
+
+const isMac: boolean = detectPlatform() === "mac";
 
 const { entryIndex, tags } = useTagsStore();
 
@@ -34,21 +41,30 @@ const displayText = computed<string>(() => {
 
 const title = computed<string>(() => (isCollection.value ? `Open "${displayText.value}"` : `Show preview of this Content`));
 
-function handleItemSelect(): void {
-  emit("itemSelected", props.entry.data.node.data.uuid);
+/**
+ * Emits the selection together with the held modifier keys. Used for clicks as well as Enter/Space.
+ *
+ * @param {MouseEvent | KeyboardEvent} event - The triggering event.
+ * @returns {void} This function does not return a value.
+ */
+function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
+  emit("itemSelected", props.entry.data.node.data.uuid, {
+    toggle: isMac ? event.metaKey : event.ctrlKey,
+    range: event.shiftKey,
+  });
 }
 </script>
 
 <template>
   <div
-    class="hierarchy-item p-1"
+    class="hierarchy-item p-1 select-none"
     draggable="true"
     role="treeitem"
     tabindex="0"
-    :class="{ active: props.isActive, selected: props.entry.meta.isSelected, collection: isCollection, content: !isCollection }"
+    :class="{ active: props.isActive, selected: props.isSelected, collection: isCollection, content: !isCollection }"
     :data-node-uuid="props.entry.data.node.data.uuid"
     :title="title"
-    :aria-selected="props.entry.meta.isSelected"
+    :aria-selected="props.isActive || props.isSelected"
     @click="handleItemSelect"
     @keydown.enter="handleItemSelect"
     @keydown.space.prevent="handleItemSelect"

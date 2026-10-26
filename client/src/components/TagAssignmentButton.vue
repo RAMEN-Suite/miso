@@ -1,29 +1,71 @@
 <script setup lang="ts">
-import { computed, ComputedRef, useTemplateRef } from "vue";
+import { computed, DeepReadonly, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
+import { HierarchyNode, Tag } from "../models/types";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
 
+/** How many of the nodes carry a tag. */
+type AssignmentState = "all" | "some" | "none";
+
+interface TagOption {
+  tag: DeepReadonly<Tag>;
+  state: AssignmentState;
+}
+
 const props = defineProps<{
-  nodeUuid: string;
+  /** The nodes to tag. Several nodes are tagged and untagged together. */
+  nodes: HierarchyNode[];
 }>();
 
-const { tags, getTagsForItem, toggleItemInTag } = useTagsStore();
+const { tags, getTagsForItem, addItemsToTag, removeItemsFromTag } = useTagsStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 
-const assignedTags: ComputedRef<string[]> = computed(() => getTagsForItem(props.nodeUuid));
+const nodeUuids = computed<string[]>(() => props.nodes.map((node: HierarchyNode) => node.data.uuid));
 
-const isTagged = computed<boolean>(() => assignedTags.value.length > 0);
+const tagOptions = computed<TagOption[]>(() =>
+  tags.value.map((tag: DeepReadonly<Tag>) => ({ tag, state: getAssignmentState(tag.uuid) })),
+);
+
+const assignedTagCount = computed<number>(() => tagOptions.value.filter((option: TagOption) => option.state !== "none").length);
+
+/**
+ * Determines how many of the nodes carry a tag.
+ *
+ * @param {string} tagUuid - The tag UUID.
+ * @returns {AssignmentState} `all`, `some` (shown as indeterminate checkbox) or `none`.
+ */
+function getAssignmentState(tagUuid: string): AssignmentState {
+  const taggedCount: number = nodeUuids.value.filter((uuid: string) => getTagsForItem(uuid).includes(tagUuid)).length;
+
+  if (taggedCount === 0) {
+    return "none";
+  } else if (taggedCount === nodeUuids.value.length) {
+    return "all";
+  } else {
+    return "some";
+  }
+}
 
 function handleButtonClick(event: MouseEvent): void {
   popover.value?.toggle(event);
 }
 
-function handleTagToggle(tagUuid: string): void {
-  toggleItemInTag({ tagUuid, itemUuid: props.nodeUuid });
+/**
+ * Removes the tag if all nodes carry it, otherwise adds it to all of them.
+ *
+ * @param {TagOption} option - The clicked tag option.
+ * @returns {void} This function does not return any value.
+ */
+function handleTagToggle(option: TagOption): void {
+  if (option.state === "all") {
+    removeItemsFromTag({ tagUuid: option.tag.uuid, itemUuids: nodeUuids.value });
+  } else {
+    addItemsToTag({ tagUuid: option.tag.uuid, itemUuids: nodeUuids.value });
+  }
 }
 </script>
 
@@ -33,7 +75,7 @@ function handleTagToggle(tagUuid: string): void {
     severity="secondary"
     size="small"
     class="w-8! h-8!"
-    :title="isTagged ? `Tagged with ${assignedTags.length} tag(s)` : 'Add a tag'"
+    :title="assignedTagCount > 0 ? `Tagged with ${assignedTagCount} tag(s)` : 'Add a tag'"
     @click="handleButtonClick"
   >
     <i class="icon-tag"></i>
@@ -54,18 +96,19 @@ function handleTagToggle(tagUuid: string): void {
     <div v-if="tags.length === 0" class="text-sm italic text-center">No tags yet. Create one in the sidebar.</div>
 
     <ul v-else class="tag-list flex flex-col gap-1 list-none p-0 m-0">
-      <li v-for="tag in tags" :key="tag.uuid">
+      <li v-for="option in tagOptions" :key="option.tag.uuid">
         <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-        <label :for="`tag-${tag.uuid}`" class="tag-item flex items-center gap-2 p-2 rounded-md cursor-pointer">
+        <label :for="`tag-${option.tag.uuid}`" class="tag-item flex items-center gap-2 p-2 rounded-md cursor-pointer">
           <Checkbox
-            :model-value="assignedTags.includes(tag.uuid)"
+            :model-value="option.state === 'all'"
+            :indeterminate="option.state === 'some'"
             binary
-            :input-id="`tag-${tag.uuid}`"
-            @update:model-value="handleTagToggle(tag.uuid)"
+            :input-id="`tag-${option.tag.uuid}`"
+            @update:model-value="handleTagToggle(option)"
           />
-          <span class="tag-dot shrink-0" :style="{ backgroundColor: normalizeTagColor(tag.appearance?.color) }" />
+          <span class="tag-dot shrink-0" :style="{ backgroundColor: normalizeTagColor(option.tag.appearance?.color) }" />
           <span class="text-sm grow min-w-0 text-ellipsis overflow-hidden whitespace-nowrap">
-            {{ tag.label }}
+            {{ option.tag.label }}
           </span>
         </label>
         <!-- eslint-enable vuejs-accessibility/label-has-for -->

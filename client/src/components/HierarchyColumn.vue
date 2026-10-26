@@ -15,6 +15,7 @@ import {
   LevelState,
   NodeDto,
   PropertyConfig,
+  SelectionModifiers,
 } from "../models/types";
 import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
@@ -54,7 +55,20 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
-const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
+const {
+  levels,
+  focus,
+  root,
+  canNavigate,
+  multiSelection,
+  selectedUuids,
+  clearMultiSelection,
+  resetQuery,
+  selectItem,
+  selectRange,
+  setMode,
+  toggleItem,
+} = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
 const { getSmartViewScope } = useSmartViewsStore();
 
@@ -217,9 +231,36 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-watch(scope, () => fetchFirstPage(), { immediate: true });
+// The initial run (also on remount after leaving the view) keeps a multiselection, only a changed scope drops it
+watch(
+  scope,
+  (_: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> => {
+    if (oldScope) {
+      return refetchFirstPage();
+    } else {
+      return fetchFirstPage();
+    }
+  },
+  { immediate: true },
+);
 
-const debouncedFetchFirstPage = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
+const debouncedFetchFirstPage = useDebounceFn(() => refetchFirstPage(), FETCH_DELAY);
+
+/** Whether this column holds the multiselection. */
+const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
+
+/**
+ * Refetches the listing from the first page and drops a multiselection in this column first: after a
+ * filter, search or sort change, selected items might no longer be visible and must not be part of a
+ * batch operation unseen.
+ *
+ * @returns {Promise<void>} Resolves when the first page is loaded.
+ */
+async function refetchFirstPage(): Promise<void> {
+  clearMultiSelection(props.index);
+
+  await fetchFirstPage();
+}
 
 // PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons
 // (see the same workaround in AnnotationButton.vue), so the width is set on the DOM node directly.
@@ -307,7 +348,7 @@ function toggleFilterPopover(event: Event): void {
 async function handleClearFilters(): Promise<void> {
   resetQuery(props.index);
 
-  await fetchFirstPage();
+  await refetchFirstPage();
 }
 
 /**
@@ -319,7 +360,7 @@ async function handleClearFilters(): Promise<void> {
 async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
   levels.value[props.index].query.filters = updatedFilters;
 
-  await fetchFirstPage();
+  await refetchFirstPage();
 }
 
 async function handleChangeSortOrderClick(): Promise<void> {
@@ -331,7 +372,7 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
   level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
 
-  await fetchFirstPage();
+  await refetchFirstPage();
 }
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
@@ -372,24 +413,49 @@ async function handleSortTargetChange(key: string): Promise<void> {
 
   level.query.sort = { ...level.query.sort, target };
 
-  await fetchFirstPage();
+  await refetchFirstPage();
 }
 
-function handleItemSelected(uuid: string): void {
+/**
+ * Selects an item, adds it to the selection (Cmd/Ctrl) or selects a range (Shift). A modifier click
+ * in a column other than the one holding the multiselection starts over with a plain selection, so a
+ * selection never spans several columns.
+ *
+ * @param {string} uuid - The clicked item's UUID.
+ * @param {SelectionModifiers} modifiers - The modifier keys held during the click.
+ * @returns {void} This function does not return a value.
+ */
+function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
   }
 
-  if (uuid === focusedUuid.value) {
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+
+  if (!entry) {
     return;
   }
 
-  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+  const isOtherColumn: boolean = !!multiSelection.value && !hasMultiSelection.value;
 
-  if (entry) {
+  if (modifiers.range && !isOtherColumn) {
+    selectRange(entry.data, props.index);
+  } else if (modifiers.toggle && !isOtherColumn) {
+    toggleItem(entry.data, props.index);
+  } else if (uuid !== focusedUuid.value || multiSelection.value) {
     selectItem(entry.data, props.index);
   }
+}
+
+/**
+ * Whether an entry is highlighted as part of this column's multiselection.
+ *
+ * @param {HierarchyEntry} entry - The entry to check.
+ * @returns {boolean} True if the entry is multiselected.
+ */
+function isEntrySelected(entry: HierarchyEntry): boolean {
+  return hasMultiSelection.value && selectedUuids.value.has(entry.data.node.data.uuid);
 }
 
 function handleResize(event: MouseEvent): void {
@@ -420,7 +486,7 @@ function endResize(): void {
 </script>
 
 <template>
-  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1">
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1" :data-level-index="props.index">
     <div class="header flex gap-1">
       <InputText
         v-model="searchInput"
@@ -451,11 +517,12 @@ function endResize(): void {
     <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
-      <div ref="scroll-pane" class="content" :class="{ 'is-stale': isReloading }">
+      <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
             :is-active="levels[props.index].activeItem?.node.data.uuid === entry.data.node.data.uuid"
+            :is-selected="isEntrySelected(entry)"
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>

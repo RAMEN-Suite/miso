@@ -56,7 +56,6 @@ export function useHierarchyChildren(
       data: { node: dto.node, connectedNodes: [] },
       meta: {
         baseLabel: getBaseNodeLabel(dto.node.nodeLabels) as "Collection" | "Content",
-        isSelected: false,
         isExpanded: false,
         isFocused: false,
       },

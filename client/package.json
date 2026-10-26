@@ -17,6 +17,7 @@
   "dependencies": {
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/vue-hotkeys": "^0.16.0",
     "@tiptap/extension-hard-break": "^3.31.4",
     "@tiptap/extension-invisible-characters": "^3.31.4",
     "@tiptap/extension-list": "^3.31.4",

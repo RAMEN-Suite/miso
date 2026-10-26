@@ -7,7 +7,7 @@ import NodeDeleteModal from "../components/NodeDeleteModal.vue";
 
 /**
  * Deletion of the current multiselection: opens the confirmation modal and, after a successful
- * deletion, removes the items from their column and ends the multiselection.
+ * deletion, removes the items from their column and focuses the parent.
  *
  * Must be called during component setup, since it relies on PrimeVue's dialog service.
  */
@@ -15,7 +15,7 @@ export function useBatchDeletion() {
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
   const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-  const { multiSelection, clearMultiSelection, removeEntriesFromLevel } = useHierarchyStore();
+  const { multiSelection, path, removeEntriesFromLevel, updatePath } = useHierarchyStore();
 
   /**
    * Asks for confirmation and deletes all multiselected items. Does nothing without a multiselection.
@@ -48,7 +48,8 @@ export function useBatchDeletion() {
   }
 
   /**
-   * Removes the deleted items from their column and ends the multiselection, so the focus pane shows the parent.
+   * Removes the deleted items from their column and focuses the parent. The path is cut at the column, since its
+   * item there was part of the deleted selection.
    *
    * @param {MultiSelection} selection - The selection that was deleted.
    * @param {string[]} deletedUuids - What the server deleted; may include Contents removed with their Collection.
@@ -59,7 +60,7 @@ export function useBatchDeletion() {
     destroyModalInstance();
 
     removeEntriesFromLevel(selection.depth, deletedUuids);
-    clearMultiSelection(selection.depth);
+    updatePath(path.value.slice(0, selection.depth));
   }
 
   return { deleteMultiSelection };

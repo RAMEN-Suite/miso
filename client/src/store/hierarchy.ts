@@ -58,7 +58,10 @@ function createStore() {
     const isFetchingFocus = ref<boolean>(false);
     const canNavigate = computed<boolean>(() => mode.value === "view");
 
-    /** Several items selected in one column; `path` then ends at the column's parent. Cleared by {@linkcode updatePath}. */
+    /**
+     * Several items selected in one column. `path` stays untouched as long as its item in that column is part of the
+     * selection, so the nested columns remain. Cleared by {@linkcode updatePath}.
+     */
     const multiSelection = ref<MultiSelection | null>(null);
 
     /** Read-only, without `DeepReadonly` typing. */
@@ -77,7 +80,7 @@ function createStore() {
 
     /**
      * Applies a column's selection: none -> focus on the parent, one -> single selection, more -> multiselection.
-     * Always assigns a new path array, so the watcher runs.
+     * The path (and with it the nested columns) is kept while its item in this column stays selected.
      *
      * @param {number} depth - The level index.
      * @param {NodeDto<HierarchyNode>[]} items - The selected items.
@@ -92,21 +95,37 @@ function createStore() {
       baseItems: NodeDto<HierarchyNode>[],
     ): void {
       const parentPath: HierarchyPath = path.value.slice(0, depth);
+      const pathItemUuid: string | undefined = path.value[depth]?.node.data.uuid;
+      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.data.uuid === pathItemUuid);
+
+      let newPath: HierarchyPath;
 
       if (items.length === 0) {
-        multiSelection.value = null;
-        path.value = parentPath;
-      } else if (items.length === 1 || !anchor) {
-        multiSelection.value = null;
-        path.value = [...parentPath, items[items.length - 1]];
+        newPath = parentPath;
+      } else if (keepsPath) {
+        newPath = path.value;
+      } else if (items.length === 1) {
+        newPath = [...parentPath, items[0]];
       } else {
+        newPath = parentPath;
+      }
+
+      if (items.length > 1 && anchor) {
         multiSelection.value = { depth, items, anchor, baseItems };
-        path.value = parentPath;
+      } else {
+        multiSelection.value = null;
+      }
+
+      if (newPath === path.value) {
+        // The watcher does not run for an unchanged path, but the focus pane has to follow the selection
+        void loadFocus();
+      } else {
+        path.value = newPath;
       }
     }
 
     /**
-     * Ends the multiselection; the focus pane shows the parent again.
+     * Ends the multiselection and returns to the unchanged path: its columns stay, its last item is focused again.
      *
      * @param {number} [depth] - Only clear if the multiselection is in this level.
      * @returns {void} This function does not return a value.
@@ -120,8 +139,9 @@ function createStore() {
         return;
       }
 
-      // New array: the path is unchanged, but the watcher must run to load the parent's focus
-      updatePath([...path.value]);
+      multiSelection.value = null;
+
+      void loadFocus();
     }
 
     /**
@@ -290,6 +310,28 @@ function createStore() {
     function initialize(): void {
       if (levels.value.length === 0) {
         updateLevels();
+      }
+    }
+
+    /**
+     * Loads the focus pane data for the last path item. Nothing is loaded for an empty path or a multiselection.
+     *
+     * @returns {Promise<void>} Resolves when the focus is set (or the result was discarded as stale).
+     */
+    async function loadFocus(): Promise<void> {
+      const token: number = ++focusRequestToken;
+
+      if (path.value.length === 0 || multiSelection.value) {
+        focus.value = null;
+
+        return;
+      }
+
+      const focusData: FocusData = await fetchFocusData(path.value[path.value.length - 1]);
+
+      // A newer selection has been made while this request was in flight — discard the stale result
+      if (token === focusRequestToken) {
+        focus.value = focusData;
       }
     }
 
@@ -545,24 +587,10 @@ function createStore() {
 
     // `path` is the single source of truth: levels and focus are derived from it, so every way of
     // changing the path (item click, breadcrumb, history back/forward, deep-link seed) lands here.
-    watch(path, async (newPath: HierarchyPath) => {
+    watch(path, async () => {
       updateLevels();
 
-      const token: number = ++focusRequestToken;
-
-      // A multiselection has no single focus: the pane shows a summary, nothing to fetch
-      if (newPath.length === 0 || multiSelection.value) {
-        focus.value = null;
-
-        return;
-      }
-
-      const focusData: FocusData = await fetchFocusData(newPath[newPath.length - 1]);
-
-      // A newer selection has been made while this request was in flight — discard the stale result
-      if (token === focusRequestToken) {
-        focus.value = focusData;
-      }
+      await loadFocus();
     });
 
     return {

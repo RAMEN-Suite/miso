@@ -61,6 +61,7 @@ const {
   root,
   canNavigate,
   multiSelection,
+  path,
   selectedUuids,
   clearMultiSelection,
   resetQuery,
@@ -248,6 +249,12 @@ const debouncedFetchFirstPage = useDebounceFn(() => refetchFirstPage(), FETCH_DE
 
 /** Whether this column holds the multiselection. */
 const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
+
+/**
+ * Whether this column holds the focused item (the last path item) while nothing is multiselected. Based on `path`
+ * rather than `focus`, since the focus loads asynchronously and the highlight would lag behind.
+ */
+const holdsFocusedItem = computed<boolean>(() => !multiSelection.value && path.value.length - 1 === props.index);
 
 /**
  * Refetches the listing from the first page and drops a multiselection in this column first: after a
@@ -449,13 +456,24 @@ function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
 }
 
 /**
- * Whether an entry is highlighted as part of this column's multiselection.
+ * How an entry is highlighted: `emphasized` for the selection being worked on (the focused item or this column's
+ * multiselection), `unemphasized` for the path item of any other column.
  *
  * @param {HierarchyEntry} entry - The entry to check.
- * @returns {boolean} True if the entry is multiselected.
+ * @returns {"emphasized" | "unemphasized" | null} The highlight, or null if the entry is not selected.
  */
-function isEntrySelected(entry: HierarchyEntry): boolean {
-  return hasMultiSelection.value && selectedUuids.value.has(entry.data.node.data.uuid);
+function getEntrySelection(entry: HierarchyEntry): "emphasized" | "unemphasized" | null {
+  const uuid: string = entry.data.node.data.uuid;
+
+  if (hasMultiSelection.value) {
+    return selectedUuids.value.has(uuid) ? "emphasized" : null;
+  }
+
+  if (levels.value[props.index]?.activeItem?.node.data.uuid !== uuid) {
+    return null;
+  }
+
+  return holdsFocusedItem.value ? "emphasized" : "unemphasized";
 }
 
 function handleResize(event: MouseEvent): void {
@@ -521,8 +539,7 @@ function endResize(): void {
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
           <HierarchyItem
             :entry="entry"
-            :is-active="levels[props.index].activeItem?.node.data.uuid === entry.data.node.data.uuid"
-            :is-selected="isEntrySelected(entry)"
+            :selection="getEntrySelection(entry)"
             @item-selected="handleItemSelected"
           ></HierarchyItem>
         </template>

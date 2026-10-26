@@ -824,7 +824,7 @@ function updateView() {
     </div>
 
     <div class="buttons flex justify-center gap-2 mt-2">
-      <Button icon="icon-trash-2" title="Delete collection" severity="danger" @click="handleDeleteColletion"></Button>
+      <Button icon="icon-trash" size="small" title="Delete collection" severity="danger" @click="handleDeleteColletion"></Button>
     </div>
   </div>
 </template>

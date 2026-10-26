@@ -38,7 +38,8 @@ function handleDeleteClick(): void {
     <div class="buttons flex justify-center gap-2 pt-2">
       <Button
         :disabled="asyncOperationRunning"
-        icon="icon-trash-2"
+        icon="icon-trash"
+        size="small"
         :label="`Delete ${props.selection.items.length} items`"
         :title="`Delete ${props.selection.items.length} items`"
         severity="danger"

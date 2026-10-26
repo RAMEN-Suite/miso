@@ -14,9 +14,11 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   entry: HierarchyEntry;
-  isActive: boolean;
-  /** Whether the item is part of a multiselection. */
-  isSelected: boolean;
+  /**
+   * How the item is highlighted, like in macOS Finder: `emphasized` for the selection being worked on (the focused
+   * item or a multiselection), `unemphasized` for the selected items along the path in the other columns.
+   */
+  selection: "emphasized" | "unemphasized" | null;
 }>();
 
 const isMac: boolean = detectPlatform() === "mac";
@@ -61,10 +63,15 @@ function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
     draggable="true"
     role="treeitem"
     tabindex="0"
-    :class="{ active: props.isActive, selected: props.isSelected, collection: isCollection, content: !isCollection }"
+    :class="{
+      emphasized: props.selection === 'emphasized',
+      unemphasized: props.selection === 'unemphasized',
+      collection: isCollection,
+      content: !isCollection,
+    }"
     :data-node-uuid="props.entry.data.node.data.uuid"
     :title="title"
-    :aria-selected="props.isActive || props.isSelected"
+    :aria-selected="props.selection !== null"
     @click="handleItemSelect"
     @keydown.enter="handleItemSelect"
     @keydown.space.prevent="handleItemSelect"
@@ -86,19 +93,29 @@ function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
 
 <style scoped>
 .hierarchy-item {
-  border-bottom: 1px solid grey;
+  border-bottom: 1px solid var(--p-surface-200);
   cursor: pointer;
 
   &:hover {
     background-color: hsl(0, 0%, 90%);
   }
 
-  &.active {
-    background-color: hsl(0, 0%, 75%);
+  &.unemphasized {
+    background-color: var(--p-surface-200);
   }
 
-  &.selected {
-    background-color: var(--p-highlight-background, hsl(210, 80%, 90%));
+  &.emphasized {
+    background-color: var(--p-primary-color);
+    color: var(--p-primary-contrast-color);
+
+    .label,
+    .chevron {
+      color: inherit;
+    }
+
+    .tag-dot {
+      box-shadow: 0 0 0 1.5px var(--p-primary-contrast-color);
+    }
   }
 }
 

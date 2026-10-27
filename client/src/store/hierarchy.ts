@@ -54,9 +54,12 @@ function createStore() {
     const root = ref<HierarchyRoot>({ kind: "database" });
 
     const mode = ref<"view" | "edit">("view");
-    /** Number of saves still running (e.g. property autosaves in the focus pane). Cancels other operations like deleting. */
-    const pendingSaves = ref<number>(0);
-    const asyncOperationRunning = computed<boolean>(() => pendingSaves.value > 0);
+    /**
+     * Number of updates still running in the focus pane (property autosaves, annotation saves). Cancels other
+     * operations like deleting.
+     */
+    const pendingUpdates = ref<number>(0);
+    const asyncOperationRunning = computed<boolean>(() => pendingUpdates.value > 0);
     const isFetchingFocus = ref<boolean>(false);
     const canNavigate = computed<boolean>(() => mode.value === "view");
 
@@ -624,7 +627,7 @@ function createStore() {
       mode,
       multiSelection: currentMultiSelection,
       path,
-      pendingSaves,
+      pendingUpdates,
       focus,
       root: readonly(root),
       selectedUuids,

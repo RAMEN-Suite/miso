@@ -25,9 +25,10 @@ const nodes = computed<HierarchyNode[]>(() => {
   return dialogRef?.value?.data?.nodes ?? [];
 });
 
+// Nested Collections are not deleted (yet), only the direct Contents
 const deleteMessage = computed<string>(() => {
   if (nodes.value.length > 1) {
-    return `${nodes.value.length} items and everything below them will be deleted. This can NOT be undone. Are you sure?`;
+    return `${nodes.value.length} entries will be deleted, together with their annotations and the texts directly inside them. This can NOT be undone. Are you sure?`;
   }
 
   const node: HierarchyNode | undefined = nodes.value[0];
@@ -35,9 +36,9 @@ const deleteMessage = computed<string>(() => {
   if (node?.nodeLabels.includes("Collection")) {
     const label: string = (node as CollectionNode).data.label ?? "";
 
-    return `The Collection "${label}" and everything below it (Content, Annotations) will be deleted. This can NOT be undone. Are you sure?`;
+    return `"${label}" will be deleted, together with its annotations and the texts directly inside it. Nested entries are not deleted. This can NOT be undone. Are you sure?`;
   } else {
-    return `This Content will be deleted. This can NOT be undone. Are you sure?`;
+    return `This text and its annotations will be deleted. This can NOT be undone. Are you sure?`;
   }
 });
 

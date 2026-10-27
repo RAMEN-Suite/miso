@@ -97,7 +97,7 @@ function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
   cursor: pointer;
 
   &:hover {
-    background-color: hsl(0, 0%, 90%);
+    background-color: var(--p-surface-200);
   }
 
   &.unemphasized {

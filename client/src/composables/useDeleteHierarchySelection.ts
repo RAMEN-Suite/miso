@@ -1,6 +1,7 @@
 import { useDialog } from "primevue";
 import { useAppStore } from "../store/app";
 import { useHierarchyStore } from "../store/hierarchy";
+import { useTagsStore } from "../store/tags";
 import { BASE_MODAL_PROPS } from "../config/modals";
 import { HierarchyNode, NodeDto } from "../models/types";
 import NodeDeleteModal from "../components/NodeDeleteModal.vue";
@@ -13,7 +14,7 @@ interface DeletionTarget {
 
 /**
  * Deletion of the current selection (the multiselection, or else the focused item): opens the confirmation modal
- * and, after a successful deletion, removes the items from their column and focuses the parent.
+ * and, after a successful deletion, removes the items from their column and from all tags, and focuses the parent.
  *
  * Must be called during component setup, since it relies on PrimeVue's dialog service.
  */
@@ -22,6 +23,7 @@ export function useDeleteHierarchySelection() {
 
   const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
   const { asyncOperationRunning, multiSelection, path, removeEntriesFromLevel, updatePath } = useHierarchyStore();
+  const { removeItemsFromAllTags } = useTagsStore();
 
   /**
    * Asks for confirmation and deletes the current selection. Does nothing without a selection or while a save is
@@ -74,8 +76,8 @@ export function useDeleteHierarchySelection() {
   }
 
   /**
-   * Removes the deleted items from their column and focuses the parent. The path is cut at the column, since its
-   * item there was part of the deleted selection.
+   * Removes the deleted items from their column and from all tags, and focuses the parent. The path is cut at the
+   * column, since its item there was part of the deleted selection.
    *
    * @param {DeletionTarget} target - What was deleted.
    * @param {string[]} deletedUuids - What the server deleted; may include Contents removed with their Collection.
@@ -88,6 +90,7 @@ export function useDeleteHierarchySelection() {
     destroyModalInstance();
 
     removeEntriesFromLevel(target.depth, deletedUuids);
+    removeItemsFromAllTags(deletedUuids);
     updatePath(path.value.slice(0, target.depth));
   }
 

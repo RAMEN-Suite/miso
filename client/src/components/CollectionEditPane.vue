@@ -25,16 +25,16 @@ import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
-import { ANNOTATION_MODAL_PROPS, BASE_MODAL_PROPS } from "../config/modals";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useAppStore } from "../store/app";
-import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TieredMenu from "primevue/tieredmenu";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useConfirm } from "primevue/useconfirm";
 import { MenuItem } from "primevue/menuitem";
 import CreateCollectionAnnotationModal from "./CreateCollectionAnnotationModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -73,7 +73,8 @@ const {
   getAllCollectionConfigFields,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const { levels, path, pendingSaves, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
+const { asyncOperationRunning, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
+const { deleteSelection } = useDeleteHierarchySelection();
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
@@ -262,7 +263,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
   const pathIndex: number = path.value.length - 1;
   saved.collection.node.data[name] = value;
   setFieldState(saved, name, { state: "saving" });
-  pendingSaves.value++;
+  pendingUpdates.value++;
 
   try {
     const result: NodeDto<CollectionNode> = await api.patchCollection(
@@ -287,7 +288,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
     setFieldState(saved, name, { state: "error", message });
     addToastMessage({ severity: "error", summary: "Not saved", detail: message, life: 4000 });
   } finally {
-    pendingSaves.value--;
+    pendingUpdates.value--;
   }
 }
 
@@ -444,11 +445,14 @@ function findAnnotationByUuid(uuid: string): Annotation | undefined {
 
 /**
  * Saves an annotation without a modal (create or delete by its status) and updates the pane on success.
+ * Counts as a pending update, so the Collection can't be deleted meanwhile.
  *
  * @param {Annotation} annotation - The annotation to save.
  * @returns {Promise<boolean>} Whether the annotation was saved.
  */
 async function saveAnnotation(annotation: Annotation): Promise<boolean> {
+  pendingUpdates.value++;
+
   try {
     await api.updateCollectionAnnotation(initialTemporaryWorkData.value.collection.node, annotation);
 
@@ -459,6 +463,8 @@ async function saveAnnotation(annotation: Annotation): Promise<boolean> {
     addToastMessage({ severity: "error", summary: "Not saved", detail: (error as Error).message, life: 4000 });
 
     return false;
+  } finally {
+    pendingUpdates.value--;
   }
 }
 
@@ -634,48 +640,6 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
   }
 }
 
-function handleDeleteColletion(): void {
-  if (pendingSaves.value > 0) {
-    return;
-  }
-
-  createModalInstance(
-    dialog.open(NodeDeleteModal, {
-      props: {
-        ...BASE_MODAL_PROPS,
-        showHeader: false,
-        style: { width: "25rem" },
-      },
-      data: {
-        nodes: [temporaryWorkData.value.collection.node],
-      },
-      emits: {
-        onDeleted: handleSuccessfullDeletion,
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
-}
-
-function handleSuccessfullDeletion() {
-  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
-  destroyModalInstance();
-  updateView();
-}
-
-function updateView() {
-  const parentIndex: number = path.value.length - 1;
-
-  updatePath(path.value.slice(0, parentIndex));
-
-  // Remove the deleted collection from its column explicitly (rebuilding the levels keeps/refetches
-  // columns, but not this specific removal)
-  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
-    (e) => e.data.node.data.uuid !== temporaryWorkData.value.collection.node.data.uuid,
-  );
-
-  setMode("view");
-}
 </script>
 
 <template>
@@ -822,12 +786,13 @@ function updateView() {
 
     <div class="buttons flex justify-center gap-2 mt-2">
       <Button
+        :disabled="asyncOperationRunning"
         icon="icon-trash"
         size="small"
         title="Delete collection"
         text
         severity="danger"
-        @click="handleDeleteColletion"
+        @click="deleteSelection"
       ></Button>
     </div>
   </div>

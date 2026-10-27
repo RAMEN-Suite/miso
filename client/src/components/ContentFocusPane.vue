@@ -4,12 +4,9 @@ import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
-import { useAppStore } from "../store/app.ts";
-import { useDialog } from "primevue";
-import { BASE_MODAL_PROPS } from "../config/modals";
-import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
 import { ellipsize, getContentLabelText } from "../utils/helper/helper.ts";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
@@ -17,9 +14,8 @@ const props = defineProps<{
   focus: ContentFocus;
 }>();
 
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { asyncOperationRunning, levels, mode, path, updatePath, setMode } = useHierarchyStore();
-const dialog: ReturnType<typeof useDialog> = useDialog();
+const { asyncOperationRunning, mode } = useHierarchyStore();
+const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
@@ -27,44 +23,6 @@ const labelText = computed<string>(() => getContentLabelText(contentNode.value.n
 
 const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
 
-function handleDeleteContent(): void {
-  createModalInstance(
-    dialog.open(NodeDeleteModal, {
-      props: {
-        ...BASE_MODAL_PROPS,
-        showHeader: false,
-        style: { width: "25rem" },
-      },
-      data: {
-        nodes: [props.focus.content.node],
-      },
-      emits: {
-        onDeleted: handleSuccessfullDeletion,
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
-}
-
-function handleSuccessfullDeletion() {
-  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
-  destroyModalInstance();
-  updateView();
-}
-
-function updateView() {
-  const parentIndex: number = path.value.length - 1;
-
-  updatePath(path.value.slice(0, parentIndex));
-
-  // Remove the deleted content from its column explicitly (rebuilding the levels keeps/refetches
-  // columns, but not this specific removal)
-  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
-    (e) => e.data.node.data.uuid !== props.focus.content.node.data.uuid,
-  );
-
-  setMode("view");
-}
 </script>
 
 <template>
@@ -112,9 +70,9 @@ function updateView() {
         icon="icon-trash"
         size="small"
         text
-        title="Delete collection"
+        title="Delete"
         severity="danger"
-        @click="handleDeleteContent"
+        @click="deleteSelection"
       ></Button>
     </div>
   </div>

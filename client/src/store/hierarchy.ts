@@ -154,6 +154,27 @@ function createStore() {
     }
 
     /**
+     * Unselects everything in a column and closes the columns right of it; the focus moves to the column's parent.
+     * A multiselection in a column further left is kept.
+     *
+     * @param {number} depth - The level index to clear from.
+     * @returns {void} This function does not return a value.
+     */
+    function clearSelectionFrom(depth: number): void {
+      const multiSelectionDepth: number | undefined = multiSelection.value?.depth;
+
+      if (path.value.length <= depth && multiSelectionDepth !== depth) {
+        return;
+      }
+
+      if (multiSelectionDepth !== undefined && multiSelectionDepth < depth) {
+        path.value = path.value.slice(0, depth);
+      } else {
+        updatePath(path.value.slice(0, depth));
+      }
+    }
+
+    /**
      * The query a freshly built level starts with: everything, unsorted-by-default, unfiltered.
      *
      * The labels are read on every call rather than once at store creation, because the guidelines
@@ -606,6 +627,7 @@ function createStore() {
       selectedUuids,
       clearMultiSelection,
       clearSelection,
+      clearSelectionFrom,
       createDefaultQuery,
       findEntryInHierarchy,
       initialize,

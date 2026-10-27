@@ -64,6 +64,7 @@ const {
   path,
   selectedUuids,
   clearMultiSelection,
+  clearSelectionFrom,
   resetQuery,
   selectItem,
   selectRange,
@@ -232,20 +233,21 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-// The initial run (also on remount after leaving the view) keeps a multiselection, only a changed scope drops it
+// The initial run (also on remount after leaving the view) keeps a multiselection, only a changed scope drops it:
+// its items might no longer be listed and must not be part of a batch operation unseen
 watch(
   scope,
   (_: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> => {
     if (oldScope) {
-      return refetchFirstPage();
-    } else {
-      return fetchFirstPage();
+      clearMultiSelection(props.index);
     }
+
+    return fetchFirstPage();
   },
   { immediate: true },
 );
 
-const debouncedFetchFirstPage = useDebounceFn(() => refetchFirstPage(), FETCH_DELAY);
+const debouncedFetchFirstPage = useDebounceFn(() => refetchFilteredPage(), FETCH_DELAY);
 
 /** Whether this column holds the multiselection. */
 const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
@@ -257,14 +259,13 @@ const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth ==
 const holdsFocusedItem = computed<boolean>(() => !multiSelection.value && path.value.length - 1 === props.index);
 
 /**
- * Refetches the listing from the first page and drops a multiselection in this column first: after a
- * filter, search or sort change, selected items might no longer be visible and must not be part of a
- * batch operation unseen.
+ * Refetches the listing after a filter or search change. The selection in this column is dropped first (closing
+ * the columns right of it), since the selected items might no longer be listed.
  *
  * @returns {Promise<void>} Resolves when the first page is loaded.
  */
-async function refetchFirstPage(): Promise<void> {
-  clearMultiSelection(props.index);
+async function refetchFilteredPage(): Promise<void> {
+  clearSelectionFrom(props.index);
 
   await fetchFirstPage();
 }
@@ -355,7 +356,7 @@ function toggleFilterPopover(event: Event): void {
 async function handleClearFilters(): Promise<void> {
   resetQuery(props.index);
 
-  await refetchFirstPage();
+  await refetchFilteredPage();
 }
 
 /**
@@ -367,7 +368,7 @@ async function handleClearFilters(): Promise<void> {
 async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
   levels.value[props.index].query.filters = updatedFilters;
 
-  await refetchFirstPage();
+  await refetchFilteredPage();
 }
 
 async function handleChangeSortOrderClick(): Promise<void> {
@@ -379,7 +380,7 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
   level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
 
-  await refetchFirstPage();
+  await fetchFirstPage();
 }
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
@@ -420,7 +421,7 @@ async function handleSortTargetChange(key: string): Promise<void> {
 
   level.query.sort = { ...level.query.sort, target };
 
-  await refetchFirstPage();
+  await fetchFirstPage();
 }
 
 /**
@@ -537,11 +538,7 @@ function endResize(): void {
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
       <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
-          <HierarchyItem
-            :entry="entry"
-            :selection="getEntrySelection(entry)"
-            @item-selected="handleItemSelected"
-          ></HierarchyItem>
+          <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
         </template>
         <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
           <span class="icon-loader-circle animate-spin"></span>

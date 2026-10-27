@@ -3,7 +3,7 @@ import HierarchyService from "../services/hierarchy.service.js";
 import GuidelinesService from "../services/guidelines.service.js";
 import { IGuidelines } from "../models/IGuidelines.js";
 import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult, PropertyConfig } from "../models/types.js";
-import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom } from "../utils/helper.js";
+import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
@@ -83,13 +83,15 @@ router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunc
   }
 });
 
-router.delete("/nodes/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
-
+/**
+ * Deletes one or several nodes, all or nothing. A POST, since a DELETE body is not reliably supported.
+ */
+router.post("/nodes/delete", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const node: NodeDto<HierarchyNode> = await hierarchyService.deleteNode(uuid);
+    const uuids: string[] = parseUuidListFrom((req.body ?? {}) as Record<string, unknown>, "uuids", 1000);
+    const deleted: string[] = await hierarchyService.deleteNodes(uuids);
 
-    res.status(200).json(node);
+    res.status(200).json({ deleted });
   } catch (error: unknown) {
     next(error);
   }

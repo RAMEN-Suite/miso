@@ -15,6 +15,7 @@ import {
   LevelState,
   NodeDto,
   PropertyConfig,
+  SelectionModifiers,
 } from "../models/types";
 import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
@@ -54,7 +55,21 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
-const { levels, focus, root, canNavigate, resetQuery, selectItem, setMode } = useHierarchyStore();
+const {
+  levels,
+  focus,
+  root,
+  canNavigate,
+  multiSelection,
+  path,
+  selectedUuids,
+  clearSelectionFrom,
+  resetQuery,
+  selectItem,
+  selectRange,
+  setMode,
+  toggleItem,
+} = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
 const { getSmartViewScope } = useSmartViewsStore();
 
@@ -217,9 +232,47 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-watch(scope, () => fetchFirstPage(), { immediate: true });
+// A changed first-column listing (e.g. tag removed under a tag root) clears the selection like a filter change.
+// Not on the initial run (remount keeps the selection), not for deeper columns (their scope changes by navigation).
+watch(
+  scope,
+  (newScope: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> | undefined => {
+    // Recomputed without an actual change (e.g. another tag was edited)
+    if (oldScope && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
+      return;
+    }
 
-const debouncedFetchFirstPage = useDebounceFn(() => fetchFirstPage(), FETCH_DELAY);
+    if (oldScope && props.index === 0) {
+      clearSelectionFrom(props.index);
+    }
+
+    return fetchFirstPage();
+  },
+  { immediate: true },
+);
+
+const debouncedRefetchAfterQueryChange = useDebounceFn(() => refetchAfterQueryChange(), FETCH_DELAY);
+
+/** Whether this column holds the multiselection. */
+const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
+
+/**
+ * Whether this column holds the focused item (the last path item) while nothing is multiselected. Based on `path`
+ * rather than `focus`, since the focus loads asynchronously and the highlight would lag behind.
+ */
+const holdsFocusedItem = computed<boolean>(() => !multiSelection.value && path.value.length - 1 === props.index);
+
+/**
+ * Refetches the listing after a filter, search or sort change. The selection in this column is dropped first
+ * (closing the columns right of it and unfocusing the pane).
+ *
+ * @returns {Promise<void>} Resolves when the first page is loaded.
+ */
+async function refetchAfterQueryChange(): Promise<void> {
+  clearSelectionFrom(props.index);
+
+  await fetchFirstPage();
+}
 
 // PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons
 // (see the same workaround in AnnotationButton.vue), so the width is set on the DOM node directly.
@@ -307,7 +360,7 @@ function toggleFilterPopover(event: Event): void {
 async function handleClearFilters(): Promise<void> {
   resetQuery(props.index);
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
 /**
@@ -319,7 +372,7 @@ async function handleClearFilters(): Promise<void> {
 async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
   levels.value[props.index].query.filters = updatedFilters;
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
 async function handleChangeSortOrderClick(): Promise<void> {
@@ -331,7 +384,7 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
   level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
@@ -372,24 +425,60 @@ async function handleSortTargetChange(key: string): Promise<void> {
 
   level.query.sort = { ...level.query.sort, target };
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
-function handleItemSelected(uuid: string): void {
+/**
+ * Selects an item, adds it to the selection (Cmd/Ctrl) or selects a range (Shift). A modifier click
+ * in a column other than the one holding the multiselection starts over with a plain selection, so a
+ * selection never spans several columns.
+ *
+ * @param {string} uuid - The clicked item's UUID.
+ * @param {SelectionModifiers} modifiers - The modifier keys held during the click.
+ * @returns {void} This function does not return a value.
+ */
+function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
   }
 
-  if (uuid === focusedUuid.value) {
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+
+  if (!entry) {
     return;
   }
 
-  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+  const isOtherColumn: boolean = !!multiSelection.value && !hasMultiSelection.value;
 
-  if (entry) {
+  if (modifiers.range && !isOtherColumn) {
+    selectRange(entry.data, props.index);
+  } else if (modifiers.toggle && !isOtherColumn) {
+    toggleItem(entry.data, props.index);
+  } else if (uuid !== focusedUuid.value || multiSelection.value) {
     selectItem(entry.data, props.index);
   }
+}
+
+/**
+ * How an entry is highlighted: `emphasized` for the selection being worked on (the focused item or this column's
+ * multiselection), `unemphasized` for the path item of any other column.
+ *
+ * @param {HierarchyEntry} entry - The entry to check.
+ * @returns {"emphasized" | "unemphasized" | null} The highlight, or null if the entry is not selected.
+ */
+function getEntrySelection(entry: HierarchyEntry): "emphasized" | "unemphasized" | null {
+  const uuid: string = entry.data.node.data.uuid;
+
+  if (hasMultiSelection.value) {
+    return selectedUuids.value.has(uuid) ? "emphasized" : null;
+  }
+
+  if (levels.value[props.index]?.activeItem?.node.data.uuid !== uuid) {
+    return null;
+  }
+
+  return holdsFocusedItem.value ? "emphasized" : "unemphasized";
 }
 
 function handleResize(event: MouseEvent): void {
@@ -420,7 +509,7 @@ function endResize(): void {
 </script>
 
 <template>
-  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1">
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1" :data-level-index="props.index">
     <div class="header flex gap-1">
       <InputText
         v-model="searchInput"
@@ -429,7 +518,7 @@ function endResize(): void {
         spellcheck="false"
         placeholder="Search..."
         title="Filter by label or text"
-        @update:model-value="debouncedFetchFirstPage"
+        @update:model-value="debouncedRefetchAfterQueryChange"
       />
       <Button size="small" severity="secondary" title="Filter the listing" class="shrink-0" @click="toggleFilterPopover">
         <i class="icon-filter" :class="{ 'filter-active': hasActiveFilters }" />
@@ -451,13 +540,9 @@ function endResize(): void {
     <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
     <div class="content-wrapper">
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
-      <div ref="scroll-pane" class="content" :class="{ 'is-stale': isReloading }">
+      <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
-          <HierarchyItem
-            :entry="entry"
-            :is-active="levels[props.index].activeItem?.node.data.uuid === entry.data.node.data.uuid"
-            @item-selected="handleItemSelected"
-          ></HierarchyItem>
+          <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
         </template>
         <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
           <span class="icon-loader-circle animate-spin"></span>

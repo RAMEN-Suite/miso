@@ -154,13 +154,30 @@ export interface HierarchyEntry {
      * on every render (icon, click behaviour).
      */
     baseLabel: "Collection" | "Content";
-    /** Multi-select flag — future drag & drop / bulk operations. */
-    isSelected: boolean;
-    /** Children shown in the next column / node unfolded in the tree. */
-    isExpanded: boolean;
-    /** Shown in the focus pane. */
-    isFocused: boolean;
   };
+}
+
+/**
+ * Several items selected inside one column at once. Only exists with two or more items — a single
+ * selection is expressed by the hierarchy path alone.
+ */
+export interface MultiSelection {
+  /** The level index (column) the selection lives in. */
+  depth: number;
+  /** The selected items, in the order they were added. Whole DTOs, since an item might not be in the column's loaded entries. */
+  items: NodeDto<HierarchyNode>[];
+  /** Where a range selection starts. */
+  anchor: NodeDto<HierarchyNode>;
+  /** The selection at the time the anchor was set. A range is always added to this base, not to the previous range. */
+  baseItems: NodeDto<HierarchyNode>[];
+}
+
+/** The modifier keys held while selecting an item. */
+export interface SelectionModifiers {
+  /** Add or remove the item (Cmd on Mac, Ctrl elsewhere). */
+  toggle: boolean;
+  /** Select from the anchor up to the item (Shift). */
+  range: boolean;
 }
 
 export interface Level {

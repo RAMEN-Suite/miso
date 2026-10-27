@@ -25,16 +25,16 @@ import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
 import { useDialog } from "primevue";
-import { ANNOTATION_MODAL_PROPS, BASE_MODAL_PROPS } from "../config/modals";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useAppStore } from "../store/app";
-import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TieredMenu from "primevue/tieredmenu";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useConfirm } from "primevue/useconfirm";
 import { MenuItem } from "primevue/menuitem";
 import CreateCollectionAnnotationModal from "./CreateCollectionAnnotationModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -73,7 +73,8 @@ const {
   getAllCollectionConfigFields,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const { levels, path, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
+const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
+const { deleteSelection } = useDeleteHierarchySelection();
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
@@ -83,9 +84,6 @@ const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 
 /** Save state per property name of the shown Collection. Properties without a state are idle. */
 const fieldStates = ref<Record<string, FieldSaveState>>({});
-
-/** Number of property saves still running. */
-const pendingSaves = ref<number>(0);
 
 // Annotations are saved directly and are not part of the Collection draft (`temporaryWorkData`)
 const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
@@ -99,6 +97,11 @@ const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
     ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
     : [];
 });
+
+/** The Collection's type label shown in UI texts (e.g. "Letter"), "entry" if it has none. */
+const displayLabel = computed<string>(
+  () => filterBaseNodeLabels(temporaryWorkData.value.collection.node.nodeLabels).join(", ") || "entry",
+);
 
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
   getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
@@ -265,7 +268,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
   const pathIndex: number = path.value.length - 1;
   saved.collection.node.data[name] = value;
   setFieldState(saved, name, { state: "saving" });
-  pendingSaves.value++;
+  pendingUpdates.value++;
 
   try {
     const result: NodeDto<CollectionNode> = await api.patchCollection(
@@ -290,7 +293,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
     setFieldState(saved, name, { state: "error", message });
     addToastMessage({ severity: "error", summary: "Not saved", detail: message, life: 4000 });
   } finally {
-    pendingSaves.value--;
+    pendingUpdates.value--;
   }
 }
 
@@ -447,11 +450,14 @@ function findAnnotationByUuid(uuid: string): Annotation | undefined {
 
 /**
  * Saves an annotation without a modal (create or delete by its status) and updates the pane on success.
+ * Counts as a pending update, so the Collection can't be deleted meanwhile.
  *
  * @param {Annotation} annotation - The annotation to save.
  * @returns {Promise<boolean>} Whether the annotation was saved.
  */
 async function saveAnnotation(annotation: Annotation): Promise<boolean> {
+  pendingUpdates.value++;
+
   try {
     await api.updateCollectionAnnotation(initialTemporaryWorkData.value.collection.node, annotation);
 
@@ -462,6 +468,8 @@ async function saveAnnotation(annotation: Annotation): Promise<boolean> {
     addToastMessage({ severity: "error", summary: "Not saved", detail: (error as Error).message, life: 4000 });
 
     return false;
+  } finally {
+    pendingUpdates.value--;
   }
 }
 
@@ -620,7 +628,7 @@ function handleEditAnnotation(uuid: string): void {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
-      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this Collection.`,
+      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
     });
     return;
   }
@@ -636,58 +644,14 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
     entry.data.node.nodeLabels = data.node.nodeLabels;
   }
 }
-
-function handleDeleteColletion(): void {
-  if (pendingSaves.value > 0) {
-    return;
-  }
-
-  createModalInstance(
-    dialog.open(NodeDeleteModal, {
-      props: {
-        ...BASE_MODAL_PROPS,
-        showHeader: false,
-        style: { width: "25rem" },
-      },
-      data: {
-        action: "delete",
-        node: temporaryWorkData.value.collection.node,
-      },
-      emits: {
-        onDeleted: handleSuccessfullDeletion,
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
-}
-
-function handleSuccessfullDeletion() {
-  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
-  destroyModalInstance();
-  updateView();
-}
-
-function updateView() {
-  const parentIndex: number = path.value.length - 1;
-
-  updatePath(path.value.slice(0, parentIndex));
-
-  // Remove the deleted collection from its column explicitly (rebuilding the levels keeps/refetches
-  // columns, but not this specific removal)
-  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
-    (e) => e.data.node.data.uuid !== temporaryWorkData.value.collection.node.data.uuid,
-  );
-
-  setMode("view");
-}
 </script>
 
 <template>
-  <div ref="pane" class="edit-pane-container h-full flex flex-col items-center p-2">
+  <div ref="pane" class="collection-focus-pane h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between items-center gap-1">
         <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :node-uuid="temporaryWorkData.collection.node.data.uuid" />
+          <TagAssignmentButton :nodes="[temporaryWorkData.collection.node]" />
         </div>
         <div class="buttons-end flex justify-end gap-1">
           <Button
@@ -698,7 +662,7 @@ function updateView() {
             severity="secondary"
             icon="icon-external-link"
             size="small"
-            title="View collection on website"
+            :title="`View this ${displayLabel} on the website`"
           />
         </div>
       </div>
@@ -825,23 +789,31 @@ function updateView() {
     </div>
 
     <div class="buttons flex justify-center gap-2 mt-2">
-      <Button icon="icon-trash-2" title="Delete collection" severity="danger" @click="handleDeleteColletion"></Button>
+      <Button
+        :disabled="hasPendingUpdates"
+        icon="icon-trash"
+        size="small"
+        :title="`Delete this ${displayLabel}`"
+        text
+        severity="danger"
+        @click="deleteSelection"
+      ></Button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.edit-pane-container {
+.collection-focus-pane {
   outline: 1px solid grey;
 }
 
-.edit-pane-container,
-.edit-pane-container * {
+.collection-focus-pane,
+.collection-focus-pane * {
   position: relative;
-  z-index: var(--z-index-edit-pane);
+  z-index: var(--z-index-focus-pane);
 }
 
-.edit-pane-container,
+.collection-focus-pane,
 .main {
   overflow-y: hidden;
 }

@@ -92,23 +92,32 @@ export default class ApiService {
     }
   }
 
-  public async deleteHierarchyNode(uuid: string): Promise<NodeDto<HierarchyNode>> {
+  /**
+   * Deletes one or several hierarchy nodes in one transaction (all or nothing).
+   *
+   * @param {string[]} uuids - The UUIDs of the nodes to delete.
+   * @returns {Promise<string[]>} The UUIDs actually deleted, including Contents removed together with their Collection.
+   */
+  public async deleteHierarchyNodes(uuids: string[]): Promise<string[]> {
     try {
-      const url: string = `${this.hierarchyUrl}/nodes/${uuid}`;
+      const url: string = `${this.hierarchyUrl}/nodes/delete`;
 
       const response: Response = await fetch(url, {
-        method: "DELETE",
+        method: "POST",
         cache: "no-cache",
         credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
         },
         referrerPolicy: "no-referrer",
+        body: JSON.stringify({ uuids }),
       });
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const result: { deleted: string[] } = await response.json();
+
+      return result.deleted;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

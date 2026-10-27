@@ -45,8 +45,7 @@ export function useHierarchyChildren(
   const hasMore = computed<boolean>(() => state.value.initialized && state.value.cursor !== null);
 
   /**
-   * Maps a raw node DTO from the API into a column entry, deriving the cached base label and
-   * initialising the frontend-owned interaction/meta flags.
+   * Maps a raw node DTO from the API into a column entry, deriving the cached base label.
    *
    * @param {NodeDto<HierarchyNode>} dto - A single node from the API.
    * @returns {HierarchyEntry} The column entry.
@@ -56,9 +55,6 @@ export function useHierarchyChildren(
       data: { node: dto.node, connectedNodes: [] },
       meta: {
         baseLabel: getBaseNodeLabel(dto.node.nodeLabels) as "Collection" | "Content",
-        isSelected: false,
-        isExpanded: false,
-        isFocused: false,
       },
     };
   }

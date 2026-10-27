@@ -12,8 +12,8 @@ interface TagsStore {
   updateTag: (params: { tagUuid: string; label?: string; appearance?: Tag["appearance"] }) => void;
   deleteTag: (uuid: string) => void;
   addItemsToTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
+  removeItemsFromAllTags: (itemUuids: string[]) => void;
   removeItemsFromTag: (params: { tagUuid: string; itemUuids: string[] }) => void;
-  toggleItemInTag: (params: { tagUuid: string; itemUuid: string }) => void;
 }
 
 const storedTags = useStorage<Tag[]>("tags", []);
@@ -185,8 +185,6 @@ export function useTagsStore(): TagsStore {
   /**
    * Removes a tag from nodes.
    *
-   * This will also be the pruning path for entries whose node no longer exists in the database (future work).
-   *
    * @param {Object} params - The target tag UUID and the node UUIDs to untag.
    * @returns {void} This function does not return any value.
    */
@@ -205,19 +203,19 @@ export function useTagsStore(): TagsStore {
   }
 
   /**
-   * Adds a tag to a node, or removes it if the node already carries it. Used by interfaces which
-   * don't know the node's tag state.
+   * Removes nodes from every tag, e.g. after they were deleted from the database. Tags not carrying any of them are
+   * left untouched, so listings rooted in them are not refetched.
    *
-   * @param {Object} params - The target tag UUID and the node UUID.
+   * @param {string[]} itemUuids - The node UUIDs to remove.
    * @returns {void} This function does not return any value.
    */
-  function toggleItemInTag(params: { tagUuid: string; itemUuid: string }): void {
-    const { tagUuid, itemUuid } = params;
+  function removeItemsFromAllTags(itemUuids: string[]): void {
+    const removable = new Set<string>(itemUuids);
 
-    if (getTagsForItem(itemUuid).includes(tagUuid)) {
-      removeItemsFromTag({ tagUuid, itemUuids: [itemUuid] });
-    } else {
-      addItemsToTag({ tagUuid, itemUuids: [itemUuid] });
+    for (const tag of storedTags.value) {
+      if (tag.entries.some((entry: TagEntry) => removable.has(entry.uuid))) {
+        tag.entries = tag.entries.filter((entry: TagEntry) => !removable.has(entry.uuid));
+      }
     }
   }
 
@@ -231,7 +229,7 @@ export function useTagsStore(): TagsStore {
     updateTag,
     deleteTag,
     addItemsToTag,
+    removeItemsFromAllTags,
     removeItemsFromTag,
-    toggleItemInTag,
   };
 }

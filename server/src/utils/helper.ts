@@ -109,6 +109,33 @@ export function parseUuidFrom(source: Record<string, unknown>, keys: string[]): 
 }
 
 /**
+ * Parses a non-empty list of UUIDs from a request body, e.g. for batch operations.
+ *
+ * @param {Record<string, unknown>} source - The request body.
+ * @param {string} key - The key holding the list.
+ * @param {number} maxLength - The maximum number of UUIDs accepted.
+ * @returns {string[]} The de-duplicated UUIDs.
+ * @throws {ValidationError} If the list is missing, empty, too long or contains non-strings.
+ */
+export function parseUuidListFrom(source: Record<string, unknown>, key: string, maxLength: number): string[] {
+  const value: unknown = source[key];
+
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ValidationError(`\`${key}\` must be a non-empty array.`);
+  }
+
+  if (value.length > maxLength) {
+    throw new ValidationError(`\`${key}\` must not contain more than ${maxLength} entries.`);
+  }
+
+  if (!value.every((uuid: unknown) => typeof uuid === "string" && uuid !== "")) {
+    throw new ValidationError(`\`${key}\` must only contain UUID strings.`);
+  }
+
+  return [...new Set<string>(value as string[])];
+}
+
+/**
  * Parses a node status object from a request body.
  *
  * @param {Request} req - The express request object.

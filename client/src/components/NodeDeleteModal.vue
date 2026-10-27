@@ -21,43 +21,55 @@ const { api, addToastMessage } = useAppStore();
 const asyncOperationRunning = ref<boolean>(false);
 
 // Must be computed since PrimeVue's Dialog Service does not allow custom props for components
-const node = computed<HierarchyNode>(() => {
-  return dialogRef?.value?.data?.node;
+const nodes = computed<HierarchyNode[]>(() => {
+  return dialogRef?.value?.data?.nodes ?? [];
 });
 
-const kind = computed<"Collection" | "Content">(() => {
-  if (node.value.nodeLabels.includes("Collection")) {
-    return "Collection";
-  } else {
-    return "Content";
-  }
-});
-
+// Nested Collections are not deleted (yet), only the direct Contents
 const deleteMessage = computed<string>(() => {
-  if (kind.value === "Collection") {
-    const label: string = (node.value as CollectionNode).data.label ?? "";
+  if (nodes.value.length > 1) {
+    return `${nodes.value.length} entries will be deleted, together with their annotations and the texts directly inside them. This can NOT be undone. Are you sure?`;
+  }
 
-    return `The Collection "${label}" and everything below it (Content, Annotations) will be deleted. This can NOT be undone. Are you sure?`;
+  const node: HierarchyNode | undefined = nodes.value[0];
+
+  if (node?.nodeLabels.includes("Collection")) {
+    const label: string = (node as CollectionNode).data.label ?? "";
+
+    return `"${label}" will be deleted, together with its annotations and the texts directly inside it. Nested entries are not deleted. This can NOT be undone. Are you sure?`;
   } else {
-    return `This Content will be deleted. This can NOT be undone. Are you sure?`;
+    return `This text and its annotations will be deleted. This can NOT be undone. Are you sure?`;
   }
 });
 
 watch(() => route.path, closeModal);
 
+/**
+ * Deletes the nodes in one all-or-nothing request.
+ *
+ * @returns {Promise<string[]>} The UUIDs of the removed nodes: the requested ones (deleted now or already gone, which
+ * the server skips) plus Contents deleted together with their Collection.
+ */
+async function deleteNodes(): Promise<string[]> {
+  const requestedUuids: string[] = nodes.value.map((node: HierarchyNode) => node.data.uuid);
+  const deletedUuids: string[] = await api.deleteHierarchyNodes(requestedUuids);
+
+  return [...new Set<string>([...requestedUuids, ...deletedUuids])];
+}
+
 async function handleSubmitClick(): Promise<void> {
-  if (asyncOperationRunning.value) {
+  if (asyncOperationRunning.value || nodes.value.length === 0) {
     return;
   }
 
   asyncOperationRunning.value = true;
 
   try {
-    await api.deleteHierarchyNode(node.value.data.uuid);
+    const deletedUuids: string[] = await deleteNodes();
 
     closeModal();
 
-    emit("deleted");
+    emit("deleted", deletedUuids);
   } catch (error: unknown) {
     showMessage("error", error as Error);
   } finally {
@@ -103,7 +115,7 @@ function handleCancelClick(): void {
       :loading="asyncOperationRunning"
       @click="handleSubmitClick"
     ></Button>
-    <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
+    <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <Button
       type="button"
       label="Cancel"
@@ -113,6 +125,7 @@ function handleCancelClick(): void {
       autofocus
       @click="handleCancelClick"
     ></Button>
+    <!-- eslint-enable vuejs-accessibility/no-autofocus -->
   </div>
 </template>
 

@@ -549,7 +549,5 @@ export function getDefaultValueForProperty(config: Partial<PropertyConfig>): unk
  * @returns {string} The labels joined with " › " (empty string if none).
  */
 export function getContentLabelText(nodeLabels: string[]): string {
-  return filterBaseNodeLabels(nodeLabels)
-    .filter((l: string) => l !== "Text")
-    .join(" › ");
+  return filterBaseNodeLabels(nodeLabels).join(" › ");
 }

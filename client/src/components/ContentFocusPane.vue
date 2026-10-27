@@ -4,12 +4,9 @@ import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
-import { useAppStore } from "../store/app.ts";
-import { useDialog } from "primevue";
-import { BASE_MODAL_PROPS } from "../config/modals";
-import NodeDeleteModal from "./NodeDeleteModal.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
 import { ellipsize, getContentLabelText } from "../utils/helper/helper.ts";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
@@ -17,55 +14,18 @@ const props = defineProps<{
   focus: ContentFocus;
 }>();
 
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { asyncOperationRunning, levels, mode, path, updatePath, setMode } = useHierarchyStore();
-const dialog: ReturnType<typeof useDialog> = useDialog();
+const { hasPendingUpdates, mode } = useHierarchyStore();
+const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
+/** The Content's type label (e.g. "Text"), empty if it has none. Shown as the heading. */
 const labelText = computed<string>(() => getContentLabelText(contentNode.value.nodeLabels));
 
+/** The type label shown in UI texts like button titles, "text" if the Content has none. */
+const displayLabel = computed<string>(() => labelText.value || "text");
+
 const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
-
-function handleDeleteContent(): void {
-  createModalInstance(
-    dialog.open(NodeDeleteModal, {
-      props: {
-        ...BASE_MODAL_PROPS,
-        showHeader: false,
-        style: { width: "25rem" },
-      },
-      data: {
-        action: "delete",
-        node: props.focus.content.node,
-      },
-      emits: {
-        onDeleted: handleSuccessfullDeletion,
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
-}
-
-function handleSuccessfullDeletion() {
-  addToastMessage({ severity: "success", summary: "Deleted", life: 2000 });
-  destroyModalInstance();
-  updateView();
-}
-
-function updateView() {
-  const parentIndex: number = path.value.length - 1;
-
-  updatePath(path.value.slice(0, parentIndex));
-
-  // Remove the deleted content from its column explicitly (rebuilding the levels keeps/refetches
-  // columns, but not this specific removal)
-  levels.value[parentIndex].entries = levels.value[parentIndex].entries.filter(
-    (e) => e.data.node.data.uuid !== props.focus.content.node.data.uuid,
-  );
-
-  setMode("view");
-}
 </script>
 
 <template>
@@ -73,13 +33,13 @@ function updateView() {
     <div class="main grow flex flex-col w-full">
       <div class="buttons flex justify-between gap-1">
         <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :node-uuid="contentNode.data.uuid" />
+          <TagAssignmentButton :nodes="[contentNode]" />
         </div>
         <div class="buttons-end flex justify-end gap-1"></div>
       </div>
 
       <div class="label-section">
-        <h3 class="label-heading" aria-label="Content label">
+        <h3 class="label-heading" aria-label="Type">
           <RAMENNodeIcon
             v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
             :spec="icon"
@@ -100,18 +60,22 @@ function updateView() {
         :href="editorUrl"
         target="_blank"
         rel="noopener noreferrer"
-        label="Open in Editor"
         icon="icon-external-link"
+        size="small"
+        text
+        label="Open in Editor"
         severity="contrast"
-        title="Open this Content in the Editor"
+        :title="`Open this ${displayLabel} in the Editor`"
       />
       <Button
         v-if="mode === 'view'"
-        :disabled="asyncOperationRunning"
-        icon="icon-trash-2"
-        title="Delete collection"
+        :disabled="hasPendingUpdates"
+        icon="icon-trash"
+        size="small"
+        text
+        :title="`Delete this ${displayLabel}`"
         severity="danger"
-        @click="handleDeleteContent"
+        @click="deleteSelection"
       ></Button>
     </div>
   </div>

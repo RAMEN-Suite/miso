@@ -31,7 +31,7 @@ const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === 
 
   <div v-else class="empty-state w-full h-full flex flex-col items-center justify-center gap-2 text-center text-sm">
     <i class="icon-square-dashed-mouse-pointer text-2xl" />
-    <small>Nothing selected</small>
+    <small>No entry selected</small>
   </div>
 </template>
 

@@ -63,7 +63,6 @@ const {
   multiSelection,
   path,
   selectedUuids,
-  clearMultiSelection,
   clearSelectionFrom,
   resetQuery,
   selectItem,
@@ -233,13 +232,18 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
   canLoadMore: () => hasMore.value && !isLoading.value,
 });
 
-// The initial run (also on remount after leaving the view) keeps a multiselection, only a changed scope drops it:
-// its items might no longer be listed and must not be part of a batch operation unseen
+// A changed first-column listing (e.g. tag removed under a tag root) clears the selection like a filter change.
+// Not on the initial run (remount keeps the selection), not for deeper columns (their scope changes by navigation).
 watch(
   scope,
-  (_: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> => {
-    if (oldScope) {
-      clearMultiSelection(props.index);
+  (newScope: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> | undefined => {
+    // Recomputed without an actual change (e.g. another tag was edited)
+    if (oldScope && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
+      return;
+    }
+
+    if (oldScope && props.index === 0) {
+      clearSelectionFrom(props.index);
     }
 
     return fetchFirstPage();
@@ -247,7 +251,7 @@ watch(
   { immediate: true },
 );
 
-const debouncedFetchFirstPage = useDebounceFn(() => refetchFilteredPage(), FETCH_DELAY);
+const debouncedFetchFirstPage = useDebounceFn(() => refetchAfterQueryChange(), FETCH_DELAY);
 
 /** Whether this column holds the multiselection. */
 const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
@@ -259,12 +263,12 @@ const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth ==
 const holdsFocusedItem = computed<boolean>(() => !multiSelection.value && path.value.length - 1 === props.index);
 
 /**
- * Refetches the listing after a filter or search change. The selection in this column is dropped first (closing
- * the columns right of it), since the selected items might no longer be listed.
+ * Refetches the listing after a filter, search or sort change. The selection in this column is dropped first
+ * (closing the columns right of it and unfocusing the pane).
  *
  * @returns {Promise<void>} Resolves when the first page is loaded.
  */
-async function refetchFilteredPage(): Promise<void> {
+async function refetchAfterQueryChange(): Promise<void> {
   clearSelectionFrom(props.index);
 
   await fetchFirstPage();
@@ -356,7 +360,7 @@ function toggleFilterPopover(event: Event): void {
 async function handleClearFilters(): Promise<void> {
   resetQuery(props.index);
 
-  await refetchFilteredPage();
+  await refetchAfterQueryChange();
 }
 
 /**
@@ -368,7 +372,7 @@ async function handleClearFilters(): Promise<void> {
 async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
   levels.value[props.index].query.filters = updatedFilters;
 
-  await refetchFilteredPage();
+  await refetchAfterQueryChange();
 }
 
 async function handleChangeSortOrderClick(): Promise<void> {
@@ -380,7 +384,7 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
   level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
@@ -421,7 +425,7 @@ async function handleSortTargetChange(key: string): Promise<void> {
 
   level.query.sort = { ...level.query.sort, target };
 
-  await fetchFirstPage();
+  await refetchAfterQueryChange();
 }
 
 /**

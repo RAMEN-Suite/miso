@@ -3,7 +3,7 @@ import { computed } from "vue";
 import Button from "primevue/button";
 import { HierarchyNode, MultiSelection, NodeDto } from "../models/types";
 import { useHierarchyStore } from "../store/hierarchy";
-import { useBatchDeletion } from "../composables/useBatchDeletion";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 
 const props = defineProps<{
@@ -11,7 +11,7 @@ const props = defineProps<{
 }>();
 
 const { asyncOperationRunning } = useHierarchyStore();
-const { deleteMultiSelection } = useBatchDeletion();
+const { deleteSelection } = useDeleteHierarchySelection();
 
 const nodes = computed<HierarchyNode[]>(() => props.selection.items.map((item: NodeDto<HierarchyNode>) => item.node));
 
@@ -20,7 +20,7 @@ function handleDeleteClick(): void {
     return;
   }
 
-  deleteMultiSelection();
+  deleteSelection();
 }
 </script>
 

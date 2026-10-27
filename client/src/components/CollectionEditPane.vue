@@ -73,7 +73,7 @@ const {
   getAllCollectionConfigFields,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const { levels, path, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
+const { levels, path, pendingSaves, findEntryInHierarchy, updatePath, setMode } = useHierarchyStore();
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
 
@@ -83,9 +83,6 @@ const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 
 /** Save state per property name of the shown Collection. Properties without a state are idle. */
 const fieldStates = ref<Record<string, FieldSaveState>>({});
-
-/** Number of property saves still running. */
-const pendingSaves = ref<number>(0);
 
 // Annotations are saved directly and are not part of the Collection draft (`temporaryWorkData`)
 const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));

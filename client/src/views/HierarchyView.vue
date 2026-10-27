@@ -17,10 +17,11 @@ import { useTagsStore } from "../store/tags.ts";
 import { normalizeTagColor } from "../config/tags.ts";
 import { useScroll } from "@vueuse/core";
 import { useHotkey } from "@tanstack/vue-hotkeys";
-import { useBatchDeletion } from "../composables/useBatchDeletion.ts";
+import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
 
 const { activeModal, addToastMessage } = useAppStore();
 const {
+  asyncOperationRunning,
   canNavigate,
   levels,
   multiSelection,
@@ -32,7 +33,7 @@ const {
   selectAll,
   updatePath,
 } = useHierarchyStore();
-const { deleteMultiSelection } = useBatchDeletion();
+const { deleteSelection } = useDeleteHierarchySelection();
 const { getSmartView } = useSmartViewsStore();
 const { getTag } = useTagsStore();
 
@@ -57,14 +58,15 @@ initialize();
 
 // Hotkeys only fire while the focus is inside the columns (not in their search inputs) and nothing blocks navigation
 const canUseHotkeys = (): boolean => canNavigate.value && !activeModal.value;
-const canUseSelectionHotkeys = (): boolean => canUseHotkeys() && !!multiSelection.value;
+const canUseMultiSelectionHotkeys = (): boolean => canUseHotkeys() && !!multiSelection.value;
+const canUseDeleteHotkeys = (): boolean =>
+  canUseHotkeys() && !asyncOperationRunning.value && (!!multiSelection.value || path.value.length > 0);
 
-const selectionHotkeyOptions = { target: columnsContainer, ignoreInputs: true, enabled: canUseSelectionHotkeys };
+const hotkeyOptions = { target: columnsContainer, ignoreInputs: true };
 
-useHotkey("Escape", () => clearMultiSelection(), selectionHotkeyOptions);
-useHotkey("Delete", () => deleteMultiSelection(), selectionHotkeyOptions);
-useHotkey("Mod+Backspace", () => deleteMultiSelection(), selectionHotkeyOptions);
-useHotkey("Mod+A", () => handleSelectAll(), { ...selectionHotkeyOptions, enabled: canUseHotkeys });
+useHotkey("Escape", () => clearMultiSelection(), { ...hotkeyOptions, enabled: canUseMultiSelectionHotkeys });
+useHotkey("Delete", () => deleteSelection(), { ...hotkeyOptions, enabled: canUseDeleteHotkeys });
+useHotkey("Mod+A", () => handleSelectAll(), { ...hotkeyOptions, enabled: canUseHotkeys });
 
 useScroll(columnsContainer, { onStop: releaseTrackWidth });
 

@@ -20,7 +20,7 @@ import HardBreak from "@tiptap/extension-hard-break";
 import { TableKit } from "@tiptap/extension-table";
 import { UndoRedo } from "@tiptap/extensions";
 import { Gapcursor } from "@tiptap/extensions";
-import InvisibleCharacters, { HardBreakNode, ParagraphNode } from "@tiptap/extension-invisible-characters";
+import InvisibleCharacters, { HardBreakNode, ParagraphNode, SpaceCharacter } from "@tiptap/extension-invisible-characters";
 import { ZeroPointAnnotation } from "../editors/text/extensions/zeroPointAnnotation";
 import StandoffConverter from "../services/standoffConverter";
 import { buildDocStructure, cloneDeep, getVisibleDocRange } from "../utils/helper/helper";
@@ -89,7 +89,7 @@ function getConfiguredExtensions(): Extensions {
     ZeroPointAnnotation.configure({ getAppearance }),
     InvisibleCharacters.configure({
       visible: false,
-      builders: [new ParagraphNode(), new HardBreakNode()],
+      builders: [new ParagraphNode(), new HardBreakNode(), new SpaceCharacter()],
     }),
     AnnotationDecoration.configure({ getAppearance }),
     BlockDecorations,

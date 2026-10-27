@@ -44,18 +44,16 @@ const deleteMessage = computed<string>(() => {
 watch(() => route.path, closeModal);
 
 /**
- * Deletes the nodes: a single node via its own endpoint, several in one all-or-nothing request.
+ * Deletes the nodes in one all-or-nothing request.
  *
- * @returns {Promise<string[]>} The UUIDs of the deleted nodes.
+ * @returns {Promise<string[]>} The UUIDs of the removed nodes: the requested ones (deleted now or already gone, which
+ * the server skips) plus Contents deleted together with their Collection.
  */
 async function deleteNodes(): Promise<string[]> {
-  if (nodes.value.length === 1) {
-    await api.deleteHierarchyNode(nodes.value[0].data.uuid);
+  const requestedUuids: string[] = nodes.value.map((node: HierarchyNode) => node.data.uuid);
+  const deletedUuids: string[] = await api.deleteHierarchyNodes(requestedUuids);
 
-    return [nodes.value[0].data.uuid];
-  } else {
-    return await api.deleteHierarchyNodes(nodes.value.map((node: HierarchyNode) => node.data.uuid));
-  }
+  return [...new Set<string>([...requestedUuids, ...deletedUuids])];
 }
 
 async function handleSubmitClick(): Promise<void> {

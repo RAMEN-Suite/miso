@@ -388,54 +388,10 @@ export default class HierarchyService {
     };
   }
 
-  public async deleteNode(uuid: string): Promise<NodeDto<HierarchyNode>> {
-    const query: string = `
-      MATCH (n:Collection|Content {uuid: $uuid})
-  
-      WITH n, {
-          nodeLabels: labels(n),
-          data: n {.*}
-      } AS nodeToDelete
-  
-      // Delete annotations
-      CALL (n) {
-          OPTIONAL MATCH (n)-[:HAS_ANNOTATION]->(a:Annotation)
-          DETACH DELETE a
-      }
-  
-      // Delete contents, characters, and annotations
-      CALL (n) {
-          OPTIONAL MATCH (n)<-[:PART_OF]-(content:Content)
-          
-          OPTIONAL MATCH (content)-[:HAS_ANNOTATION]->(a:Annotation)
-          OPTIONAL MATCH (content)-[:NEXT_CHARACTER*]->(ch:Character)
-  
-          DETACH DELETE content, a, ch
-      }
-  
-      // Delete node
-      DETACH DELETE n
-  
-      RETURN nodeToDelete as node
-      `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const deletedNode: HierarchyNode = result.records[0]?.get("node");
-
-    if (!deletedNode) {
-      throw new NotFoundError(`Node with UUID ${uuid} not found`);
-    }
-
-    return {
-      node: toNativeTypes(deletedNode) as HierarchyNode,
-      connectedNodes: [],
-    };
-  }
-
   /**
-   * Deletes several nodes in one transaction, cascading like {@link deleteNode}. Unknown UUIDs are skipped
-   * instead of failing the batch, since a node may already be gone together with a deleted parent
-   * (e.g. a Collection and its Content both selected in a tag listing).
+   * Deletes nodes in one transaction, together with their annotations and their direct Contents (and those Contents'
+   * annotations). Unknown UUIDs are skipped instead of failing the batch, since a node may already be gone together
+   * with a deleted parent (e.g. a Collection and its Content both selected in a tag listing).
    *
    * @param {string[]} uuids - The UUIDs of the nodes to delete.
    * @returns {Promise<string[]>} The UUIDs of the nodes that were actually deleted, including cascaded Contents.

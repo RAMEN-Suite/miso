@@ -84,7 +84,7 @@ router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunc
 });
 
 /**
- * Deletes several nodes at once, all or nothing. A POST, since a DELETE body is not reliably supported.
+ * Deletes one or several nodes, all or nothing. A POST, since a DELETE body is not reliably supported.
  */
 router.post("/nodes/delete", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -92,18 +92,6 @@ router.post("/nodes/delete", async (req: Request, res: Response, next: NextFunct
     const deleted: string[] = await hierarchyService.deleteNodes(uuids);
 
     res.status(200).json({ deleted });
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.delete("/nodes/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
-
-  try {
-    const node: NodeDto<HierarchyNode> = await hierarchyService.deleteNode(uuid);
-
-    res.status(200).json(node);
   } catch (error: unknown) {
     next(error);
   }

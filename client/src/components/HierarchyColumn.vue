@@ -59,7 +59,6 @@ const {
   levels,
   focus,
   root,
-  canNavigate,
   multiSelection,
   path,
   selectedUuids,
@@ -67,7 +66,6 @@ const {
   resetQuery,
   selectItem,
   selectRange,
-  setMode,
   toggleItem,
 } = useHierarchyStore();
 const { getTagEntryUuids } = useTagsStore();
@@ -286,11 +284,6 @@ onMounted(() => {
 });
 
 function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   // The parent is the active item of the previous column, always a Collection (Contents have no columns)
   const parentCollection = props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null;
 
@@ -316,7 +309,6 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
 
           addToastMessage({ severity: "success", summary: "Operation successful", detail: "", life: 2000 });
 
-          setMode("view");
           destroyModalInstance();
 
           await scrollElementIntoView(created.node.data.uuid);
@@ -438,11 +430,6 @@ async function handleSortTargetChange(key: string): Promise<void> {
  * @returns {void} This function does not return a value.
  */
 function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
 
   if (!entry) {
@@ -488,15 +475,6 @@ function handleResize(event: MouseEvent): void {
 
   const newWidth: number = event.clientX - column.value.getBoundingClientRect().left;
   column.value.style.width = `${newWidth}px`;
-}
-
-function showUnsavedChangesWarning(): void {
-  addToastMessage({
-    severity: "warn",
-    summary: "You have unsaved changes.",
-    detail: "Please save or discard your changes before navigating.",
-    life: 3000,
-  });
 }
 
 function startResize(): void {

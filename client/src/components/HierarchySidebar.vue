@@ -21,8 +21,8 @@ const MAX_WIDTH = 600;
 
 const { tags, deleteTag } = useTagsStore();
 const { smartViews, deleteSmartView } = useSmartViewsStore();
-const { root, canNavigate, setRoot } = useHierarchyStore();
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
+const { root, setRoot } = useHierarchyStore();
+const { createModalInstance, destroyModalInstance } = useAppStore();
 
 const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const dialog: ReturnType<typeof useDialog> = useDialog();
@@ -51,11 +51,6 @@ function isTagActive(uuid: string): boolean {
  * @returns {void} This function does not return any value.
  */
 function handleSelectDatabase(): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   if (isDatabaseActive.value) {
     return;
   }
@@ -71,11 +66,6 @@ function handleSelectDatabase(): void {
  * @returns {void} This function does not return any value.
  */
 function handleSelectTag(uuid: string): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   if (isTagActive(uuid)) {
     return;
   }
@@ -90,11 +80,6 @@ function handleSelectTag(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function handleOpenTagPopover(event: Event): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   createTagPopover.value?.open(event);
 }
 
@@ -107,11 +92,6 @@ function handleOpenTagPopover(event: Event): void {
  * @returns {void} This function does not return any value.
  */
 function handleDeleteTag(tag: DeepReadonly<Tag>): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   const wasActive: boolean = isTagActive(tag.uuid);
 
   deleteTag(tag.uuid);
@@ -139,11 +119,6 @@ function isSmartViewActive(uuid: string): boolean {
  * @returns {void} This function does not return any value.
  */
 function handleSelectSmartView(uuid: string): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   if (isSmartViewActive(uuid)) {
     return;
   }
@@ -158,11 +133,6 @@ function handleSelectSmartView(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function handleOpenSmartViewModal(view?: DeepReadonly<SmartView>): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   createModalInstance(
     dialog.open(SmartViewModal, {
       props: {
@@ -208,11 +178,6 @@ function handleSmartViewSaved(uuid: string): void {
  * @returns {void} This function does not return any value.
  */
 function handleDeleteSmartView(view: DeepReadonly<SmartView>): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   confirm.require({
     header: "Delete view",
     message: `Delete the view "${view.label}"? The nodes it lists are not affected.`,
@@ -228,20 +193,6 @@ function handleDeleteSmartView(view: DeepReadonly<SmartView>): void {
         setRoot({ kind: "database" });
       }
     },
-  });
-}
-
-/**
- * Warns that the current edit has to be resolved before the listing can be switched.
- *
- * @returns {void} This function does not return any value.
- */
-function showUnsavedChangesWarning(): void {
-  addToastMessage({
-    severity: "warn",
-    summary: "You have unsaved changes.",
-    detail: "Please save or discard your changes before navigating.",
-    life: 3000,
   });
 }
 

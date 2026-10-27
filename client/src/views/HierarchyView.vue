@@ -6,9 +6,7 @@ import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import HierarchyColumn from "../components/HierarchyColumn.vue";
 import HierarchySidebar from "../components/HierarchySidebar.vue";
 import FocusPane from "../components/FocusPane.vue";
-import { onBeforeRouteLeave } from "vue-router";
 import { useAppStore } from "../store/app.ts";
-import PageOverlay from "../components/PageOverlay.vue";
 import { MenuItem } from "primevue/menuitem";
 import { computed, DeepReadonly, nextTick, onMounted, useTemplateRef, watch } from "vue";
 import { useSmartViewsStore } from "../store/smartViews.ts";
@@ -19,9 +17,8 @@ import { useScroll } from "@vueuse/core";
 import { useHotkey } from "@tanstack/vue-hotkeys";
 import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
 
-const { activeModal, addToastMessage } = useAppStore();
+const { activeModal } = useAppStore();
 const {
-  canNavigate,
   hasPendingUpdates,
   levels,
   multiSelection,
@@ -56,8 +53,8 @@ const columnsTrack = useTemplateRef<HTMLDivElement>("columns-track");
 
 initialize();
 
-// Hotkeys only fire while the focus is inside the columns (not in their search inputs) and nothing blocks navigation
-const canUseHotkeys = (): boolean => canNavigate.value && !activeModal.value;
+// Hotkeys only fire while the focus is inside the columns (not in their search inputs) and no modal is open
+const canUseHotkeys = (): boolean => !activeModal.value;
 const canUseMultiSelectionHotkeys = (): boolean => canUseHotkeys() && !!multiSelection.value;
 const canUseDeleteHotkeys = (): boolean =>
   canUseHotkeys() && !hasPendingUpdates.value && (!!multiSelection.value || path.value.length > 0);
@@ -73,15 +70,6 @@ useScroll(columnsContainer, { onStop: releaseTrackWidth });
 watch(path, applyScrollingBehaviour);
 
 onMounted(() => scrollToLastColumn("instant"));
-
-onBeforeRouteLeave(() => {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return false;
-  }
-
-  return true;
-});
 
 /**
  * Scrolls the last column into view after the path changed.
@@ -121,21 +109,7 @@ function handleSelectAll(): void {
 }
 
 function handleBreadcrumbItemClick(data: { index: number; uuid: string }): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
   updatePath(path.value.slice(0, data.index + 1));
-}
-
-function handleBreadcrumbHomeClick(): void {
-  if (!canNavigate.value) {
-    showUnsavedChangesWarning();
-    return;
-  }
-
-  clearSelection();
 }
 
 /**
@@ -186,22 +160,12 @@ function scrollToLastColumn(behavior: ScrollBehavior): void {
 
   container.scrollTo({ left: target, behavior });
 }
-
-function showUnsavedChangesWarning() {
-  addToastMessage({
-    severity: "warn",
-    summary: "You have unsaved changes.",
-    detail: "Please save or discard your changes before selecting other collections.",
-    life: 3000,
-  });
-}
 </script>
 
 <template>
   <div class="page flex h-full">
     <HierarchySidebar />
     <div class="page-container flex flex-col grow min-w-0 h-full">
-      <PageOverlay v-if="canNavigate === false" @click="showUnsavedChangesWarning"></PageOverlay>
       <div class="main grow flex flex-col">
         <div class="breadcrumb-bar flex items-center gap-1 pl-1">
           <HierarchyBreadcrumbs
@@ -209,7 +173,7 @@ function showUnsavedChangesWarning() {
             :path="path"
             class="grow min-w-0"
             @item-clicked="handleBreadcrumbItemClick"
-            @home-clicked="handleBreadcrumbHomeClick"
+            @home-clicked="clearSelection"
           />
         </div>
 

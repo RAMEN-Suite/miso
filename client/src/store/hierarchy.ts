@@ -53,7 +53,6 @@ function createStore() {
     const path = ref<HierarchyPath>([]);
     const root = ref<HierarchyRoot>({ kind: "database" });
 
-    const mode = ref<"view" | "edit">("view");
     /**
      * Number of updates still running in the focus pane (property autosaves, annotation saves). Cancels other
      * operations like deleting.
@@ -61,7 +60,6 @@ function createStore() {
     const pendingUpdates = ref<number>(0);
     const hasPendingUpdates = computed<boolean>(() => pendingUpdates.value > 0);
     const isFetchingFocus = ref<boolean>(false);
-    const canNavigate = computed<boolean>(() => mode.value === "view");
 
     /**
      * Several items selected in one column. `path` stays untouched as long as its item in that column is part of the
@@ -476,16 +474,6 @@ function createStore() {
     }
 
     /**
-     * Sets the current mode ('view' or 'edit').
-     *
-     * @param {string} newMode - The new mode.
-     * @returns {void} This function does not return a value.
-     */
-    function setMode(newMode: "view" | "edit"): void {
-      mode.value = newMode;
-    }
-
-    /**
      * Switches the listing to another root (the database hierarchy or a tag) and
      * clears the current selection.
      *
@@ -620,11 +608,9 @@ function createStore() {
     });
 
     return {
-      canNavigate,
       hasPendingUpdates,
       isFetchingFocus: readonly(isFetchingFocus),
       levels,
-      mode,
       multiSelection: currentMultiSelection,
       path,
       pendingUpdates,
@@ -642,7 +628,6 @@ function createStore() {
       selectAll,
       selectItem,
       selectRange,
-      setMode,
       setRoot,
       toggleItem,
       updatePath,

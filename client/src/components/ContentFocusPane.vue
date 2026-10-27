@@ -14,7 +14,7 @@ const props = defineProps<{
   focus: ContentFocus;
 }>();
 
-const { hasPendingUpdates, mode } = useHierarchyStore();
+const { hasPendingUpdates } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
@@ -68,7 +68,6 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
         :title="`Open this ${displayLabel} in the Editor`"
       />
       <Button
-        v-if="mode === 'view'"
         :disabled="hasPendingUpdates"
         icon="icon-trash"
         size="small"

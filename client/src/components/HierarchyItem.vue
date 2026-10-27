@@ -41,7 +41,10 @@ const displayText = computed<string>(() => {
   return getContentLabelText(props.entry.data.node.nodeLabels);
 });
 
-const title = computed<string>(() => (isCollection.value ? `Open "${displayText.value}"` : `Show preview of this Content`));
+// A Content's display text is its type label (e.g. "Letter"), the project's name for it
+const title = computed<string>(() =>
+  isCollection.value ? `Open "${displayText.value}"` : `Show preview of this ${displayText.value || "text"}`,
+);
 
 /**
  * Emits the selection together with the held modifier keys. Used for clicks as well as Enter/Space.

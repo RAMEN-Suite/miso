@@ -14,15 +14,18 @@ const props = defineProps<{
   focus: ContentFocus;
 }>();
 
-const { asyncOperationRunning, mode } = useHierarchyStore();
+const { hasPendingUpdates, mode } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
+/** The Content's type label (e.g. "Text"), empty if it has none. Shown as the heading. */
 const labelText = computed<string>(() => getContentLabelText(contentNode.value.nodeLabels));
 
-const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
+/** The type label shown in UI texts like button titles, "text" if the Content has none. */
+const displayLabel = computed<string>(() => labelText.value || "text");
 
+const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
 </script>
 
 <template>
@@ -36,7 +39,7 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
       </div>
 
       <div class="label-section">
-        <h3 class="label-heading" aria-label="Content label">
+        <h3 class="label-heading" aria-label="Type">
           <RAMENNodeIcon
             v-tooltip.hover.top="{ value: filterBaseNodeLabels(contentNode.nodeLabels).join(', '), showDelay: 50 }"
             :spec="icon"
@@ -62,15 +65,15 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
         text
         label="Open in Editor"
         severity="contrast"
-        title="Open this Content in the Editor"
+        :title="`Open this ${displayLabel} in the Editor`"
       />
       <Button
         v-if="mode === 'view'"
-        :disabled="asyncOperationRunning"
+        :disabled="hasPendingUpdates"
         icon="icon-trash"
         size="small"
         text
-        title="Delete"
+        :title="`Delete this ${displayLabel}`"
         severity="danger"
         @click="deleteSelection"
       ></Button>

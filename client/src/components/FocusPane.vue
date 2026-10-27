@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useHierarchyStore } from "../store/hierarchy";
-import CollectionEditPane from "./CollectionEditPane.vue";
+import CollectionFocusPane from "./CollectionFocusPane.vue";
 import ContentFocusPane from "./ContentFocusPane.vue";
-import MultiSelectionPane from "./MultiSelectionPane.vue";
+import MultiSelectionFocusPane from "./MultiSelectionFocusPane.vue";
 import ProgressSpinner from "primevue/progressspinner";
 import { CollectionFocus, ContentFocus } from "../models/types";
 
@@ -14,7 +14,7 @@ const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === 
 </script>
 
 <template>
-  <MultiSelectionPane v-if="multiSelection" :selection="multiSelection" />
+  <MultiSelectionFocusPane v-if="multiSelection" :selection="multiSelection" />
   <div v-else-if="isFetchingFocus" class="w-full h-full flex justify-center items-center">
     <ProgressSpinner
       style="width: 80px; height: 80px"
@@ -26,7 +26,7 @@ const contentFocus = computed<ContentFocus | null>(() => (focus.value?.kind === 
     />
   </div>
 
-  <CollectionEditPane v-else-if="collectionFocus" :focus="collectionFocus" />
+  <CollectionFocusPane v-else-if="collectionFocus" :focus="collectionFocus" />
   <ContentFocusPane v-else-if="contentFocus" :focus="contentFocus" />
 
   <div v-else class="empty-state w-full h-full flex flex-col items-center justify-center gap-2 text-center text-sm">

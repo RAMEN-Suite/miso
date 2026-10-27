@@ -59,7 +59,7 @@ function createStore() {
      * operations like deleting.
      */
     const pendingUpdates = ref<number>(0);
-    const asyncOperationRunning = computed<boolean>(() => pendingUpdates.value > 0);
+    const hasPendingUpdates = computed<boolean>(() => pendingUpdates.value > 0);
     const isFetchingFocus = ref<boolean>(false);
     const canNavigate = computed<boolean>(() => mode.value === "view");
 
@@ -620,8 +620,8 @@ function createStore() {
     });
 
     return {
-      asyncOperationRunning,
       canNavigate,
+      hasPendingUpdates,
       isFetchingFocus: readonly(isFetchingFocus),
       levels,
       mode,

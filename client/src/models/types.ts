@@ -154,10 +154,6 @@ export interface HierarchyEntry {
      * on every render (icon, click behaviour).
      */
     baseLabel: "Collection" | "Content";
-    /** Children shown in the next column / node unfolded in the tree. */
-    isExpanded: boolean;
-    /** Shown in the focus pane. */
-    isFocused: boolean;
   };
 }
 

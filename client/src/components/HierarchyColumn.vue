@@ -251,7 +251,7 @@ watch(
   { immediate: true },
 );
 
-const debouncedFetchFirstPage = useDebounceFn(() => refetchAfterQueryChange(), FETCH_DELAY);
+const debouncedRefetchAfterQueryChange = useDebounceFn(() => refetchAfterQueryChange(), FETCH_DELAY);
 
 /** Whether this column holds the multiselection. */
 const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
@@ -518,7 +518,7 @@ function endResize(): void {
         spellcheck="false"
         placeholder="Search..."
         title="Filter by label or text"
-        @update:model-value="debouncedFetchFirstPage"
+        @update:model-value="debouncedRefetchAfterQueryChange"
       />
       <Button size="small" severity="secondary" title="Filter the listing" class="shrink-0" @click="toggleFilterPopover">
         <i class="icon-filter" :class="{ 'filter-active': hasActiveFilters }" />

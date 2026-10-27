@@ -10,22 +10,14 @@ const props = defineProps<{
   selection: MultiSelection;
 }>();
 
-const { asyncOperationRunning } = useHierarchyStore();
+const { hasPendingUpdates } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const nodes = computed<HierarchyNode[]>(() => props.selection.items.map((item: NodeDto<HierarchyNode>) => item.node));
-
-function handleDeleteClick(): void {
-  if (asyncOperationRunning.value) {
-    return;
-  }
-
-  deleteSelection();
-}
 </script>
 
 <template>
-  <div class="multi-selection-pane h-full flex flex-col p-2">
+  <div class="multi-selection-focus-pane h-full flex flex-col p-2">
     <div class="buttons flex justify-start gap-1">
       <TagAssignmentButton :nodes="nodes" />
     </div>
@@ -37,21 +29,21 @@ function handleDeleteClick(): void {
 
     <div class="buttons flex justify-center gap-2 pt-2">
       <Button
-        :disabled="asyncOperationRunning"
+        :disabled="hasPendingUpdates"
         icon="icon-trash"
         size="small"
         :label="`Delete ${props.selection.items.length} items`"
         :title="`Delete ${props.selection.items.length} items`"
         severity="danger"
         text
-        @click="handleDeleteClick"
+        @click="deleteSelection"
       ></Button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.multi-selection-pane {
+.multi-selection-focus-pane {
   outline: 1px solid grey;
 }
 </style>

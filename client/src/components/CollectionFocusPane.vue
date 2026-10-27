@@ -73,7 +73,7 @@ const {
   getAllCollectionConfigFields,
   getAvailableCollectionAnnotationConfigs,
 } = useGuidelinesStore();
-const { asyncOperationRunning, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
+const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const { createCollectionAnnotation: createAnnotation } = useCreateAnnotation("Collection");
@@ -97,6 +97,11 @@ const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
     ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
     : [];
 });
+
+/** The Collection's type label shown in UI texts (e.g. "Letter"), "entry" if it has none. */
+const displayLabel = computed<string>(
+  () => filterBaseNodeLabels(temporaryWorkData.value.collection.node.nodeLabels).join(", ") || "entry",
+);
 
 const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
   getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
@@ -623,7 +628,7 @@ function handleEditAnnotation(uuid: string): void {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
-      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this Collection.`,
+      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
     });
     return;
   }
@@ -639,11 +644,10 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
     entry.data.node.nodeLabels = data.node.nodeLabels;
   }
 }
-
 </script>
 
 <template>
-  <div ref="pane" class="edit-pane-container h-full flex flex-col items-center p-2">
+  <div ref="pane" class="collection-focus-pane h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between items-center gap-1">
         <div class="buttons-start flex justify-start gap-1">
@@ -658,7 +662,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
             severity="secondary"
             icon="icon-external-link"
             size="small"
-            title="View collection on website"
+            :title="`View this ${displayLabel} on the website`"
           />
         </div>
       </div>
@@ -786,10 +790,10 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 
     <div class="buttons flex justify-center gap-2 mt-2">
       <Button
-        :disabled="asyncOperationRunning"
+        :disabled="hasPendingUpdates"
         icon="icon-trash"
         size="small"
-        title="Delete collection"
+        :title="`Delete this ${displayLabel}`"
         text
         severity="danger"
         @click="deleteSelection"
@@ -799,17 +803,17 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 </template>
 
 <style scoped>
-.edit-pane-container {
+.collection-focus-pane {
   outline: 1px solid grey;
 }
 
-.edit-pane-container,
-.edit-pane-container * {
+.collection-focus-pane,
+.collection-focus-pane * {
   position: relative;
-  z-index: var(--z-index-edit-pane);
+  z-index: var(--z-index-focus-pane);
 }
 
-.edit-pane-container,
+.collection-focus-pane,
 .main {
   overflow-y: hidden;
 }

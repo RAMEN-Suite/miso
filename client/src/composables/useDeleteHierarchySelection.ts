@@ -22,7 +22,7 @@ export function useDeleteHierarchySelection() {
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
   const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-  const { asyncOperationRunning, multiSelection, path, removeEntriesFromLevel, updatePath } = useHierarchyStore();
+  const { hasPendingUpdates, multiSelection, path, removeEntriesFromLevel, updatePath } = useHierarchyStore();
   const { removeItemsFromAllTags } = useTagsStore();
 
   /**
@@ -34,7 +34,7 @@ export function useDeleteHierarchySelection() {
   function deleteSelection(): void {
     const target: DeletionTarget | null = getDeletionTarget();
 
-    if (!target || asyncOperationRunning.value) {
+    if (!target || hasPendingUpdates.value) {
       return;
     }
 

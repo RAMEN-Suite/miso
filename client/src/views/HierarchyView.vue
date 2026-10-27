@@ -21,8 +21,8 @@ import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySe
 
 const { activeModal, addToastMessage } = useAppStore();
 const {
-  asyncOperationRunning,
   canNavigate,
+  hasPendingUpdates,
   levels,
   multiSelection,
   path,
@@ -60,7 +60,7 @@ initialize();
 const canUseHotkeys = (): boolean => canNavigate.value && !activeModal.value;
 const canUseMultiSelectionHotkeys = (): boolean => canUseHotkeys() && !!multiSelection.value;
 const canUseDeleteHotkeys = (): boolean =>
-  canUseHotkeys() && !asyncOperationRunning.value && (!!multiSelection.value || path.value.length > 0);
+  canUseHotkeys() && !hasPendingUpdates.value && (!!multiSelection.value || path.value.length > 0);
 
 const hotkeyOptions = { target: columnsContainer, ignoreInputs: true };
 

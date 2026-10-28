@@ -72,6 +72,32 @@ export default class ApiService {
   }
 
   /**
+   * Builds the `fetch` options for a request sending a JSON body. Defaults to POST.
+   * Every entry can be overridden, `headers` are merged with the default headers.
+   *
+   * @param {unknown} body - The payload, serialized with `JSON.stringify`.
+   * @param {Omit<RequestInit, "body" | "headers"> & { headers?: Record<string, string> }} [overrides] - Entries replacing the defaults.
+   * @returns {RequestInit} The merged request options.
+   */
+  private jsonBodyRequest(
+    body: unknown,
+    overrides: Omit<RequestInit, "body" | "headers"> & { headers?: Record<string, string> } = {},
+  ): RequestInit {
+    return {
+      method: "POST",
+      cache: "no-cache",
+      credentials: "same-origin",
+      referrerPolicy: "no-referrer",
+      ...overrides,
+      headers: {
+        "Content-Type": "application/json",
+        ...overrides.headers,
+      },
+      body: JSON.stringify(body),
+    };
+  }
+
+  /**
    * Checks the health of the database connection.
    * Throws a DatabaseConnectionError if the API returns an error.
    *
@@ -102,16 +128,7 @@ export default class ApiService {
     try {
       const url: string = `${this.hierarchyUrl}/nodes/delete`;
 
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({ uuids }),
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest({ uuids }));
 
       await this.assertResponseOk(response);
 
@@ -227,25 +244,16 @@ export default class ApiService {
 
     const url: string = `${this.hierarchyUrl}/query`;
 
-    const body: string = JSON.stringify({
+    const payload: Record<string, unknown> = {
       scope,
       filters,
       sort: sort.target,
       order: sort.order,
       ...(cursor && { cursor }),
-    });
+    };
 
     try {
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body,
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest(payload));
 
       await this.assertResponseOk(response);
 
@@ -286,16 +294,7 @@ export default class ApiService {
     try {
       const url: string = `${this.hierarchyUrl}/nodes`;
 
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({ uuid, data }),
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data }));
 
       await this.assertResponseOk(response);
 
@@ -359,17 +358,7 @@ export default class ApiService {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const response: Response = await fetch(url, {
-        signal,
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify(data),
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest(data, { signal }));
 
       await this.assertResponseOk(response);
 
@@ -396,17 +385,10 @@ export default class ApiService {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const response: Response = await fetch(url, {
-        signal,
-        method: "PATCH",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify({ nodeLabels: collection.nodeLabels, properties }),
-      });
+      const response: Response = await fetch(
+        url,
+        this.jsonBodyRequest({ nodeLabels: collection.nodeLabels, properties }, { signal, method: "PATCH" }),
+      );
 
       await this.assertResponseOk(response);
 
@@ -436,16 +418,7 @@ export default class ApiService {
     const url: string = `${this.baseUrl}/network`;
 
     try {
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify(data),
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest(data));
 
       await this.assertResponseOk(response);
 
@@ -459,16 +432,7 @@ export default class ApiService {
     try {
       const url: string = `${this.baseUrl}/contents/${uuid}`;
 
-      const response: Response = await fetch(url, {
-        method: "POST",
-        cache: "no-cache",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        referrerPolicy: "no-referrer",
-        body: JSON.stringify(text),
-      });
+      const response: Response = await fetch(url, this.jsonBodyRequest(text));
 
       await this.assertResponseOk(response);
     } catch (error: unknown) {

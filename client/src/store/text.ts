@@ -1,6 +1,6 @@
 import { readonly, ref } from "vue";
 import { useAppStore } from "./app";
-import { CollectionNode, NodeAncestry, TextNode, TextAccessObject } from "../models/types";
+import { NodeDto, TextNode } from "../models/types";
 import { cloneDeep } from "../utils/helper/helper";
 
 const { api } = useAppStore();
@@ -8,8 +8,6 @@ const { api } = useAppStore();
 // Data
 const text = ref<TextNode | null>(null);
 const initialText = ref<TextNode | null>(null);
-const correspondingCollection = ref<CollectionNode | null>(null);
-const paths = ref<NodeAncestry[]>([]);
 
 // Fetch status
 const isFetching = ref<boolean>(false);
@@ -22,9 +20,9 @@ export function useTextStore() {
     error.value = null;
 
     try {
-      const text: TextAccessObject = await api.getTextAccessObject(uuid);
+      const content: NodeDto<TextNode> = await api.getContent(uuid);
 
-      initializeText(text);
+      initializeText(content.node);
     } catch (e: unknown) {
       error.value = e as Error;
       console.error("Error fetching text:", e);
@@ -33,19 +31,15 @@ export function useTextStore() {
     }
   }
 
-  function initializeText(newText: TextAccessObject): void {
-    text.value = newText.text;
-    initialText.value = cloneDeep(newText.text);
-    correspondingCollection.value = newText.collection;
-    paths.value = newText.paths;
+  function initializeText(newText: TextNode): void {
+    text.value = newText;
+    initialText.value = cloneDeep(newText);
   }
 
   return {
-    correspondingCollection: readonly(correspondingCollection),
     error: readonly(error),
     initialText,
     isFetching: readonly(isFetching),
-    paths: readonly(paths),
     text,
     fetchAndInitializeText,
   };

@@ -9,7 +9,6 @@ import {
   NodeAncestry,
   PaginationResult,
   TextNode,
-  TextAccessObject,
   BaseNodeLabel,
   TextUpdateDto,
   AnnotationNode,
@@ -337,9 +336,15 @@ export default class ApiService {
     }
   }
 
-  public async getTextAccessObject(textUuid: string): Promise<TextAccessObject> {
+  /**
+   * Fetches a Content node.
+   *
+   * @param {string} contentUuid - The UUID of the Content.
+   * @returns {Promise<NodeDto<TextNode>>} The Content node.
+   */
+  public async getContent(contentUuid: string): Promise<NodeDto<TextNode>> {
     try {
-      const url: string = `${this.baseUrl}/contents/${textUuid}`;
+      const url: string = `${this.baseUrl}/contents/${contentUuid}`;
 
       const response: Response = await fetch(url);
 

@@ -49,7 +49,7 @@ router.patch("/:uuid", async (req: Request, res: Response, next: NextFunction) =
 
     const updatedCollection: NodeDto<CollectionNode> = await collectionService.patchCollectionProperties(
       uuid,
-      nodeLabels as string[],
+      nodeLabels,
       properties as Record<string, unknown>,
     );
 

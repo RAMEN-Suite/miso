@@ -11,7 +11,7 @@ const annotationService: AnnotationService = new AnnotationService();
  * Annotations of the node `parent` (a Content or Collection). `types` (comma-separated) limits them to these top-level types.
  */
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  const parentUuid: string = parseUuidFrom(req.query as Record<string, unknown>, ["parent"]);
+  const parentUuid: string = parseUuidFrom(req.query, ["parent"]);
   const rawTypes: unknown = req.query.types;
   const types: string[] | undefined =
     typeof rawTypes === "string" ? rawTypes.split(",").filter((type: string) => type.trim() !== "") : undefined;

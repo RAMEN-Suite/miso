@@ -248,9 +248,3 @@ export interface TextUpdateDto {
   text: NodeStatusObject<TextNode>;
   annotations: NodeStatusObject[];
 }
-
-export interface TextAccessObject {
-  collection: CollectionNode | null;
-  paths: NodeAncestry[];
-  text: TextNode;
-}

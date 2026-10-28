@@ -1,8 +1,7 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { NodeSearchParams, PaginationResult, TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
-import { ancestryPaths } from "../utils/cypher.js";
+import { NodeDto, NodeSearchParams, PaginationResult, TextNode, TextUpdateDto } from "../models/types.js";
 import { toNativeTypes } from "../utils/helper.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
@@ -73,45 +72,33 @@ export default class ContentService {
   }
 
   /**
-   * Retrieves extended data of a specified text node (Text node, corresponding Collection node and path to top-level Collection node).
+   * Retrieves data of a specified Content node.
    *
-   * @param {string} uuid - The UUID of the text node to retrieve.
-   * @throws {NotFoundError} If the text with the specified UUID is not found.
-   * @return {Promise<TextAccessObject>} A promise that resolves to the retrieved extended text.
+   * @param {string} uuid - The UUID of the Content node to retrieve.
+   * @throws {NotFoundError} If the Content with the specified UUID is not found.
+   * @return {Promise<NodeDto<TextNode>>} A promise that resolves to the retrieved Content.
    */
-  public async getExtendedTextByUuid(uuid: string): Promise<TextAccessObject> {
+  public async getContent(uuid: string): Promise<NodeDto<TextNode>> {
     const query: string = `
     MATCH (t:Content {uuid: $uuid})
-    OPTIONAL MATCH (t)-[:PART_OF]->(c:Collection)
-    
-    CALL (t) {
-        ${ancestryPaths("t")}
-    }
 
     RETURN {
-        text: {
-            nodeLabels: labels(t),
-            data: t {.*}
-        },
-        collection: CASE 
-                        WHEN c IS NULL THEN null 
-                        ELSE {
-                            nodeLabels: labels(c),
-                            data: c {.*}
-                        }
-                    END,
-        paths: paths
-    } as text
+        nodeLabels: labels(t),
+        data: t {.*}
+    } AS text
     `;
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const rawText: TextAccessObject = result.records[0]?.get("text");
+    const rawText: TextNode = result.records[0]?.get("text");
 
     if (!rawText) {
       throw new NotFoundError(`Text with UUID ${uuid} not found`);
     }
 
-    const text: TextAccessObject = toNativeTypes(rawText) as TextAccessObject;
+    const text: NodeDto<TextNode> = {
+      node: toNativeTypes(rawText) as TextNode,
+      connectedNodes: [],
+    };
 
     return text;
   }

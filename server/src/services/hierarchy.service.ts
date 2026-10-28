@@ -417,7 +417,9 @@ export default class HierarchyService {
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, { uuids });
 
-    return result.records[0]?.get("deleted") ?? [];
+    const deleted: string[] = result.records[0]?.get("deleted") ?? [];
+
+    return deleted;
   }
 
   /**

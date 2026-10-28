@@ -281,13 +281,13 @@ function createStore() {
       try {
         // TODO: Handle errors
         const [content, annotations] = await Promise.all([
-          api.getTextAccessObject(uuid),
+          api.getContent(uuid),
           api.getAnnotations(uuid, { types: getTextPreviewAnnotationTypes() }),
         ]);
 
         return {
           kind: "content",
-          content: createNodeStatusObjectFromRawData({ node: content.text, connectedNodes: [] }) as NodeStatusObject<TextNode>,
+          content: createNodeStatusObjectFromRawData(content) as NodeStatusObject<TextNode>,
           annotations,
         };
       } finally {

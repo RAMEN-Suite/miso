@@ -359,12 +359,6 @@ export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
-export interface TextAccessObject {
-  collection: CollectionNode | null;
-  paths: NodeAncestry[];
-  text: TextNode;
-}
-
 /**
  * Type for updating text + annotations.
  */

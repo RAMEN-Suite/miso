@@ -72,8 +72,8 @@ function validateScalarValue(name: string, value: unknown, config: Partial<Prope
       throw new ValidationError(`"${name}" must be ${isInteger(config) ? "an integer" : "a number"}.`);
     }
 
-    const minimum: number | undefined = config.exclusiveMinimum !== undefined ? config.exclusiveMinimum : config.minimum;
-    const maximum: number | undefined = config.exclusiveMaximum !== undefined ? config.exclusiveMaximum : config.maximum;
+    const minimum: number | undefined = config.exclusiveMinimum ?? config.minimum;
+    const maximum: number | undefined = config.exclusiveMaximum ?? config.maximum;
 
     if (minimum !== undefined && (config.exclusiveMinimum !== undefined ? value <= minimum : value < minimum)) {
       throw new ValidationError(`"${name}" is too small.`);

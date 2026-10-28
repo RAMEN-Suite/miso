@@ -2,7 +2,7 @@ import { ref, shallowRef, watch } from "vue";
 import { NodeDto, Annotation, AnnotationAppearance } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
-import { Node } from "@tiptap/pm/model";
+import { Node, Schema } from "@tiptap/pm/model";
 import { cloneDeep } from "../utils/helper/helper";
 import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
@@ -42,6 +42,8 @@ const tableOfContent = shallowRef<ToCItem[]>([]);
 // Recreated per editor, so a newly loaded text (or changed guidelines) never reuses stale items
 let tocItemCache = new WeakMap<Node, ToCItem>();
 const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
+// Built on first use by `getEditorSchema`. The node types don't depend on the guidelines, so it never goes stale.
+let editorSchema: Schema | null = null;
 
 /**
  * Returns the configured appearance of an annotation type. Passed to the editor extensions, which render
@@ -52,6 +54,17 @@ const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
  */
 function getAppearance(type: string): AnnotationAppearance | undefined {
   return getAnnotationConfig(type)?.miso?.appearance;
+}
+
+/**
+ * Returns the ProseMirror schema of the text editor, e.g. to parse a document without creating an editor.
+ *
+ * @returns {Schema} The schema, built once and reused.
+ */
+function getEditorSchema(): Schema {
+  editorSchema ??= getSchema(createExtensions({ getAppearance }));
+
+  return editorSchema;
 }
 
 function handleScroll() {
@@ -294,6 +307,7 @@ export function useTiptapStore() {
     tiptap,
     tableOfContent,
     destroyTiptap,
+    getEditorSchema,
     hasUnsavedChanges,
     initializeTiptap,
     resetToInitialState,

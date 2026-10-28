@@ -206,10 +206,11 @@ export interface CollectionFocus {
   annotations: Annotation[];
 }
 
-/** Focus-pane data for a Content: the node itself, shown read-only. */
+/** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */
 export interface ContentFocus {
   kind: "content";
   content: NodeStatusObject<TextNode>;
+  annotations: NodeDto<AnnotationNode>[];
 }
 
 export type FilterComparator =

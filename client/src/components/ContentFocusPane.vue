@@ -7,8 +7,9 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import TagAssignmentButton from "./TagAssignmentButton.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
 import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
-import { ellipsize, getContentLabelText } from "../utils/helper/helper.ts";
+import { getContentLabelText } from "../utils/helper/helper.ts";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
+import TextPreview from "./TextPreview.vue";
 
 const props = defineProps<{
   focus: ContentFocus;
@@ -50,7 +51,7 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
       </div>
 
       <div class="content-preview">
-        <p class="preview-text">{{ ellipsize(contentNode.data.text, 500) }}</p>
+        <TextPreview :text="contentNode.data.text" :annotations="focus.annotations" />
       </div>
     </div>
 
@@ -114,11 +115,10 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
   padding: 0.25rem 0.5rem;
 }
 
+/* The preview clips its text itself, so this area never scrolls */
 .content-preview {
   flex-grow: 1;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  white-space: pre-wrap;
-  word-break: break-word;
+  min-height: 0;
+  overflow: hidden;
 }
 </style>

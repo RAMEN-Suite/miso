@@ -24,6 +24,7 @@ import { useGuidelinesStore } from "./guidelines";
 import { useSmartViewsStore } from "./smartViews";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
 import { getBaseNodeLabel } from "../config/ramen";
+import { useTextPreview } from "../composables/useTextPreview";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
 
@@ -47,6 +48,7 @@ function createStore() {
     const { api } = useAppStore();
     const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
     const { getSmartViewFilters } = useSmartViewsStore();
+    const { getTextPreviewAnnotationTypes } = useTextPreview();
 
     const levels = ref<Level[]>([]);
     const focus = ref<FocusData | null>(null);
@@ -249,7 +251,7 @@ function createStore() {
 
     /**
      * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and annotations; a
-     * Content is a leaf — the path already carries its data, so no extra request is made.
+     * Content loads its node and the annotations its text preview is built from.
      *
      * @param {NodeDto<HierarchyNode>} item - The item to focus.
      * @returns {Promise<FocusData>} The focus data for the pane.
@@ -274,10 +276,23 @@ function createStore() {
         }
       }
 
-      return {
-        kind: "content",
-        content: createNodeStatusObjectFromRawData(item) as NodeStatusObject<TextNode>,
-      };
+      isFetchingFocus.value = true;
+
+      try {
+        // TODO: Handle errors
+        const [content, annotations] = await Promise.all([
+          api.getTextAccessObject(uuid),
+          api.getAnnotations("content", uuid, getTextPreviewAnnotationTypes()),
+        ]);
+
+        return {
+          kind: "content",
+          content: createNodeStatusObjectFromRawData({ node: content.text, connectedNodes: [] }) as NodeStatusObject<TextNode>,
+          annotations,
+        };
+      } finally {
+        isFetchingFocus.value = false;
+      }
     }
 
     /**

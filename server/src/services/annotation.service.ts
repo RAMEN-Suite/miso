@@ -75,9 +75,17 @@ export default class AnnotationService {
     });
   }
 
-  public async getAnnotations(nodeUuid: string): Promise<NodeDto[]> {
+  /**
+   * Retrieves the annotations of a Content or Collection node, each with its nested annotations and referenced nodes.
+   *
+   * @param {string} nodeUuid - The UUID of the annotated node.
+   * @param {string[] | null} types - Only top-level annotations of these types. `null` for all.
+   * @return {Promise<NodeDto[]>} A promise that resolves to the annotation trees.
+   */
+  public async getAnnotations(nodeUuid: string, types: string[] | null = null): Promise<NodeDto[]> {
     const query: string = `
     MATCH (n:Content|Collection {uuid: $nodeUuid})-[:HAS_ANNOTATION]->(a:Annotation)
+    WHERE $types IS NULL OR a.type IN $types
 
     // Traverse the HAS_ANNOTATION tree if it exists (it has an unknown depth)
     CALL apoc.path.subgraphAll(a, {
@@ -117,7 +125,7 @@ export default class AnnotationService {
     }) as annotations
     `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid });
+    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid, types });
     const annotations: FlatAnnotationTree[] = result.records[0].get("annotations");
 
     return this.buildAnnotationNodeTree(annotations);

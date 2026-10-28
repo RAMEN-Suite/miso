@@ -38,4 +38,6 @@ export type {
   Range,
   StandoffParseIssue,
   ToCItem,
+  TiptapJson,
+  TiptapNode,
 } from "./models/types";

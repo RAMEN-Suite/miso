@@ -10,7 +10,8 @@ import router from "./router.ts";
 import { contenteditable } from "./directives/contenteditable";
 import "../src/styles/properties-table.css";
 import "../src/styles/style.css";
-import "../src/styles/tiptap.css";
+import "../src/editors/text/src/styles/editor.css";
+import "../src/styles/editor-layout.css";
 import "../src/styles/variables.css";
 
 const app = createApp(App);

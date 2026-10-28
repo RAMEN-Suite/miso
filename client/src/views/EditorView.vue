@@ -16,7 +16,7 @@ import EditorResizer from "../components/EditorResizer.vue";
 import BlockClassificationLines from "../components/BlockClassificationLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
-import { NodeDto, Annotation, NodeStatusObject, StandoffParseIssue, TextNode, TextUpdateDto } from "../models/types.ts";
+import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
 import { useShortcutsStore } from "../store/shortcuts.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
@@ -24,11 +24,14 @@ import PageOverlay from "../components/PageOverlay.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import EditorAnnotationButtonPane from "../components/EditorAnnotationButtonPane.vue";
 import { Node as DocNode } from "@tiptap/pm/model";
-import { useCollectAnnotationChanges } from "../composables/useCollectAnnotationChanges.ts";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
-import { normalizeAnnotation } from "../utils/helper/tiptapHelper.ts";
+import {
+  type StandoffParseIssue,
+  createAnnotationChangeCollector,
+  normalizeAnnotation,
+} from "../editors/text/src";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -220,7 +223,10 @@ async function handleSaveChanges(): Promise<void> {
     return;
   }
 
-  const affectedAnnotations = useCollectAnnotationChanges().collectAnnotationChanges();
+  const affectedAnnotations = createAnnotationChangeCollector(tiptap.value.state, {
+    annotations: initialAnnotations.value,
+    structuralAnnotations: initialStructuralAnnotations.value,
+  }).collectAnnotationChanges();
 
   const { structureElements, annotations } = affectedAnnotations;
 

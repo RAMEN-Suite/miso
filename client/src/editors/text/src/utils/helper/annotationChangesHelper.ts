@@ -1,15 +1,29 @@
 import { Node as DocNode } from "@tiptap/pm/model";
-import { IAnnotation } from "../models/IAnnotation";
-import { Annotation, BuiltinStructuralType, DocAnnotation, IndexMap, NodeStatus, PropertyConfig } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
-import { useTiptapStore } from "../store/tiptap";
-import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
-import { cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
-import { collectInlineAnnotations, collectBlockClassifications, toAnnotation } from "../utils/helper/tiptapHelper";
-import { useCreateIndexMaps } from "./useCreateIndexMaps";
+import { EditorState } from "@tiptap/pm/state";
+import { DocAnnotation, IndexMap } from "../../models/types";
+import {
+  Annotation,
+  BuiltinStructuralType,
+  IAnnotation,
+  INTRINSIC_ANNOTATION_PROPERTIES,
+  NodeStatus,
+  PropertyConfig,
+  PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
+  cloneDeep,
+  pruneUnconfiguredProperties,
+  useGuidelinesStore,
+} from "../../external";
+import { collectInlineAnnotations, collectBlockClassifications, toAnnotation } from "./annotationHelper";
+import { createIndexMapBuilder } from "./indexMapHelper";
+
+/** The annotations of the last saved state, keyed by uuid. */
+interface InitialAnnotations {
+  annotations: Map<string, Annotation> | undefined;
+  structuralAnnotations: Map<string, Annotation> | undefined;
+}
 
 /**
- * Composable that collects all annotations that need to be sent to the backend on save.
+ * Creates a collector for all annotations that need to be sent to the backend on save.
  *
  * Annotations live in three places, each handled by its own collector:
  * - inline annotations in the editor state: range annotations in their decoration, zero-points in the `_annotation`
@@ -21,11 +35,10 @@ import { useCreateIndexMaps } from "./useCreateIndexMaps";
  * indices, text and status and is reduced to the properties configured in the guidelines, and every annotation that was part of the last saved state but is gone
  * from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
  *
- * Requires an initialised tiptap editor when `collectAnnotationChanges` is called.
+ * @param {EditorState} state - The current editor state.
+ * @param {InitialAnnotations} initial - The inline and structural annotations of the last saved state.
  */
-export function useCollectAnnotationChanges() {
-  const { initialAnnotations, initialStructuralAnnotations, tiptap } = useTiptapStore();
-
+export function createAnnotationChangeCollector(state: EditorState, initial: InitialAnnotations) {
   const {
     getAnnotationExtent,
     getAnnotationFields,
@@ -109,19 +122,19 @@ export function useCollectAnnotationChanges() {
   /**
    * Returns all annotations of the last saved state that are no longer in the editor, as clones with status "deleted".
    *
-   * @param {Map<string, Annotation> | undefined} initial - The annotations of the last saved state.
+   * @param {Map<string, Annotation> | undefined} initialMap - The annotations of the last saved state.
    * @param {Set<string>} liveUuids - The uuids of the annotations currently in the editor.
    * @param {(annotation: Annotation) => boolean} belongs - Optional filter to only consider a part of the initial annotations.
    * @returns {Annotation[]} The deleted annotations.
    */
   function collectDeleted(
-    initial: Map<string, Annotation> | undefined,
+    initialMap: Map<string, Annotation> | undefined,
     liveUuids: Set<string>,
     belongs: (annotation: Annotation) => boolean = () => true,
   ): Annotation[] {
     const deleted: Annotation[] = [];
 
-    initial?.forEach((annotation: Annotation, uuid: string) => {
+    initialMap?.forEach((annotation: Annotation, uuid: string) => {
       if (!liveUuids.has(uuid) && belongs(annotation)) {
         deleted.push({ ...cloneDeep(annotation), meta: { status: "deleted" } });
       }
@@ -137,9 +150,9 @@ export function useCollectAnnotationChanges() {
    *   and the affected structural annotations (structural nodes and block classifications).
    */
   function collectAnnotationChanges(): { annotations: Annotation[]; structureElements: Annotation[] } {
-    const plainText: string = tiptap.value?.state.doc.textContent ?? "";
+    const plainText: string = state.doc.textContent;
 
-    const { inlineIndexMap, structureIndexMap, blockClassificationIndexMap } = useCreateIndexMaps().buildIndexMaps();
+    const { inlineIndexMap, structureIndexMap, blockClassificationIndexMap } = createIndexMapBuilder(state).buildIndexMaps();
 
     return {
       annotations: collectInlineChanges(inlineIndexMap, plainText),
@@ -164,11 +177,11 @@ export function useCollectAnnotationChanges() {
   function collectInlineChanges(indexMap: IndexMap, plainText: string): Annotation[] {
     const affected: Annotation[] = [];
 
-    const annotations: Map<string, Annotation> = tiptap.value ? collectInlineAnnotations(tiptap.value.state) : new Map();
+    const annotations: Map<string, Annotation> = collectInlineAnnotations(state);
 
     indexMap.forEach((range, uuid) => {
       const currentEntry: Annotation | undefined = annotations.get(uuid);
-      const initialEntry: Annotation | undefined = initialAnnotations.value?.get(uuid);
+      const initialEntry: Annotation | undefined = initial.annotations?.get(uuid);
 
       if (!currentEntry) {
         console.error(`The annotation with uuid ${uuid} could not be found`);
@@ -207,7 +220,7 @@ export function useCollectAnnotationChanges() {
       affected.push(cloned);
     });
 
-    return [...affected, ...collectDeleted(initialAnnotations.value, new Set<string>(indexMap.keys()))];
+    return [...affected, ...collectDeleted(initial.annotations, new Set<string>(indexMap.keys()))];
   }
 
   /**
@@ -220,7 +233,7 @@ export function useCollectAnnotationChanges() {
   function collectBlockClassificationChanges(indexMap: IndexMap, plainText: string): Annotation[] {
     const affected: Annotation[] = [];
 
-    const blockClassifications: Map<string, DocAnnotation> = tiptap.value ? collectBlockClassifications(tiptap.value.state.doc) : new Map();
+    const blockClassifications: Map<string, DocAnnotation> = collectBlockClassifications(state.doc);
 
     indexMap.forEach((range, uuid) => {
       const entry: DocAnnotation | undefined = blockClassifications.get(uuid);
@@ -229,7 +242,7 @@ export function useCollectAnnotationChanges() {
         return;
       }
 
-      const status: NodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "modified" : "created";
+      const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
       const annotation: Annotation = toAnnotation(entry, status);
 
       stampRange(annotation, range, plainText);
@@ -239,7 +252,7 @@ export function useCollectAnnotationChanges() {
     });
 
     const deleted: Annotation[] = collectDeleted(
-      initialStructuralAnnotations.value,
+      initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
       (annotation: Annotation) => !isBuiltinStructuralType(annotation.node.data.type),
     );
@@ -258,7 +271,7 @@ export function useCollectAnnotationChanges() {
     const affected: Annotation[] = [];
     const docNodes = new Map<string, DocNode>();
 
-    tiptap.value?.state.doc.descendants((node: DocNode) => {
+    state.doc.descendants((node: DocNode) => {
       if (isStructureElement(node)) {
         docNodes.set(node.attrs.uuid, node);
       }
@@ -275,7 +288,7 @@ export function useCollectAnnotationChanges() {
       const docAnnotation: DocAnnotation | null | undefined = docNode.attrs._annotation;
 
       // Always "modified" (not worth to fine-tune an it is likely anyway (text changes all the time))
-      const status: NodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "modified" : "created";
+      const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
 
       const annotation: Annotation = {
         node: {
@@ -293,7 +306,7 @@ export function useCollectAnnotationChanges() {
     });
 
     const deleted: Annotation[] = collectDeleted(
-      initialStructuralAnnotations.value,
+      initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
       (annotation: Annotation) => isBuiltinStructuralType(annotation.node.data.type),
     );

@@ -1,18 +1,18 @@
 import { Node, NodeViewRendererProps } from "@tiptap/core";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { IAnnotation } from "../../../models/IAnnotation";
 import {
   Annotation,
   AnnotationAppearance,
   AppearanceOverride,
+  IAnnotation,
   IconSpecInput,
   MarkerStyle,
   MathTextStyle,
-  Range,
-} from "../../../models/types";
-import { cloneDeep } from "../../../utils/helper/helper";
-import { findNodeBoundariesByUuid } from "../../../utils/helper/tiptapHelper";
+  cloneDeep,
+} from "../external";
+import { Range } from "../models/types";
+import { findNodeBoundariesByUuid } from "../utils/helper/positionHelper";
 
 // TODO: This should come from the editor
 /** Class prefix of the Lucide icon font (`lucide-static`), e.g. `icon-triangle-alert` */

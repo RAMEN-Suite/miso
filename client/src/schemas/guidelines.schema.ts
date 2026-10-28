@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../config/constants";
+import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
 import GuidelinesValidationError from "../utils/errors/guidelinesValidation.error";
 
 // Schemas and types of the guidelines. The types are inferred from the schemas, so the format is defined only once.

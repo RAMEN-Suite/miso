@@ -6,108 +6,12 @@ import {
   AnnotationNode,
   EntityNode,
   CollectionNode,
-  ToCItem,
   Annotation,
   PropertyConfig,
   AnnotationType,
 } from "../../models/types";
-import { markRaw } from "vue";
-import { EditorView } from "@tiptap/pm/view";
-import { Node } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../../store/guidelines";
 import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
 import { isArray, isBoolean, isDate, isDateTime, isNumeric, isString, isTime } from "./propertyTypeHelper";
-
-const { getAnnotationType } = useGuidelinesStore();
-
-/**
- * Recursively builds a tree of {@link ToCItem} nodes from a ProseMirror node's block children.
- *
- * @param node - The ProseMirror node whose block children to traverse.
- * @param contentStartPos - Absolute document position where `node`'s content begins.
- *   For the document root this is `0`; for any other block node it is `nodePos + 1`
- *   (skipping the opening token). Only used as fallback key for nodes without a uuid.
- * @param cache - ToC items by the ProseMirror node they were built from. ProseMirror reuses unchanged node objects
- *   across transactions, so a cache hit returns the identical item (and subtree), which lets the ToC skip
- *   re-rendering it. Filled with the newly built items.
- */
-export function buildDocChildren(node: Node, contentStartPos: number, cache: WeakMap<Node, ToCItem>): ToCItem[] {
-  const result: ToCItem[] = [];
-
-  node.forEach((child: Node, offset: number) => {
-    if (!child.isBlock) {
-      return;
-    }
-
-    const cached: ToCItem | undefined = cache.get(child);
-
-    if (cached) {
-      result.push(cached);
-      return;
-    }
-
-    const childPos: number = contentStartPos + offset;
-
-    const item: ToCItem = markRaw(
-      Object.freeze({
-        key: child.attrs.uuid ?? childPos.toString(),
-        data: {
-          text: child.textContent ?? "",
-          nodeType: child.type.name,
-          type: getAnnotationType(child.type.name),
-          level: child.attrs.level ?? null,
-          _annotation: child.attrs._annotation,
-          _blockClassifications: child.attrs._blockClassifications ?? [],
-        },
-        children: buildDocChildren(child, childPos + 1, cache),
-      }),
-    );
-
-    cache.set(child, item);
-    result.push(item);
-  });
-
-  return result;
-}
-
-/**
- * Builds a nested {@link ToCItem} tree representing the full block structure of a ProseMirror document.
- *
- * Items carry no positions; use {@link findNodePosByUuid} with the item's key to navigate to a node.
- *
- * @param doc - The ProseMirror document node (`editor.state.doc`).
- * @param cache - Items of previous builds, see {@link buildDocChildren}.
- */
-export function buildDocStructure(doc: Node, cache: WeakMap<Node, ToCItem>): ToCItem[] {
-  // doc has no opening token, so its content starts at position 0
-  const structure: ToCItem[] = buildDocChildren(doc, 0, cache);
-
-  return structure;
-}
-
-/**
- * Finds the absolute position of the first node carrying the given `uuid` attribute.
- *
- * @param doc - The ProseMirror document node (`editor.state.doc`).
- * @param uuid - The uuid to look for.
- * @returns The node's position, or `null` when no node carries the uuid.
- */
-export function findNodePosByUuid(doc: Node, uuid: string): number | null {
-  let result: number | null = null;
-
-  doc.descendants((node: Node, pos: number) => {
-    if (result !== null) {
-      return false;
-    }
-
-    if (node.attrs.uuid === uuid) {
-      result = pos;
-      return false;
-    }
-  });
-
-  return result;
-}
 
 /**
  * Converts a camelCase or PascalCase string into a space-separated title case string
@@ -383,43 +287,6 @@ export function formatPropertyValue(value: unknown, config?: Partial<PropertyCon
 }
 
 /**
- * Returns the ProseMirror document positions that correspond to the top and bottom edges
- * of the editor's scroll container (i.e. the currently visible range of the document).
- *
- * Requires the editor element to be as tall as its content, otherwise `posAtCoords` returns `null`.
- *
- * Falls back to `0` for `from` and `doc.content.size` for `to` when `posAtCoords` returns
- * `null` — which happens when the editor content does not yet fill the container or the
- * coordinates land outside the rendered document.
- *
- * @param {EditorView} editorView - The ProseMirror EditorView instance.
- * @returns {{ from: number; to: number }} The start and end document positions of the visible range.
- */
-export function getVisibleDocRange(editorView: EditorView): { from: number; to: number } {
-  // TODO: Add viewport buffer so that annotation directly above/below are included...
-  const scrollPaneRect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
-
-  if (!scrollPaneRect) {
-    return { from: 0, to: editorView.state.doc.content.size };
-  }
-
-  const contentRect: DOMRect = editorView.dom.getBoundingClientRect();
-
-  const left: number = contentRect.left + 1;
-  const top: number = Math.max(scrollPaneRect.top, contentRect.top) + 1;
-  const bottom: number = Math.min(scrollPaneRect.bottom, contentRect.bottom) - 1;
-
-  const startPos = editorView.posAtCoords({ left, top });
-  const endPos = editorView.posAtCoords({ left, top: bottom });
-
-  // Catch edge cases
-  const from: number = startPos?.pos ?? 0;
-  const to: number = endPos?.pos ?? editorView.state.doc.content.size;
-
-  return { from, to };
-}
-
-/**
  * Checks whether a required property is left without a usable value.
  *
  * Used for input checks in forms.
@@ -457,56 +324,6 @@ export function isRequiredValueMissing(value: unknown, field: Partial<PropertyCo
 export function removeFormatting(text: string): string {
   const plainText: string = text.replace(/\r\n?|\n/g, "");
   return plainText;
-}
-
-/**
- * Toggles the text highlighting for the given annotation by adding CSS classes to annotated span elements.
- *
- * @param {Annotation} annotation - The annotation for which to toggle highlighting.
- * @param {'on' | 'off'} direction - The direction of the toggle operation.
- * @return {void}
- */
-export function toggleTextHightlighting(annotation: Annotation, direction: "on" | "off"): void {
-  const annotatedSpans: NodeListOf<HTMLSpanElement> = document.querySelectorAll(
-    `#text > span:has(span[data-anno-uuid="${annotation.node.data.uuid}"])`,
-  );
-
-  if (annotatedSpans.length === 0) {
-    return;
-  }
-
-  scrollIntoViewIfNeeded(annotatedSpans[0]);
-
-  annotatedSpans.forEach((span: HTMLSpanElement) => {
-    if (direction === "on") {
-      span.classList.add("highlight");
-    } else {
-      span.classList.remove("highlight");
-    }
-  });
-}
-
-/**
- * Scrolls the given span element into view if it is outside the viewport.
- *
- * @param {HTMLSpanElement} span - The span element to scroll into view.
- * @return {void}
- */
-export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
-  const container: Element | null = document.querySelector(".text-container");
-
-  if (!container) {
-    return;
-  }
-
-  const spanRect: DOMRect = span.getBoundingClientRect();
-  const containerRect: DOMRect = container.getBoundingClientRect();
-
-  const isOutsideViewport: boolean = spanRect.top <= containerRect.top || spanRect.bottom >= containerRect.bottom;
-
-  if (isOutsideViewport) {
-    span.scrollIntoView({ behavior: "smooth" });
-  }
 }
 
 /**

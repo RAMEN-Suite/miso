@@ -6,7 +6,7 @@ import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { Annotation, AnnotationType, CollectionNode, PropertyConfig } from "../models/types";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
-import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/editor";
+import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";

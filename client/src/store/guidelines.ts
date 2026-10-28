@@ -4,7 +4,6 @@ import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
   AnnotationExtent,
-  AnnotationMapping,
   AnnotationMisoConfig,
   AnnotationNode,
   AnnotationType,
@@ -16,8 +15,9 @@ import {
   PropertyConfig,
   TextAnnotationRepresentation,
 } from "../models/types";
-import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
-import { DEFAULT_ANNOTATION_MAPPING } from "../config/editor";
+import type { AnnotationMapping } from "../editors/text/src";
+import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
+import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
 
 /** Group for annotation types without a configured `miso.group`.*/

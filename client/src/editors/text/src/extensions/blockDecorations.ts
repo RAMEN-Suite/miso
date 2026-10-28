@@ -2,8 +2,8 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { DocAnnotation, EditorSettings } from "../../../models/types";
-import { useGuidelinesStore } from "../../../store/guidelines";
+import { DocAnnotation, EditorSettings } from "../models/types";
+import { useGuidelinesStore } from "../external";
 
 const { getAnnotationType } = useGuidelinesStore();
 

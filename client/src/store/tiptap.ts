@@ -1,43 +1,28 @@
 import { ref, shallowRef, watch } from "vue";
-import {
-  NodeDto,
-  Annotation,
-  AnnotationAppearance,
-  ToCItem,
-  BlockClassificationRange,
-  DocAnnotation,
-  StandoffParseIssue,
-} from "../models/types";
+import { NodeDto, Annotation, AnnotationAppearance } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
-import Heading from "@tiptap/extension-heading";
-import Document from "@tiptap/extension-document";
-import Paragraph from "@tiptap/extension-paragraph";
-import Text from "@tiptap/extension-text";
-import { BulletList, ListItem } from "@tiptap/extension-list";
-import HardBreak from "@tiptap/extension-hard-break";
-import { TableKit } from "@tiptap/extension-table";
-import { UndoRedo } from "@tiptap/extensions";
-import { Gapcursor } from "@tiptap/extensions";
-import InvisibleCharacters, { HardBreakNode, ParagraphNode, SpaceCharacter } from "@tiptap/extension-invisible-characters";
-import { ZeroPointAnnotation } from "../editors/text/extensions/zeroPointAnnotation";
-import StandoffConverter from "../services/standoffConverter";
-import { buildDocStructure, cloneDeep, getVisibleDocRange } from "../utils/helper/helper";
-import { AnnotationDecoration } from "../editors/text/extensions/annotationDecoration";
+import { cloneDeep } from "../utils/helper/helper";
 import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
-import { AnnotationAttributes } from "../editors/text/extensions/annotationAttributes";
-import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
-import { TableRowWithoutHeader } from "../editors/text/extensions/tableRow";
-import { UniqueIDWithDuplicateCheck } from "../editors/text/extensions/uniqueId";
 import { history } from "prosemirror-history";
 import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
-import { AnnotationHighlight } from "../editors/text/extensions/annotationHighlight";
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
-import { collectInlineAnnotations, pastedSliceToRawText } from "../utils/helper/tiptapHelper";
+import {
+  type BlockClassificationRange,
+  type StandoffParseIssue,
+  type ToCItem,
+  StandoffConverter,
+  buildDocStructure,
+  collectInlineAnnotations,
+  createExtensions,
+  getBlockClassificationRanges,
+  getVisibleDocRange,
+  pastedSliceToRawText,
+} from "../editors/text/src";
 import { useGuidelinesStore } from "./guidelines";
 
 const { selectedOptions } = useFilterStore();
@@ -67,40 +52,6 @@ const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
  */
 function getAppearance(type: string): AnnotationAppearance | undefined {
   return getAnnotationConfig(type)?.miso?.appearance;
-}
-
-function getConfiguredExtensions(): Extensions {
-  return [
-    Document,
-    Paragraph,
-    Text,
-    Heading,
-    TableKit.configure({
-      table: { resizable: true },
-      tableRow: false,
-      tableHeader: false,
-    }),
-    TableRowWithoutHeader,
-    BulletList,
-    ListItem,
-    Gapcursor,
-    HardBreak,
-    UndoRedo,
-    ZeroPointAnnotation.configure({ getAppearance }),
-    InvisibleCharacters.configure({
-      visible: false,
-      builders: [new ParagraphNode(), new HardBreakNode(), new SpaceCharacter()],
-    }),
-    AnnotationDecoration.configure({ getAppearance }),
-    BlockDecorations,
-    UniqueIDWithDuplicateCheck.configure({
-      types: "all",
-      attributeName: "uuid",
-      generateID: () => crypto.randomUUID(),
-    }),
-    AnnotationAttributes,
-    AnnotationHighlight,
-  ];
 }
 
 function handleScroll() {
@@ -167,7 +118,7 @@ function hasUnsavedChanges(): boolean {
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
-  const extensions: Extensions = getConfiguredExtensions();
+  const extensions: Extensions = createExtensions({ getAppearance });
 
   const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
@@ -219,30 +170,7 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
 }
 
 function computeBlockClassificationRanges(editor: TiptapEditor | null): void {
-  if (!editor) {
-    blockClassificationRanges.value = [];
-    return;
-  }
-
-  const uuidMap = new Map<string, BlockClassificationRange>();
-
-  editor.state.doc.descendants((node, pos) => {
-    const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
-
-    blockClassifications.forEach((block) => {
-      const { type, uuid } = block.node.data;
-
-      const existing: BlockClassificationRange | undefined = uuidMap.get(uuid);
-
-      if (existing) {
-        existing.endPos = pos + (node.nodeSize - 1);
-      } else {
-        uuidMap.set(uuid, { startPos: pos, endPos: pos + (node.nodeSize - 1), type, uuid });
-      }
-    });
-  });
-
-  blockClassificationRanges.value = [...uuidMap.values()];
+  blockClassificationRanges.value = editor ? getBlockClassificationRanges(editor.state.doc) : [];
 }
 
 function initializeEventListeners(editor: TiptapEditor): void {

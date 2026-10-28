@@ -1,13 +1,13 @@
-import { Attribute, Extension, GlobalAttributes } from "@tiptap/vue-3";
-import { Annotation, AnnotationType, DocAnnotation } from "../../../models/types";
-import { useGuidelinesStore } from "../../../store/guidelines";
-import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../../../config/editor";
+import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
+import { DocAnnotation } from "../models/types";
+import { Annotation, AnnotationType, useGuidelinesStore } from "../external";
+import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
   createDefaultDocAnnotation,
   normalizeAnnotation,
   normalizeDocAnnotation,
   toDocAnnotation,
-} from "../../../utils/helper/tiptapHelper";
+} from "../utils/helper/annotationHelper";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {

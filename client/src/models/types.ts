@@ -2,7 +2,6 @@ import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
-import type { AnnotationMapping } from "../config/editor";
 
 /** A status object for nodes in the frontend and for API requests */
 export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
@@ -22,15 +21,6 @@ export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified
 
 /** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
 export type Annotation = NodeStatusObject<AnnotationNode>;
-
-/**
- * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes
- * and each entry of `_blockClassifications`.
- *
- * The `meta` field that contains the status is omitted since it gets recalculated before save
- * for every block of the document.
- */
-export type DocAnnotation = Omit<Annotation, "meta">;
 
 export type AnnotationNode = Node<IAnnotation>;
 
@@ -69,37 +59,6 @@ export type {
   UrlIconSpec,
 } from "../schemas/guidelines.schema";
 
-export interface ApiJson {
-  text: string;
-  annotations: NodeDto[];
-}
-
-export type { AnnotationMapping };
-
-export interface TiptapMark {
-  type: string;
-  attrs: Record<string, unknown>;
-}
-
-export type AllowedTiptapNodeTypes = string;
-
-export interface TiptapNodeAttrs {
-  [key: string]: unknown;
-  uuid?: string;
-  _annotation?: DocAnnotation;
-  _blockClassifications?: DocAnnotation[];
-}
-
-export interface TiptapNode {
-  type: AllowedTiptapNodeTypes;
-  attrs?: TiptapNodeAttrs;
-  content?: TiptapNode[];
-  marks?: TiptapMark[];
-  text?: string;
-}
-
-export type TiptapJson = TiptapNode;
-
 export interface BaseNodeData {
   uuid: string;
 }
@@ -117,15 +76,6 @@ export type CollectionNode = Node<ICollection>;
 
 export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
 
-export interface EditorSettings {
-  blockDecorations: {
-    outline: boolean;
-    baseType: boolean;
-    semanticTypes: boolean;
-  };
-  documentStructures: boolean;
-}
-
 export interface NodeSearchParams {
   searchInput?: string;
   nodeLabels?: string[];
@@ -135,8 +85,6 @@ export interface NodeSearchParams {
 }
 
 export type EntityNode = Node<IEntity>;
-
-export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
 export type HierarchyNode = CollectionNode | TextNode;
@@ -378,18 +326,6 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export interface Range {
-  from: number;
-  to: number;
-}
-
-export interface BlockClassificationRange {
-  startPos: number;
-  endPos: number;
-  type: string;
-  uuid: string;
-}
-
 /**
  * A user-defined view: a named scope and filter preset held in the browser. Selecting one lists the
  * nodes of its scope, pre-filtered by its filters (see {@linkcode SmartView.config}). Unlike a
@@ -418,19 +354,6 @@ export interface StandoffAnnotation {
   subType?: string | number;
 }
 
-/**
- * A problem found while a standoff document is parsed into a tiptap document.
- * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
- *    are lost, the repaired state is written to the database on the next save.
- * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
- *    configured in the guidelines. Saving it can corrupt the stored data, so the user should be asked before continuing.
- */
-export interface StandoffParseIssue {
-  severity: "warning" | "error";
-  reason: "clampedGap" | "textMismatch" | "unconfiguredType";
-  message: string;
-}
-
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
@@ -447,28 +370,6 @@ export interface TextAccessObject {
 export interface TextUpdateDto {
   text: NodeStatusObject<TextNode>;
   annotations: Annotation[];
-}
-
-/**
- * One block node of the document outline. Items of unchanged ProseMirror nodes are reused across transactions,
- * so they deliberately carry no document position (which shifts with every edit before the node).
- */
-export interface ToCItem {
-  /** The node's `uuid` attribute, or its position at build time as a fallback for nodes without one. */
-  key: string;
-  data: {
-    nodeType: string;
-    /** Canonical (project-configured) annotation type, derived from the live node, not _annotation. */
-    type: string;
-    /** Heading level when the node is a heading; read from the live native attr. */
-    level?: number;
-    text: string;
-    /** Annotation of the node itself, as stored in its `_annotation` attribute. */
-    _annotation: DocAnnotation;
-    /** Block classifications wrapping the node, as stored in its `_blockClassifications` attribute. Empty when none. */
-    _blockClassifications: DocAnnotation[];
-  };
-  children: ToCItem[];
 }
 
 /**

@@ -12,10 +12,13 @@ import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { cloneDeep, ellipsize } from "../utils/helper/helper.ts";
-import { Range } from "../models/types.ts";
-import { findDecorationBoundariesByUuid, findNodeBoundariesByUuid } from "../utils/helper/tiptapHelper.ts";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration.ts";
+import {
+  type Range,
+  ANNOTATION_DECORATION_KEY,
+  findDecorationBoundariesByUuid,
+  findNodeBoundariesByUuid,
+} from "../editors/text/src";
 import { useAppStore } from "../store/app.ts";
 
 const props = defineProps<{

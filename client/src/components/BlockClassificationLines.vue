@@ -3,14 +3,19 @@ import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, AnnotationType, DocAnnotation, NodeStatus, BlockClassificationRange } from "../models/types";
+import type { Annotation, AnnotationType, NodeStatus } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { Menu } from "primevue";
-import { collectBlockClassifications, toAnnotation } from "../utils/helper/tiptapHelper";
+import {
+  type BlockClassificationRange,
+  type DocAnnotation,
+  collectBlockClassifications,
+  toAnnotation,
+} from "../editors/text/src";
 import { Node } from "@tiptap/pm/model";
 import { useEditorSettingsStore } from "../store/editorSettings.ts";
 

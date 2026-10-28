@@ -3,14 +3,19 @@ import { Mapping } from "@tiptap/pm/transform";
 import { Extension } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { useGuidelinesStore } from "../../../store/guidelines";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
-import { IAnnotation } from "../../../models/IAnnotation";
-import { Annotation, AnnotationAppearance, AppearanceOverride, HighlightTextStyle } from "../../../models/types";
+import {
+  Annotation,
+  AnnotationAppearance,
+  AppearanceOverride,
+  HighlightTextStyle,
+  IAnnotation,
+  cloneDeep,
+  useGuidelinesStore,
+} from "../external";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
-import { indexToPosition } from "../../../utils/helper/indexHelper";
-import { cloneDeep } from "../../../utils/helper/helper";
+import { indexToPosition } from "../utils/helper/positionHelper";
 
 const { isZeroPoint } = useGuidelinesStore();
 

@@ -1,22 +1,18 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
+import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue } from "../models/types";
 import {
-  ApiJson,
-  TiptapNode,
-  TiptapNodeAttrs,
-  TiptapJson,
-  NodeStatusObject,
   AnnotationNode,
   BuiltinStructuralType,
-  DocAnnotation,
-  StandoffParseIssue,
+  IAnnotation,
+  NodeStatusObject,
   TextAnnotationRepresentation,
-} from "../models/types";
-import { IAnnotation } from "../models/IAnnotation";
-import { useGuidelinesStore } from "../store/guidelines";
-import { cloneDeep, createNodeStatusObjectFromRawData } from "../utils/helper/helper";
-import { toDocAnnotation } from "../utils/helper/tiptapHelper";
+  cloneDeep,
+  createNodeStatusObjectFromRawData,
+  useGuidelinesStore,
+} from "../external";
+import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
 type Anno = NodeStatusObject<AnnotationNode>;
 

@@ -7,12 +7,12 @@ import { AnnotationType, NodeStatusObject, AnnotationNode, Annotation } from "..
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";
-import AnnotationRangeError from "../utils/errors/annotationRange.error";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap";
-import { useValidateTextSelection } from "../composables/useValidateTextSelection";
+import { AnnotationRangeError, validateSelection } from "../editors/text/src";
+import { HEADING_LEVELS } from "../editors/text/src/config/editor";
 import { Selection } from "@tiptap/pm/state";
 import Button from "primevue/button";
 import Divider from "primevue/divider";
@@ -26,13 +26,11 @@ import TabList from "primevue/tablist";
 import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
-import { HEADING_LEVELS } from "../config/editor.ts";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 
-const { isValid: isSelectionValid } = useValidateTextSelection();
 const {
   groupedAndSortedAnnotationTypes,
   annotationHasConstraints,
@@ -277,7 +275,7 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
     }
 
     isAnnotationTypeEnabled(data.type);
-    isSelectionValid(selection, config);
+    validateSelection(selection, config);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -376,7 +374,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
     }
 
     isAnnotationTypeEnabled(data.type);
-    isSelectionValid(selection, config);
+    validateSelection(selection, config);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };

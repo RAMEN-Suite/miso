@@ -1,8 +1,8 @@
 import { UniqueID, type UniqueIDOptions } from "@tiptap/extension-unique-id";
 import { EditorState, Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../../../store/guidelines";
-import { createDefaultDocAnnotation } from "../../../utils/helper/tiptapHelper";
+import { useGuidelinesStore } from "../external";
+import { createDefaultDocAnnotation } from "../utils/helper/annotationHelper";
 
 const { getAnnotationType, isBuiltinStructuralType } = useGuidelinesStore();
 

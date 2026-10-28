@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import Button from "primevue/button";
-import { ToCItem } from "../models/types";
+import type { ToCItem } from "../editors/text/src";
 import { ellipsize } from "../utils/helper/helper.ts";
 
 // Unchanged items keep their identity across transactions (see buildDocChildren), so Vue skips re-rendering

@@ -7,8 +7,8 @@ import {
   findDecorationBoundariesByUuid,
   findNodeBoundariesByUuid,
   findBlockClassificationBoundariesByUuid,
-} from "../../../utils/helper/tiptapHelper";
-import { Range } from "../../../models/types";
+} from "../utils/helper/positionHelper";
+import { Range } from "../models/types";
 
 type RenderType = "range" | "zeroPoint" | "block" | "blockClassification";
 type ToggleDirection = "on" | "off";

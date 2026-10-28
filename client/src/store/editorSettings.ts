@@ -1,5 +1,5 @@
 import { ref, Ref } from "vue";
-import { EditorSettings } from "../models/types";
+import type { EditorSettings } from "../editors/text/src";
 
 const DEFAULT_SETTINGS: EditorSettings = {
   blockDecorations: {

@@ -1,6 +1,6 @@
 import { Node, Schema } from "@tiptap/pm/model";
 import { Step, StepResult, Mapping } from "@tiptap/pm/transform";
-import { Annotation } from "../../../models/types";
+import { Annotation } from "../external";
 import { AddAnnotationStep } from "./addAnnotationStep";
 
 /**

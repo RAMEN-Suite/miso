@@ -2,13 +2,13 @@
 import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
-import { capitalize, toggleTextHightlighting } from "../utils/helper/helper";
+import { capitalize } from "../utils/helper/helper";
 import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useTiptapStore } from "../store/tiptap";
-import { collectInlineAnnotations, getAnnotationRevision } from "../utils/helper/tiptapHelper";
+import { collectInlineAnnotations, getAnnotationRevision } from "../editors/text/src";
 
 export interface TreeNode {
   annotationCount?: number;
@@ -21,7 +21,7 @@ export interface TreeNode {
   type: "category" | "type" | "annotation";
 }
 
-const { groupedAndSortedAnnotationTypes } = useGuidelinesStore();
+const { groupedAndSortedAnnotationTypes, isZeroPoint } = useGuidelinesStore();
 const { tiptap } = useTiptapStore();
 
 /** Delay in ms before the list is rebuilt after a change in the editor. */
@@ -118,6 +118,19 @@ watch(
   { immediate: true },
 );
 
+/**
+ * Highlights the annotation in the editor while its list entry is hovered or focused.
+ *
+ * @param {NodeStatusObject<AnnotationNode>} annotation - The annotation of the list entry.
+ * @param {"on" | "off"} direction - Whether to add or remove the highlight.
+ * @returns {void} This function does not return any value.
+ */
+function toggleEditorHighlight(annotation: NodeStatusObject<AnnotationNode>, direction: "on" | "off"): void {
+  const renderType: "range" | "zeroPoint" = isZeroPoint(annotation.node) ? "zeroPoint" : "range";
+
+  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.data.uuid, { renderType });
+}
+
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
   const annotationUuid: string | undefined = (event.target as HTMLElement).dataset.annotationUuid;
 
@@ -174,10 +187,10 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
               tabindex="0"
               role="button"
               :style="{ 'text-wrap': 'nowrap' }"
-              @mouseover="toggleTextHightlighting(slotProps.node.data, 'on')"
-              @mouseout="toggleTextHightlighting(slotProps.node.data, 'off')"
-              @focus="toggleTextHightlighting(slotProps.node.data, 'on')"
-              @blur="toggleTextHightlighting(slotProps.node.data, 'off')"
+              @mouseover="toggleEditorHighlight(slotProps.node.data, 'on')"
+              @mouseout="toggleEditorHighlight(slotProps.node.data, 'off')"
+              @focus="toggleEditorHighlight(slotProps.node.data, 'on')"
+              @blur="toggleEditorHighlight(slotProps.node.data, 'off')"
               @click="handleAnnotationSelect"
               @keydown.enter="handleAnnotationSelect"
               @keydown.space.prevent="handleAnnotationSelect"

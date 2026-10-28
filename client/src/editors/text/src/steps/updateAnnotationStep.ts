@@ -1,6 +1,6 @@
 import { Node, Schema } from "@tiptap/pm/model";
 import { Step, StepResult } from "@tiptap/pm/transform";
-import { Annotation } from "../../../models/types";
+import { Annotation } from "../external";
 
 /**
  * A custom ProseMirror step that signals the `annotationDecoration` plugin to replace the annotation

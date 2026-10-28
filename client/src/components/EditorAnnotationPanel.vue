@@ -6,7 +6,7 @@ import EditorFilter from "./EditorFilter.vue";
 import { useFilterStore } from "../store/filter.ts";
 import { Annotation } from "../models/types.ts";
 import { useTiptapStore } from "../store/tiptap.ts";
-import { collectInlineAnnotations } from "../utils/helper/tiptapHelper.ts";
+import { collectInlineAnnotations } from "../editors/text/src";
 
 type CardCollapseMode = "collapsed" | "expanded";
 

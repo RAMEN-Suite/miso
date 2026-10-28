@@ -1,11 +1,11 @@
-import { useTiptapStore } from "../store/tiptap";
-import { ANNOTATION_DECORATION_KEY } from "../editors/text/extensions/annotationDecoration";
-import { DocAnnotation, IndexMap } from "../models/types";
+import { ANNOTATION_DECORATION_KEY } from "../../extensions/annotationDecoration";
+import { DocAnnotation, IndexMap } from "../../models/types";
 import { Decoration } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
+import { EditorState } from "@tiptap/pm/state";
 
 /**
- * Composable that builds standoff-annotation index maps from the current ProseMirror document.
+ * Creates a builder for the standoff-annotation index maps of the given editor state.
  *
  * Each map translates a node or decoration UUID to `{ startIndex, endIndex }` offsets in the
  * plain-text representation of the document (i.e. character positions, not ProseMirror doc
@@ -17,17 +17,13 @@ import { Node } from "@tiptap/pm/model";
  * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, …)
  *                             and `hardBreak` inline atoms (position between two chars)
  * - `blockClassificationIndexMap` – block classifications stored in the `_blockClassifications` attribute of the block nodes they wrap
+ *
+ * @param {EditorState} state - The editor state to build the maps from.
  */
-export function useCreateIndexMaps() {
-  const { tiptap } = useTiptapStore();
+export function createIndexMapBuilder(state: EditorState) {
+  const doc: Node = state.doc;
 
-  if (!tiptap.value) {
-    throw new Error("useCreateIndexMaps() requires an initialised tiptap editor.");
-  }
-
-  const doc: Node = tiptap.value.state.doc;
-
-  const decorations: Decoration[] = ANNOTATION_DECORATION_KEY.getState(tiptap.value.state)?.all.find() ?? [];
+  const decorations: Decoration[] = ANNOTATION_DECORATION_KEY.getState(state)?.all.find() ?? [];
 
   /**
    * Builds all index maps from the current document. Call this once per save cycle.

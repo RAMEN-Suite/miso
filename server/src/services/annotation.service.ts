@@ -79,10 +79,11 @@ export default class AnnotationService {
    * Retrieves the annotations of a Content or Collection node, each with its nested annotations and referenced nodes.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
-   * @param {string[] | null} types - Only top-level annotations of these types. `null` for all.
+   * @param {object} [options] - Optional filters.
+   * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
    * @return {Promise<NodeDto[]>} A promise that resolves to the annotation trees.
    */
-  public async getAnnotations(nodeUuid: string, types: string[] | null = null): Promise<NodeDto[]> {
+  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<NodeDto[]> {
     const query: string = `
     MATCH (n:Content|Collection {uuid: $nodeUuid})-[:HAS_ANNOTATION]->(a:Annotation)
     WHERE $types IS NULL OR a.type IN $types
@@ -125,7 +126,7 @@ export default class AnnotationService {
     }) as annotations
     `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid, types });
+    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid, types: options.types ?? null });
     const annotations: FlatAnnotationTree[] = result.records[0].get("annotations");
 
     return this.buildAnnotationNodeTree(annotations);

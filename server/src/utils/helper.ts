@@ -85,9 +85,9 @@ export function getPagination(req: Request): {
 /**
  * Parses a uuid from the given request source, trying each key in order.
  *
- * Used as generic uuid parser to read from both params and body.
+ * Used as generic uuid parser to read from params, query and body.
  *
- * @param {Record<string, unknown>} source - The object to read the uuid from. Currently only `req.params` or `req.body`
+ * @param {Record<string, unknown>} source - The object to read the uuid from (`req.params`, `req.query` or `req.body`).
  * @param {string[]} keys - The keys to try, in order.
  * @returns {string} The parsed uuid.
  * @throws {ValidationError} If none of the keys yield a non-empty string.

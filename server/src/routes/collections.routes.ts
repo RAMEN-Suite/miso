@@ -1,5 +1,4 @@
 import express, { Request, Response, Router, NextFunction } from "express";
-import annotationRoutes from "./annotations.routes.js";
 import CollectionService from "../services/collection.service.js";
 import { CollectionNode, NodeDto, NodeStatusObject } from "../models/types.js";
 import { parseUuidFrom } from "../utils/helper.js";
@@ -59,7 +58,5 @@ router.patch("/:uuid", async (req: Request, res: Response, next: NextFunction) =
     next(error);
   }
 });
-
-router.use("/:collectionUuid/annotations", annotationRoutes);
 
 export default router;

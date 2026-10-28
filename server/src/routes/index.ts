@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import annotationRoutes from "./annotations.routes.js";
 import collectionRoutes from "./collections.routes.js";
 import faviconRoutes from "./favicon.routes.js";
 import guideLinesRoutes from "./guidelines.routes.js";
@@ -13,6 +14,7 @@ import toolRoutes from "./tool.routes.js";
 const router: Router = express.Router();
 
 router.use("/health", healthRoutes);
+router.use("/annotations", annotationRoutes);
 router.use("/collections", collectionRoutes);
 router.use("/guidelines", guideLinesRoutes);
 router.use("/entities", entityRoutes);

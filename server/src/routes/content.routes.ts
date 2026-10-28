@@ -1,5 +1,4 @@
 import express, { Request, Response, Router, NextFunction } from "express";
-import annotationRoutes from "./annotations.routes.js";
 import ContentService from "../services/content.service.js";
 import { TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
 import { parseUuidFrom } from "../utils/helper.js";
@@ -32,7 +31,5 @@ router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) =>
     next(error);
   }
 });
-
-router.use("/:contentUuid/annotations", annotationRoutes);
 
 export default router;

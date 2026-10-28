@@ -143,19 +143,20 @@ export default class ApiService {
   /**
    * Fetches the annotations of a Collection or Content, each with its nested annotations and referenced nodes.
    *
-   * @param {"collection" | "content"} nodeType - The kind of the annotated node.
    * @param {string} nodeUuid - The UUID of the annotated node.
-   * @param {string[]} [types] - Only top-level annotations of these types. All types if omitted.
+   * @param {object} [options] - Optional filters.
+   * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
    * @returns {Promise<NodeDto<AnnotationNode>[]>} The annotation trees.
    */
-  public async getAnnotations(
-    nodeType: "collection" | "content",
-    nodeUuid: string,
-    types?: string[],
-  ): Promise<NodeDto<AnnotationNode>[]> {
+  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<NodeDto<AnnotationNode>[]> {
     try {
-      const query: string = types ? `?${new URLSearchParams({ types: types.join(",") }).toString()}` : "";
-      const url: string = `${this.baseUrl}/${nodeType}s/${nodeUuid}/annotations${query}`;
+      const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
+
+      if (options.types) {
+        params.set("types", options.types.join(","));
+      }
+
+      const url: string = `${this.baseUrl}/annotations?${params.toString()}`;
 
       const response: Response = await fetch(url);
 

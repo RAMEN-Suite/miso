@@ -264,7 +264,7 @@ function createStore() {
 
         try {
           // TODO: Handle errors
-          const [collection, annotations] = await Promise.all([api.getCollection(uuid), api.getAnnotations("collection", uuid)]);
+          const [collection, annotations] = await Promise.all([api.getCollection(uuid), api.getAnnotations(uuid)]);
 
           return {
             kind: "collection",
@@ -282,7 +282,7 @@ function createStore() {
         // TODO: Handle errors
         const [content, annotations] = await Promise.all([
           api.getTextAccessObject(uuid),
-          api.getAnnotations("content", uuid, getTextPreviewAnnotationTypes()),
+          api.getAnnotations(uuid, { types: getTextPreviewAnnotationTypes() }),
         ]);
 
         return {

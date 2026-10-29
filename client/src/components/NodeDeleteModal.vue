@@ -25,10 +25,9 @@ const nodes = computed<HierarchyNode[]>(() => {
   return dialogRef?.value?.data?.nodes ?? [];
 });
 
-// Nested Collections are not deleted (yet), only the direct Contents
 const deleteMessage = computed<string>(() => {
   if (nodes.value.length > 1) {
-    return `${nodes.value.length} entries will be deleted, together with their annotations and the texts directly inside them. This can NOT be undone. Are you sure?`;
+    return `${nodes.value.length} entries will be deleted, together with everything inside them and all annotations. This can NOT be undone. Are you sure?`;
   }
 
   const node: HierarchyNode | undefined = nodes.value[0];
@@ -36,9 +35,9 @@ const deleteMessage = computed<string>(() => {
   if (node?.nodeLabels.includes("Collection")) {
     const label: string = (node as CollectionNode).data.label ?? "";
 
-    return `"${label}" will be deleted, together with its annotations and the texts directly inside it. Nested entries are not deleted. This can NOT be undone. Are you sure?`;
+    return `"${label}" will be deleted, together with everything inside it and all annotations. This can NOT be undone. Are you sure?`;
   } else {
-    return `This text and its annotations will be deleted. This can NOT be undone. Are you sure?`;
+    return `This text will be deleted, together with everything inside it and all annotations. This can NOT be undone. Are you sure?`;
   }
 });
 
@@ -48,7 +47,7 @@ watch(() => route.path, closeModal);
  * Deletes the nodes in one all-or-nothing request.
  *
  * @returns {Promise<string[]>} The UUIDs of the removed nodes: the requested ones (deleted now or already gone, which
- * the server skips) plus Contents deleted together with their Collection.
+ * the server skips) plus all descendants deleted together with them.
  */
 async function deleteNodes(): Promise<string[]> {
   const requestedUuids: string[] = nodes.value.map((node: HierarchyNode) => node.data.uuid);

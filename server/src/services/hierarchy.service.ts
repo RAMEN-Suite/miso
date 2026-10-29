@@ -389,30 +389,70 @@ export default class HierarchyService {
   }
 
   /**
-   * Deletes nodes in one transaction, together with their annotations and their direct Contents (and those Contents'
-   * annotations). Unknown UUIDs are skipped instead of failing the batch, since a node may already be gone together
-   * with a deleted parent (e.g. a Collection and its Content both selected in a tag listing).
+   * Deletes nodes in one transaction, together with their whole PART_OF subtree (descendant Collections and Contents)
+   * and every annotation owned via HAS_ANNOTATION by those nodes, including sub-annotations. An annotation that also has an owner
+   * outside the deletion is kept, together with everything below it.
+   * Unknown UUIDs are skipped instead of failing the batch, since a node may already be gone together with a deleted
+   * parent (e.g. a Collection and its Content both selected in a tag listing).
    *
    * @param {string[]} uuids - The UUIDs of the nodes to delete.
-   * @returns {Promise<string[]>} The UUIDs of the nodes that were actually deleted, including cascaded Contents.
+   * @returns {Promise<string[]>} The UUIDs of the Collections and Contents that were actually deleted, including
+   * cascaded descendants.
    */
   public async deleteNodes(uuids: string[]): Promise<string[]> {
     const query: string = `
-      MATCH (n:Collection|Content)
-      WHERE n.uuid IN $uuids
-      OPTIONAL MATCH (n)<-[:PART_OF]-(content:Content)
+      MATCH (root:Collection|Content)
+      WHERE root.uuid IN $uuids
 
-      WITH collect(DISTINCT n) + collect(DISTINCT content) AS nodes
-      UNWIND nodes AS node
-      WITH DISTINCT node
+      // Strictly downwards along a PART_OF hierarchy
+      CALL apoc.path.subgraphNodes(root, {
+        relationshipFilter: '<PART_OF',
+        labelFilter: '+Collection|+Content',
+        maxLevel: -1
+      }) YIELD node AS hierarchyNode
 
-      OPTIONAL MATCH (node)-[:HAS_ANNOTATION]->(a:Annotation)
-      WITH node, node.uuid AS uuid, collect(a) AS annotations
+      WITH collect(DISTINCT hierarchyNode) AS hierarchyNodes
+
+      // Candidates: all annotations owned by the hierarchy nodes, including sub-annotations
+      CALL (hierarchyNodes) {
+        UNWIND hierarchyNodes AS owner
+
+        CALL apoc.path.subgraphNodes(owner, {
+          relationshipFilter: 'HAS_ANNOTATION>',
+          labelFilter: '+Annotation',
+          minLevel: 1,
+          maxLevel: -1
+        }) YIELD node
+
+        RETURN collect(DISTINCT node) AS candidates
+      }
+
+      // Shared roots: candidates that also have an owner which is not marked as deleted
+      WITH hierarchyNodes, candidates, hierarchyNodes + candidates AS deletionSet
+      WITH hierarchyNodes, candidates, [a IN candidates WHERE EXISTS {
+        MATCH (owner)-[:HAS_ANNOTATION]->(a)
+        WHERE NOT owner IN deletionSet
+      }] AS sharedRoots
+
+      // Shared roots and everything below them are kept
+      CALL (sharedRoots) {
+        UNWIND sharedRoots AS sharedRoot
+
+        CALL apoc.path.subgraphNodes(sharedRoot, {
+          relationshipFilter: 'HAS_ANNOTATION>',
+          labelFilter: '+Annotation',
+          maxLevel: -1
+        }) YIELD node
+
+        RETURN collect(DISTINCT node) AS kept
+      }
+
+      WITH hierarchyNodes, [a IN candidates WHERE NOT a IN kept] AS annotations, [n IN hierarchyNodes | n.uuid] AS deleted
 
       FOREACH (annotation IN annotations | DETACH DELETE annotation)
-      DETACH DELETE node
+      FOREACH (node IN hierarchyNodes | DETACH DELETE node)
 
-      RETURN collect(uuid) AS deleted
+      RETURN deleted
       `;
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, { uuids });

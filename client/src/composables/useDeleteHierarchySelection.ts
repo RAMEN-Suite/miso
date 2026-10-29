@@ -80,7 +80,7 @@ export function useDeleteHierarchySelection() {
    * column, since its item there was part of the deleted selection.
    *
    * @param {DeletionTarget} target - What was deleted.
-   * @param {string[]} deletedUuids - What the server deleted; may include Contents removed with their Collection.
+   * @param {string[]} deletedUuids - What the server deleted; includes descendants removed with the selection.
    * @returns {void} This function does not return a value.
    */
   function handleSuccessfulDeletion(target: DeletionTarget, deletedUuids: string[]): void {

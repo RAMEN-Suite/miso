@@ -1,5 +1,69 @@
 {
   "collections": {
+    "miso": {
+      "templates": [
+        {
+          "name": "Letter with one variant",
+          "additionalLabel": "Letter",
+          "properties": { "status": "40" },
+          "annotations": [{ "type": "sent" }, { "type": "received" }],
+          "children": [
+            {
+              "kind": "collection",
+              "additionalLabel": "Variant",
+              "label": "Reference text",
+              "properties": {
+                "isReference": true,
+                "license": "https://creativecommons.org/licenses/by/4.0/"
+              },
+              "children": [{ "kind": "content", "additionalLabel": "Text", "template": "Letter body" }]
+            },
+            {
+              "kind": "collection",
+              "additionalLabel": "Abstract",
+              "label": "Abstract",
+              "children": [{ "kind": "content", "additionalLabel": "Text", "blocks": [{ "type": "p", "text": "Regest" }] }]
+            }
+          ]
+        },
+        {
+          "name": "Letter with manuscript and print",
+          "additionalLabel": "Letter",
+          "properties": { "status": "40" },
+          "annotations": [{ "type": "sent" }, { "type": "received" }],
+          "children": [
+            {
+              "kind": "collection",
+              "additionalLabel": "Variant",
+              "label": "Manuscript",
+              "properties": {
+                "isReference": true,
+                "textType": "manuscript",
+                "license": "https://creativecommons.org/licenses/by/4.0/"
+              },
+              "children": [{ "kind": "content", "additionalLabel": "Text", "template": "Letter body" }]
+            },
+            {
+              "kind": "collection",
+              "additionalLabel": "Variant",
+              "label": "Print",
+              "properties": {
+                "isReference": false,
+                "textType": "print",
+                "license": "https://creativecommons.org/licenses/by/4.0/"
+              },
+              "children": [{ "kind": "content", "additionalLabel": "Text", "template": "Letter body" }]
+            },
+            {
+              "kind": "collection",
+              "additionalLabel": "Abstract",
+              "label": "Abstract",
+              "children": [{ "kind": "content", "additionalLabel": "Text", "blocks": [{ "type": "p", "text": "Regest" }] }]
+            }
+          ]
+        }
+      ]
+    },
     "properties": {
       "system": [
         {
@@ -338,6 +402,42 @@
         }
       }
     ],
+    "miso": {
+      "templates": [
+        {
+          "name": "Letter body",
+          "additionalLabel": "Text",
+          "blocks": [
+            {
+              "type": "div-letter",
+              "children": [
+                {
+                  "type": "opener",
+                  "children": [
+                    {
+                      "type": "dateline",
+                      "children": [
+                        { "type": "p", "text": "Ort, Datum", "annotations": [{ "type": "date", "text": "Datum" }] }
+                      ]
+                    },
+                    { "type": "salute", "children": [{ "type": "p", "text": "Anrede" }] }
+                  ]
+                },
+                { "type": "p", "text": "Brieftext" },
+                {
+                  "type": "closer",
+                  "children": [
+                    { "type": "salute", "children": [{ "type": "p", "text": "Grußformel" }] },
+                    { "type": "signed", "children": [{ "type": "p", "text": "Unterschrift" }] }
+                  ]
+                }
+              ]
+            },
+            { "type": "postscript", "children": [{ "type": "p", "text": "Nachschrift" }] }
+          ]
+        }
+      ]
+    },
     "annotations": {
       "types": [
         {

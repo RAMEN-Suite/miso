@@ -77,7 +77,7 @@ export default class CollectionService {
    * @returns {void} This function does not return any value.
    * @throws {ValidationError} If the data is not valid according to the guidelines.
    */
-  private checkValidity(collection: CollectionNode, guidelines: IGuidelines): void {
+  public checkValidity(collection: CollectionNode, guidelines: IGuidelines): void {
     const availableNodeLabels = this.getAvailableCollectionLabelsFromGuidelines(guidelines);
 
     // Collections must have and additional node label (if options exist)

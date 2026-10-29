@@ -4,6 +4,8 @@ import { useHierarchyStore } from "../store/hierarchy";
 import HierarchyItem from "./HierarchyItem.vue";
 import { MenuItem } from "primevue/menuitem";
 import {
+  CollectionTemplate,
+  ContentTemplate,
   FilterRule,
   FilterSpec,
   FilterTarget,
@@ -27,6 +29,7 @@ import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedR
 import { useAppStore } from "../store/app";
 import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
 import { useHierarchyChildren } from "../composables/useHierarchyChildren";
+import { useTemplates } from "../composables/useTemplates";
 import { FETCH_DELAY } from "../config/constants";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import CreateContentModal from "./CreateContentModal.vue";
@@ -55,6 +58,7 @@ const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+const { getCollectionTemplates, getContentTemplates } = useTemplates();
 const {
   levels,
   focus,
@@ -133,6 +137,23 @@ const addMenuItems: NodeMenuItem[] = [
     })),
   },
 ];
+
+const templateMenuItems: NodeMenuItem[] = [
+  ...getCollectionTemplates().map((template) => ({
+    label: template.name,
+    icon: resolveNodeIcon(["Collection", template.additionalLabel]),
+    command: () => openCreateModal("Collection", { additionalNodeLabel: template.additionalLabel, template }),
+  })),
+  ...getContentTemplates().map((template) => ({
+    label: template.name,
+    icon: resolveNodeIcon(["Content", template.additionalLabel]),
+    command: () => openCreateModal("Content", { additionalNodeLabel: template.additionalLabel, template }),
+  })),
+];
+
+if (templateMenuItems.length > 0) {
+  addMenuItems.push({ label: "Templates", icon: "icon-layout-template", items: templateMenuItems });
+}
 
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
@@ -280,7 +301,17 @@ onMounted(() => {
   }
 });
 
-function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
+/**
+ * Opens the modal for creating a Collection or Content of the given type in this column.
+ *
+ * @param {"Collection" | "Content"} kind - The base type of the new node.
+ * @param {Object} params - The type of the new node, and the template to create it from, if any.
+ * @returns {void} This function does not return any value.
+ */
+function openCreateModal(
+  kind: "Collection" | "Content",
+  params: { additionalNodeLabel: string; template?: CollectionTemplate | ContentTemplate },
+): void {
   if (!canNavigate.value) {
     showUnsavedChangesWarning();
     return;
@@ -295,10 +326,12 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
     dialog.open(modalComponent, {
       props: {
         ...FIXED_FOOTER_MODAL_PROPS,
-        header: `Create new ${params.additionalNodeLabel}`,
+        header: params.template
+          ? `Create new ${params.additionalNodeLabel} from “${params.template.name}”`
+          : `Create new ${params.additionalNodeLabel}`,
         style: { width: "420px" },
       },
-      data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel },
+      data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel, template: params.template ?? null },
       emits: {
         onSuccess: async (created: NodeDto<HierarchyNode>) => {
           if (!created) {

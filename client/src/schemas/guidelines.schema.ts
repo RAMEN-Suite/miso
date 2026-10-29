@@ -326,11 +326,142 @@ const annotationTypeSchema = z.strictObject({
 
 export type AnnotationType = z.infer<typeof annotationTypeSchema>;
 
+// ----- Templates -----
+
+const templatePropertiesSchema = z.record(z.string(), z.unknown());
+
+const templateCollectionAnnotationSchema = z.strictObject({
+  /** Annotation type, configured for the Collection's type */
+  type: z.string(),
+  /** Property values, keyed by property name */
+  properties: templatePropertiesSchema.optional(),
+});
+
+const templateTextAnnotationSchema = templateCollectionAnnotationSchema.extend({
+  /** Part of the block's text the annotation covers (its first occurrence). Covers the whole text if left out. */
+  text: z.string().optional(),
+});
+
+const templateBlockSchema = z.strictObject({
+  /**
+   * Annotation type of the block: a structural type (e.g. `p`, `list`) or a `blockClassification` type (e.g. `opener`)
+   */
+  type: z.string(),
+  /**
+   * Placeholder text. Required for text blocks (paragraph, heading), since empty blocks can't be stored. Other blocks
+   * get their text from their children.
+   */
+  text: z.string().optional(),
+  /** Property values of the annotation, keyed by property name */
+  properties: templatePropertiesSchema.optional(),
+  /** Inline annotations on the placeholder text. Only for text blocks. */
+  annotations: z.array(templateTextAnnotationSchema).optional(),
+  /** The blocks a block classification wraps, or the children of a structural container (e.g. the items of a list) */
+  get children() {
+    return z.array(templateBlockSchema).optional();
+  },
+});
+
+const templateContentChildSchema = z.strictObject({
+  kind: z.literal("content"),
+  additionalLabel: z.string(),
+  /** The text structure. Leave out both this and `template` for an empty Content. */
+  blocks: z.array(templateBlockSchema).optional(),
+  /** Name of a Content template to take the blocks from, instead of `blocks` */
+  template: z.string().optional(),
+});
+
+const templateCollectionChildSchema = z.strictObject({
+  kind: z.literal("collection"),
+  additionalLabel: z.string(),
+  label: z.string(),
+  /** Property values, keyed by property name */
+  properties: templatePropertiesSchema.optional(),
+  /** Annotations of this Collection */
+  annotations: z.array(templateCollectionAnnotationSchema).optional(),
+  /** Nodes created below this Collection */
+  get children() {
+    // Built here instead of referencing `templateChildSchema`, so the recursion only refers to this schema itself
+    return z.array(z.discriminatedUnion("kind", [templateCollectionChildSchema, templateContentChildSchema])).optional();
+  },
+});
+
+const templateChildSchema = z.discriminatedUnion("kind", [templateCollectionChildSchema, templateContentChildSchema]);
+
+const collectionTemplateSchema = z.strictObject({
+  /** Name shown in the menu for creating nodes */
+  name: z.string(),
+  /** Type of the new Collection */
+  additionalLabel: z.string(),
+  /** Property values the form of the new Collection is prefilled with, keyed by property name */
+  properties: templatePropertiesSchema.optional(),
+  /** Annotations of the new Collection */
+  annotations: z.array(templateCollectionAnnotationSchema).optional(),
+  /** Nodes created below the new Collection */
+  children: z.array(templateChildSchema),
+});
+
+const contentTemplateSchema = z.strictObject({
+  /** Name shown in the menu for creating nodes */
+  name: z.string(),
+  /** Type of the new Content. Must have the medium `text`. */
+  additionalLabel: z.string(),
+  /** Text structure of the new Content */
+  blocks: z.array(templateBlockSchema),
+});
+
+/** An annotation of a Collection created by a template. Entities can't be referenced. */
+export type TemplateCollectionAnnotation = z.infer<typeof templateCollectionAnnotationSchema>;
+
+/**
+ * An inline annotation on the placeholder text of a template's text block. Entities can't be referenced.
+ *
+ * @example
+ * { "type": "date", "text": "Datum" }
+ */
+export type TemplateTextAnnotation = z.infer<typeof templateTextAnnotationSchema>;
+
+/**
+ * A block of a text template, which becomes a structural or block classification annotation.
+ *
+ * @example
+ * { "type": "opener", "children": [{ "type": "p", "text": "Anrede" }] }
+ */
+export type TemplateBlock = z.infer<typeof templateBlockSchema>;
+
+/** A Collection or Content created by a Collection template */
+export type TemplateChild = z.infer<typeof templateChildSchema>;
+
+/** A Collection created by a Collection template */
+export type TemplateCollectionChild = z.infer<typeof templateCollectionChildSchema>;
+
+/** A Content created by a Collection template */
+export type TemplateContentChild = z.infer<typeof templateContentChildSchema>;
+
+/**
+ * A shortcut for creating a Collection of a certain type together with its annotations, sub-collections, Contents and
+ * their text structure. Instances are plain copies without a link to the template.
+ */
+export type CollectionTemplate = z.infer<typeof collectionTemplateSchema>;
+
+/** A shortcut for creating a Content of a certain type with a predefined text structure. */
+export type ContentTemplate = z.infer<typeof contentTemplateSchema>;
+
 // ----- Node types -----
 
 const nodeAppearanceSchema = z.strictObject({ icon: iconSpecInputSchema.optional() });
 
 const nodeMisoConfigSchema = z.strictObject({ appearance: nodeAppearanceSchema.optional() });
+
+const collectionsMisoConfigSchema = nodeMisoConfigSchema.extend({
+  /** Templates for creating Collections, offered in the menu for creating nodes */
+  templates: z.array(collectionTemplateSchema).optional(),
+});
+
+const contentsMisoConfigSchema = nodeMisoConfigSchema.extend({
+  /** Templates for creating Contents, offered in the menu for creating nodes */
+  templates: z.array(contentTemplateSchema).optional(),
+});
 
 const contentMediumSchema = z.enum(["text", "image"]);
 
@@ -341,6 +472,12 @@ export type NodeAppearance = z.infer<typeof nodeAppearanceSchema>;
 
 /** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
 export type NodeMisoConfig = z.infer<typeof nodeMisoConfigSchema>;
+
+/** Miso-only configuration of the `collections` section */
+export type CollectionsMisoConfig = z.infer<typeof collectionsMisoConfigSchema>;
+
+/** Miso-only configuration of the `contents` section */
+export type ContentsMisoConfig = z.infer<typeof contentsMisoConfigSchema>;
 
 /**
  * The medium of a Content type, which decides how its nodes are edited and how annotation configs are applied.
@@ -355,7 +492,7 @@ export type ContentTypeMisoConfig = z.infer<typeof contentTypeMisoConfigSchema>;
 const guidelinesSchema = z.strictObject({
   /** Refinements of the Collection node, e.g. Letter or Abstract */
   collections: z.strictObject({
-    miso: nodeMisoConfigSchema.optional(),
+    miso: collectionsMisoConfigSchema.optional(),
     properties: scopedPropertiesSchema,
     types: z.array(
       z.strictObject({
@@ -375,7 +512,7 @@ const guidelinesSchema = z.strictObject({
   }),
   /** Refinements of the Content node, e.g. Text or Image */
   contents: z.strictObject({
-    miso: nodeMisoConfigSchema.optional(),
+    miso: contentsMisoConfigSchema.optional(),
     types: z.array(
       z.strictObject({
         additionalLabel: z.string(),

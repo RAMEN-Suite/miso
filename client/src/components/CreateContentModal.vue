@@ -3,8 +3,9 @@ import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
+import { CollectionNode, ContentTemplate, HierarchyNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
 import { useAppStore } from "../store/app";
+import { useTemplates } from "../composables/useTemplates";
 import { createTextNode } from "../config/ramen";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
@@ -22,15 +23,18 @@ const emit = defineEmits<{
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
+const { buildContentFromTemplate } = useTemplates();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+/** The template chosen in the menu for creating nodes, if any. It brings its own text. */
+const template: ContentTemplate | null = dialogRef.value.data.template ?? null;
 
 const isLoading = ref<boolean>(false);
 const newContentNode = ref<TextNode>(createTextNode());
 const nodeLabels = computed<string[]>(() => ["Content", additionalNodeLabel]);
 
-const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
+const inputIsValid = computed<boolean>(() => template !== null || newContentNode.value.data.text.trim().length > 0);
 
 watch(() => route.path, closeModal);
 
@@ -44,14 +48,17 @@ function closeModal() {
  *
  * @param {TextNode} contentNode - The new content node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
+ * @param {ContentTemplate | null} template - The template that provides text and structure, if any.
  * @returns {NodeStatusObject} The ownership tree to persist.
  */
-function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | null): NodeStatusObject {
-  const nodeStatusObject: NodeStatusObject<TextNode> = {
-    node: contentNode,
-    connectedNodes: [],
-    meta: { status: "created" },
-  };
+function wrapDataForCreation(
+  contentNode: TextNode,
+  parent: CollectionNode | null,
+  template: ContentTemplate | null,
+): NodeStatusObject {
+  const nodeStatusObject: NodeStatusObject = template
+    ? buildContentFromTemplate(contentNode, template)
+    : { node: contentNode, connectedNodes: [], meta: { status: "created" } };
 
   if (!parent) {
     return nodeStatusObject;
@@ -80,7 +87,7 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
+    const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection, template);
 
     const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj);
 
@@ -102,9 +109,21 @@ async function handleSubmit() {
 
 <template>
   <div class="modal-container flex flex-col gap-4">
-    <div class="modal-body">
-      <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
-      <Textarea id="text-input" v-model="newContentNode.data.text" class="w-full" rows="6" placeholder="Add some text" autofocus />
+    <div class="modal-body flex flex-col gap-2">
+      <p v-if="template" class="text-sm">
+        The text is created with the structure and placeholder texts of “{{ template.name }}”.
+      </p>
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
+      <Textarea
+        v-else
+        id="text-input"
+        v-model="newContentNode.data.text"
+        class="w-full"
+        rows="6"
+        placeholder="Add some text"
+        autofocus
+      />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
     </div>
     <div class="modal-footer flex justify-center gap-2">
       <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />

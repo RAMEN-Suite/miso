@@ -2,11 +2,12 @@
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
+import { CollectionNode, CollectionTemplate, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
+import { useTemplates } from "../composables/useTemplates";
 import { createCollectionNode } from "../config/ramen";
 import { isRequiredValueMissing } from "../utils/helper/helper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
@@ -26,12 +27,20 @@ const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
 const { getCollectionConfigFields } = useGuidelinesStore();
+const { applyCollectionTemplate } = useTemplates();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+/** The template chosen in the menu for creating nodes, if any. Its properties prefill the form. */
+const template: CollectionTemplate | null = dialogRef.value.data.template ?? null;
+
+const initialNode: CollectionNode = createCollectionNode();
 
 const isLoading = ref<boolean>(false);
-const newCollectionNode = ref<CollectionNode>(createCollectionNode());
+const newCollectionNode = ref<CollectionNode>({
+  ...initialNode,
+  data: { ...template?.properties, ...initialNode.data },
+});
 const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
 const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
 
@@ -53,14 +62,21 @@ function closeModal() {
  *
  * @param {CollectionNode} collectionNode - The new collection node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
+ * @param {CollectionTemplate | null} template - The template whose nodes are created below the new node, if any.
  * @returns {NodeStatusObject} The ownership tree to persist.
  */
-function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionNode | null): NodeStatusObject {
-  const nodeStatusObject: NodeStatusObject<CollectionNode> = {
+function wrapDataForCreation(
+  collectionNode: CollectionNode,
+  parent: CollectionNode | null,
+  template: CollectionTemplate | null,
+): NodeStatusObject {
+  const created: NodeStatusObject = {
     node: collectionNode,
     connectedNodes: [],
     meta: { status: "created" },
   };
+
+  const nodeStatusObject: NodeStatusObject = template ? applyCollectionTemplate(created, template) : created;
 
   if (!parent) {
     return nodeStatusObject;
@@ -83,7 +99,7 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
+    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection, template);
 
     const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.data.uuid, updateObj);
 

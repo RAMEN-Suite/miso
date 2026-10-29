@@ -7,8 +7,10 @@ import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
+import CollectionService from "./collection.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
+  CollectionNode,
   FilterSpec,
   FilterTarget,
   HierarchyNode,
@@ -345,11 +347,14 @@ export default class HierarchyService {
    * of the node identified by `uuid` within the payload tree, so the same endpoint serves both
    * types. Everything downstream (`flattenNodeTree`, relationship inference) is already type-agnostic.
    *
+   * The tree may contain further new nodes below the created one (e.g. from a template). Every created
+   * Collection in it is validated.
+   *
    * @param {string} uuid - UUID of the created/added node (the tree's operative node, not the parent).
    * @param {NodeStatusObject} data - Ownership tree (the parent as root with the new node attached,
    *   or the new node itself when created at top level).
    * @return {Promise<NodeDto<HierarchyNode>>} The created/added node.
-   * @throws {ValidationError} If `uuid` is not present in the payload tree.
+   * @throws {ValidationError} If `uuid` is not present in the payload tree or a created Collection is invalid.
    * @throws {NotFoundError} If the node could not be created/added.
    */
   public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
@@ -361,6 +366,10 @@ export default class HierarchyService {
     if (!targetLabels) {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
     }
+
+    const collectionService: CollectionService = new CollectionService();
+
+    this.findCreatedCollections(data).forEach((collection) => collectionService.checkValidity(collection, guidelines));
 
     const rootLabel: "Collection" | "Content" = targetLabels.includes("Content") ? "Content" : "Collection";
 
@@ -462,6 +471,22 @@ export default class HierarchyService {
     const result: QueryResult = await Neo4jDriver.runQuery(query, { uuids });
 
     return result.records[0]?.get("deleted") ?? [];
+  }
+
+  /**
+   * Collects all Collection nodes with the status `created` inside a {@link NodeStatusObject} tree.
+   *
+   * @param {NodeStatusObject} node - The current tree node.
+   * @return {CollectionNode[]} The created Collection nodes.
+   */
+  private findCreatedCollections(node: NodeStatusObject): CollectionNode[] {
+    const nested: CollectionNode[] = node.connectedNodes.flatMap((child) => this.findCreatedCollections(child));
+
+    if (node.meta.status === "created" && node.node.nodeLabels.includes("Collection")) {
+      return [node.node as CollectionNode, ...nested];
+    }
+
+    return nested;
   }
 
   /**

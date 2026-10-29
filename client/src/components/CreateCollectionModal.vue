@@ -27,7 +27,7 @@ const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
 const { getCollectionConfigFields } = useGuidelinesStore();
-const { applyCollectionTemplate } = useTemplates();
+const { applyCollectionTemplate, isTemplateInstanceComplete } = useTemplates();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
@@ -100,6 +100,10 @@ async function handleSubmit() {
 
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection, template);
+
+    if (template && !isTemplateInstanceComplete(updateObj, template.name)) {
+      return;
+    }
 
     const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.data.uuid, updateObj);
 

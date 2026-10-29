@@ -23,7 +23,7 @@ const emit = defineEmits<{
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { buildContentFromTemplate } = useTemplates();
+const { buildContentFromTemplate, isTemplateInstanceComplete } = useTemplates();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
@@ -88,6 +88,10 @@ async function handleSubmit() {
 
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection, template);
+
+    if (template && !isTemplateInstanceComplete(updateObj, template.name)) {
+      return;
+    }
 
     const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj);
 

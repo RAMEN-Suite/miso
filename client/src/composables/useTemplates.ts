@@ -1,4 +1,5 @@
 import { useGuidelinesStore } from "../store/guidelines";
+import { useAppStore } from "../store/app";
 import { createCollectionNode, createTextNode } from "../config/ramen";
 import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
 import { isRequiredValueMissing } from "../utils/helper/helper";
@@ -55,6 +56,7 @@ export function useTemplates() {
     guidelines,
     isConfiguredAnnotationType,
   } = useGuidelinesStore();
+  const { addToastMessage } = useAppStore();
 
   /**
    * Adds the nodes of a Collection template to the given ownership tree of a new Collection.
@@ -441,6 +443,92 @@ export function useTemplates() {
   }
 
   /**
+   * Lists every created node of an ownership tree that has an empty required value. Meant as a last check right before
+   * a tree built from a template is sent: Collections are checked against their type, annotations against the config of
+   * their owner (Collection or Content).
+   *
+   * @param {NodeStatusObject} node - The tree, e.g. the parent with the new nodes attached.
+   * @param {NodeStatusObject | null} parent - The owner of `node`, `null` for the root.
+   * @returns {string[]} One message per missing value, empty if the tree is complete.
+   */
+  function findMissingRequiredValues(node: NodeStatusObject, parent: NodeStatusObject | null = null): string[] {
+    const missing: string[] = [];
+
+    if (node.meta.status === "created") {
+      const data: Record<string, unknown> = node.node.data as Record<string, unknown>;
+      const name: string = getNodeDescription(node);
+
+      getRequiredValueFields(node, parent).forEach((field: PropertyConfig) => {
+        if (isRequiredValueMissing(data[field.name], field)) {
+          missing.push(`${name}: "${field.name}" is required`);
+        }
+      });
+    }
+
+    node.connectedNodes.forEach((child) => missing.push(...findMissingRequiredValues(child, node)));
+
+    return missing;
+  }
+
+  /**
+   * Checks right before creation that nothing built from a template has an empty required value. Logs the missing
+   * values and shows an error otherwise.
+   *
+   * @param {NodeStatusObject} tree - The ownership tree built from the template.
+   * @param {string} templateName - The name of the template, for the messages.
+   * @returns {boolean} `true` if the tree can be created, `false` otherwise.
+   */
+  function isTemplateInstanceComplete(tree: NodeStatusObject, templateName: string): boolean {
+    const missing: string[] = findMissingRequiredValues(tree);
+
+    if (missing.length === 0) {
+      return true;
+    }
+
+    console.warn(`Template "${templateName}" can't be created:\n${missing.map((m) => `- ${m}`).join("\n")}`);
+
+    addToastMessage({
+      severity: "error",
+      summary: "Error",
+      detail: `“${templateName}” can't be used: some required values are missing.`,
+      life: 5000,
+    });
+
+    return false;
+  }
+
+  /** A readable description of a node for messages, e.g. `Collection:Variant "Print"` or `annotation "date"`. */
+  function getNodeDescription(node: NodeStatusObject): string {
+    const data: Record<string, unknown> = node.node.data as Record<string, unknown>;
+
+    if (node.node.nodeLabels.includes("Annotation")) {
+      return `annotation "${String(data.type)}"`;
+    } else {
+      return `${node.node.nodeLabels.join(":")} "${String(data.label ?? data.uuid)}"`;
+    }
+  }
+
+  /**
+   * The property configs a created node is checked against in {@linkcode findMissingRequiredValues}. Contents have no
+   * configured properties; annotations depend on their owner.
+   */
+  function getRequiredValueFields(node: NodeStatusObject, parent: NodeStatusObject | null): PropertyConfig[] {
+    const labels: string[] = node.node.nodeLabels;
+    const parentLabels: string[] = parent?.node.nodeLabels ?? [];
+    const type: string = String((node.node.data as Record<string, unknown>).type);
+
+    if (labels.includes("Collection")) {
+      return getCollectionConfigFields(labels);
+    } else if (labels.includes("Annotation") && parentLabels.includes("Collection")) {
+      return getCollectionAnnotationFields(parentLabels, type);
+    } else if (labels.includes("Annotation") && parentLabels.includes("Content")) {
+      return [...(getStructuralAnnotationConfig(type)?.properties ?? []), ...getAnnotationFields(type)];
+    } else {
+      return [];
+    }
+  }
+
+  /**
    * Annotations on a text block must be inline range annotations (a zero point has no meaningful position in a
    * placeholder text) whose `text` occurs in the block's text, with complete properties.
    */
@@ -552,6 +640,7 @@ export function useTemplates() {
   return {
     applyCollectionTemplate,
     buildContentFromTemplate,
+    isTemplateInstanceComplete,
     getCollectionTemplates,
     getContentTemplates,
   };

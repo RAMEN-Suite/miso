@@ -1,0 +1,97 @@
+{
+  "collections": {
+    "properties": {
+      "system": [
+        {
+          "name": "label",
+          "type": "String",
+          "required": true,
+          "editable": true,
+          "visible": false
+        }
+      ],
+      "base": []
+    },
+    "types": [],
+    "annotations": {
+      "types": [],
+      "properties": {
+        "system": [],
+        "base": []
+      }
+    }
+  },
+  "contents": {
+    "types": [
+      {
+        "additionalLabel": "Text",
+        "miso": {
+          "medium": "text"
+        }
+      }
+    ],
+    "annotations": {
+      "types": [
+        {
+          "type": "p",
+          "miso": { "editing": { "native": { "type": "paragraph" } } }
+        },
+        {
+          "type": "head",
+          "miso": { "editing": { "native": { "type": "heading" } } }
+        },
+        {
+          "type": "lb",
+          "miso": { "editing": { "native": { "type": "hardBreak" } } }
+        },
+        {
+          "type": "list",
+          "miso": { "editing": { "native": { "type": "bulletList" } } }
+        },
+        {
+          "type": "item",
+          "miso": { "editing": { "native": { "type": "listItem" } } }
+        },
+        {
+          "type": "table",
+          "miso": { "editing": { "native": { "type": "table" } } }
+        },
+        {
+          "type": "row",
+          "miso": { "editing": { "native": { "type": "tableRow" } } }
+        },
+        {
+          "type": "cell",
+          "miso": { "editing": { "native": { "type": "tableCell" } } }
+        },
+        {
+          "type": "opener",
+          "miso": { "editing": { "extent": "range", "representation": "blockClassification" } }
+        },
+        {
+          "type": "closer",
+          "miso": { "editing": { "extent": "range", "representation": "blockClassification" } }
+        },
+        {
+          "type": "add",
+          "miso": { "editing": { "extent": "range", "representation": "inline" } }
+        },
+        {
+          "type": "del",
+          "miso": { "editing": { "extent": "range", "representation": "inline" } }
+        },
+        {
+          "type": "metamark",
+          "miso": { "editing": { "extent": "zeroPoint", "representation": "inline" } }
+        }
+      ],
+      "properties": {
+        "system": [],
+        "base": []
+      }
+    }
+  },
+  "entities": {
+    "types": []
+  }
+}

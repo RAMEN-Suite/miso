@@ -12,7 +12,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --check src",
     "format:fix": "prettier --write src",
-    "knip": "knip"
+    "knip": "knip",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@primevue/themes": "^4.5.4",
@@ -48,6 +50,7 @@
     "prettier": "^3.2.5",
     "typescript": "^5.8.3",
     "vite": "^7.3.1",
+    "vitest": "^5.0.5",
     "vue-tsc": "^2.0.6"
   }
 }

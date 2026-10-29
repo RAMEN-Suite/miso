@@ -5,6 +5,10 @@ nginx/.htpasswd
 scripts
 backups
 /config
+
+# Vitest reports and artifacts
+.vitest/
+
 # Created by https://www.toptal.com/developers/gitignore/api/node,webstorm+all,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=node,webstorm+all,visualstudiocode
 

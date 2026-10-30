@@ -7,6 +7,9 @@ export const TAG_COLORS: string[] = ["#e11d48", "#ea580c", "#ca8a04", "#16a34a",
 /** Colour for a tag with no `appearance.color`. Deliberately neutral, so it reads as "unset". */
 export const DEFAULT_TAG_COLOR: string = "#64748b";
 
+/** Colour given to a tag created on the fly while tagging. It can be changed later in the sidebar. */
+export const NEW_TAG_COLOR: string = "#d1d5db";
+
 /**
  * Normalizes a colour value into a CSS-usable string.
  *

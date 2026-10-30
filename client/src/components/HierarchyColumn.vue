@@ -117,37 +117,21 @@ const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
 
-/**
- * Proposals for setting the templates apart at the top of the add menu:
- * - `heading`: small "Templates" heading above them
- * - `gap`: extra space between them and the types below
- * - `headingAndGap`: both
- */
-const TEMPLATE_GROUP_STYLE: "heading" | "gap" | "headingAndGap" = "heading";
-
-/** Icon proposals for template entries: `icon-layout-template`, `icon-stamp`, `icon-copy-plus`, `icon-book-template`, `icon-blocks` */
-const TEMPLATE_ICON: string = "icon-layout-template";
-
 const templateMenuItems: NodeMenuItem[] = [
   ...getCollectionTemplates().map((template) => ({
     label: template.name,
-    icon: TEMPLATE_ICON,
+    icon: "icon-layout-template",
     command: () => openCreateModal("Collection", { additionalNodeLabel: template.additionalLabel, template }),
   })),
   ...getContentTemplates().map((template) => ({
     label: template.name,
-    icon: TEMPLATE_ICON,
+    icon: "icon-layout-template",
     command: () => openCreateModal("Content", { additionalNodeLabel: template.additionalLabel, template }),
   })),
 ];
 
 const addMenuItems: NodeMenuItem[] = [
-  {
-    label: "Templates",
-    items: templateMenuItems,
-    showHeading: TEMPLATE_GROUP_STYLE !== "gap",
-    separatorClass: TEMPLATE_GROUP_STYLE === "heading" ? undefined : "my-2!",
-  },
+  { label: "Templates", items: templateMenuItems, showHeading: true, separatorClass: "my-2!" },
   {
     label: "Collection",
     icon: resolveNodeIcon(["Collection"]),

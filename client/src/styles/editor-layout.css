@@ -1,10 +1,12 @@
 /* Scroll container of the text editor in the editor view. The editor's own styles live in `editors/text`. */
 #editor {
-  overflow-y: scroll;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   flex-grow: 1;
   display: flex;
-  margin-left: 5px;
-  margin-right: 5px;
+  /* MUST be margin, not padding: `padding-left` is set inline by BlockClassificationLines for its gutter. */
+  margin-left: 12px;
+  margin-right: 12px;
   margin-top: 10px;
   text-decoration-skip-ink: none;
   /* Positioning context for the teleported block-classification-lines overlay. */

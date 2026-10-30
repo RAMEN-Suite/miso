@@ -1,10 +1,17 @@
 import { QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import { toNativeTypes } from "../utils/helper.js";
-import { NodeDto } from "../models/types.js";
+import { AnnotationNode, NodeDto, PropertyConfig } from "../models/types.js";
+import { IGuidelines } from "../models/IGuidelines.js";
 import InternalServerError from "../errors/server.error.js";
+import ValidationError from "../errors/validation.error.js";
+import { validatePropertyValue } from "../utils/propertyValidation.js";
+import GuidelinesService from "./guidelines.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+
+/** Annotation properties derived from the annotation type and range, checked separately from the configured values */
+const DERIVED_ANNOTATION_PROPERTIES: string[] = ["type", "text"];
 
 interface FlatAnnotationTree {
   rootUuid: string;
@@ -18,6 +25,87 @@ interface AnnotationRecordEdge {
 }
 
 export default class AnnotationService {
+  /**
+   * Checks an Annotation of a text: configured type, valid property values and a range (inclusive end index, so an
+   * empty range ends one before its start) inside the text whose covered characters equal the annotation's `text`.
+   *
+   * @param {AnnotationNode} annotation - The Annotation node to check.
+   * @param {string} text - The text of the annotated Content.
+   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @returns {void} This function does not return any value.
+   * @throws {ValidationError} If the Annotation is not valid according to the guidelines.
+   */
+  public checkTextAnnotationValidity(annotation: AnnotationNode, text: string, guidelines: IGuidelines): void {
+    const { type, startIndex, endIndex } = annotation.data;
+
+    if (!guidelines.contents.annotations.types.some((config) => config.type === type)) {
+      throw new ValidationError(`"${type}" is not an annotation type for texts.`);
+    }
+
+    this.checkProperties(annotation, new GuidelinesService().getAnnotationConfigFieldsFromGuidelines(guidelines, type));
+
+    const isInsideText: boolean =
+      Number.isInteger(startIndex) &&
+      Number.isInteger(endIndex) &&
+      startIndex >= 0 &&
+      endIndex >= startIndex - 1 &&
+      endIndex < text.length;
+
+    if (!isInsideText) {
+      throw new ValidationError(`The "${type}" annotation lies outside of the text.`);
+    }
+
+    if (annotation.data.text !== text.slice(startIndex, endIndex + 1)) {
+      throw new ValidationError(`The "${type}" annotation does not match the text it covers.`);
+    }
+  }
+
+  /**
+   * Checks an Annotation of a Collection: the type must be available for the Collection's labels and the property
+   * values must be valid.
+   *
+   * @param {AnnotationNode} annotation - The Annotation node to check.
+   * @param {string[]} collectionLabels - The node labels of the annotated Collection.
+   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @returns {void} This function does not return any value.
+   * @throws {ValidationError} If the Annotation is not valid according to the guidelines.
+   */
+  public checkCollectionAnnotationValidity(
+    annotation: AnnotationNode,
+    collectionLabels: string[],
+    guidelines: IGuidelines,
+  ): void {
+    const guidelineService: GuidelinesService = new GuidelinesService();
+    const type: string = annotation.data.type;
+
+    const isAvailable: boolean = guidelineService
+      .getCollectionAnnotationTypesFromGuidelines(guidelines, collectionLabels)
+      .some((config) => config.type === type);
+
+    if (!isAvailable) {
+      throw new ValidationError(`"${type}" is not an annotation type for this Collection.`);
+    }
+
+    this.checkProperties(
+      annotation,
+      guidelineService.getCollectionAnnotationConfigFieldsFromGuidelines(guidelines, collectionLabels, type),
+    );
+  }
+
+  /**
+   * Checks the configured property values of an Annotation, except the derived ones.
+   *
+   * @param {AnnotationNode} annotation - The Annotation node to check.
+   * @param {PropertyConfig[]} fields - The property configs of the annotation type.
+   * @returns {void} This function does not return any value.
+   * @throws {ValidationError} If a value doesn't match its config.
+   */
+  private checkProperties(annotation: AnnotationNode, fields: PropertyConfig[]): void {
+    fields
+      .filter((field: PropertyConfig) => !DERIVED_ANNOTATION_PROPERTIES.includes(field.name))
+      .forEach((field: PropertyConfig) => validatePropertyValue(annotation.data[field.name], field));
+  }
+
   /**
    * Converts a flat annotation tree structure (as returned by the database) into a nested {@link NodeDto} tree.
    *

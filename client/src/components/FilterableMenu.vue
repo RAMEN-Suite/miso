@@ -6,6 +6,10 @@ import { MenuItem } from "primevue/menuitem";
 
 const props = withDefaults(
   defineProps<{
+    /**
+     * Groups of menu items, separated by a line. A group may set `showHeading` to show its label above its items
+     * and `separatorClass` to style the line below it.
+     */
     model: MenuItem[];
     searchMode?: "fuzzy" | "strict";
   }>(),
@@ -40,25 +44,35 @@ const searchPattern = computed<RegExp | null>(() => {
   return new RegExp(pattern, "i");
 });
 
-const filteredGroups = computed<MenuItem[][]>(() =>
+/**
+ * Groups reduced to the items matching the search, without groups that have no match left.
+ */
+const filteredGroups = computed<{ group: MenuItem; items: MenuItem[] }[]>(() =>
   props.model
-    .map((group: MenuItem) => (group.items ?? []).filter((item: MenuItem) => matches(item, searchPattern.value)))
-    .filter((items: MenuItem[]) => items.length > 0),
+    .map((group: MenuItem) => ({
+      group,
+      items: (group.items ?? []).filter((item: MenuItem) => matches(item, searchPattern.value)),
+    }))
+    .filter(({ items }) => items.length > 0),
 );
 
-const filteredModel = computed<MenuItem[]>(() => {
-  const flattened: MenuItem[] = filteredGroups.value.flatMap((items: MenuItem[], index: number) =>
-    index === 0 ? items : [{ separator: true }, ...items],
-  );
+const filteredModel = computed<MenuItem[]>(() =>
+  filteredGroups.value.flatMap(({ group, items }, index: number) => {
+    const isLast: boolean = index === filteredGroups.value.length - 1;
 
-  const [firstItem, ...rest] = flattened;
+    // An empty submenu is rendered by PrimeVue as a plain, non-interactive heading
+    const heading: MenuItem[] = group.showHeading ? [{ label: group.label, items: [] }] : [];
+    const separator: MenuItem[] = isLast ? [] : [{ separator: true, class: group.separatorClass }];
 
-  if (!firstItem) {
-    return [];
-  }
-
-  return [{ ...firstItem, class: [firstItem.class, "p-focus"] }, ...rest];
-});
+    return [
+      ...heading,
+      ...items.map((item: MenuItem, itemIndex: number) =>
+        index === 0 && itemIndex === 0 ? { ...item, class: [item.class, "p-focus"] } : item,
+      ),
+      ...separator,
+    ];
+  }),
+);
 
 /**
  * Escapes characters with a special meaning in regular expressions, so user input is matched literally.
@@ -71,7 +85,7 @@ function escapeRegExp(value: string): string {
 }
 
 function handleEnter(event: KeyboardEvent): void {
-  const firstItem: MenuItem | undefined = filteredGroups.value[0]?.[0];
+  const firstItem: MenuItem | undefined = filteredGroups.value[0]?.items[0];
 
   if (!firstItem) {
     return;

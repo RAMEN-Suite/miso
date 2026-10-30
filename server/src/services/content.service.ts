@@ -1,15 +1,54 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { NodeSearchParams, PaginationResult, TextNode, TextAccessObject, TextUpdateDto } from "../models/types.js";
+import ValidationError from "../errors/validation.error.js";
+import { IGuidelines } from "../models/IGuidelines.js";
+import {
+  AnnotationNode,
+  ContentNode,
+  NodeSearchParams,
+  PaginationResult,
+  TextNode,
+  TextAccessObject,
+  TextUpdateDto,
+} from "../models/types.js";
 import { ancestryPaths } from "../utils/cypher.js";
 import { toNativeTypes } from "../utils/helper.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
+import AnnotationService from "./annotation.service.js";
 import GuidelinesService from "./guidelines.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
 export default class ContentService {
+  /**
+   * Checks a new Content and its Annotations against the guidelines: the Content needs a configured type, every
+   * Annotation a configured type, valid properties and a range inside the text that matches its `text`.
+   *
+   * Called during creating a Content (e.g. from a template).
+   *
+   * @param {ContentNode} content - The Content node to check.
+   * @param {AnnotationNode[]} annotations - The Annotations of the Content.
+   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @returns {void} This function does not return any value.
+   * @throws {ValidationError} If the Content or one of its Annotations is not valid according to the guidelines.
+   */
+  public checkValidity(content: ContentNode, annotations: AnnotationNode[], guidelines: IGuidelines): void {
+    const availableNodeLabels: string[] = guidelines.contents.types.map((type) => type.additionalLabel);
+
+    if (availableNodeLabels.length > 0 && !content.nodeLabels.some((label) => availableNodeLabels.includes(label))) {
+      throw new ValidationError("A Content MUST have an additional node label.");
+    }
+
+    if (typeof content.data.text !== "string") {
+      throw new ValidationError('The "text" property must be a string.');
+    }
+
+    const annotationService: AnnotationService = new AnnotationService();
+
+    annotations.forEach((annotation) => annotationService.checkTextAnnotationValidity(annotation, content.data.text, guidelines));
+  }
+
   /**
    * Retrieves a paginated list of Text nodes whose `text` property contains the search string.
    *

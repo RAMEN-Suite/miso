@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { IGuidelines } from "../models/IGuidelines.js";
-import { PropertyConfig } from "../models/types.js";
+import { AnnotationType, PropertyConfig } from "../models/types.js";
 import ExternalServiceError from "../errors/externalService.error.js";
 import { CONFIG_DIR } from "../constants.js";
 import { isValidConfigFile, isValidHttpUrl } from "../utils/helper.js";
@@ -49,6 +49,49 @@ export default class GuidelinesService {
     }, []);
 
     return [...system, ...base, ...additional];
+  }
+
+  /**
+   * Retrieves the annotation types available for a collection with the given additional node labels: the types for
+   * all collections and the types of the matching collection types.
+   *
+   * @param {IGuidelines} guidelines - The guidelines to retrieve the annotation types from.
+   * @param {string[]} nodeLabels - The additional labels of the collection.
+   * @return {AnnotationType[]} The available annotation types.
+   */
+  public getCollectionAnnotationTypesFromGuidelines(guidelines: IGuidelines, nodeLabels: string[]): AnnotationType[] {
+    const byCollectionType: AnnotationType[] = guidelines.collections.types
+      .filter((type) => nodeLabels.includes(type.additionalLabel))
+      .flatMap((type) => type.annotations.types);
+
+    return [...guidelines.collections.annotations.types, ...byCollectionType];
+  }
+
+  /**
+   * Retrieves the field configuration of an annotation with the given type on a collection with the given
+   * additional node labels: the fields for all collection annotations, the annotation fields of the matching
+   * collection types and the fields of the annotation type.
+   *
+   * @param {IGuidelines} guidelines - The guidelines to retrieve the field configuration from.
+   * @param {string[]} nodeLabels - The additional labels of the collection.
+   * @param {string} type - The type of the annotation.
+   * @return {PropertyConfig[]} The field configuration for the collection annotation type.
+   */
+  public getCollectionAnnotationConfigFieldsFromGuidelines(
+    guidelines: IGuidelines,
+    nodeLabels: string[],
+    type: string,
+  ): PropertyConfig[] {
+    const system: PropertyConfig[] = guidelines.collections.annotations.properties.system;
+    const base: PropertyConfig[] = guidelines.collections.annotations.properties.base;
+    const byCollectionType: PropertyConfig[] = guidelines.collections.types
+      .filter((collectionType) => nodeLabels.includes(collectionType.additionalLabel))
+      .flatMap((collectionType) => collectionType.annotations.properties);
+    const additional: PropertyConfig[] =
+      this.getCollectionAnnotationTypesFromGuidelines(guidelines, nodeLabels).find((config) => config.type === type)
+        ?.properties ?? [];
+
+    return [...system, ...base, ...byCollectionType, ...additional];
   }
 
   /**

@@ -117,7 +117,37 @@ const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 const contentLabels: string[] = getAvailableContentLabels().toSorted();
 
+/**
+ * Proposals for setting the templates apart at the top of the add menu:
+ * - `heading`: small "Templates" heading above them
+ * - `gap`: extra space between them and the types below
+ * - `headingAndGap`: both
+ */
+const TEMPLATE_GROUP_STYLE: "heading" | "gap" | "headingAndGap" = "heading";
+
+/** Icon proposals for template entries: `icon-layout-template`, `icon-stamp`, `icon-copy-plus`, `icon-book-template`, `icon-blocks` */
+const TEMPLATE_ICON: string = "icon-layout-template";
+
+const templateMenuItems: NodeMenuItem[] = [
+  ...getCollectionTemplates().map((template) => ({
+    label: template.name,
+    icon: TEMPLATE_ICON,
+    command: () => openCreateModal("Collection", { additionalNodeLabel: template.additionalLabel, template }),
+  })),
+  ...getContentTemplates().map((template) => ({
+    label: template.name,
+    icon: TEMPLATE_ICON,
+    command: () => openCreateModal("Content", { additionalNodeLabel: template.additionalLabel, template }),
+  })),
+];
+
 const addMenuItems: NodeMenuItem[] = [
+  {
+    label: "Templates",
+    items: templateMenuItems,
+    showHeading: TEMPLATE_GROUP_STYLE !== "gap",
+    separatorClass: TEMPLATE_GROUP_STYLE === "heading" ? undefined : "my-2!",
+  },
   {
     label: "Collection",
     icon: resolveNodeIcon(["Collection"]),
@@ -137,23 +167,6 @@ const addMenuItems: NodeMenuItem[] = [
     })),
   },
 ];
-
-const templateMenuItems: NodeMenuItem[] = [
-  ...getCollectionTemplates().map((template) => ({
-    label: template.name,
-    icon: resolveNodeIcon(["Collection", template.additionalLabel]),
-    command: () => openCreateModal("Collection", { additionalNodeLabel: template.additionalLabel, template }),
-  })),
-  ...getContentTemplates().map((template) => ({
-    label: template.name,
-    icon: resolveNodeIcon(["Content", template.additionalLabel]),
-    command: () => openCreateModal("Content", { additionalNodeLabel: template.additionalLabel, template }),
-  })),
-];
-
-if (templateMenuItems.length > 0) {
-  addMenuItems.push({ label: "Templates", icon: "icon-layout-template", items: templateMenuItems });
-}
 
 const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
 
@@ -570,11 +583,7 @@ function endResize(): void {
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
       <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
         <template v-for="entry in entries" :key="entry.data.node.data.uuid">
-          <HierarchyItem
-            :entry="entry"
-            :selection="getEntrySelection(entry)"
-            @item-selected="handleItemSelected"
-          ></HierarchyItem>
+          <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
         </template>
         <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
           <span class="icon-loader-circle animate-spin"></span>

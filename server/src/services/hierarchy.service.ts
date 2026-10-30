@@ -8,9 +8,13 @@ import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.j
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import GuidelinesService from "./guidelines.service.js";
 import CollectionService from "./collection.service.js";
+import ContentService from "./content.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
+import { IGuidelines } from "../models/IGuidelines.js";
 import {
+  AnnotationNode,
   CollectionNode,
+  ContentNode,
   FilterSpec,
   FilterTarget,
   HierarchyNode,
@@ -348,13 +352,13 @@ export default class HierarchyService {
    * types. Everything downstream (`flattenNodeTree`, relationship inference) is already type-agnostic.
    *
    * The tree may contain further new nodes below the created one (e.g. from a template). Every created
-   * Collection in it is validated.
+   * Collection and Content (with its Annotations) in it is validated.
    *
    * @param {string} uuid - UUID of the created/added node (the tree's operative node, not the parent).
    * @param {NodeStatusObject} data - Ownership tree (the parent as root with the new node attached,
    *   or the new node itself when created at top level).
    * @return {Promise<NodeDto<HierarchyNode>>} The created/added node.
-   * @throws {ValidationError} If `uuid` is not present in the payload tree or a created Collection is invalid.
+   * @throws {ValidationError} If `uuid` is not present in the payload tree or a created node is invalid.
    * @throws {NotFoundError} If the node could not be created/added.
    */
   public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
@@ -367,9 +371,7 @@ export default class HierarchyService {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
     }
 
-    const collectionService: CollectionService = new CollectionService();
-
-    this.findCreatedCollections(data).forEach((collection) => collectionService.checkValidity(collection, guidelines));
+    this.checkCreatedNodes(data, guidelines);
 
     const rootLabel: "Collection" | "Content" = targetLabels.includes("Content") ? "Content" : "Collection";
 
@@ -474,19 +476,26 @@ export default class HierarchyService {
   }
 
   /**
-   * Collects all Collection nodes with the status `created` inside a {@link NodeStatusObject} tree.
+   * Validates every created Collection and Content (with its created Annotations) inside a {@link NodeStatusObject} tree.
    *
    * @param {NodeStatusObject} node - The current tree node.
-   * @return {CollectionNode[]} The created Collection nodes.
+   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @return {void} This function does not return any value.
+   * @throws {ValidationError} If a created node is invalid.
    */
-  private findCreatedCollections(node: NodeStatusObject): CollectionNode[] {
-    const nested: CollectionNode[] = node.connectedNodes.flatMap((child) => this.findCreatedCollections(child));
+  private checkCreatedNodes(node: NodeStatusObject, guidelines: IGuidelines): void {
+    const isCreated: boolean = node.meta.status === "created";
+    const annotations: AnnotationNode[] = node.connectedNodes
+      .filter((child) => child.meta.status === "created" && child.node.nodeLabels.includes("Annotation"))
+      .map((child) => child.node as AnnotationNode);
 
-    if (node.meta.status === "created" && node.node.nodeLabels.includes("Collection")) {
-      return [node.node as CollectionNode, ...nested];
+    if (isCreated && node.node.nodeLabels.includes("Collection")) {
+      new CollectionService().checkCreationValidity(node.node as CollectionNode, annotations, guidelines);
+    } else if (isCreated && node.node.nodeLabels.includes("Content")) {
+      new ContentService().checkValidity(node.node as ContentNode, annotations, guidelines);
     }
 
-    return nested;
+    node.connectedNodes.forEach((child) => this.checkCreatedNodes(child, guidelines));
   }
 
   /**

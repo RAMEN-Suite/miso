@@ -1,10 +1,12 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import GuidelinesService from "./guidelines.service.js";
+import AnnotationService from "./annotation.service.js";
 import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
 import { IGuidelines } from "../models/IGuidelines.js";
 import {
+  AnnotationNode,
   PaginationResult,
   CollectionNode,
   NodeSearchParams,
@@ -95,6 +97,32 @@ export default class CollectionService {
     if (labelProp.trim() === "") {
       throw new ValidationError('The "label" property must not consist of only whitespace characters.');
     }
+  }
+
+  /**
+   * Checks a new Collection and its Annotations against the guidelines: everything {@link checkValidity} checks,
+   * plus all configured property values of the Collection and the type and values of each Annotation.
+   *
+   * Called during creating a Collection (e.g. from a template).
+   *
+   * @param {CollectionNode} collection - The Collection node to check.
+   * @param {AnnotationNode[]} annotations - The Annotations of the Collection.
+   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @returns {void} This function does not return any value.
+   * @throws {ValidationError} If the Collection or one of its Annotations is not valid according to the guidelines.
+   */
+  public checkCreationValidity(collection: CollectionNode, annotations: AnnotationNode[], guidelines: IGuidelines): void {
+    this.checkValidity(collection, guidelines);
+
+    new GuidelinesService()
+      .getCollectionConfigFieldsFromGuidelines(guidelines, collection.nodeLabels)
+      .forEach((field: PropertyConfig) => validatePropertyValue(collection.data[field.name], field));
+
+    const annotationService: AnnotationService = new AnnotationService();
+
+    annotations.forEach((annotation) =>
+      annotationService.checkCollectionAnnotationValidity(annotation, collection.nodeLabels, guidelines),
+    );
   }
 
   public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<CollectionNode[]>> {

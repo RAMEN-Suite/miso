@@ -35,7 +35,7 @@ import { MenuItem } from "primevue/menuitem";
 import CreateCollectionAnnotationModal from "./CreateCollectionAnnotationModal.vue";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection";
-import TagAssignmentButton from "./TagAssignmentButton.vue";
+import TagAssignment from "./TagAssignment.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons";
@@ -650,8 +650,8 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
   <div ref="pane" class="collection-focus-pane h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between items-center gap-1">
-        <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :nodes="[temporaryWorkData.collection.node]" />
+        <div class="buttons-start flex flex-wrap justify-start gap-1 min-w-0">
+          <TagAssignment :nodes="[temporaryWorkData.collection.node]" />
         </div>
         <div class="buttons-end flex justify-end gap-1">
           <Button

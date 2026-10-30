@@ -4,7 +4,7 @@ import Button from "primevue/button";
 import { ContentFocus, IconSpec } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
-import TagAssignmentButton from "./TagAssignmentButton.vue";
+import TagAssignment from "./TagAssignment.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
 import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
 import { getContentLabelText } from "../utils/helper/helper.ts";
@@ -33,8 +33,8 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
   <div class="content-focus-pane h-full flex flex-col items-center p-2">
     <div class="main grow flex flex-col w-full">
       <div class="buttons flex justify-between gap-1">
-        <div class="buttons-start flex justify-start gap-1">
-          <TagAssignmentButton :nodes="[contentNode]" />
+        <div class="buttons-start flex flex-wrap justify-start gap-1 min-w-0">
+          <TagAssignment :nodes="[contentNode]" />
         </div>
         <div class="buttons-end flex justify-end gap-1"></div>
       </div>

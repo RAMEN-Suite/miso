@@ -1,103 +1,63 @@
-import type { AnnotationType } from "../external";
+import type { NativeTypeConfig } from "../models/types";
 
 /**
- * Configurations of built-in structural annotation types. Is combined with the project-specific configuration
- * on load: these types can be renamed (type and attributes) via `miso.editing.native` and extended with new
- * properties, but their properties can't be redefined.
+ * The structural types the editor implements natively, with the attributes it sets itself. A project names them via
+ * `miso.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
+ * properties. The built-in attributes can be renamed, but not redefined.
+ *
+ * Also read by `scripts/build-ramen-from-introspection.mjs`, which declares these types in a generated model.
  */
-export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
+export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
   {
     type: "paragraph",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "heading",
-    properties: [
-      {
-        name: "level",
-        type: "Integer",
-        minimum: 1,
-        maximum: 6,
-        required: true,
-        editable: true,
-        visible: true,
-      },
-    ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [{ name: "level", type: "Integer", minimum: 1, maximum: 6, required: true }],
   },
   {
     type: "hardBreak",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "zeroPoint", representation: "structure" },
-    },
+    extent: "zeroPoint",
+    attributes: [],
   },
   {
     type: "table",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "tableRow",
+    extent: "range",
     // TEI `att.tableDecoration`. Optional on rows: only kept from stored data, the editor doesn't set them.
-    properties: [
-      { name: "rowspan", type: "Integer", required: false, editable: false, visible: true },
-      { name: "colspan", type: "Integer", required: false, editable: false, visible: true },
-      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
+    attributes: [
+      { name: "rowspan", type: "Integer", required: false },
+      { name: "colspan", type: "Integer", required: false },
+      { name: "role", type: "String", required: false, options: ["data", "label"] },
     ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
   },
   {
     type: "tableCell",
+    extent: "range",
     // TEI `att.tableDecoration`. Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the
     // header toggles (`data` is accepted, but not set).
-    properties: [
-      { name: "rowspan", type: "Integer", required: false, editable: true, visible: true },
-      { name: "colspan", type: "Integer", required: false, editable: true, visible: true },
-      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
+    attributes: [
+      { name: "rowspan", type: "Integer", required: false },
+      { name: "colspan", type: "Integer", required: false },
+      { name: "role", type: "String", required: false, options: ["data", "label"] },
     ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
   },
   {
     type: "bulletList",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "listItem",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
 ];
 

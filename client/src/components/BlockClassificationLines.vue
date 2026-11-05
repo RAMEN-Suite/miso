@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, AnnotationType, NodeStatus } from "../models/types";
+import type { Annotation, NodeStatus } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
@@ -29,7 +29,7 @@ interface PositionedLine {
 
 const { tiptap, blockClassificationRanges, initialStructuralAnnotations } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { getAnnotationConfig } = useGuidelinesStore();
+const { getTextAnnotationShape } = useGuidelinesStore();
 const dialog = useDialog();
 const { settings } = useEditorSettingsStore();
 const menuItems = ref<MenuItem[]>([]);
@@ -242,9 +242,7 @@ function handleDetailsClick(line: PositionedLine): void {
   const status: NodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
   const annotation: Annotation = toAnnotation(docAnnotation, status);
 
-  const config: AnnotationType | undefined = getAnnotationConfig(annotation.node.data.type);
-
-  if (!config) {
+  if (!getTextAnnotationShape(annotation.node.data.type)) {
     throw Error(`Annotation type "${annotation.node.data.type}" is not supported.`);
   }
 
@@ -255,7 +253,7 @@ function handleDetailsClick(line: PositionedLine): void {
         header: `Edit ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
       },
 
-      data: { annotation, config, mode: "edit" },
+      data: { annotation, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateAnnotation(updated);

@@ -7,7 +7,6 @@ import {
   IAnnotation,
   INTRINSIC_ANNOTATION_PROPERTIES,
   NodeStatus,
-  PropertyConfig,
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
   pruneUnconfiguredProperties,
@@ -41,10 +40,9 @@ interface InitialAnnotations {
 export function createAnnotationChangeCollector(state: EditorState, initial: InitialAnnotations) {
   const {
     getAnnotationExtent,
-    getAnnotationFields,
     getAnnotationType,
     getEditorOwnedProperties,
-    getStructuralAnnotationConfig,
+    getTextAnnotationProperties,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,
     isZeroPoint,
@@ -71,20 +69,17 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
     const editorOwned = getEditorOwnedProperties(annotationType);
 
-    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only configured properties
-    // are taken: the ones of the structural type itself and the `system` and `base` ones every annotation has.
-    const fields: PropertyConfig[] = [
-      ...(getStructuralAnnotationConfig(annotationType)?.properties ?? []),
-      ...getAnnotationFields(annotationType),
-    ];
+    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only the properties of the
+    // annotation shape in the model are taken.
+    const names: string[] = getTextAnnotationProperties(annotationType).map((field) => field.attribute.name);
 
-    fields.forEach((field: PropertyConfig) => {
-      if (editorOwned.some((map) => map.property === field.name)) {
+    names.forEach((name: string) => {
+      if (editorOwned.some((map) => map.property === name)) {
         return;
       }
 
-      if (field.name in annotationData) {
-        neo4jProperties[field.name] = annotationData[field.name];
+      if (name in annotationData) {
+        neo4jProperties[name] = annotationData[name];
       }
     });
 
@@ -342,7 +337,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
     pruneUnconfiguredProperties(
       annotation.node.data,
-      getAnnotationFields(type).map((field) => field.name),
+      getTextAnnotationProperties(type).map((field) => field.attribute.name),
       INTRINSIC_ANNOTATION_PROPERTIES,
     );
   }

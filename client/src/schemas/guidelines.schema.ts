@@ -171,7 +171,7 @@ export function checkNativeAttributes(
   ctx: z.RefinementCtx,
 ): void {
   const nativeAttributes: string[] =
-    BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === nativeType)?.properties?.map((p) => p.name) ?? [];
+    BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === nativeType)?.attributes.map((a) => a.name) ?? [];
 
   for (const attribute of Object.keys(attributes ?? {})) {
     if (!nativeAttributes.includes(attribute)) {

@@ -24,7 +24,7 @@ interface UseTextPreviewReturnType {
  * @returns {UseTextPreviewReturnType} An object containing the functions to build previews.
  */
 export function useTextPreview(): UseTextPreviewReturnType {
-  const { getAnnotationRepresentation, getEditorRole, getStructuralAnnotationConfigs } = useGuidelinesStore();
+  const { getAnnotationRepresentation, getEditorRole, getStructuralTypes } = useGuidelinesStore();
   const { getEditorSchema } = useTiptapStore();
 
   /**
@@ -33,7 +33,7 @@ export function useTextPreview(): UseTextPreviewReturnType {
    * @returns {string[]} The project annotation types
    */
   function getTextPreviewAnnotationTypes(): string[] {
-    return getStructuralAnnotationConfigs().map((config) => config.type);
+    return getStructuralTypes().map((structural) => structural.type);
   }
 
   /**

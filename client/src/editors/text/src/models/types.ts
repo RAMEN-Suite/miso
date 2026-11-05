@@ -1,4 +1,34 @@
-import type { Annotation, BuiltinStructuralType, NodeDto } from "../external";
+import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto } from "../external";
+
+/** An attribute of a native structural type that the editor itself sets, e.g. the level of a heading */
+export interface NativeTypeAttribute {
+  name: string;
+  type: "Integer" | "String";
+  required: boolean;
+  minimum?: number;
+  maximum?: number;
+  options?: string[];
+}
+
+/**
+ * A structural type the editor implements natively (paragraph, heading, table …). These are the editor's own defaults:
+ * the model declares a matching annotation shape (named via `miso.mappings`), the editor adds how it is edited.
+ */
+export interface NativeTypeConfig {
+  type: BuiltinStructuralType;
+  /** How annotations of the type extend in the text */
+  extent: AnnotationExtent;
+  /** The attributes the editor sets itself */
+  attributes: NativeTypeAttribute[];
+}
+
+/** A structural annotation type of the project and the editor node type that represents it */
+export interface StructuralType {
+  /** The project's annotation type, e.g. `p` */
+  type: string;
+  /** The editor node type, e.g. `paragraph`. The type itself for custom structural types. */
+  editorRole: string;
+}
 
 /** Makes all properties of `T` readonly, recursively. */
 type DeepReadonly<T> = { readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K] };
@@ -26,11 +56,11 @@ export interface ApiJson {
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
  * as rowspan/colspan properties in tableRow and tableCell annotations.
  *
- * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.editing.native` keys of the guidelines.
+ * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.mappings` of the Miso config.
  *
  * @example
- * // Guidelines entry
- * { "type": "cell", "miso": { "editing": { "native": { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } } } } }
+ * // Entry of miso.mappings
+ * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
  *
  * // Resulting mapping: tiptap defaults as keys, project-specific overrides as values
  * typeByRole: {
@@ -50,7 +80,7 @@ export type AnnotationMapping = DeepReadonly<{
    */
   typeByRole: Partial<Record<BuiltinStructuralType, string>>;
   /** Mapping from built-in structural types to project-specific attributes. The keys are the editor-owned
-   * attributes of the type, i.e. the property names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
+   * attributes of the type, i.e. the attribute names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
    * @example
    * attrByRole: {
    *    tableCell: {

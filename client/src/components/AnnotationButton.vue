@@ -2,22 +2,27 @@
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useGuidelinesStore } from "../store/guidelines";
 import { useShortcutsStore } from "../store/shortcuts";
-import { PropertyConfig, AnnotationType } from "../models/types";
 import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
 import { ComponentPublicInstance, onMounted, useTemplateRef } from "vue";
 import { resolveAnnotationIcon } from "../config/icons";
+import { getOptions, getShapeMiso, type ModelAnnotationShape, type ModelAttribute } from "../utils/helper/modelHelper";
 
-const props = defineProps<{ type: string; disabled: boolean; config: AnnotationType }>();
+const props = defineProps<{
+  type: string;
+  disabled: boolean;
+  /** The annotation shape of the type */
+  shape: ModelAnnotationShape;
+}>();
 
 const emit = defineEmits<(e: "clicked", data: { type: string; subType?: string | number }) => void>();
 
-const { getAnnotationFields } = useGuidelinesStore();
+const { getTextAnnotationProperties, getModelContext } = useGuidelinesStore();
 const { registerShortcut } = useShortcutsStore();
 
-const fields: PropertyConfig[] = getAnnotationFields(props.type);
-const subTypeField: PropertyConfig | undefined = fields.find((field) => field.name === "subType");
-const options: string[] | number[] = subTypeField?.options ?? [];
+const fields: ModelAttribute[] = getTextAnnotationProperties(props.type);
+const subTypeField: ModelAttribute | undefined = fields.find((field) => field.attribute.name === "subType");
+const options: string[] | number[] = subTypeField ? (getOptions(getModelContext(), subTypeField) ?? []) : [];
 const dropdownOptions = options.map((option: string | number) => {
   return {
     label: option.toString(),
@@ -25,10 +30,10 @@ const dropdownOptions = options.map((option: string | number) => {
   };
 });
 
-const hasIcon: boolean = resolveAnnotationIcon(props.config) !== undefined;
+const hasIcon: boolean = resolveAnnotationIcon(props.shape) !== undefined;
 const buttonElm = useTemplateRef<ComponentPublicInstance<typeof Button | typeof SplitButton>>("buttonElm");
 
-const shortcut: string | undefined = props.config.miso?.controls?.shortcut;
+const shortcut: string | undefined = getShapeMiso(props.shape)?.controls?.shortcut;
 
 if (shortcut) {
   registerShortcut(shortcut, handleClick);
@@ -95,7 +100,7 @@ function handleClick(dropdownOption?: string | number): void {
     @click="handleButtonClick"
   >
     <template #icon>
-      <AnnotationTypeIcon v-if="hasIcon" :config="props.config" />
+      <AnnotationTypeIcon v-if="hasIcon" :shape="props.shape" />
     </template>
     <template #default>
       <span v-if="!hasIcon"> {{ props.type }} </span>
@@ -125,7 +130,7 @@ function handleClick(dropdownOption?: string | number): void {
     @click="handleButtonClick"
   >
     <template #icon>
-      <AnnotationTypeIcon :config="props.config" />
+      <AnnotationTypeIcon :shape="props.shape" />
     </template>
     <template #default>
       <span v-if="!hasIcon"> {{ props.type }} </span>
@@ -134,7 +139,7 @@ function handleClick(dropdownOption?: string | number): void {
     <template #item="{ label }">
       <div class="flex p-1 gap-1 items-center select-none cursor-pointer">
         <span :style="{ display: 'block', width: '20px', height: '20px' }">
-          <AnnotationTypeIcon :config="props.config" />
+          <AnnotationTypeIcon :shape="props.shape" />
         </span>
         <span>{{ label }}</span>
       </div>

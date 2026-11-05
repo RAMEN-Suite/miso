@@ -3,31 +3,33 @@ import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
   AnnotationExtent,
-  AnnotationMisoConfig,
   AnnotationNode,
-  AnnotationType,
+  AnnotationShapeMisoConfig,
   AppearanceOverride,
   BaseNodeLabel,
   BuiltinStructuralType,
   ContentMedium,
-  NativeTypeMapping,
-  PropertyConfig,
   TextAnnotationRepresentation,
 } from "../models/types";
 import type { AnnotationMapping } from "../editors/text/src";
+import type { NativeTypeConfig, StructuralType } from "../editors/text/src/models/types";
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
 import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
 import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
-import { buildConfigIndex, ConfigIndex } from "../utils/helper/configIndexHelper";
 import {
   BASE_NODE_REF,
   createModelContext,
   findRefinementRef,
   getNodeAttributes,
+  getNodeMiso,
+  getOptions,
   getRefinements,
+  getShapeMiso,
   getShapeProperties,
   getShapesForNode,
+  isRequired,
+  refersToEntities,
   shapeRefOf,
   type ModelAnnotationShape,
   type ModelAttribute,
@@ -44,21 +46,23 @@ const { parseShortcut } = useShortcutsStore();
  * doesn't change after the initialization, and the RAMEN core model is a class instance.
  */
 const modelContext = shallowRef<ModelContext>();
-/** TRANSITIONAL: the lookup index in the old view types, until all access methods return model types */
-const configIndex = ref<ConfigIndex>();
+/**
+ * The annotation shapes Content nodes may carry, by type. Built once on initialization, since the editor looks them up
+ * for every annotation it renders. Name matching, until the lookups use IDs.
+ */
+const textShapesByType = shallowRef<Map<string, ModelAnnotationShape>>(new Map());
 const isFetching = ref<boolean>(false);
 const error = ref<Error | null>(null);
-const isInitialized = computed<boolean>(() => configIndex.value !== undefined && !isFetching.value);
+const isInitialized = computed<boolean>(() => modelContext.value !== undefined && !isFetching.value);
 
-const groupedAnnotationTypes = ref<Record<string, AnnotationType[]>>();
+const groupedAnnotationTypes = shallowRef<Record<string, ModelAnnotationShape[]>>();
 const availableCollectionLabels = ref<string[]>([]);
 const availableEntityLabels = ref<string[]>([]);
 const availableTextLabels = ref<string[]>([]);
-const groupedAndSortedAnnotationTypes = ref<Record<string, AnnotationType[]>>();
+const groupedAndSortedAnnotationTypes = shallowRef<Record<string, ModelAnnotationShape[]>>();
 
-// Merged structural configs: built-ins + any entries with role `structure` from the guidelines JSON.
-// Populated after initializeGuidelines; starts from built-in defaults.
-const mergedStructuralConfigs = ref<AnnotationType[]>([...BUILTIN_STRUCTURAL_CONFIGS]);
+/** The structural annotation types of the project and their editor node types. Rebuilt when the mapping changes. */
+const structuralTypes = ref<StructuralType[]>([]);
 
 /**
  * Mapping between default and project-specific structural annotations.
@@ -92,10 +96,11 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 
 /**
  * Store for making the edition guidelines available to all components. When the app is mounted, the store is
- * initialized with the fetched Miso config, from which a lookup index is built. The store is static, meaning that no
- * properties are changed after the initialization. Other stores (filter.ts) are derived from this store.
+ * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), Miso
+ * settings come from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
+ * the initialization. Other stores (filter.ts) are derived from this store.
  *
- * The lookups still match by name (annotation `type`, node label), the returned configs already carry the model IDs.
+ * The lookups still match by name (annotation `type`, node label) until they use IDs.
  */
 export function useGuidelinesStore() {
   /**
@@ -103,128 +108,87 @@ export function useGuidelinesStore() {
    *
    * Currently used for when the user clicks on an annotation button to enforce constraints.
    *
-   * @param {AnnotationType} config The annotation type to check.
+   * @param {ModelAnnotationShape} shape The annotation shape to check.
    * @returns {boolean} True if the annotation type has constraints.
    */
-  function annotationHasConstraints(config: AnnotationType): boolean {
+  function annotationHasConstraints(shape: ModelAnnotationShape): boolean {
     // TODO: The subType field requires a lot of hacks -> Refactor later
-    if (config.properties?.some((p) => p.required && p.name !== "subType")) {
+    if (getShapeProperties(shape).some((entry) => isRequired(entry) && entry.attribute.name !== "subType")) {
       return true;
     }
 
-    if (config.hasEntities === true) {
-      return true;
-    }
-
-    return false;
+    return refersToEntities(getModelContext(), shape);
   }
 
   /**
    * Registers the node icons configured in the `ext.miso` blocks of the Collection, Content and Entity nodes and their
-   * types, so that {@linkcode resolveNodeIcon} picks them up.
+   * refinements, so that {@linkcode resolveNodeIcon} picks them up.
    *
-   * @param {ConfigIndex} index - The lookup index to read the icons from.
+   * @param {ModelContext} context - The model context to read the icons from.
    * @return {void} This function does not return anything.
    */
-  function applyConfiguredNodeIcons(index: ConfigIndex): void {
-    registerNodeIcon("Collection", index.collections.miso?.appearance?.icon);
-    registerNodeIcon("Content", index.contents.miso?.appearance?.icon);
-    registerNodeIcon("Entity", index.entities.miso?.appearance?.icon);
+  function applyConfiguredNodeIcons(context: ModelContext): void {
+    const bases: [BaseNodeLabel, string][] = [
+      ["Collection", BASE_NODE_REF.Collection],
+      ["Content", BASE_NODE_REF.Content],
+      ["Entity", BASE_NODE_REF.Entity],
+    ];
 
-    index.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
-    index.contents.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
-    index.entities.types.forEach((e) => registerNodeIcon(e.additionalLabel, e.miso?.appearance?.icon));
+    for (const [label, baseRef] of bases) {
+      registerNodeIcon(label, getNodeMiso(context, baseRef)?.appearance?.icon);
+
+      getRefinements(context, baseRef).forEach(({ ref, node }) =>
+        registerNodeIcon(node.name, getNodeMiso(context, ref)?.appearance?.icon),
+      );
+    }
   }
 
   /**
    * Builds the mapping between the editor's native structural types/attributes and the project's annotation
    * types/properties. Starts from the default mapping in {@linkcode DEFAULT_ANNOTATION_MAPPING} and overrides it with
-   * the `miso.editing.native` keys of the annotation types (taken from `miso.mappings` of the config).
+   * the `miso.mappings` of the config.
    *
-   * @param {ConfigIndex} index - The lookup index to read the native type mappings from.
+   * @param {ModelContext} context - The model context to read the mappings from.
    * @returns {AnnotationMapping} The annotation mapping.
    */
-  function buildAnnotationMapping(index: ConfigIndex): AnnotationMapping {
+  function buildAnnotationMapping(context: ModelContext): AnnotationMapping {
     const typeByRole: Partial<Record<BuiltinStructuralType, string>> = { ...DEFAULT_ANNOTATION_MAPPING.typeByRole };
     const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {
       ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
     };
 
-    for (const config of index.contents.annotationTypes) {
-      const native: NativeTypeMapping | undefined = config.miso?.editing?.native;
+    for (const mapping of context.config.miso.mappings) {
+      const shape: ModelAnnotationShape | undefined = context.shapes.get(mapping.annotation);
 
-      if (!native) {
+      if (!shape) {
+        console.warn(`Miso config: mapping of "${mapping.native}" points to an unknown annotation shape "${mapping.annotation}"`);
         continue;
       }
 
-      typeByRole[native.type] = config.type;
-      attrByRole[native.type] = { ...attrByRole[native.type], ...native.attributes };
+      typeByRole[mapping.native] = shape.type;
+      attrByRole[mapping.native] = { ...attrByRole[mapping.native], ...mapping.attributes };
     }
 
     return { typeByRole, attrByRole };
   }
 
   /**
-   * Builds the merged structural configs: the built-in configs combined with each type's properties, all keyed by
-   * the project's type names via the active editor mapping. The nesting rules stay internal, see
-   * {@linkcode BUILTIN_STRUCTURAL_NESTING}.
+   * Builds the structural annotation types: every built-in type under its project name (via the active mapping), plus
+   * the project's text annotation types that are represented as structure without a native type.
    *
-   * Each built-in role becomes an entry under its project type name (`typeByRole[role] ?? role`), with
-   * its editor-owned properties renamed to their project names (`attrByRole[role][attr] ?? attr`). A project
-   * entry with the same type extends it (see {@linkcode extendBuiltinProperties}); any other structural entry
-   * is kept as a custom structural type.
-   *
-   * @param {ConfigIndex} index The lookup index
-   * @returns {AnnotationType[]} The merged structural configs keyed by project type name
+   * @returns {StructuralType[]} The structural types.
    */
-  function buildMergedStructuralConfigs(index: ConfigIndex): AnnotationType[] {
-    // 1. Built-in types, renamed to the project's type/property names if configured
-    const builtInDerived: AnnotationType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => {
-      const editorRole: string = config.type;
-      const annotationType: string = annotationMapping.value.typeByRole[editorRole as BuiltinStructuralType] ?? editorRole;
-      const propertyByAttribute = annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
+  function buildStructuralTypes(): StructuralType[] {
+    const builtins: StructuralType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
+      type: getAnnotationType(config.type),
+      editorRole: config.type,
+    }));
+    const custom: StructuralType[] = [...textShapesByType.value.values()]
+      .filter((shape) => !builtins.some((b) => b.type === shape.type))
+      .filter((shape) => getShapeMiso(shape)?.editing?.representation === "structure")
+      .map((shape) => ({ type: shape.type, editorRole: shape.type }));
 
-      const properties: PropertyConfig[] = (config.properties ?? []).map((p) => ({
-        ...p,
-        name: propertyByAttribute[p.name] ?? p.name,
-      }));
-
-      return {
-        ...config,
-        type: annotationType,
-        properties,
-      };
-    });
-
-    // 2. All types in the custom configuration. Types mapped to a native type are structural without saying so.
-    for (const entry of index.contents.annotationTypes) {
-      if (!entry.miso?.editing?.native && entry.miso?.editing?.representation !== "structure") {
-        continue;
-      }
-
-      const existing: AnnotationType | undefined = builtInDerived.find((c) => c.type === entry.type);
-
-      if (existing) {
-        existing.properties = extendBuiltinProperties(existing, entry);
-      } else {
-        builtInDerived.push({ ...entry, properties: [...(entry.properties ?? [])] });
-      }
-    }
-
-    return builtInDerived;
-  }
-
-  /**
-   * Retrieves the configuration for an annotation of given type. The configuration is an object containing internal information
-   * as well as information about rendering behaviour (input type in forms, selection status etc.).
-   *
-   * This function is only used for Text annotations, not Collections annotations.
-   *
-   * @param {string} type - The type of the annotation.
-   * @return {AnnotationType | undefined} The configuration of the annotation type, `undefined` if the type is not configured.
-   */
-  function getAnnotationConfig(type: string): AnnotationType | undefined {
-    return getLoadedConfigIndex().contents.annotationTypes.find((t) => t.type === type);
+    return [...builtins, ...custom];
   }
 
   /**
@@ -240,29 +204,13 @@ export function useGuidelinesStore() {
       return getBuiltinExtent(type);
     }
 
-    const config: AnnotationType | undefined = getAnnotationConfig(type);
-
-    const extent: AnnotationExtent | undefined = config?.miso?.editing?.extent;
+    const extent: AnnotationExtent | undefined = getTextAnnotationMiso(type)?.editing?.extent;
 
     if (!extent) {
       console.error('No extent found for annotation type "' + type + '"');
     }
 
     return extent ?? "range";
-  }
-
-  /**
-   * Retrieves the properties an annotation of given type should should have. Used for rendering input fields in forms
-   * where properties of the annotation can be edited. The fields are the properties of the annotation shape. Shared
-   * system properties (e.g. `text`) are not configured yet.
-   *
-   * This function is only used for Text annotations, not Collections annotations.
-   *
-   * @param {string} type - The type of the annotation.
-   * @return {PropertyConfig[]} The fields for the annotation type.
-   */
-  function getAnnotationFields(type: string): PropertyConfig[] {
-    return getAnnotationConfig(type)?.properties ?? [];
   }
 
   /**
@@ -281,9 +229,7 @@ export function useGuidelinesStore() {
       return "structure";
     }
 
-    const config: AnnotationType | undefined = getAnnotationConfig(type);
-
-    const representation: TextAnnotationRepresentation | undefined = config?.miso?.editing?.representation;
+    const representation: TextAnnotationRepresentation | undefined = getTextAnnotationMiso(type)?.editing?.representation;
 
     if (!representation) {
       console.error('No representation found for annotation type "' + type + '"');
@@ -308,31 +254,12 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Retrieves the annotation types available on a Collection with the given node labels: the ones carried by all
-   * Collections, plus the ones carried only by one of its types.
-   *
-   * @param {string[]} collectionNodeLabels - The node labels of the Collection.
-   * @return {AnnotationType[]} The available annotation types.
-   */
-  function getAvailableCollectionAnnotationConfigs(collectionNodeLabels: string[]): AnnotationType[] {
-    const index: ConfigIndex = getLoadedConfigIndex();
-    const additional: AnnotationType[] = index.collections.types
-      .filter((type) => collectionNodeLabels.includes(type.additionalLabel))
-      .flatMap((type) => type.annotationTypes);
-
-    // A shape carried by several types of the Collection would be listed once per type
-    return [...index.collections.annotationTypes, ...additional].filter(
-      (config, position, all) => all.findIndex((other) => other.annotationRef === config.annotationRef) === position,
-    );
-  }
-
-  /**
    * Retrieves the available labels that can be assigned to a Collection node.
    *
    * @return {string[]} The available labels.
    */
   function getAvailableCollectionLabels(): string[] {
-    return configIndex.value?.collections.types.map((collection) => collection.additionalLabel) ?? [];
+    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Collection).map(({ node }) => node.name) : [];
   }
 
   /**
@@ -341,7 +268,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableContentLabels(): string[] {
-    return configIndex.value?.contents.types.map((content) => content.additionalLabel) ?? [];
+    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Content).map(({ node }) => node.name) : [];
   }
 
   /**
@@ -351,11 +278,21 @@ export function useGuidelinesStore() {
    * @return {ContentMedium} The configured medium, `text` if none is configured.
    */
   function getContentMedium(nodeLabels: string[]): ContentMedium {
-    const contentType = configIndex.value?.contents.types.find(
-      (content) => nodeLabels.includes(content.additionalLabel) && content.miso?.medium,
-    );
+    const context: ModelContext | undefined = modelContext.value;
 
-    return contentType?.miso?.medium ?? "text";
+    if (!context) {
+      return "text";
+    }
+
+    for (const { ref, node } of getRefinements(context, BASE_NODE_REF.Content)) {
+      const medium: ContentMedium | undefined = nodeLabels.includes(node.name) ? getNodeMiso(context, ref)?.medium : undefined;
+
+      if (medium) {
+        return medium;
+      }
+    }
+
+    return "text";
   }
 
   /**
@@ -364,7 +301,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableEntityLabels(): string[] {
-    return configIndex.value?.entities.types.map((e) => e.additionalLabel) ?? [];
+    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Entity).map(({ node }) => node.name) : [];
   }
 
   /**
@@ -397,18 +334,8 @@ export function useGuidelinesStore() {
    */
   function getBuiltinExtent(type: string): AnnotationExtent {
     const editorRole: string = getEditorRole(type);
-    const config: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
 
-    return config?.miso?.editing?.extent ?? "range";
-  }
-
-  // TODO: This is a hack since the guidelines structure can change. It should be refactored to use the same structure as the annotations.
-  function getCollectionAnnotationConfig(collectionLabels: string[], annotationType: string): AnnotationType | undefined {
-    const availableConfigs: AnnotationType[] = getAvailableCollectionAnnotationConfigs(collectionLabels);
-
-    const desired: AnnotationType | undefined = availableConfigs.find((t) => t.type === annotationType);
-
-    return desired;
+    return BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole)?.extent ?? "range";
   }
 
   /**
@@ -435,12 +362,12 @@ export function useGuidelinesStore() {
     const propertyByAttribute: Record<string, string> =
       annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
 
-    const config: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
+    const config: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
 
-    return (config?.properties ?? []).map((p: PropertyConfig) => ({
-      attribute: p.name,
-      property: propertyByAttribute[p.name] ?? p.name,
-      required: p.required,
+    return (config?.attributes ?? []).map((attribute) => ({
+      attribute: attribute.name,
+      property: propertyByAttribute[attribute.name] ?? attribute.name,
+      required: attribute.required,
     }));
   }
 
@@ -458,20 +385,6 @@ export function useGuidelinesStore() {
    */
   function getEditorRole(annotationType: string): string {
     return roleByType.value[annotationType] ?? annotationType;
-  }
-
-  /**
-   * Returns the lookup index. Only call this from code that runs after {@linkcode initializeGuidelines}.
-   *
-   * @returns {ConfigIndex} The lookup index built from the Miso config.
-   * @throws {Error} If the config has not been loaded yet.
-   */
-  function getLoadedConfigIndex(): ConfigIndex {
-    if (!configIndex.value) {
-      throw new Error("Guidelines are not initialized");
-    }
-
-    return configIndex.value;
   }
 
   /**
@@ -515,10 +428,7 @@ export function useGuidelinesStore() {
    * @returns {ModelAttribute[]} The attributes, without identity attributes like `uuid`.
    */
   function getAllCollectionAttributes(): ModelAttribute[] {
-    const context: ModelContext = getModelContext();
-    const all: ModelAttribute[] = getCollectionAttributes(
-      getRefinements(context, BASE_NODE_REF.Collection).map(({ node }) => node.name),
-    );
+    const all: ModelAttribute[] = getCollectionAttributes(getAvailableCollectionLabels());
 
     return all.filter((entry, position) => all.findIndex((other) => other.attribute.name === entry.attribute.name) === position);
   }
@@ -543,7 +453,7 @@ export function useGuidelinesStore() {
    * @returns {ModelAttribute[]} The properties, empty if the Collection can't carry that type.
    */
   function getCollectionAnnotationProperties(nodeLabels: string[], type: string): ModelAttribute[] {
-    const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShapes(nodeLabels).find((s) => s.type === type);
+    const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShape(nodeLabels, type);
 
     return shape ? getShapeProperties(shape) : [];
   }
@@ -556,21 +466,19 @@ export function useGuidelinesStore() {
    * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if no Content node carries that type.
    */
   function getTextAnnotationShape(type: string): ModelAnnotationShape | undefined {
-    const context: ModelContext = getModelContext();
-    const carrierRefs: string[] = [
-      BASE_NODE_REF.Content,
-      ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref),
-    ];
+    return textShapesByType.value.get(type);
+  }
 
-    for (const carrierRef of carrierRefs) {
-      const shape: ModelAnnotationShape | undefined = getShapesForNode(context, carrierRef).find((s) => s.type === type);
+  /**
+   * Returns the Miso settings of the text annotations with the given type.
+   *
+   * @param {string} type - The type of the annotation.
+   * @returns {AnnotationShapeMisoConfig | undefined} The `ext.miso` block of the shape, if there is one.
+   */
+  function getTextAnnotationMiso(type: string): AnnotationShapeMisoConfig | undefined {
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
 
-      if (shape) {
-        return shape;
-      }
-    }
-
-    return undefined;
+    return shape ? getShapeMiso(shape) : undefined;
   }
 
   /**
@@ -598,6 +506,17 @@ export function useGuidelinesStore() {
   }
 
   /**
+   * Returns the annotation shape with the given type that a Collection with the given node labels may carry.
+   *
+   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @param {string} type - The type of the annotation.
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if the Collection can't carry that type.
+   */
+  function getCollectionAnnotationShape(nodeLabels: string[], type: string): ModelAnnotationShape | undefined {
+    return getCollectionAnnotationShapes(nodeLabels).find((shape) => shape.type === type);
+  }
+
+  /**
    * Returns the nesting priority of a structural annotation type, from the rules of its built-in type.
    *
    * @param {string} type The project annotation type
@@ -607,59 +526,86 @@ export function useGuidelinesStore() {
     return BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.priority ?? 0;
   }
 
-  function getStructuralAnnotationConfig(type: string): AnnotationType | undefined {
-    return mergedStructuralConfigs.value.find((t) => t.type === type);
-  }
-
   /**
-   * Groups the annotation types by category.
+   * Checks if an annotation type is structural: a built-in type (under its project name) or a project type
+   * represented as structure.
    *
-   * @return {Record<string, AnnotationType[]>} An object where the keys are the categories and the values are arrays of annotation types belonging to that category.
+   * @param {string} type The project annotation type
+   * @returns {boolean} `true` if the type is structural
    */
-  function groupAnnotationTypes(): Record<string, AnnotationType[]> {
-    return getLoadedConfigIndex().contents.annotationTypes.reduce(
-      (grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
-        const category: string = current.miso?.group ?? DEFAULT_ANNOTATION_GROUP;
-
-        if (!grouped[category]) {
-          grouped[category] = [];
-        }
-
-        grouped[category].push(current);
-
-        return grouped;
-      },
-      {},
-    );
+  function isStructuralType(type: string): boolean {
+    return structuralTypes.value.some((structural) => structural.type === type);
   }
 
   /**
-   * Initializes the store with the Miso config: builds the lookup index and initializes the filter store.
+   * Collects the annotation shapes Content nodes may carry, by type. A second shape with the same type is left out,
+   * since name matching couldn't tell them apart.
+   *
+   * @param {ModelContext} context - The model context.
+   * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
+   */
+  function collectTextShapes(context: ModelContext): Map<string, ModelAnnotationShape> {
+    const byType = new Map<string, ModelAnnotationShape>();
+    const carrierRefs: string[] = [
+      BASE_NODE_REF.Content,
+      ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref),
+    ];
+
+    for (const shape of carrierRefs.flatMap((ref) => getShapesForNode(context, ref))) {
+      const existing: ModelAnnotationShape | undefined = byType.get(shape.type);
+
+      if (!existing) {
+        byType.set(shape.type, shape);
+      } else if (shapeRefOf(existing) !== shapeRefOf(shape)) {
+        console.warn(`Miso config: a second annotation shape with type "${shape.type}" is left out (${shapeRefOf(shape)})`);
+      }
+    }
+
+    return byType;
+  }
+
+  /**
+   * Groups the text annotation types by their configured `miso.group`.
+   *
+   * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
+   */
+  function groupAnnotationTypes(): Record<string, ModelAnnotationShape[]> {
+    const grouped: Record<string, ModelAnnotationShape[]> = {};
+
+    for (const shape of textShapesByType.value.values()) {
+      const category: string = getShapeMiso(shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
+
+      grouped[category] = [...(grouped[category] ?? []), shape];
+    }
+
+    return grouped;
+  }
+
+  /**
+   * Initializes the store with the Miso config and initializes the filter store.
    *
    * @param {ParsedMisoConfig} parsed - The validated Miso config and its imported model.
    * @return {void} This function does not return anything.
    */
   function initializeGuidelines(parsed: ParsedMisoConfig): void {
     const context: ModelContext = createModelContext(parsed.config, parsed.model);
-    const index: ConfigIndex = buildConfigIndex(context);
 
     modelContext.value = context;
+    textShapesByType.value = collectTextShapes(context);
 
-    index.warnings.forEach((warning) => console.warn(`Miso config: ${warning}`));
-    validateMisoConfig(index);
-    applyConfiguredNodeIcons(index);
+    validateMisoConfig(context);
+    applyConfiguredNodeIcons(context);
 
-    // Must be set before the structural configs are merged, since they are keyed by the project's type names
-    annotationMapping.value = buildAnnotationMapping(index);
-    configIndex.value = index;
-    mergedStructuralConfigs.value = buildMergedStructuralConfigs(index);
+    // Must be set before the structural types are built, since they are keyed by the project's type names
+    annotationMapping.value = buildAnnotationMapping(context);
+    structuralTypes.value = buildStructuralTypes();
     groupedAnnotationTypes.value = groupAnnotationTypes();
     groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup();
     availableCollectionLabels.value = getAvailableCollectionLabels();
     availableEntityLabels.value = getAvailableEntityLabels();
     availableTextLabels.value = getAvailableContentLabels();
 
-    initializeFilter(index.contents.annotationTypes.map((type) => type.type));
+    initializeFilter([...textShapesByType.value.keys()]);
   }
 
   /**
@@ -678,15 +624,15 @@ export function useGuidelinesStore() {
 
   /**
    * Checks if the given annotation type is known to the editor: either it maps to one of the built-in structural
-   * types or it is configured in the guidelines.
+   * types or a Content node may carry it according to the model.
    *
    * Used to check the annotation validity during document parsing on load.
    *
    * @param {string} annotationType The annotation type
-   * @returns {boolean} `true` if the annotation type is built-in or configured, `false` otherwise
+   * @returns {boolean} `true` if the annotation type is built-in or modelled, `false` otherwise
    */
   function isConfiguredAnnotationType(annotationType: string): boolean {
-    return isBuiltinStructuralType(annotationType) || getAnnotationConfig(annotationType) !== undefined;
+    return isBuiltinStructuralType(annotationType) || textShapesByType.value.has(annotationType);
   }
 
   /**
@@ -702,51 +648,8 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Extends the properties of a built-in structural type with the new properties of the project's entry for it,
-   * e.g. a `rend` property for paragraphs. Built-in properties can't be redefined: a differing definition is ignored
-   * with a warning.
-   *
-   * @param {AnnotationType} builtin The built-in-derived config, with properties already renamed to the project's names
-   * @param {AnnotationType} entry The project's entry for the same annotation type
-   * @returns {PropertyConfig[]} The built-in properties followed by the new project properties
-   */
-  function extendBuiltinProperties(builtin: AnnotationType, entry: AnnotationType): PropertyConfig[] {
-    const combined: PropertyConfig[] = [...(builtin.properties ?? [])];
-
-    for (const prop of entry.properties ?? []) {
-      const builtinProp: PropertyConfig | undefined = combined.find((p) => p.name === prop.name);
-
-      if (!builtinProp) {
-        combined.push(prop);
-      } else if (!isSamePropertyConfig(builtinProp, prop)) {
-        console.warn(
-          `Property "${prop.name}" of annotation type "${entry.type}" is defined by the editor, the differing configured definition is ignored`,
-        );
-      }
-    }
-
-    return combined;
-  }
-
-  /**
-   * Checks if two property configs are identical, independent of the order of their keys.
-   *
-   * @param {PropertyConfig} a The first property config
-   * @param {PropertyConfig} b The second property config
-   * @returns {boolean} `true` if both have the same keys with the same values, `false` otherwise
-   */
-  function isSamePropertyConfig(a: PropertyConfig, b: PropertyConfig): boolean {
-    const keys = new Set<string>([...Object.keys(a), ...Object.keys(b)]);
-
-    return [...keys].every(
-      (key: string) =>
-        JSON.stringify(a[key as keyof PropertyConfig]) === JSON.stringify(b[key as keyof PropertyConfig]),
-    );
-  }
-
-  /**
    * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
-   * rebuilds the merged structural configs so the renames take effect. On load, the mapping is built from the
+   * rebuilds the structural types so the renames take effect. On load, the mapping is built from the
    * `miso.mappings` of the config; this function replaces it afterwards.
    *
    * @param {AnnotationMapping} mapping - The annotation mapping to apply.
@@ -754,74 +657,66 @@ export function useGuidelinesStore() {
    */
   function setAnnotationMapping(mapping: AnnotationMapping): void {
     annotationMapping.value = mapping;
-
-    if (configIndex.value) {
-      mergedStructuralConfigs.value = buildMergedStructuralConfigs(configIndex.value);
-    }
+    structuralTypes.value = buildStructuralTypes();
   }
 
   /**
    * Sorts each group of annotation types alphabetically by their type within their respective category.
    *
-   * @return {Record<string, AnnotationType[]>} An object where the keys are the categories and the values are arrays of sorted annotation types.
+   * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group, sorted by type.
    */
-  function sortAnnotationTypesInGroup(): Record<string, AnnotationType[]> {
+  function sortAnnotationTypesInGroup(): Record<string, ModelAnnotationShape[]> {
     return Object.fromEntries(
-      Object.entries(groupedAnnotationTypes.value ?? {}).map(([category, types]) => [
+      Object.entries(groupedAnnotationTypes.value ?? {}).map(([category, shapes]) => [
         category,
-        types.toSorted((a, b) => a.type.localeCompare(b.type)),
+        shapes.toSorted((a, b) => a.type.localeCompare(b.type)),
       ]),
     );
   }
 
   /**
-   * Checks the `miso` configuration of all annotation types for mistakes and logs a warning for each one found.
+   * Checks the Miso settings of all annotation shapes for mistakes and logs a warning for each one found.
    * Invalid parts are not removed, they are just ignored where they don't apply.
    *
-   * @param {ConfigIndex} index - The lookup index to validate.
+   * @param {ModelContext} context - The model context to validate.
    * @return {void} This function does not return anything.
    */
-  function validateMisoConfig(index: ConfigIndex): void {
+  function validateMisoConfig(context: ModelContext): void {
     const warn = (type: string, message: string): void => {
       console.warn(`Invalid miso configuration for annotation type "${type}": ${message}`);
     };
 
-    const annotationTypes: AnnotationType[] = [
-      ...index.contents.annotationTypes,
-      ...index.collections.annotationTypes,
-      ...index.collections.types.flatMap((c) => c.annotationTypes),
-    ];
-
-    for (const config of annotationTypes) {
-      const miso: AnnotationMisoConfig | undefined = config.miso;
+    for (const shape of context.shapes.values()) {
+      const miso: AnnotationShapeMisoConfig | undefined = getShapeMiso(shape);
 
       if (!miso) {
         continue;
       }
 
       // The mapping is not built yet, so the extent of a native type is read from its built-in config directly
-      const nativeConfig: AnnotationType | undefined = BUILTIN_STRUCTURAL_CONFIGS.find(
-        (c) => c.type === miso.editing?.native?.type,
-      );
-      const extent: AnnotationExtent = nativeConfig?.miso?.editing?.extent ?? miso.editing?.extent ?? "range";
-      const appearances: [string, AppearanceOverride][] = [["miso.appearance", miso.appearance ?? {}]];
+      const native: string | undefined = context.config.miso.mappings.find((m) => m.annotation === shapeRefOf(shape))?.native;
+      const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
+      const extent: AnnotationExtent = nativeExtent ?? miso.editing?.extent ?? "range";
+      const appearances: [string, AppearanceOverride][] = [["ext.miso.appearance", miso.appearance ?? {}]];
 
       (miso.appearance?.variants ?? []).forEach((variant, index) => {
-        const propertyConfig: PropertyConfig | undefined = config.properties?.find((p) => p.name === variant.property);
-        const options: string[] | undefined = propertyConfig?.options?.map(String);
+        const property: ModelAttribute | undefined = getShapeProperties(shape).find(
+          (entry) => entry.attribute.name === variant.property,
+        );
+        const options: string[] | undefined = property ? getOptions(context, property)?.map(String) : undefined;
 
-        if (!propertyConfig) {
+        if (!property) {
           warn(
-            config.type,
-            `"${variant.property}" in miso.appearance.variants[${index}] is not a property of the annotation type`,
+            shape.type,
+            `"${variant.property}" in ext.miso.appearance.variants[${index}] is not a property of the annotation type`,
           );
         }
 
         for (const [value, override] of Object.entries(variant.values)) {
-          const path: string = `miso.appearance.variants[${index}].values.${value}`;
+          const path: string = `ext.miso.appearance.variants[${index}].values.${value}`;
 
           if (options && !options.includes(value)) {
-            warn(config.type, `"${value}" in ${path} is not an option of the "${variant.property}" property`);
+            warn(shape.type, `"${value}" in ${path} is not an option of the "${variant.property}" property`);
           }
 
           appearances.push([path, override]);
@@ -830,11 +725,11 @@ export function useGuidelinesStore() {
 
       for (const [path, appearance] of appearances) {
         if (extent === "range" && appearance.marker) {
-          warn(config.type, `${path}.marker only applies to zeroPoint annotations`);
+          warn(shape.type, `${path}.marker only applies to zeroPoint annotations`);
         }
 
         if (extent === "zeroPoint" && appearance.highlight) {
-          warn(config.type, `${path}.highlight only applies to range annotations`);
+          warn(shape.type, `${path}.highlight only applies to range annotations`);
         }
       }
     }
@@ -842,12 +737,12 @@ export function useGuidelinesStore() {
     // Shortcuts are only registered for the editor's annotation types
     const typesByShortcut = new Map<string, string[]>();
 
-    for (const config of index.contents.annotationTypes) {
-      const shortcut: string | undefined = config.miso?.controls?.shortcut;
+    for (const shape of textShapesByType.value.values()) {
+      const shortcut: string | undefined = getShapeMiso(shape)?.controls?.shortcut;
 
       if (shortcut) {
         const normalized: string = parseShortcut(shortcut);
-        typesByShortcut.set(normalized, [...(typesByShortcut.get(normalized) ?? []), config.type]);
+        typesByShortcut.set(normalized, [...(typesByShortcut.get(normalized) ?? []), shape.type]);
       }
     }
 
@@ -864,19 +759,16 @@ export function useGuidelinesStore() {
     availableEntityLabels,
     availableTextLabels,
     error: readonly(error),
-    getAnnotationConfig,
+    getAllCollectionAttributes,
     getAnnotationExtent,
-    getAnnotationFields,
     getAnnotationRepresentation,
     getAnnotationType,
-    getAvailableCollectionAnnotationConfigs,
     getAvailableCollectionLabels,
     getAvailableContentLabels,
     getAvailableEntityLabels,
     getAvailableNodeLabels,
-    getCollectionAnnotationConfig,
-    getAllCollectionAttributes,
     getCollectionAnnotationProperties,
+    getCollectionAnnotationShape,
     getCollectionAnnotationShapes,
     getCollectionAttributes,
     getContentMedium,
@@ -884,8 +776,8 @@ export function useGuidelinesStore() {
     getEditorRole,
     getModelContext,
     getPriorityForType,
-    getStructuralAnnotationConfig,
-    getStructuralAnnotationConfigs: (): AnnotationType[] => mergedStructuralConfigs.value,
+    getStructuralTypes: (): StructuralType[] => structuralTypes.value,
+    getTextAnnotationMiso,
     getTextAnnotationProperties,
     getTextAnnotationShape,
     groupedAndSortedAnnotationTypes,
@@ -895,6 +787,7 @@ export function useGuidelinesStore() {
     isConfiguredAnnotationType,
     isFetching: readonly(isFetching),
     isInitialized: readonly(isInitialized),
+    isStructuralType,
     isZeroPoint,
     setAnnotationMapping,
   };

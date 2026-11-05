@@ -5,7 +5,7 @@ import Panel from "primevue/panel";
 import Menu from "primevue/menu";
 import { MenuItem } from "primevue/menuitem";
 import { useDialog } from "primevue";
-import { Annotation, AnnotationType, NodeStatus } from "../models/types.ts";
+import { Annotation, NodeStatus } from "../models/types.ts";
 import type { ModelAttribute } from "../utils/helper/modelHelper";
 import { type ToCItem, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useGuidelinesStore } from "../store/guidelines.ts";
@@ -15,7 +15,7 @@ import EditorToCItem from "./EditorToCItem.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 
 const { tiptap, tableOfContent, initialStructuralAnnotations } = useTiptapStore();
-const { getTextAnnotationProperties, getEditorOwnedProperties, getStructuralAnnotationConfig } = useGuidelinesStore();
+const { getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useGuidelinesStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -81,10 +81,8 @@ function handleOpenMenu(event: Event, item: ToCItem): void {
  */
 function handleEditClick(item: ToCItem): void {
   const type: string = item.data.type;
-  const config: AnnotationType | undefined = getStructuralAnnotationConfig(type);
-
-  if (!config) {
-    console.error(`No annotation config found for type "${type}.`);
+  if (!isStructuralType(type)) {
+    console.error(`"${type}" is no structural annotation type.`);
     return;
   }
 

@@ -3,11 +3,12 @@ import { computed, ComputedRef, onBeforeUnmount, ref, useTemplateRef, watch } fr
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
-import { Annotation, AnnotationType, CollectionNode, CollectionFocus, HierarchyEntry, NodeDto } from "../models/types";
+import { Annotation, CollectionNode, CollectionFocus, HierarchyEntry, NodeDto } from "../models/types";
 import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import {
   getDefaultValue,
   getOptions,
+  getShapeProperties,
   getValueType,
   isEditable,
   isEmptyValue,
@@ -15,6 +16,7 @@ import {
   isRequired,
   isVisible,
   validateValue,
+  type ModelAnnotationShape,
   type ModelAttribute,
 } from "../utils/helper/modelHelper";
 import { filterBaseNodeLabels } from "../config/ramen";
@@ -64,10 +66,9 @@ const {
   isInitialized: areGuidelinesInitialized,
   annotationHasConstraints,
   getAllCollectionAttributes,
-  getCollectionAnnotationConfig,
-  getCollectionAnnotationProperties,
+  getCollectionAnnotationShape,
+  getCollectionAnnotationShapes,
   getCollectionAttributes,
-  getAvailableCollectionAnnotationConfigs,
   getModelContext,
 } = useGuidelinesStore();
 const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
@@ -102,8 +103,8 @@ const displayLabel = computed<string>(
   () => filterBaseNodeLabels(temporaryWorkData.value.collection.node.nodeLabels).join(", ") || "entry",
 );
 
-const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
-  getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
+const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
+  getCollectionAnnotationShapes(temporaryWorkData.value.collection.node.nodeLabels),
 );
 
 const SHOW_ANNOTATION_SUBTYPES: boolean = true;
@@ -113,28 +114,26 @@ const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotati
 const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
   return availabeAnnotationTypes.value
     .toSorted((a, b) => a.type.localeCompare(b.type))
-    .map((type: AnnotationType) => {
+    .map((type: ModelAnnotationShape) => {
       const subTypeField: ModelAttribute | undefined = SHOW_ANNOTATION_SUBTYPES
-        ? getCollectionAnnotationProperties(temporaryWorkData.value.collection.node.nodeLabels, type.type).find(
-            (field) => field.attribute.name === "subType",
-          )
+        ? getShapeProperties(type).find((field) => field.attribute.name === "subType")
         : undefined;
       const subTypeOptions: (string | number)[] = subTypeField ? (getOptions(getModelContext(), subTypeField) ?? []) : [];
 
       if (subTypeOptions.length === 0) {
         return {
           label: type.type,
-          annotationConfig: type,
+          annotationShape: type,
           command: () => handleAnnotationButtonClick({ type: type.type }),
         };
       }
 
       return {
         label: type.type,
-        annotationConfig: type,
+        annotationShape: type,
         items: subTypeOptions.map((option: string | number) => ({
           label: option.toString(),
-          annotationConfig: type,
+          annotationShape: type,
           command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
         })),
       };
@@ -525,17 +524,17 @@ function enrichCollectionData(): void {
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
   const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, data.type);
+  const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShape(nodeLabels, data.type);
 
-  if (!config) {
-    console.error(`No annotation config found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+  if (!shape) {
+    console.error(`No annotation shape found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
     return;
   }
 
   // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
   // eslint-disable-next-line no-constant-condition -- Safe to delete
-  if (annotationHasConstraints(config) || true) {
-    openAnnotationModal(newAnnotation, config, "create", `Add new ${data.subType ?? data.type} annotation`);
+  if (annotationHasConstraints(shape) || true) {
+    openAnnotationModal(newAnnotation, "create", `Add new ${data.subType ?? data.type} annotation`);
   } else {
     void saveAnnotation(newAnnotation);
   }
@@ -545,16 +544,15 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
  * Opens the {@linkcode CreateCollectionAnnotationModal}, which saves the annotation itself.
  *
  * @param {Annotation} annotation - The annotation to edit, or the template of a new one.
- * @param {AnnotationType} config - The Collection-scoped annotation config.
  * @param {"create" | "edit"} mode - Whether the annotation is new.
  * @param {string} header - The modal header.
  * @returns {void} This function does not return any value.
  */
-function openAnnotationModal(annotation: Annotation, config: AnnotationType, mode: "create" | "edit", header: string): void {
+function openAnnotationModal(annotation: Annotation, mode: "create" | "edit", header: string): void {
   createModalInstance(
     dialog.open(CreateCollectionAnnotationModal, {
       props: { ...ANNOTATION_MODAL_PROPS, header },
-      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, config, mode },
+      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, mode },
       emits: { onSaved: applyPersistedAnnotation },
       onClose: destroyModalInstance,
     }),
@@ -629,9 +627,7 @@ function handleEditAnnotation(uuid: string): void {
 
   const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
 
-  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
-
-  if (!config) {
+  if (!getCollectionAnnotationShape(nodeLabels, annotation.node.data.type)) {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
@@ -640,7 +636,7 @@ function handleEditAnnotation(uuid: string): void {
     return;
   }
 
-  openAnnotationModal(annotation, config, "edit", `Edit ${annotation.node.data.type} annotation`);
+  openAnnotationModal(annotation, "edit", `Edit ${annotation.node.data.type} annotation`);
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
@@ -727,7 +723,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
               <template #item="{ item, props: itemProps, hasSubmenu }">
                 <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :config="item.annotationConfig" />
+                    <AnnotationTypeIcon :shape="item.annotationShape" />
                   </span>
                   <span>{{ item.label }}</span>
                   <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>

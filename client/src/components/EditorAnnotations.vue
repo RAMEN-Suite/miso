@@ -3,7 +3,8 @@ import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize } from "../utils/helper/helper";
-import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
+import { NodeStatusObject, AnnotationNode } from "../models/types";
+import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -14,8 +15,8 @@ export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
   data?: NodeStatusObject;
-  /** Configuration of the annotation type, only set on nodes of type `type` */
-  config?: AnnotationType;
+  /** Annotation shape of the annotation type, only set on nodes of type `type` */
+  shape?: ModelAnnotationShape;
   key: string;
   label: string;
   type: "category" | "type" | "annotation";
@@ -66,12 +67,12 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
       annotationCount: 0,
     } satisfies TreeNode;
 
-    annotationType.forEach((annoType: AnnotationType, j: number) => {
+    annotationType.forEach((annoType: ModelAnnotationShape, j: number) => {
       const newAnnotationType = {
         key: i.toString() + "-" + j.toString(),
         label: annoType.type,
         type: "type",
-        config: annoType,
+        shape: annoType,
         children: [] as TreeNode[],
       } satisfies TreeNode;
 
@@ -178,7 +179,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
             </div>
             <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
               <div class="annotation-type-icon-container">
-                <AnnotationTypeIcon :config="slotProps.node.config" />
+                <AnnotationTypeIcon :shape="slotProps.node.shape" />
               </div>
               <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children?.length ?? 0 }}]</div>
             </div>

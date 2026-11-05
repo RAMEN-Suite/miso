@@ -20,7 +20,6 @@ export type {
   AnnotationAppearance,
   AnnotationExtent,
   AnnotationNode,
-  AnnotationType,
   AppearanceOverride,
   BuiltinStructuralType,
   HighlightTextStyle,
@@ -30,6 +29,5 @@ export type {
   NodeDto,
   NodeStatus,
   NodeStatusObject,
-  PropertyConfig,
   TextAnnotationRepresentation,
 } from "../../../models/types";

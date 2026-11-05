@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation, AnnotationType } from "../models/types";
-import type { ModelAttribute } from "../utils/helper/modelHelper";
+import { Annotation } from "../models/types";
+import type { ModelAnnotationShape, ModelAttribute } from "../utils/helper/modelHelper";
 import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
@@ -23,7 +23,7 @@ const emit = defineEmits<{
   remove: [event: Event];
 }>();
 
-const { getCollectionAnnotationConfig, getCollectionAnnotationProperties } = useGuidelinesStore();
+const { getCollectionAnnotationShape, getCollectionAnnotationProperties } = useGuidelinesStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
@@ -31,8 +31,8 @@ const propertyFields: ComputedRef<ModelAttribute[]> = computed(() =>
   getCollectionAnnotationProperties(props.collectionNodeLabels, annotation.value.node.data.type),
 );
 
-const config: ComputedRef<AnnotationType | undefined> = computed(() =>
-  getCollectionAnnotationConfig(props.collectionNodeLabels, annotation.value.node.data.type),
+const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() =>
+  getCollectionAnnotationShape(props.collectionNodeLabels, annotation.value.node.data.type),
 );
 
 const label: ComputedRef<string> = computed(() => String(annotation.value.node.data.subType ?? annotation.value.node.data.type));
@@ -77,7 +77,7 @@ function handleEditFromPopover(event: MouseEvent): void {
     @keydown.space.self.prevent="handleTogglePopover"
   >
     <div class="note-info">
-      <span class="note-icon"><AnnotationTypeIcon :config="config" /></span>
+      <span class="note-icon"><AnnotationTypeIcon :shape="shape" /></span>
       <span class="note-label">{{ label }}</span>
     </div>
     <Button

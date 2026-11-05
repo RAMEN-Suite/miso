@@ -3,7 +3,8 @@ import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "
 import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
-import { AnnotationType, NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
+import { NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
+import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";
@@ -34,7 +35,7 @@ type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 const {
   groupedAndSortedAnnotationTypes,
   annotationHasConstraints,
-  getAnnotationConfig,
+  getTextAnnotationShape,
   getAnnotationRepresentation,
   isZeroPoint,
 } = useGuidelinesStore();
@@ -63,7 +64,7 @@ const annotationCategories = computed(() =>
 
 const selectedCategory = ref<string>("");
 
-const blockClassificationTypes = computed<AnnotationType[]>(() =>
+const blockClassificationTypes = computed<ModelAnnotationShape[]>(() =>
   (groupedAndSortedAnnotationTypes.value?.structure ?? []).filter(
     (t) => getAnnotationRepresentation(t.type) === "blockClassification",
   ),
@@ -267,15 +268,15 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
   }
 
   try {
-    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
 
-    if (!config) {
-      console.error(`No annotation config found for type "${data.type}"`);
+    if (!shape) {
+      console.error(`No annotation shape found for type "${data.type}"`);
       return;
     }
 
     isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -287,7 +288,7 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
       selectedText: textInSelection,
     });
 
-    if (annotationHasConstraints(config)) {
+    if (annotationHasConstraints(shape)) {
       createModalInstance(
         dialog.open(AnnotationDetailsModal, {
           props: {
@@ -296,7 +297,6 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
           },
           data: {
             annotation: newAnnotationTemplate,
-            config,
             mode: "create",
           },
           emits: {
@@ -366,15 +366,13 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   }
 
   try {
-    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
-
-    if (!config) {
-      console.error(`No annotation config found for type "${data.type}"`);
+    if (!getTextAnnotationShape(data.type)) {
+      console.error(`No annotation shape found for type "${data.type}"`);
       return;
     }
 
     isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -472,7 +470,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
               :type="blockType.type"
               :disabled="!selectedOptions.includes(blockType.type)"
               :class="{ 'is-active': true }"
-              :config="getAnnotationConfig(blockType.type)!"
+              :shape="blockType"
               @click="handleBlockAnnotationClick({ type: blockType.type })"
             >
               {{ blockType.type }}
@@ -495,7 +493,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
                   :key="type.type"
                   :type="type.type"
                   :disabled="!selectedOptions.includes(type.type)"
-                  :config="getAnnotationConfig(type.type)!"
+                  :shape="type"
                   @clicked="handleInlineAnnotationButtonClick($event)"
                 />
               </div>

@@ -1,10 +1,5 @@
 import { Selection } from "@tiptap/pm/state";
-import {
-  AnnotationExtent,
-  AnnotationType,
-  TextAnnotationRepresentation,
-  useGuidelinesStore,
-} from "../../external";
+import { AnnotationExtent, TextAnnotationRepresentation, useGuidelinesStore } from "../../external";
 import AnnotationRangeError from "../errors/annotationRange.error";
 
 /**
@@ -12,11 +7,11 @@ import AnnotationRangeError from "../errors/annotationRange.error";
  * If the text selection is not valid, it throws an `AnnotationRangeError` with a descriptive error message.
  *
  * @param {Selection | undefined} selection - The current Selection of the editor.
- * @param {AnnotationType} config - The configuration of the annotation type to validate against.
+ * @param {string} type - The annotation type to validate against.
  * @returns {boolean} True if the text selection is valid, false otherwise.
  * @throws {AnnotationRangeError} If the text selection is not valid.
  */
-export function validateSelection(selection: Selection | undefined, config: AnnotationType): boolean {
+export function validateSelection(selection: Selection | undefined, type: string): boolean {
   const { getAnnotationRepresentation, getAnnotationExtent } = useGuidelinesStore();
 
   if (!selection) {
@@ -24,8 +19,8 @@ export function validateSelection(selection: Selection | undefined, config: Anno
   }
 
   const isCaret: boolean = selection.empty;
-  const representation: TextAnnotationRepresentation = getAnnotationRepresentation(config.type);
-  const extent: AnnotationExtent = getAnnotationExtent(config.type);
+  const representation: TextAnnotationRepresentation = getAnnotationRepresentation(type);
+  const extent: AnnotationExtent = getAnnotationExtent(type);
 
   if (isCaret && extent === "range" && representation === "inline") {
     throw new AnnotationRangeError("Select some text to annotate.");

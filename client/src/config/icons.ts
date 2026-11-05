@@ -1,5 +1,6 @@
-import { AnnotationType, BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
+import { BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
 import { filterBaseNodeLabels } from "./ramen";
+import { getShapeMiso, type ModelAnnotationShape } from "../utils/helper/modelHelper";
 
 /** Used when a node matches none of the known base labels. */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
@@ -32,11 +33,11 @@ export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
  * Resolves the configured icon of an annotation type. The icon identifies the type itself and doesn't depend on the
  * property values of an annotation.
  *
- * @param {AnnotationType | undefined} config - The configuration of the annotation type.
+ * @param {ModelAnnotationShape | undefined} shape - The annotation shape of the type.
  * @returns {IconSpecInput | undefined} The configured icon, or `undefined` if there is none.
  */
-export function resolveAnnotationIcon(config: AnnotationType | undefined): IconSpecInput | undefined {
-  return config?.miso?.appearance?.icon;
+export function resolveAnnotationIcon(shape: ModelAnnotationShape | undefined): IconSpecInput | undefined {
+  return shape ? getShapeMiso(shape)?.appearance?.icon : undefined;
 }
 
 /**

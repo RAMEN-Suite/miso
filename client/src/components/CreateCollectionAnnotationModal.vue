@@ -24,7 +24,7 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAnnotationConfig, getCollectionAnnotationProperties, getModelContext } = useGuidelinesStore();
+const { getCollectionAnnotationShape, getCollectionAnnotationProperties, getModelContext } = useGuidelinesStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
 const mode: "create" | "edit" = dialogRef.value.data.mode;
@@ -68,7 +68,7 @@ function prepareAnnotation(): Annotation {
 
   prepared.meta.status = mode === "create" ? "created" : "modified";
 
-  if (getCollectionAnnotationConfig(collection.nodeLabels, type) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+  if (getCollectionAnnotationShape(collection.nodeLabels, type) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
     pruneUnconfiguredProperties(
       prepared.node.data,
       getCollectionAnnotationProperties(collection.nodeLabels, type).map((field) => field.attribute.name),

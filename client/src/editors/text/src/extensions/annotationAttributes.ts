@@ -1,6 +1,6 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
-import { DocAnnotation } from "../models/types";
-import { Annotation, AnnotationType, useGuidelinesStore } from "../external";
+import { DocAnnotation, StructuralType } from "../models/types";
+import { Annotation, useGuidelinesStore } from "../external";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
   createDefaultDocAnnotation,
@@ -54,7 +54,7 @@ declare module "@tiptap/core" {
   }
 }
 
-const { getStructuralAnnotationConfigs, getEditorRole } = useGuidelinesStore();
+const { getStructuralTypes } = useGuidelinesStore();
 
 /**
  * Creates the annotation attributes for a structural node type. Both hold {@link DocAnnotation} objects.
@@ -106,14 +106,10 @@ export const AnnotationAttributes = Extension.create({
   name: "annotationAttributes",
 
   addGlobalAttributes() {
-    const builtinAttrs: GlobalAttributes = getStructuralAnnotationConfigs().map((config: AnnotationType) => {
-      const editorRole: string = getEditorRole(config.type);
-
-      return {
-        types: [editorRole],
-        attributes: createDefaultAttrs(config.type, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(editorRole)),
-      };
-    });
+    const builtinAttrs: GlobalAttributes = getStructuralTypes().map(({ type, editorRole }: StructuralType) => ({
+      types: [editorRole],
+      attributes: createDefaultAttrs(type, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(editorRole)),
+    }));
 
     return [...builtinAttrs];
   },

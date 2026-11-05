@@ -5,8 +5,8 @@ import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject } from "../models/types.ts";
-import type { ModelAttribute } from "../utils/helper/modelHelper";
+import { Annotation, AnnotationNode, NodeStatusObject } from "../models/types.ts";
+import type { ModelAnnotationShape, ModelAttribute } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
@@ -36,9 +36,9 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-const { getAnnotationConfig, getTextAnnotationProperties, getAnnotationExtent } = useGuidelinesStore();
+const { getTextAnnotationShape, getTextAnnotationProperties, getAnnotationExtent } = useGuidelinesStore();
 
-const config: AnnotationType | undefined = getAnnotationConfig(props.annotation.node.data.type);
+const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(props.annotation.node.data.type);
 
 const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.data.type) === "zeroPoint";
 const propertyFields: ModelAttribute[] = getTextAnnotationProperties(props.annotation.node.data.type);
@@ -86,8 +86,8 @@ function handleDeleteAnnotation(): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(): void {
-  if (!config) {
-    console.error(`No annotation config found for type "${props.annotation.node.data.type}"`);
+  if (!shape) {
+    console.error(`No annotation shape found for type "${props.annotation.node.data.type}"`);
     return;
   }
 
@@ -98,7 +98,7 @@ function handleEditAnnotation(): void {
         header: `Edit ${props.annotation.node.data.subType ?? props.annotation.node.data.type} annotation`,
       },
 
-      data: { annotation: props.annotation, config, mode: "edit" },
+      data: { annotation: props.annotation, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateData(updated);
@@ -179,7 +179,7 @@ function updateData(updated: Annotation): void {
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :config="config" />
+          <AnnotationTypeIcon :shape="shape" />
         </div>
         <span class="font-bold">{{ props.annotation.node.data.subType ?? props.annotation.node.data.type }}</span>
         <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.data.text">

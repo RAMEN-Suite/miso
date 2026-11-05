@@ -3,7 +3,7 @@ import { computed, ComputedRef, ref, useTemplateRef } from "vue";
 import { useFilterStore } from "../store/filter";
 import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize } from "../utils/helper/helper";
-import { AnnotationType } from "../models/types";
+import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
@@ -17,7 +17,7 @@ const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 /** Categories whose option list is currently collapsed in the filter pane. Purely visual, does not affect the selection. */
 const collapsedCategories = ref<Set<string>>(new Set());
 
-const filterableCategories: ComputedRef<Record<string, AnnotationType[]>> = computed(() => {
+const filterableCategories: ComputedRef<Record<string, ModelAnnotationShape[]>> = computed(() => {
   return Object.fromEntries(
     Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
   );
@@ -26,40 +26,40 @@ const filterableCategories: ComputedRef<Record<string, AnnotationType[]>> = comp
 /**
  * Retrieves the type names of the given annotation types.
  *
- * @param {AnnotationType[]} types - The annotation types of a category.
+ * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
  * @returns {string[]} The type names.
  */
-function getCategoryTypes(types: AnnotationType[]): string[] {
+function getCategoryTypes(types: ModelAnnotationShape[]): string[] {
   return types.map((t) => t.type);
 }
 
 /**
  * Counts how many of the given annotation types are currently selected.
  *
- * @param {AnnotationType[]} types - The annotation types of a category.
+ * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
  * @returns {number} The number of selected types.
  */
-function getSelectedCount(types: AnnotationType[]): number {
+function getSelectedCount(types: ModelAnnotationShape[]): number {
   return types.filter((t) => selectedOptions.value.includes(t.type)).length;
 }
 
 /**
  * Checks if all annotation types of a category are selected.
  *
- * @param {AnnotationType[]} types - The annotation types of a category.
+ * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
  * @returns {boolean} True if every type is selected.
  */
-function isCategoryFullySelected(types: AnnotationType[]): boolean {
+function isCategoryFullySelected(types: ModelAnnotationShape[]): boolean {
   return types.length > 0 && getSelectedCount(types) === types.length;
 }
 
 /**
  * Checks if only some (but not all or none) annotation types of a category are selected.
  *
- * @param {AnnotationType[]} types - The annotation types of a category.
+ * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
  * @returns {boolean} True if the selection is partial.
  */
-function isCategoryPartiallySelected(types: AnnotationType[]): boolean {
+function isCategoryPartiallySelected(types: ModelAnnotationShape[]): boolean {
   const count: number = getSelectedCount(types);
 
   return count > 0 && count < types.length;
@@ -159,7 +159,7 @@ function togglePopover(event: Event): void {
                   size="small"
                 />
                 <span class="annotation-type-icon-container shrink-0">
-                  <AnnotationTypeIcon :config="annotationType" :size="16" />
+                  <AnnotationTypeIcon :shape="annotationType" :size="16" />
                 </span>
                 <span class="option-name">{{ annotationType.type }}</span>
               </label>

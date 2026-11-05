@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { AnnotationType, IconSpecInput } from "../models/types";
+import { IconSpecInput } from "../models/types";
 import { resolveAnnotationIcon } from "../config/icons";
+import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const props = withDefaults(
   defineProps<{
-    config: AnnotationType | undefined;
+    /** The annotation shape whose configured icon is shown */
+    shape: ModelAnnotationShape | undefined;
     size?: number;
   }>(),
   {
@@ -14,7 +16,7 @@ const props = withDefaults(
   },
 );
 
-const icon = computed<IconSpecInput | undefined>(() => resolveAnnotationIcon(props.config));
+const icon = computed<IconSpecInput | undefined>(() => resolveAnnotationIcon(props.shape));
 </script>
 
 <template>

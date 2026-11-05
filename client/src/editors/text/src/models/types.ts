@@ -1,14 +1,14 @@
+import type { Attribute, Constraint } from "@ramen-suite/core";
 import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto } from "../external";
 
-/** An attribute of a native structural type that the editor itself sets, e.g. the level of a heading */
-export interface NativeTypeAttribute {
-  name: string;
-  type: "Integer" | "String";
-  required: boolean;
-  minimum?: number;
-  maximum?: number;
-  options?: string[];
-}
+/**
+ * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
+ * the type name, the cardinality (`lowerBound` 1 = required) and value rules as constraints. The constraints get their
+ * IDs when they are declared in a model.
+ */
+export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> & {
+  constraints?: Omit<Constraint, "id">[];
+};
 
 /**
  * A structural type the editor implements natively (paragraph, heading, table …). These are the editor's own defaults:
@@ -18,7 +18,7 @@ export interface NativeTypeConfig {
   type: BuiltinStructuralType;
   /** How annotations of the type extend in the text */
   extent: AnnotationExtent;
-  /** The attributes the editor sets itself */
+  /** The attributes the editor sets itself, in RAMEN terms */
   attributes: NativeTypeAttribute[];
 }
 

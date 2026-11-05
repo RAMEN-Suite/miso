@@ -16,6 +16,7 @@ import type { NativeTypeConfig, StructuralType } from "../editors/text/src/model
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
 import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
+import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
 import {
   BASE_NODE_REF,
@@ -368,7 +369,7 @@ export function useGuidelinesStore() {
     return (config?.attributes ?? []).map((attribute) => ({
       attribute: attribute.name,
       property: propertyByAttribute[attribute.name] ?? attribute.name,
-      required: attribute.required,
+      required: attribute.bounds.lowerBound >= 1,
     }));
   }
 
@@ -566,7 +567,8 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Groups the text annotation types by their configured `miso.group`.
+   * Groups the text annotation types by their configured `ext.miso.group`. Types mapped to a built-in structural type
+   * are always in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
    *
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
    */
@@ -574,7 +576,9 @@ export function useGuidelinesStore() {
     const grouped: Record<string, ModelAnnotationShape[]> = {};
 
     for (const shape of textShapesByType.value.values()) {
-      const category: string = getShapeMiso(shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
+      const category: string = isBuiltinStructuralType(shape.type)
+        ? STRUCTURE_ANNOTATION_GROUP
+        : (getShapeMiso(shape)?.group ?? DEFAULT_ANNOTATION_GROUP);
 
       grouped[category] = [...(grouped[category] ?? []), shape];
     }
@@ -650,8 +654,8 @@ export function useGuidelinesStore() {
 
   /**
    * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
-   * rebuilds the structural types so the renames take effect. On load, the mapping is built from the
-   * `miso.mappings` of the config; this function replaces it afterwards.
+   * rebuilds the structural types and the toolbar groups so the renames take effect. On load, the mapping is built
+   * from the `miso.mappings` of the config; this function replaces it afterwards.
    *
    * @param {AnnotationMapping} mapping - The annotation mapping to apply.
    * @return {void} This function does not return anything.
@@ -659,6 +663,8 @@ export function useGuidelinesStore() {
   function setAnnotationMapping(mapping: AnnotationMapping): void {
     annotationMapping.value = mapping;
     structuralTypes.value = buildStructuralTypes();
+    groupedAnnotationTypes.value = groupAnnotationTypes();
+    groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup();
   }
 
   /**
@@ -699,6 +705,13 @@ export function useGuidelinesStore() {
       const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
       const extent: AnnotationExtent = nativeExtent ?? miso.editing?.extent ?? "range";
       const appearances: [string, AppearanceOverride][] = [["ext.miso.appearance", miso.appearance ?? {}]];
+
+      if (native && miso.group !== undefined && miso.group !== STRUCTURE_ANNOTATION_GROUP) {
+        warn(
+          shape.type,
+          `ext.miso.group "${miso.group}" is ignored, types mapped to a built-in are always in "${STRUCTURE_ANNOTATION_GROUP}"`,
+        );
+      }
 
       (miso.appearance?.variants ?? []).forEach((variant, index) => {
         const property: ModelAttribute | undefined = getShapeProperties(shape).find(

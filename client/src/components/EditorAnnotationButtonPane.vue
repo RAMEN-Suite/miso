@@ -28,6 +28,7 @@ import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
+import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
@@ -59,13 +60,13 @@ const structureButtonProps = {
 } as const;
 
 const annotationCategories = computed(() =>
-  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
+  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
 );
 
 const selectedCategory = ref<string>("");
 
 const blockClassificationTypes = computed<ModelAnnotationShape[]>(() =>
-  (groupedAndSortedAnnotationTypes.value?.structure ?? []).filter(
+  (groupedAndSortedAnnotationTypes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
     (t) => getAnnotationRepresentation(t.type) === "blockClassification",
   ),
 );

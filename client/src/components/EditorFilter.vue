@@ -5,6 +5,7 @@ import { useGuidelinesStore } from "../store/guidelines";
 import { capitalize } from "../utils/helper/helper";
 import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
+import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
@@ -19,7 +20,7 @@ const collapsedCategories = ref<Set<string>>(new Set());
 
 const filterableCategories: ComputedRef<Record<string, ModelAnnotationShape[]>> = computed(() => {
   return Object.fromEntries(
-    Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
+    Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
   );
 });
 

@@ -354,7 +354,7 @@ export default class HierarchyService {
    */
   public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const guidelines = await guidelineService.getGuidelines();
+    const index = await guidelineService.getConfigIndex();
 
     const targetLabels: string[] | null = this.findNodeLabels(data, uuid);
 
@@ -364,7 +364,7 @@ export default class HierarchyService {
 
     const rootLabel: "Collection" | "Content" = targetLabels.includes("Content") ? "Content" : "Collection";
 
-    const flatNodeTree: NodeUpdateObject = flattenNodeTree(data, guidelines);
+    const flatNodeTree: NodeUpdateObject = flattenNodeTree(data, index);
     const query: string = buildSubgraphUpdateQuery(rootLabel);
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, {

@@ -1,7 +1,7 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import GuidelinesService from "../services/guidelines.service.js";
-import { IGuidelines } from "../models/IGuidelines.js";
+import { ConfigIndex } from "../models/IMisoConfig.js";
 import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult, PropertyConfig } from "../models/types.js";
 import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
@@ -23,8 +23,8 @@ const guidelinesService: GuidelinesService = new GuidelinesService();
  */
 router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const guidelines: IGuidelines = await guidelinesService.getGuidelines();
-    const properties: Map<string, PropertyConfig> = filterableProperties(guidelines);
+    const index: ConfigIndex = await guidelinesService.getConfigIndex();
+    const properties: Map<string, PropertyConfig> = filterableProperties(index);
 
     const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, properties);
     const signature: string = createQuerySignature({ scope, filters, sort, order });

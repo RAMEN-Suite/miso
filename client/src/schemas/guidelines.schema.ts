@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
-import GuidelinesValidationError from "../utils/errors/guidelinesValidation.error";
 
-// Schemas and types of the guidelines. The types are inferred from the schemas, so the format is defined only once.
-// Objects are strict, so unknown or misplaced keys (e.g. a typo or a key on the wrong level) are reported instead of
-// being ignored silently.
+// Schemas and types of the Miso-only configuration blocks (`ext.miso`) and of the configs the guidelines store returns.
+// The types are inferred from the schemas, so the format is defined only once. Objects are strict, so unknown or
+// misplaced keys (e.g. a typo or a key on the wrong level) are reported instead of being ignored silently. The Miso
+// config file itself is described in `misoConfig.schema.ts`.
 
 // ----- Icons -----
 
@@ -116,7 +116,7 @@ const annotationExtentSchema = z.enum(["zeroPoint", "range"]);
 
 const textAnnotationRepresentationSchema = z.enum(["structure", "inline", "blockClassification"]);
 
-const builtinStructuralTypeSchema = z.enum([
+export const builtinStructuralTypeSchema = z.enum([
   "paragraph",
   "heading",
   "hardBreak",
@@ -157,6 +157,33 @@ const annotationAppearanceSchema = z.strictObject({
   variants: z.array(appearanceVariantSchema).optional(),
 });
 
+/**
+ * Reports every attribute of a native mapping that the native type doesn't have.
+ *
+ * @param {string} nativeType - The native type.
+ * @param {Record<string, string> | undefined} attributes - Native attribute -> project property.
+ * @param {z.RefinementCtx} ctx - The refinement context to add the issues to.
+ * @returns {void} This function does not return anything.
+ */
+export function checkNativeAttributes(
+  nativeType: string,
+  attributes: Record<string, string> | undefined,
+  ctx: z.RefinementCtx,
+): void {
+  const nativeAttributes: string[] =
+    BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === nativeType)?.properties?.map((p) => p.name) ?? [];
+
+  for (const attribute of Object.keys(attributes ?? {})) {
+    if (!nativeAttributes.includes(attribute)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Unknown attribute "${attribute}" for native type "${nativeType}"`,
+        path: ["attributes", attribute],
+      });
+    }
+  }
+}
+
 const nativeTypeMappingSchema = z
   .strictObject({
     /** The native type */
@@ -167,22 +194,14 @@ const nativeTypeMappingSchema = z
      */
     attributes: z.record(z.string(), z.string()).optional(),
   })
-  .superRefine((mapping, ctx) => {
-    const nativeAttributes: string[] =
-      BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.type)?.properties?.map((p) => p.name) ?? [];
+  .superRefine((mapping, ctx) => checkNativeAttributes(mapping.type, mapping.attributes, ctx));
 
-    for (const attribute of Object.keys(mapping.attributes ?? {})) {
-      if (!nativeAttributes.includes(attribute)) {
-        ctx.addIssue({
-          code: "custom",
-          message: `Unknown attribute "${attribute}" for native type "${mapping.type}"`,
-          path: ["attributes", attribute],
-        });
-      }
-    }
-  });
+const annotationEditingShape = {
+  extent: annotationExtentSchema.optional(),
+  representation: textAnnotationRepresentationSchema.optional(),
+};
 
-const annotationMisoConfigSchema = z.strictObject({
+const annotationMisoConfigShape = {
   /** Group the annotation type is listed under in the toolbar and the filter */
   group: z.string().optional(),
   /** How the user creates and interacts with annotations of this type */
@@ -192,19 +211,29 @@ const annotationMisoConfigSchema = z.strictObject({
       shortcut: z.string().optional(),
     })
     .optional(),
+  appearance: annotationAppearanceSchema.optional(),
+};
+
+/** The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in `miso.mappings`. */
+export const annotationShapeMisoConfigSchema = z.strictObject({
+  ...annotationMisoConfigShape,
+  /** How annotations of this type are placed and represented in the content */
+  editing: z.strictObject(annotationEditingShape).optional(),
+});
+
+const annotationMisoConfigSchema = z.strictObject({
+  ...annotationMisoConfigShape,
   /** How annotations of this type are placed and represented in the content */
   editing: z
     .strictObject({
-      extent: annotationExtentSchema.optional(),
-      representation: textAnnotationRepresentationSchema.optional(),
+      ...annotationEditingShape,
       /**
        * The editor's native type that implements this annotation type. Its extent and representation are then taken
-       * from the native type.
+       * from the native type. Taken from the `miso.mappings` of the Miso config.
        */
       native: nativeTypeMappingSchema.optional(),
     })
     .optional(),
-  appearance: annotationAppearanceSchema.optional(),
 });
 
 /**
@@ -250,8 +279,12 @@ export type NativeTypeMapping = z.infer<typeof nativeTypeMappingSchema>;
 
 /**
  * Miso-only configuration of an annotation type. Everything in here is frontend-only and not part of the data model.
+ * Built from the `ext.miso` block of the annotation shape and its entry in `miso.mappings` (as `editing.native`).
  */
 export type AnnotationMisoConfig = z.infer<typeof annotationMisoConfigSchema>;
+
+/** The `ext.miso` block of an annotation shape, i.e. {@linkcode AnnotationMisoConfig} without `editing.native` */
+export type AnnotationShapeMisoConfig = z.infer<typeof annotationShapeMisoConfigSchema>;
 
 // ----- Properties -----
 
@@ -297,6 +330,8 @@ const propertyConfigShape = {
   maxLength: z.number().optional(),
   /** Options if type is dropdown */
   options: z.union([z.array(z.string()), z.array(z.number())]).optional(),
+  /** ID of the model attribute the config is derived from. Not used for matching yet, that still goes by `name`. */
+  attributeId: z.string().optional(),
 };
 
 const propertyConfigSchema = z.strictObject({
@@ -305,25 +340,31 @@ const propertyConfigSchema = z.strictObject({
   items: z.strictObject(propertyConfigShape).partial().optional(),
 });
 
-const scopedPropertiesSchema = z.strictObject({
-  system: z.array(propertyConfigSchema),
-  base: z.array(propertyConfigSchema),
-});
-
 export type PropertyConfigDataType = z.infer<typeof propertyConfigDataTypeSchema>;
 
+/**
+ * How a property is edited and validated in forms. Derived from a model attribute (type, bounds, literals,
+ * `isReadOnly`) and the `ext.miso` block of its entry (`visible`, `editable`).
+ */
 export type PropertyConfig = z.infer<typeof propertyConfigSchema>;
 
 // ----- Annotation types -----
 
 const annotationTypeSchema = z.strictObject({
-  hasEntities: z.boolean().optional(), // Derived from Nori
-  properties: z.array(propertyConfigSchema).optional(), // Nori
-  type: z.string(), // Nori -> discriminator, also property there
+  /** Whether the annotation type can refer to entities, derived from the `REFERS_TO` rules of its shape */
+  hasEntities: z.boolean().optional(),
+  properties: z.array(propertyConfigSchema).optional(),
+  /** Name of the annotation type. Used for matching until the lookups use IDs. */
+  type: z.string(),
   /** Miso-only configuration (editor behaviour, controls, appearance) */
   miso: annotationMisoConfigSchema.optional(),
+  /** Qualified ref (`<modelId>:<id>`) of the annotation shape the type is derived from */
+  annotationRef: z.string().optional(),
+  /** Qualified ref (`<modelId>:<id>`) of the Annotation node (family) the shape belongs to */
+  familyRef: z.string().optional(),
 });
 
+/** An annotation type as returned by the lookups of the guidelines store, derived from an annotation shape */
 export type AnnotationType = z.infer<typeof annotationTypeSchema>;
 
 // ----- Node types -----
@@ -350,71 +391,16 @@ export type ContentMedium = z.infer<typeof contentMediumSchema>;
 /** Miso-only configuration of a Content type */
 export type ContentTypeMisoConfig = z.infer<typeof contentTypeMisoConfigSchema>;
 
-// ----- Guidelines -----
+/** The `ext.miso` block of a classifier in the Miso config. `medium` only applies to Content refinements. */
+export const classifierMisoConfigSchema = contentTypeMisoConfigSchema;
 
-const guidelinesSchema = z.strictObject({
-  /** Refinements of the Collection node, e.g. Letter or Abstract */
-  collections: z.strictObject({
-    miso: nodeMisoConfigSchema.optional(),
-    properties: scopedPropertiesSchema,
-    types: z.array(
-      z.strictObject({
-        additionalLabel: z.string(),
-        properties: z.array(propertyConfigSchema),
-        annotations: z.strictObject({
-          types: z.array(annotationTypeSchema),
-          properties: z.array(propertyConfigSchema),
-        }),
-        miso: nodeMisoConfigSchema.optional(),
-      }),
-    ),
-    annotations: z.strictObject({
-      types: z.array(annotationTypeSchema),
-      properties: scopedPropertiesSchema,
-    }),
-  }),
-  /** Refinements of the Content node, e.g. Text or Image */
-  contents: z.strictObject({
-    miso: nodeMisoConfigSchema.optional(),
-    types: z.array(
-      z.strictObject({
-        additionalLabel: z.string(),
-        miso: contentTypeMisoConfigSchema.optional(),
-      }),
-    ),
-    annotations: z.strictObject({
-      types: z.array(annotationTypeSchema),
-      properties: scopedPropertiesSchema,
-    }),
-  }),
-  /** Refinements of the Entity node, e.g. Person or Place */
-  entities: z.strictObject({
-    miso: nodeMisoConfigSchema.optional(),
-    types: z.array(
-      z.strictObject({
-        additionalLabel: z.string(),
-        miso: nodeMisoConfigSchema.optional(),
-      }),
-    ),
-  }),
+/** The `ext.miso` block of an attribute (or annotation shape property) in the Miso config */
+export const attributeMisoConfigSchema = z.strictObject({
+  /** Visible by user. Defaults to `true`. */
+  visible: z.boolean().optional(),
+  /** Editable by user. Defaults to `true`; always `false` for attributes that are read-only in the model. */
+  editable: z.boolean().optional(),
 });
 
-export type IGuidelines = z.infer<typeof guidelinesSchema>;
-
-/**
- * Checks that the given data has the format of {@linkcode IGuidelines} and returns it typed.
- *
- * @param {unknown} data - The guidelines as received, e.g. the parsed JSON response of the API.
- * @returns {IGuidelines} The validated guidelines.
- * @throws {GuidelinesValidationError} If the data does not match the format. The message lists every problem with
- * its path in the guidelines.
- */
-export function parseGuidelines(data: unknown): IGuidelines {
-  const result = guidelinesSchema.safeParse(data);
-
-  if (!result.success) {
-    throw new GuidelinesValidationError(z.prettifyError(result.error));
-  }
-
-  return result.data;
-}
+/** Miso-only configuration of an attribute */
+export type AttributeMisoConfig = z.infer<typeof attributeMisoConfigSchema>;

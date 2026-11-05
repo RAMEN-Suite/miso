@@ -4,8 +4,7 @@ import { useGuidelinesStore } from "./guidelines";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { ToastMessageOptions, ToastServiceMethods } from "primevue";
 import AppError from "../utils/errors/app.error";
-import { IGuidelines } from "../models/IGuidelines";
-import { parseGuidelines } from "../schemas/guidelines.schema";
+import { ParsedMisoConfig, parseMisoConfig } from "../schemas/misoConfig.schema";
 
 const { error: guidelinesError, initializeGuidelines } = useGuidelinesStore();
 
@@ -74,15 +73,15 @@ export function useAppStore() {
   }
 
   /**
-   * Fetches the guidelines, validates their format and initializes the store with them.
+   * Fetches the Miso config, validates it and initializes the guidelines store with it.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   * @throws {GuidelinesValidationError} If the fetched guidelines do not have the expected format.
+   * @throws {GuidelinesValidationError} If the fetched config does not have the expected format or its model is invalid.
    */
   async function fetchAndInitializeGuidelines(): Promise<void> {
-    const guidelines: IGuidelines = parseGuidelines(await api.getGuidelines());
+    const parsed: ParsedMisoConfig = parseMisoConfig(await api.getGuidelines());
 
-    initializeGuidelines(guidelines);
+    initializeGuidelines(parsed);
   }
 
   /**

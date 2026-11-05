@@ -318,7 +318,7 @@ export default class ApiService {
   }
 
   /**
-   * Fetches the guidelines. They are returned as received and validated by the caller.
+   * Fetches the guidelines, i.e. the Miso config. It is returned as received and validated by the caller.
    *
    * @returns {Promise<unknown>} The parsed JSON response.
    */

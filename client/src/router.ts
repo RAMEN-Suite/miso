@@ -16,6 +16,8 @@ const allRoutes = [
     meta: { layout: "default" as const },
   },
   { path: "/contents/:uuid", component: EditorView, meta: { layout: "default" as const }, alias: ["/texts/:uuid"] },
+  // Lazy, so the playground and ramen-core stay out of the production bundle
+  { path: "/playground", component: () => import("./views/PlaygroundView.vue"), meta: { layout: "default" as const } },
   { path: "/:pathMatch(.*)*", component: NotFound, meta: { layout: "blank" as const } },
 ];
 

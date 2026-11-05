@@ -1,5 +1,4 @@
 import { computed, readonly, ref } from "vue";
-import { IGuidelines } from "../models/IGuidelines";
 import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
@@ -19,16 +18,19 @@ import type { AnnotationMapping } from "../editors/text/src";
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
 import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
+import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
+import { buildConfigIndex, ConfigIndex } from "../utils/helper/configIndexHelper";
 
 /** Group for annotation types without a configured `miso.group`.*/
 const DEFAULT_ANNOTATION_GROUP = "other" as const;
 
 const { initializeFilter } = useFilterStore();
 const { parseShortcut } = useShortcutsStore();
-const guidelines = ref<IGuidelines>();
+/** The lookup index built from the Miso config. All access methods read from here. */
+const configIndex = ref<ConfigIndex>();
 const isFetching = ref<boolean>(false);
 const error = ref<Error | null>(null);
-const isInitialized = computed<boolean>(() => guidelines.value !== undefined && !isFetching.value);
+const isInitialized = computed<boolean>(() => configIndex.value !== undefined && !isFetching.value);
 
 const groupedAnnotationTypes = ref<Record<string, AnnotationType[]>>();
 const availableCollectionLabels = ref<string[]>([]);
@@ -71,9 +73,11 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 });
 
 /**
- * Store for making the edition guidelines available to all components. When the component is mounted,
- * the store is initialized with the fetched guidelines. The store is static, meaning that no properties are changed
- * after the initialization. Other stores (filter.ts) are derived from this store.
+ * Store for making the edition guidelines available to all components. When the app is mounted, the store is
+ * initialized with the fetched Miso config, from which a lookup index is built. The store is static, meaning that no
+ * properties are changed after the initialization. Other stores (filter.ts) are derived from this store.
+ *
+ * The lookups still match by name (annotation `type`, node label), the returned configs already carry the model IDs.
  */
 export function useGuidelinesStore() {
   /**
@@ -98,37 +102,37 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Registers the node icons configured in the `miso` keys of the Collection, Content and Entity nodes and their
+   * Registers the node icons configured in the `ext.miso` blocks of the Collection, Content and Entity nodes and their
    * types, so that {@linkcode resolveNodeIcon} picks them up.
    *
-   * @param {IGuidelines} guidelinesData - The guidelines to read the icons from.
+   * @param {ConfigIndex} index - The lookup index to read the icons from.
    * @return {void} This function does not return anything.
    */
-  function applyConfiguredNodeIcons(guidelinesData: IGuidelines): void {
-    registerNodeIcon("Collection", guidelinesData.collections.miso?.appearance?.icon);
-    registerNodeIcon("Content", guidelinesData.contents.miso?.appearance?.icon);
-    registerNodeIcon("Entity", guidelinesData.entities?.miso?.appearance?.icon);
+  function applyConfiguredNodeIcons(index: ConfigIndex): void {
+    registerNodeIcon("Collection", index.collections.miso?.appearance?.icon);
+    registerNodeIcon("Content", index.contents.miso?.appearance?.icon);
+    registerNodeIcon("Entity", index.entities.miso?.appearance?.icon);
 
-    guidelinesData.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
-    guidelinesData.contents.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
-    (guidelinesData.entities?.types ?? []).forEach((e) => registerNodeIcon(e.additionalLabel, e.miso?.appearance?.icon));
+    index.collections.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
+    index.contents.types.forEach((c) => registerNodeIcon(c.additionalLabel, c.miso?.appearance?.icon));
+    index.entities.types.forEach((e) => registerNodeIcon(e.additionalLabel, e.miso?.appearance?.icon));
   }
 
   /**
    * Builds the mapping between the editor's native structural types/attributes and the project's annotation
    * types/properties. Starts from the default mapping in {@linkcode DEFAULT_ANNOTATION_MAPPING} and overrides it with
-   * the `miso.editing.native` keys of the annotation types.
+   * the `miso.editing.native` keys of the annotation types (taken from `miso.mappings` of the config).
    *
-   * @param {IGuidelines} guidelinesData - The guidelines to read the native type mappings from.
+   * @param {ConfigIndex} index - The lookup index to read the native type mappings from.
    * @returns {AnnotationMapping} The annotation mapping.
    */
-  function buildAnnotationMapping(guidelinesData: IGuidelines): AnnotationMapping {
+  function buildAnnotationMapping(index: ConfigIndex): AnnotationMapping {
     const typeByRole: Partial<Record<BuiltinStructuralType, string>> = { ...DEFAULT_ANNOTATION_MAPPING.typeByRole };
     const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {
       ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
     };
 
-    for (const config of guidelinesData.contents.annotations.types) {
+    for (const config of index.contents.annotationTypes) {
       const native: NativeTypeMapping | undefined = config.miso?.editing?.native;
 
       if (!native) {
@@ -152,10 +156,10 @@ export function useGuidelinesStore() {
    * entry with the same type extends it (see {@linkcode extendBuiltinProperties}); any other structural entry
    * is kept as a custom structural type.
    *
-   * @param {IGuidelines} guidelinesData The domain guidelines
+   * @param {ConfigIndex} index The lookup index
    * @returns {AnnotationType[]} The merged structural configs keyed by project type name
    */
-  function buildMergedStructuralConfigs(guidelinesData: IGuidelines): AnnotationType[] {
+  function buildMergedStructuralConfigs(index: ConfigIndex): AnnotationType[] {
     // 1. Built-in types, renamed to the project's type/property names if configured
     const builtInDerived: AnnotationType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => {
       const editorRole: string = config.type;
@@ -175,7 +179,7 @@ export function useGuidelinesStore() {
     });
 
     // 2. All types in the custom configuration. Types mapped to a native type are structural without saying so.
-    for (const entry of guidelinesData.contents.annotations.types) {
+    for (const entry of index.contents.annotationTypes) {
       if (!entry.miso?.editing?.native && entry.miso?.editing?.representation !== "structure") {
         continue;
       }
@@ -216,7 +220,7 @@ export function useGuidelinesStore() {
    * @return {AnnotationType | undefined} The configuration of the annotation type, `undefined` if the type is not configured.
    */
   function getAnnotationConfig(type: string): AnnotationType | undefined {
-    return getLoadedGuidelines().contents.annotations.types.find((t) => t.type === type);
+    return getLoadedConfigIndex().contents.annotationTypes.find((t) => t.type === type);
   }
 
   /**
@@ -245,8 +249,8 @@ export function useGuidelinesStore() {
 
   /**
    * Retrieves the properties an annotation of given type should should have. Used for rendering input fields in forms
-   * where properties of the annotation can be edited. The fields are retrieved from the annotation type itself (if it has any)
-   * and from the global annotation properties.
+   * where properties of the annotation can be edited. The fields are the properties of the annotation shape. Shared
+   * system properties (e.g. `text`) are not configured yet.
    *
    * This function is only used for Text annotations, not Collections annotations.
    *
@@ -254,12 +258,7 @@ export function useGuidelinesStore() {
    * @return {PropertyConfig[]} The fields for the annotation type.
    */
   function getAnnotationFields(type: string): PropertyConfig[] {
-    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
-    const system: PropertyConfig[] = loadedGuidelines.contents.annotations.properties.system;
-    const base: PropertyConfig[] = loadedGuidelines.contents.annotations.properties.base;
-    const additional: PropertyConfig[] = getAnnotationConfig(type)?.properties ?? [];
-
-    return [...additional, ...system, ...base];
+    return getAnnotationConfig(type)?.properties ?? [];
   }
 
   /**
@@ -304,18 +303,23 @@ export function useGuidelinesStore() {
     return annotationMapping.value.typeByRole[editorRole as BuiltinStructuralType] ?? editorRole;
   }
 
+  /**
+   * Retrieves the annotation types available on a Collection with the given node labels: the ones carried by all
+   * Collections, plus the ones carried only by one of its types.
+   *
+   * @param {string[]} collectionNodeLabels - The node labels of the Collection.
+   * @return {AnnotationType[]} The available annotation types.
+   */
   function getAvailableCollectionAnnotationConfigs(collectionNodeLabels: string[]): AnnotationType[] {
-    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
-    const base: AnnotationType[] = loadedGuidelines.collections.annotations.types;
-    const additional: AnnotationType[] = loadedGuidelines.collections.types.reduce((total: AnnotationType[], curr) => {
-      if (collectionNodeLabels.includes(curr.additionalLabel)) {
-        const nested: AnnotationType[] = curr.annotations?.types ?? [];
-        total.push(...nested);
-      }
-      return total;
-    }, []);
+    const index: ConfigIndex = getLoadedConfigIndex();
+    const additional: AnnotationType[] = index.collections.types
+      .filter((type) => collectionNodeLabels.includes(type.additionalLabel))
+      .flatMap((type) => type.annotationTypes);
 
-    return [...base, ...additional];
+    // A shape carried by several types of the Collection would be listed once per type
+    return [...index.collections.annotationTypes, ...additional].filter(
+      (config, position, all) => all.findIndex((other) => other.annotationRef === config.annotationRef) === position,
+    );
   }
 
   /**
@@ -324,7 +328,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableCollectionLabels(): string[] {
-    return guidelines.value?.collections.types.map((collection) => collection.additionalLabel) ?? [];
+    return configIndex.value?.collections.types.map((collection) => collection.additionalLabel) ?? [];
   }
 
   /**
@@ -333,7 +337,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableContentLabels(): string[] {
-    return guidelines.value?.contents.types.map((content) => content.additionalLabel) ?? [];
+    return configIndex.value?.contents.types.map((content) => content.additionalLabel) ?? [];
   }
 
   /**
@@ -343,7 +347,7 @@ export function useGuidelinesStore() {
    * @return {ContentMedium} The configured medium, `text` if none is configured.
    */
   function getContentMedium(nodeLabels: string[]): ContentMedium {
-    const contentType = guidelines.value?.contents.types.find(
+    const contentType = configIndex.value?.contents.types.find(
       (content) => nodeLabels.includes(content.additionalLabel) && content.miso?.medium,
     );
 
@@ -356,7 +360,7 @@ export function useGuidelinesStore() {
    * @return {string[]} The available labels.
    */
   function getAvailableEntityLabels(): string[] {
-    return guidelines.value?.entities?.types.map((e) => e.additionalLabel) ?? [];
+    return configIndex.value?.entities.types.map((e) => e.additionalLabel) ?? [];
   }
 
   /**
@@ -405,39 +409,15 @@ export function useGuidelinesStore() {
 
   /**
    * Retrieves the properties an annotation of given type should have in the context of a Collection with given node labels.
-   * Used for rendering input fields in forms where properties of the annotation can be edited. Currently a hack.
+   * Used for rendering input fields in forms where properties of the annotation can be edited. The fields are the
+   * properties of the annotation shape. Shared system properties are not configured yet.
    *
    * @param {string[]} collectionNodeLabels - The node labels of the Collection.
    * @param {string} annotationType - The type of the annotation.
    * @return {PropertyConfig[]} The fields for the annotation type in the context of the Collection.
    */
   function getCollectionAnnotationFields(collectionNodeLabels: string[], annotationType: string): PropertyConfig[] {
-    // TODO: This is a hack since the guidelines structure can change. It should be refactored to use the same structure as the annotations.
-
-    const loadedGuidelines: IGuidelines = getLoadedGuidelines();
-
-    // Default properties for annotations that are in ALL collections
-    const byDefault: PropertyConfig[] = [
-      ...(loadedGuidelines.collections.annotations?.properties.system ?? []),
-      ...(loadedGuidelines.collections.annotations?.properties.base ?? []),
-    ];
-
-    // Default properties for annotations that exists in the collections with given node labels
-    const byCollectionType: PropertyConfig[] = loadedGuidelines.collections.types.reduce((total: PropertyConfig[], curr) => {
-      if (collectionNodeLabels.includes(curr.additionalLabel)) {
-        const nestedFields: PropertyConfig[] = curr.annotations?.properties ?? [];
-
-        total.push(...nestedFields);
-      }
-
-      return total;
-    }, []);
-
-    // Properties for the given annotation type (no matter which level)
-    const byAnnotationType: PropertyConfig[] =
-      getAvailableCollectionAnnotationConfigs(collectionNodeLabels).find((t) => t.type === annotationType)?.properties ?? [];
-
-    return [...byDefault, ...byCollectionType, ...byAnnotationType];
+    return getCollectionAnnotationConfig(collectionNodeLabels, annotationType)?.properties ?? [];
   }
 
   /**
@@ -445,20 +425,16 @@ export function useGuidelinesStore() {
    * Used for rendering data tables or input fields in forms.
    *
    * @param {string[]} nodeLabels - The additional labels of the collection.
-   * @return {PropertyConfig[]} The field configurations for the collection type.
+   * @return {PropertyConfig[]} The attributes of the Collection node, followed by those of the matching types.
    */
   function getCollectionConfigFields(nodeLabels: string[]): PropertyConfig[] {
-    const system: PropertyConfig[] = guidelines.value?.collections.properties.system ?? [];
-    const base: PropertyConfig[] = guidelines.value?.collections.properties.base ?? [];
+    const shared: PropertyConfig[] = configIndex.value?.collections.properties ?? [];
     const additional: PropertyConfig[] =
-      guidelines.value?.collections.types.reduce((total: PropertyConfig[], curr) => {
-        if (nodeLabels.includes(curr.additionalLabel)) {
-          total.push(...curr.properties);
-        }
-        return total;
-      }, []) ?? [];
+      configIndex.value?.collections.types
+        .filter((type) => nodeLabels.includes(type.additionalLabel))
+        .flatMap((type) => type.properties) ?? [];
 
-    return [...system, ...base, ...additional];
+    return [...shared, ...additional];
   }
 
   /**
@@ -511,17 +487,17 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns the loaded guidelines. Only call this from code that runs after {@linkcode initializeGuidelines}.
+   * Returns the lookup index. Only call this from code that runs after {@linkcode initializeGuidelines}.
    *
-   * @returns {IGuidelines} The loaded guidelines.
-   * @throws {Error} If the guidelines have not been loaded yet.
+   * @returns {ConfigIndex} The lookup index built from the Miso config.
+   * @throws {Error} If the config has not been loaded yet.
    */
-  function getLoadedGuidelines(): IGuidelines {
-    if (!guidelines.value) {
+  function getLoadedConfigIndex(): ConfigIndex {
+    if (!configIndex.value) {
       throw new Error("Guidelines are not initialized");
     }
 
-    return guidelines.value;
+    return configIndex.value;
   }
 
   /**
@@ -544,7 +520,7 @@ export function useGuidelinesStore() {
    * @return {Record<string, AnnotationType[]>} An object where the keys are the categories and the values are arrays of annotation types belonging to that category.
    */
   function groupAnnotationTypes(): Record<string, AnnotationType[]> {
-    return getLoadedGuidelines().contents.annotations.types.reduce(
+    return getLoadedConfigIndex().contents.annotationTypes.reduce(
       (grouped: Record<string, AnnotationType[]>, current: AnnotationType) => {
         const category: string = current.miso?.group ?? DEFAULT_ANNOTATION_GROUP;
 
@@ -561,26 +537,29 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Initializes the store with the provided data and initializes the filter store.
+   * Initializes the store with the Miso config: builds the lookup index and initializes the filter store.
    *
-   * @param {IGuidelines} guidelinesData - The guidelines data to initialize with.
+   * @param {ParsedMisoConfig} parsed - The validated Miso config and its imported model.
    * @return {void} This function does not return anything.
    */
-  function initializeGuidelines(guidelinesData: IGuidelines): void {
-    validateMisoConfig(guidelinesData);
-    applyConfiguredNodeIcons(guidelinesData);
+  function initializeGuidelines(parsed: ParsedMisoConfig): void {
+    const index: ConfigIndex = buildConfigIndex(parsed.config, parsed.model);
+
+    index.warnings.forEach((warning) => console.warn(`Miso config: ${warning}`));
+    validateMisoConfig(index);
+    applyConfiguredNodeIcons(index);
 
     // Must be set before the structural configs are merged, since they are keyed by the project's type names
-    annotationMapping.value = buildAnnotationMapping(guidelinesData);
-    guidelines.value = guidelinesData;
-    mergedStructuralConfigs.value = buildMergedStructuralConfigs(guidelinesData);
+    annotationMapping.value = buildAnnotationMapping(index);
+    configIndex.value = index;
+    mergedStructuralConfigs.value = buildMergedStructuralConfigs(index);
     groupedAnnotationTypes.value = groupAnnotationTypes();
     groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup();
     availableCollectionLabels.value = getAvailableCollectionLabels();
     availableEntityLabels.value = getAvailableEntityLabels();
     availableTextLabels.value = getAvailableContentLabels();
 
-    initializeFilter(guidelines.value);
+    initializeFilter(index.contents.annotationTypes.map((type) => type.type));
   }
 
   /**
@@ -668,7 +647,7 @@ export function useGuidelinesStore() {
   /**
    * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
    * rebuilds the merged structural configs so the renames take effect. On load, the mapping is built from the
-   * `miso.editing.native` keys of the guidelines; this function replaces it afterwards.
+   * `miso.mappings` of the config; this function replaces it afterwards.
    *
    * @param {AnnotationMapping} mapping - The annotation mapping to apply.
    * @return {void} This function does not return anything.
@@ -676,8 +655,8 @@ export function useGuidelinesStore() {
   function setAnnotationMapping(mapping: AnnotationMapping): void {
     annotationMapping.value = mapping;
 
-    if (guidelines.value) {
-      mergedStructuralConfigs.value = buildMergedStructuralConfigs(guidelines.value);
+    if (configIndex.value) {
+      mergedStructuralConfigs.value = buildMergedStructuralConfigs(configIndex.value);
     }
   }
 
@@ -699,18 +678,18 @@ export function useGuidelinesStore() {
    * Checks the `miso` configuration of all annotation types for mistakes and logs a warning for each one found.
    * Invalid parts are not removed, they are just ignored where they don't apply.
    *
-   * @param {IGuidelines} guidelinesData - The guidelines to validate.
+   * @param {ConfigIndex} index - The lookup index to validate.
    * @return {void} This function does not return anything.
    */
-  function validateMisoConfig(guidelinesData: IGuidelines): void {
+  function validateMisoConfig(index: ConfigIndex): void {
     const warn = (type: string, message: string): void => {
       console.warn(`Invalid miso configuration for annotation type "${type}": ${message}`);
     };
 
     const annotationTypes: AnnotationType[] = [
-      ...guidelinesData.contents.annotations.types,
-      ...(guidelinesData.collections.annotations?.types ?? []),
-      ...guidelinesData.collections.types.flatMap((c) => c.annotations?.types ?? []),
+      ...index.contents.annotationTypes,
+      ...index.collections.annotationTypes,
+      ...index.collections.types.flatMap((c) => c.annotationTypes),
     ];
 
     for (const config of annotationTypes) {
@@ -763,7 +742,7 @@ export function useGuidelinesStore() {
     // Shortcuts are only registered for the editor's annotation types
     const typesByShortcut = new Map<string, string[]>();
 
-    for (const config of guidelinesData.contents.annotations.types) {
+    for (const config of index.contents.annotationTypes) {
       const shortcut: string | undefined = config.miso?.controls?.shortcut;
 
       if (shortcut) {
@@ -807,7 +786,6 @@ export function useGuidelinesStore() {
     getStructuralAnnotationConfigs: (): AnnotationType[] => mergedStructuralConfigs.value,
     groupedAndSortedAnnotationTypes,
     groupedAnnotationTypes,
-    guidelines,
     initializeGuidelines,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,

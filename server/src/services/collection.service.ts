@@ -3,7 +3,7 @@ import Neo4jDriver from "../database/neo4j.js";
 import GuidelinesService from "./guidelines.service.js";
 import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { IGuidelines } from "../models/IGuidelines.js";
+import { ConfigIndex } from "../models/IMisoConfig.js";
 import {
   PaginationResult,
   CollectionNode,
@@ -26,11 +26,11 @@ export default class CollectionService {
    * Called during creating and updating a collection to check the data validity (specifically, when no additional
    * node label is provided).
    *
-   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @param {ConfigIndex} index - The lookup index of the guidelines to check against.
    * @return {string[]} The available labels.
    */
-  private getAvailableCollectionLabelsFromGuidelines(guidelines: IGuidelines): string[] {
-    return guidelines?.collections.types.map((collection) => collection.additionalLabel) ?? [];
+  private getAvailableCollectionLabelsFromGuidelines(index: ConfigIndex): string[] {
+    return index.collections.types.map((collection) => collection.additionalLabel);
   }
 
   /**
@@ -73,12 +73,12 @@ export default class CollectionService {
    * Called during creating and updating a collection.
    *
    * @param {CollectionNode} collection - The collection node to check for validity.
-   * @param {IGuidelines} guidelines - The guidelines to check against.
+   * @param {ConfigIndex} index - The lookup index of the guidelines to check against.
    * @returns {void} This function does not return any value.
    * @throws {ValidationError} If the data is not valid according to the guidelines.
    */
-  private checkValidity(collection: CollectionNode, guidelines: IGuidelines): void {
-    const availableNodeLabels = this.getAvailableCollectionLabelsFromGuidelines(guidelines);
+  private checkValidity(collection: CollectionNode, index: ConfigIndex): void {
+    const availableNodeLabels = this.getAvailableCollectionLabelsFromGuidelines(index);
 
     // Collections must have and additional node label (if options exist)
     if (availableNodeLabels.length > 0 && collection.nodeLabels.length === 0) {
@@ -173,11 +173,11 @@ export default class CollectionService {
    */
   public async updateCollection(uuid: string, root: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const guidelines = await guidelineService.getGuidelines();
+    const index: ConfigIndex = await guidelineService.getConfigIndex();
 
-    this.checkValidity(root.node as CollectionNode, guidelines);
+    this.checkValidity(root.node as CollectionNode, index);
 
-    const flat = flattenNodeTree(root, guidelines);
+    const flat = flattenNodeTree(root, index);
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
@@ -232,8 +232,8 @@ export default class CollectionService {
     properties: Record<string, unknown>,
   ): Promise<NodeDto<CollectionNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const guidelines: IGuidelines = await guidelineService.getGuidelines();
-    const fields: PropertyConfig[] = guidelineService.getCollectionConfigFieldsFromGuidelines(guidelines, nodeLabels);
+    const index: ConfigIndex = await guidelineService.getConfigIndex();
+    const fields: PropertyConfig[] = guidelineService.getCollectionConfigFieldsFromGuidelines(index, nodeLabels);
 
     Object.entries(properties).forEach(([name, value]: [string, unknown]) => {
       const config: PropertyConfig | undefined = fields.find((field) => field.name === name);

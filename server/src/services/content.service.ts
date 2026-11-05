@@ -105,9 +105,9 @@ export default class ContentService {
 
   public async updateText(uuid: string, data: TextUpdateDto): Promise<TextNode> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const guidelines = await guidelineService.getGuidelines();
+    const index = await guidelineService.getConfigIndex();
 
-    const flatNodeTree = flattenNodeTree({ ...data.text, connectedNodes: data.annotations }, guidelines);
+    const flatNodeTree = flattenNodeTree({ ...data.text, connectedNodes: data.annotations }, index);
 
     const query: string = buildSubgraphUpdateQuery("Content");
 

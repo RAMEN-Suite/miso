@@ -17,13 +17,19 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
+/** An annotation type, derived from an annotation shape of the Miso config */
 export interface AnnotationType {
-  isSeparator?: boolean;
+  /** Whether the annotation type can refer to entities, derived from the `REFERS_TO` rules of its shape */
   hasEntities?: boolean;
   properties?: PropertyConfig[];
+  /** Name of the annotation type. Used for matching until the lookups use IDs. */
   type: string;
-  /** Miso-only frontend configuration. Not read by the server, passed through as is. */
+  /** Miso-only frontend configuration. Not read by the server. */
   miso?: unknown;
+  /** Qualified ref (`<modelId>:<id>`) of the annotation shape the type is derived from */
+  annotationRef?: string;
+  /** Qualified ref (`<modelId>:<id>`) of the Annotation node (family) the shape belongs to */
+  familyRef?: string;
 }
 
 /** Base node labels in RAMEN */
@@ -197,7 +203,13 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
+/**
+ * How a property is validated and converted. Derived from a model attribute (type, bounds, literals, `isReadOnly`) and
+ * the `ext.miso` block of its entry (`visible`, `editable`).
+ */
 export interface PropertyConfig {
+  /** ID of the model attribute the config is derived from. Not used for matching yet, that still goes by `name`. */
+  attributeId?: string;
   name: string /* folioEnd, label, websiteUrl */;
   type: PropertyConfigDataType /* raw string, dropdown, multiple options */;
   required: boolean /* required or optional */;

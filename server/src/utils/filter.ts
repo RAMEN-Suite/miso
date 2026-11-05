@@ -1,6 +1,6 @@
 import ValidationError from "../errors/validation.error.js";
 import UnknownFilterFieldError from "../errors/unknownFilterField.error.js";
-import { IGuidelines } from "../models/IGuidelines.js";
+import { ConfigIndex } from "../models/IMisoConfig.js";
 import {
   FilterComparator,
   FilterCondition,
@@ -61,14 +61,13 @@ const VALUELESS_COMPARATORS: FilterComparator[] = ["isEmpty", "isNotEmpty"];
  * injected directly into the query. Nothing outside this map ever reaches {@link targetExpression},
  * so unwanted cypher errors are impossible.
  *
- * @param {IGuidelines} guidelines - The guidelines.
+ * @param {ConfigIndex} index - The lookup index of the guidelines.
  * @returns {Map<string, PropertyConfig>} Property name -> its complete configuration, not just the field name.
  */
-export function filterableProperties(guidelines: IGuidelines): Map<string, PropertyConfig> {
+export function filterableProperties(index: ConfigIndex): Map<string, PropertyConfig> {
   const configs: PropertyConfig[] = [
-    ...(guidelines.collections.properties.system ?? []),
-    ...(guidelines.collections.properties.base ?? []),
-    ...guidelines.collections.types.flatMap((type) => type.properties ?? []),
+    ...index.collections.properties,
+    ...index.collections.types.flatMap((type) => type.properties),
   ];
 
   const properties = new Map<string, PropertyConfig>();

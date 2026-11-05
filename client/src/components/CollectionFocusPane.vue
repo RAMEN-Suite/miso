@@ -65,7 +65,7 @@ const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const pane = useTemplateRef<HTMLDivElement>("pane");
 
 const {
-  guidelines,
+  isInitialized: areGuidelinesInitialized,
   annotationHasConstraints,
   getCollectionAnnotationFields,
   getCollectionAnnotationConfig,
@@ -93,7 +93,7 @@ const annotationPendingRemoval = ref<string | null>(null);
 const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
-  return guidelines.value
+  return areGuidelinesInitialized.value
     ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
     : [];
 });

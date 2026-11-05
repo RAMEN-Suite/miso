@@ -11,8 +11,9 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
 };
 
 /**
- * A structural type the editor implements natively (paragraph, heading, table …). These are the editor's own defaults:
- * the model declares a matching annotation shape (named via `miso.mappings`), the editor adds how it is edited.
+ * A structural type the editor implements natively (paragraph, heading, table …), with the values the editor fixes.
+ * Not a RAMEN annotation shape: the project's shape for it (named via `miso.mappings`) is a normal shape with its own
+ * properties and `ext.miso` (appearance, shortcut …). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
   type: BuiltinStructuralType;

@@ -1,5 +1,4 @@
 import { IAnnotation } from "../models/IAnnotation.js";
-import { ConfigIndex } from "../models/IMisoConfig.js";
 import {
   AnnotationNode,
   CollectionNode,
@@ -7,33 +6,36 @@ import {
   Node,
   NodeStatusObject,
   NodeUpdateObject,
-  PropertyConfig,
   ContentNode,
 } from "../models/types.js";
-import GuidelinesService from "../services/guidelines.service.js";
 import { toNeo4jTypes } from "./helper.js";
+import {
+  getCollectionAttributes,
+  getTextAnnotationProperties,
+  type ModelAttribute,
+  type ModelContext,
+} from "./modelHelper.js";
 import { inferRelationship } from "./ramen.js";
 
 function convertNodeToNeo4jFormat(
   node: EntityNode | AnnotationNode | CollectionNode | ContentNode,
-  index: ConfigIndex,
+  context: ModelContext,
 ): Node<object> {
-  const guidelineService = new GuidelinesService();
-  const fields: PropertyConfig[] = [];
+  let fields: ModelAttribute[];
 
   if (node.nodeLabels.includes("Content") || node.nodeLabels.includes("Entity")) {
     return node;
   } else if (node.nodeLabels.includes("Collection")) {
-    fields.push(...guidelineService.getCollectionConfigFieldsFromGuidelines(index, node.nodeLabels));
+    fields = getCollectionAttributes(context, node.nodeLabels);
   } else if (node.nodeLabels.includes("Annotation")) {
-    fields.push(...guidelineService.getAnnotationConfigFieldsFromGuidelines(index, (node.data as IAnnotation).type));
+    fields = getTextAnnotationProperties(context, (node.data as IAnnotation).type);
   } else {
     return node;
   }
 
   return {
     nodeLabels: node.nodeLabels,
-    data: toNeo4jTypes(node.data, fields),
+    data: toNeo4jTypes(context, node.data, fields),
   };
 }
 
@@ -41,20 +43,20 @@ function insertNodeIntoObject(
   parent: NodeStatusObject | null,
   node: NodeStatusObject,
   obj: NodeUpdateObject,
-  index: ConfigIndex,
+  context: ModelContext,
 ): NodeUpdateObject {
-  node.connectedNodes.forEach((child) => insertNodeIntoObject(node, child, obj, index));
+  node.connectedNodes.forEach((child) => insertNodeIntoObject(node, child, obj, context));
 
   if (node.meta.status === "deleted") {
     obj.delete.push(node.node);
   }
 
   if (node.meta.status === "created") {
-    obj.create.push(convertNodeToNeo4jFormat(node.node, index));
+    obj.create.push(convertNodeToNeo4jFormat(node.node, context));
   }
 
   if (node.meta.status === "modified") {
-    obj.update.push(convertNodeToNeo4jFormat(node.node, index));
+    obj.update.push(convertNodeToNeo4jFormat(node.node, context));
   }
 
   if (parent && (node.meta.status === "created" || node.meta.status === "added")) {
@@ -74,13 +76,13 @@ function insertNodeIntoObject(
  * Traverses the tree depth-first, classifying each node into the appropriate CRUD bucket
  * (`create`, `update`, `delete`) and deriving the relationship changes (`attach`, `remove`)
  * from the parent–child status pairs. Type conversion to Neo4j-compatible values is applied
- * using the provided lookup index of the guidelines.
+ * using the attributes of the model.
  *
  * @param root - Root of the ownership tree (e.g. a Content or Collection node with its children already set as `connectedNodes`).
- * @param index - Lookup index of the guidelines, used to resolve property type configurations for Annotation and Collection nodes.
+ * @param context - The model context, used to resolve the attributes of Annotation and Collection nodes.
  * @returns A flat {@link NodeUpdateObject} with separate lists for each operation category.
  */
-export function flattenNodeTree(root: NodeStatusObject, index: ConfigIndex): NodeUpdateObject {
+export function flattenNodeTree(root: NodeStatusObject, context: ModelContext): NodeUpdateObject {
   const obj: NodeUpdateObject = {
     create: [],
     delete: [],
@@ -89,7 +91,7 @@ export function flattenNodeTree(root: NodeStatusObject, index: ConfigIndex): Nod
     attach: [],
   };
 
-  insertNodeIntoObject(null, root, obj, index);
+  insertNodeIntoObject(null, root, obj, context);
 
   return obj;
 }

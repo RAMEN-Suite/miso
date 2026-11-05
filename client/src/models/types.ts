@@ -30,13 +30,12 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
   connectedNodes: NodeDto[];
 }
 
-// Types of the guidelines, inferred from their schema. Re-exported here so existing importers keep working.
+// Types of the `ext.miso` blocks of the Miso config, inferred from their schemas. Re-exported here so existing
+// importers keep working.
 export type {
   AnnotationAppearance,
   AnnotationExtent,
-  AnnotationMisoConfig,
   AnnotationShapeMisoConfig,
-  AnnotationType,
   AppearanceOverride,
   AppearanceVariant,
   AttributeMisoConfig,
@@ -50,12 +49,9 @@ export type {
   LucideIconSpec,
   MarkerStyle,
   MathTextStyle,
-  NativeTypeMapping,
   NodeAppearance,
   NodeMisoConfig,
   PropertiesTextStyle,
-  PropertyConfig,
-  PropertyConfigDataType,
   SvgIconSpec,
   TextAnnotationRepresentation,
   UrlIconSpec,

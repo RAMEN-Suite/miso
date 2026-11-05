@@ -1,10 +1,10 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import GuidelinesService from "../services/guidelines.service.js";
-import { ConfigIndex } from "../models/IMisoConfig.js";
-import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult, PropertyConfig } from "../models/types.js";
+import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult } from "../models/types.js";
 import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
+import type { ModelAttribute, ModelContext } from "../utils/modelHelper.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
 const router: Router = express.Router();
@@ -23,10 +23,10 @@ const guidelinesService: GuidelinesService = new GuidelinesService();
  */
 router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const index: ConfigIndex = await guidelinesService.getConfigIndex();
-    const properties: Map<string, PropertyConfig> = filterableProperties(index);
+    const context: ModelContext = await guidelinesService.getModelContext();
+    const properties: Map<string, ModelAttribute> = filterableProperties(context);
 
-    const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, properties);
+    const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, context, properties);
     const signature: string = createQuerySignature({ scope, filters, sort, order });
     const decodedCursor: HierarchyCursor | null = cursor ? decodeCursor(cursor, signature) : null;
 
@@ -38,6 +38,7 @@ router.post("/query", async (req: Request, res: Response, next: NextFunction) =>
       cursor: decodedCursor,
       signature,
       properties,
+      context,
     });
 
     res.status(200).set("Cache-Control", "no-store").json(nodes);

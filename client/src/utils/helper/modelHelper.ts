@@ -6,6 +6,7 @@ import {
   type Attribute,
   type DataType,
   type Node,
+  type Owned,
   type RamenModel,
   type Relation,
 } from "@ramen-suite/core";
@@ -25,22 +26,21 @@ export interface ModelAttribute {
   ownerRef: string;
 }
 
-/** An annotation shape with the model it is declared in */
-export type ModelAnnotationShape = AnnotationShape & { modelId: string };
+/**
+ * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
+ * flattens all levels into one `annotations` list.
+ */
+export type ModelAnnotationShape = Owned<AnnotationShape>;
 
 /** The value type of an attribute as the editors need it. Lists are told apart by {@linkcode isList}. */
 export type AttributeValueType = "String" | "Integer" | "Float" | "Boolean" | "Object" | "Date" | "DateTime";
 
-/** The model of a Miso config, its settings and the lookups the accessors need */
+/** The model and the config the accessors work on */
 export interface ModelContext {
   /** The model, imported by RAMEN core */
   model: RamenModel;
   /** The validated Miso config */
   config: MisoConfig;
-  /** `miso.base` entries by qualified ref */
-  baseEntries: Map<string, ConfigBaseEntry>;
-  /** Annotation shapes by qualified ref */
-  shapes: Map<string, ModelAnnotationShape>;
 }
 
 /** Qualified refs of the RAMEN base nodes */
@@ -76,12 +76,23 @@ export function qualify(ref: string, contextModelId: string): string {
   }
 }
 
-/** The model ID of a qualified ref */
+/**
+ * The model ID of a qualified ref, i.e. the part before the colon.
+ *
+ * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
+ * @returns {string} The model ID.
+ */
 function modelIdOf(qualifiedRef: string): string {
   return qualifiedRef.split(":")[0];
 }
 
-/** Whether a ref points into the RAMEN base level, whose Miso settings live in `miso.base` */
+/**
+ * Whether a ref points into the RAMEN base level. RAMEN core doesn't allow `ext` there, so the Miso settings of these
+ * elements live in `miso.base`.
+ *
+ * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
+ * @returns {boolean} `true` if the ref belongs to the RAMEN base model.
+ */
 function isBaseLevel(qualifiedRef: string): boolean {
   return modelIdOf(qualifiedRef) === RAMEN_MODEL.id;
 }
@@ -94,12 +105,32 @@ function isBaseLevel(qualifiedRef: string): boolean {
  * @returns {ModelContext} The context.
  */
 export function createModelContext(config: MisoConfig, model: RamenModel): ModelContext {
-  return {
-    model,
-    config,
-    baseEntries: new Map((config.miso.base ?? []).map((entry) => [`${entry.modelId}:${entry.id}`, entry])),
-    shapes: new Map(config.model.annotations.map((shape) => [`${shape.modelId}:${shape.id}`, shape])),
-  };
+  return { model, config };
+}
+
+/**
+ * Looks up an annotation shape in the `annotations` list of the config's model, by comparing `<modelId>:<id>` of each
+ * entry with the given ref. Also tells shapes and nodes apart: node refs never match, since nodes are classifiers.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the shape. Local refs don't match, see {@linkcode qualify}.
+ * @returns {ModelAnnotationShape | undefined} The shape as it is in the config (`ext.miso` included), `undefined` if
+ *   there is none with that ref.
+ */
+export function findShape(context: ModelContext, ref: string): ModelAnnotationShape | undefined {
+  return context.config.model.annotations.find((shape) => `${shape.modelId}:${shape.id}` === ref);
+}
+
+/**
+ * Looks up the `miso.base` entry of a RAMEN base level element (e.g. the Collection node), by comparing
+ * `<modelId>:<id>` of each entry with the given ref.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the base level element.
+ * @returns {ConfigBaseEntry | undefined} The entry, `undefined` if the element has no Miso settings.
+ */
+export function findBaseEntry(context: ModelContext, ref: string): ConfigBaseEntry | undefined {
+  return (context.config.miso.base ?? []).find((entry) => `${entry.modelId}:${entry.id}` === ref);
 }
 
 // ----- Nodes -----
@@ -152,7 +183,7 @@ export function findRefinementRef(context: ModelContext, baseNodeRef: string, la
  */
 export function getNodeMiso(context: ModelContext, nodeRef: string): ContentTypeMisoConfig | undefined {
   if (isBaseLevel(nodeRef)) {
-    return context.baseEntries.get(nodeRef)?.ext?.miso;
+    return findBaseEntry(context, nodeRef)?.ext?.miso;
   } else {
     return context.model.getNode(nodeRef)?.ext?.miso as ContentTypeMisoConfig | undefined;
   }
@@ -253,14 +284,24 @@ export function getOptions(context: ModelContext, entry: ModelAttribute): string
   }
 }
 
-/** Whether an attribute holds a list of values */
+/**
+ * Whether an attribute holds a list of values, from the upper bound of its cardinality.
+ *
+ * @param {ModelAttribute} entry - The attribute.
+ * @returns {boolean} `true` if more than one value is allowed (`-1` = unbounded).
+ */
 export function isList(entry: ModelAttribute): boolean {
   const { upperBound } = entry.attribute.bounds;
 
   return upperBound === -1 || upperBound > 1;
 }
 
-/** Whether an attribute must have a value */
+/**
+ * Whether an attribute must have a value, from the lower bound of its cardinality.
+ *
+ * @param {ModelAttribute} entry - The attribute.
+ * @returns {boolean} `true` if at least one value is required.
+ */
 export function isRequired(entry: ModelAttribute): boolean {
   return entry.attribute.bounds.lowerBound >= 1;
 }
@@ -274,7 +315,7 @@ export function isRequired(entry: ModelAttribute): boolean {
  */
 export function getAttributeMiso(context: ModelContext, entry: ModelAttribute): AttributeMisoConfig | undefined {
   if (isBaseLevel(entry.ownerRef)) {
-    return context.baseEntries.get(entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
+    return findBaseEntry(context, entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
   } else {
     return entry.attribute.ext?.miso as AttributeMisoConfig | undefined;
   }
@@ -307,16 +348,14 @@ export function isEmptyValue(value: unknown): boolean {
  */
 export function validateValue(context: ModelContext, entry: ModelAttribute, value: unknown): string[] {
   const normalized: unknown = isEmptyValue(value) ? undefined : value;
-  const shape: ModelAnnotationShape | undefined = context.shapes.get(entry.ownerRef);
+  const shape: ModelAnnotationShape | undefined = findShape(context, entry.ownerRef);
 
   try {
     const result = shape
       ? context.model.validateAnnotationValue(familyRefOf(shape), shape.type, entry.attribute.name, normalized)
       : context.model.validateAttributeValue(entry.ownerRef, entry.attribute.name, normalized);
 
-    return result.diagnostics
-      .filter((diagnostic) => diagnostic.severity === "error")
-      .map((diagnostic) => diagnostic.message);
+    return result.diagnostics.filter((diagnostic) => diagnostic.severity === "error").map((diagnostic) => diagnostic.message);
   } catch (error: unknown) {
     // RAMEN core throws if the attribute is not on the node or shape, which would be a broken config
     return [(error as Error).message];
@@ -353,12 +392,24 @@ export function getDefaultValue(context: ModelContext, entry: ModelAttribute, as
   }
 }
 
-/** Whether the user can edit an attribute: not read-only in the model and not switched off in `ext.miso` */
+/**
+ * Whether the user can edit an attribute.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ModelAttribute} entry - The attribute.
+ * @returns {boolean} `false` if it is read-only in the model or `ext.miso.editable` is `false`, otherwise `true`.
+ */
 export function isEditable(context: ModelContext, entry: ModelAttribute): boolean {
   return entry.attribute.isReadOnly !== true && getAttributeMiso(context, entry)?.editable !== false;
 }
 
-/** Whether an attribute is shown to the user (default `true`) */
+/**
+ * Whether an attribute is shown to the user.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ModelAttribute} entry - The attribute.
+ * @returns {boolean} `false` if `ext.miso.visible` is `false`, otherwise `true`.
+ */
 export function isVisible(context: ModelContext, entry: ModelAttribute): boolean {
   return getAttributeMiso(context, entry)?.visible !== false;
 }
@@ -375,26 +426,48 @@ export function isVisible(context: ModelContext, entry: ModelAttribute): boolean
 export function getShapesForNode(context: ModelContext, nodeRef: string): ModelAnnotationShape[] {
   return context.model
     .suggestAnnotationShapesForNode(nodeRef)
-    .map((suggestion) => context.shapes.get(`${suggestion.modelId}:${suggestion.annotationId}`))
+    .map((suggestion) => findShape(context, `${suggestion.modelId}:${suggestion.annotationId}`))
     .filter((shape): shape is ModelAnnotationShape => shape !== undefined);
 }
 
-/** The qualified ref of an annotation shape */
+/**
+ * The qualified ref of an annotation shape. The counterpart of {@linkcode findShape}.
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @returns {string} `<modelId>:<id>` of the shape.
+ */
 export function shapeRefOf(shape: ModelAnnotationShape): string {
   return `${shape.modelId}:${shape.id}`;
 }
 
-/** The qualified ref of the Annotation node (family) an annotation shape belongs to */
+/**
+ * The qualified ref of the Annotation node (family) an annotation shape belongs to, e.g. a TextAnnotation refinement.
+ * Annotations of the shape are stored as nodes of that family, with the shape's name in their `type` property.
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @returns {string} The qualified ref of the family node.
+ */
 export function familyRefOf(shape: ModelAnnotationShape): string {
   return qualify(shape.annotationId, shape.modelId);
 }
 
-/** The properties of an annotation shape (without the shared properties of the Annotation node) */
+/**
+ * The properties of an annotation shape, without the shared attributes of its family node (`uuid`, `selector` …).
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @returns {ModelAttribute[]} The properties, each owned by the shape.
+ */
 export function getShapeProperties(shape: ModelAnnotationShape): ModelAttribute[] {
   return shape.properties.map((attribute) => ({ attribute, ownerRef: shapeRefOf(shape) }));
 }
 
-/** The Miso settings of an annotation shape */
+/**
+ * The Miso settings of an annotation shape (group, controls, appearance, editing). The native mapping is not part of
+ * it, see {@linkcode getMappingForShape}.
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @returns {AnnotationShapeMisoConfig | undefined} The `ext.miso` block.
+ */
 export function getShapeMiso(shape: ModelAnnotationShape): AnnotationShapeMisoConfig | undefined {
   return shape.ext?.miso as AnnotationShapeMisoConfig | undefined;
 }

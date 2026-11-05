@@ -184,24 +184,8 @@ export function checkNativeAttributes(
   }
 }
 
-const nativeTypeMappingSchema = z
-  .strictObject({
-    /** The native type */
-    type: builtinStructuralTypeSchema,
-    /**
-     * Names of the annotation properties that hold the native type's attributes, keyed by native attribute
-     * (native attribute -> project property). Attributes that are not listed keep their name from the default mapping.
-     */
-    attributes: z.record(z.string(), z.string()).optional(),
-  })
-  .superRefine((mapping, ctx) => checkNativeAttributes(mapping.type, mapping.attributes, ctx));
-
-const annotationEditingShape = {
-  extent: annotationExtentSchema.optional(),
-  representation: textAnnotationRepresentationSchema.optional(),
-};
-
-const annotationMisoConfigShape = {
+/** The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in `miso.mappings`. */
+export const annotationShapeMisoConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */
   group: z.string().optional(),
   /** How the user creates and interacts with annotations of this type */
@@ -212,32 +196,20 @@ const annotationMisoConfigShape = {
     })
     .optional(),
   appearance: annotationAppearanceSchema.optional(),
-};
-
-/** The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in `miso.mappings`. */
-export const annotationShapeMisoConfigSchema = z.strictObject({
-  ...annotationMisoConfigShape,
-  /** How annotations of this type are placed and represented in the content */
-  editing: z.strictObject(annotationEditingShape).optional(),
-});
-
-const annotationMisoConfigSchema = z.strictObject({
-  ...annotationMisoConfigShape,
-  /** How annotations of this type are placed and represented in the content */
+  /**
+   * How annotations of this type are placed and represented in the content. Ignored for annotation types mapped to a
+   * native type of the editor, which brings its own.
+   */
   editing: z
     .strictObject({
-      ...annotationEditingShape,
-      /**
-       * The editor's native type that implements this annotation type. Its extent and representation are then taken
-       * from the native type. Taken from the `miso.mappings` of the Miso config.
-       */
-      native: nativeTypeMappingSchema.optional(),
+      extent: annotationExtentSchema.optional(),
+      representation: textAnnotationRepresentationSchema.optional(),
     })
     .optional(),
 });
 
 /**
- * How far an annotation extends in its content, configured in `miso.editing.extent`. Both values correspond to a
+ * How far an annotation extends in its content, configured in `ext.miso.editing.extent`. Both values correspond to a
  * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
  * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
  *    Required for annotations with representation `blockClassification`.
@@ -246,7 +218,7 @@ const annotationMisoConfigSchema = z.strictObject({
 export type AnnotationExtent = z.infer<typeof annotationExtentSchema>;
 
 /**
- * How an annotation is represented in the text editor, configured in `miso.editing.representation`. Only applies to
+ * How an annotation is represented in the text editor, configured in `ext.miso.editing.representation`. Only applies to
  * annotations on text content. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
@@ -270,102 +242,10 @@ export type AppearanceVariant = z.infer<typeof appearanceVariantSchema>;
 export type AnnotationAppearance = z.infer<typeof annotationAppearanceSchema>;
 
 /**
- * Maps an annotation type to a native type of the editor, e.g. a TEI `cell` to the editor's `tableCell`.
- *
- * @example
- * { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
+ * Miso-only configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not
+ * part of the data model. The native mapping lives in `miso.mappings`.
  */
-export type NativeTypeMapping = z.infer<typeof nativeTypeMappingSchema>;
-
-/**
- * Miso-only configuration of an annotation type. Everything in here is frontend-only and not part of the data model.
- * Built from the `ext.miso` block of the annotation shape and its entry in `miso.mappings` (as `editing.native`).
- */
-export type AnnotationMisoConfig = z.infer<typeof annotationMisoConfigSchema>;
-
-/** The `ext.miso` block of an annotation shape, i.e. {@linkcode AnnotationMisoConfig} without `editing.native` */
 export type AnnotationShapeMisoConfig = z.infer<typeof annotationShapeMisoConfigSchema>;
-
-// ----- Properties -----
-
-const propertyConfigDataTypeSchema = z.enum([
-  "Array",
-  "Boolean",
-  "Date",
-  "DateTime",
-  "Float",
-  "Integer",
-  "Object",
-  "String",
-  "Time",
-]);
-
-const propertyConfigShape = {
-  /** folioEnd, label, websiteUrl */
-  name: z.string(), // Miso -> name to display. Or remove kompletely, type is type
-  /** data type (raw string, dropdown, multiple options) */
-  type: propertyConfigDataTypeSchema, // Nori
-  /** required or optional */
-  required: z.boolean(), // Nori
-  /** Editable by user */
-  editable: z.boolean(), // Miso
-  /** Visible by user */
-  visible: z.boolean(), // Miso
-  // The rest here is Miso
-  /** Only relevant if type is "Array" */
-  minItems: z.number().optional(),
-  /** Only relevant if type is "Array" */
-  maxItems: z.number().optional(),
-  /** Only relevant if type is "Float"/"Integer" */
-  minimum: z.number().optional(),
-  /** Only relevant if type is "Float"/"Integer" */
-  maximum: z.number().optional(),
-  /** Only relevant if type is "Float"/"Integer" */
-  exclusiveMinimum: z.number().optional(),
-  /** Only relevant if type is "Float"/"Integer" */
-  exclusiveMaximum: z.number().optional(),
-  /** Only relevant if type is "String" */
-  minLength: z.number().optional(),
-  /** Only relevant if type is "String" */
-  maxLength: z.number().optional(),
-  /** Options if type is dropdown */
-  options: z.union([z.array(z.string()), z.array(z.number())]).optional(),
-  /** ID of the model attribute the config is derived from. Not used for matching yet, that still goes by `name`. */
-  attributeId: z.string().optional(),
-};
-
-const propertyConfigSchema = z.strictObject({
-  ...propertyConfigShape,
-  /** Config of the items. Only relevant if type is "Array". Items can't be Arrays themselves, so this is not recursive. */
-  items: z.strictObject(propertyConfigShape).partial().optional(),
-});
-
-export type PropertyConfigDataType = z.infer<typeof propertyConfigDataTypeSchema>;
-
-/**
- * How a property is edited and validated in forms. Derived from a model attribute (type, bounds, literals,
- * `isReadOnly`) and the `ext.miso` block of its entry (`visible`, `editable`).
- */
-export type PropertyConfig = z.infer<typeof propertyConfigSchema>;
-
-// ----- Annotation types -----
-
-const annotationTypeSchema = z.strictObject({
-  /** Whether the annotation type can refer to entities, derived from the `REFERS_TO` rules of its shape */
-  hasEntities: z.boolean().optional(),
-  properties: z.array(propertyConfigSchema).optional(),
-  /** Name of the annotation type. Used for matching until the lookups use IDs. */
-  type: z.string(),
-  /** Miso-only configuration (editor behaviour, controls, appearance) */
-  miso: annotationMisoConfigSchema.optional(),
-  /** Qualified ref (`<modelId>:<id>`) of the annotation shape the type is derived from */
-  annotationRef: z.string().optional(),
-  /** Qualified ref (`<modelId>:<id>`) of the Annotation node (family) the shape belongs to */
-  familyRef: z.string().optional(),
-});
-
-/** An annotation type as returned by the lookups of the guidelines store, derived from an annotation shape */
-export type AnnotationType = z.infer<typeof annotationTypeSchema>;
 
 // ----- Node types -----
 

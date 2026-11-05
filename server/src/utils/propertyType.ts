@@ -1,119 +1,51 @@
-import { PropertyConfig } from "../models/types.js";
+import type { AttributeValueType } from "./modelHelper.js";
 
 /*
- * Datatype checks for property configurations. Mirrors `client/src/utils/helper/propertyTypeHelper.ts`.
- *
- * Every check takes the whole config instead of the bare type name: the guideline format is likely to
- * change (e.g. a date becoming `String` + a `format` key), and then only the bodies in this file have
- * to follow.
+ * Checks on the value type of an attribute (see `getValueType` in `modelHelper.ts`). Lists are told apart by `isList`
+ * there, these checks are about a single value. Mirrors `client/src/utils/helper/propertyTypeHelper.ts`.
  */
 
-/**
- * Checks whether a property holds a list of values.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is an array.
- */
-export function isArray(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Array";
+/** Whether a value type is a boolean */
+export function isBoolean(type: AttributeValueType | undefined): boolean {
+  return type === "Boolean";
 }
 
-/**
- * Checks whether a property holds a boolean.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a boolean.
- */
-export function isBoolean(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Boolean";
+/** Whether a value type is a calendar date (`YYYY-MM-DD`) */
+export function isDate(type: AttributeValueType | undefined): boolean {
+  return type === "Date";
 }
 
-/**
- * Checks whether a property holds a calendar date (`YYYY-MM-DD`).
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a date.
- */
-export function isDate(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Date";
+/** Whether a value type is a point in time (ISO 8601, UTC) */
+export function isDateTime(type: AttributeValueType | undefined): boolean {
+  return type === "DateTime";
 }
 
-/**
- * Checks whether a property holds a point in time (ISO 8601, UTC).
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a date-time.
- */
-export function isDateTime(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "DateTime";
+/** Whether a value type is a floating point number */
+export function isFloat(type: AttributeValueType | undefined): boolean {
+  return type === "Float";
 }
 
-/**
- * Checks whether a property holds a floating point number.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a float.
- */
-export function isFloat(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Float";
+/** Whether a value type is a whole number */
+export function isInteger(type: AttributeValueType | undefined): boolean {
+  return type === "Integer";
 }
 
-/**
- * Checks whether a property holds a whole number.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is an integer.
- */
-export function isInteger(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Integer";
+/** Whether a value type is a JSON object */
+export function isObject(type: AttributeValueType | undefined): boolean {
+  return type === "Object";
 }
 
-/**
- * Checks whether a property holds a JSON object.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is an object.
- */
-export function isObject(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Object";
+/** Whether a value type is plain text */
+export function isString(type: AttributeValueType | undefined): boolean {
+  return type === "String";
 }
 
-/**
- * Checks whether a property holds plain text.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a string.
- */
-export function isString(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "String";
+/** Whether a value type is a number of any kind */
+export function isNumeric(type: AttributeValueType | undefined): boolean {
+  return isInteger(type) || isFloat(type);
 }
 
-/**
- * Checks whether a property holds a time of day (`HH:mm:ss`).
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a time.
- */
-export function isTime(config: Partial<PropertyConfig> | undefined): boolean {
-  return config?.type === "Time";
-}
-
-/**
- * Checks whether a property holds a number of any kind.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is an integer or a float.
- */
-export function isNumeric(config: Partial<PropertyConfig> | undefined): boolean {
-  return isInteger(config) || isFloat(config);
-}
-
-/**
- * Checks whether a property holds a temporal value of any kind.
- *
- * @param {Partial<PropertyConfig> | undefined} config - The config of the property.
- * @returns {boolean} `true` if the property is a date, a date-time or a time.
- */
-export function isTemporal(config: Partial<PropertyConfig> | undefined): boolean {
-  return isDate(config) || isDateTime(config) || isTime(config);
+/** Whether a value type is a date or a date-time */
+export function isTemporal(type: AttributeValueType | undefined): boolean {
+  return isDate(type) || isDateTime(type);
 }

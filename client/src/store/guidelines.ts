@@ -21,6 +21,7 @@ import {
   BASE_NODE_REF,
   createModelContext,
   findRefinementRef,
+  findShape,
   getNodeAttributes,
   getNodeMiso,
   getOptions,
@@ -158,7 +159,7 @@ export function useGuidelinesStore() {
     };
 
     for (const mapping of context.config.miso.mappings) {
-      const shape: ModelAnnotationShape | undefined = context.shapes.get(mapping.annotation);
+      const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
 
       if (!shape) {
         console.warn(`Miso config: mapping of "${mapping.native}" points to an unknown annotation shape "${mapping.annotation}"`);
@@ -686,7 +687,7 @@ export function useGuidelinesStore() {
       console.warn(`Invalid miso configuration for annotation type "${type}": ${message}`);
     };
 
-    for (const shape of context.shapes.values()) {
+    for (const shape of context.config.model.annotations) {
       const miso: AnnotationShapeMisoConfig | undefined = getShapeMiso(shape);
 
       if (!miso) {

@@ -2,6 +2,7 @@ import { IAnnotation } from "./IAnnotation.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
+import type { ModelAttribute } from "../utils/modelHelper.js";
 
 export type AnnotationNode = Node<IAnnotation>;
 
@@ -16,21 +17,6 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
  * (to display the current edit state) and before saving to tell the backend how to process the data.
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
-
-/** An annotation type, derived from an annotation shape of the Miso config */
-export interface AnnotationType {
-  /** Whether the annotation type can refer to entities, derived from the `REFERS_TO` rules of its shape */
-  hasEntities?: boolean;
-  properties?: PropertyConfig[];
-  /** Name of the annotation type. Used for matching until the lookups use IDs. */
-  type: string;
-  /** Miso-only frontend configuration. Not read by the server. */
-  miso?: unknown;
-  /** Qualified ref (`<modelId>:<id>`) of the annotation shape the type is derived from */
-  annotationRef?: string;
-  /** Qualified ref (`<modelId>:<id>`) of the Annotation node (family) the shape belongs to */
-  familyRef?: string;
-}
 
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
@@ -56,8 +42,8 @@ export interface HierarchyQuery {
   order: "asc" | "desc";
   limit: number;
   cursor: string | null;
-  /** The guidelines-derived allowlist for properties used for filtering and sorting */
-  properties: Map<string, PropertyConfig>;
+  /** The allowlist of properties used for filtering and sorting, derived from the model's attributes */
+  properties: Map<string, ModelAttribute>;
 }
 
 /**
@@ -202,44 +188,6 @@ export interface PaginationResult<T> {
   data: T;
   pagination: PaginationData;
 }
-
-/**
- * How a property is validated and converted. Derived from a model attribute (type, bounds, literals, `isReadOnly`) and
- * the `ext.miso` block of its entry (`visible`, `editable`).
- */
-export interface PropertyConfig {
-  /** ID of the model attribute the config is derived from. Not used for matching yet, that still goes by `name`. */
-  attributeId?: string;
-  name: string /* folioEnd, label, websiteUrl */;
-  type: PropertyConfigDataType /* raw string, dropdown, multiple options */;
-  required: boolean /* required or optional */;
-  editable: boolean /* Editable by user */;
-  visible: boolean /* Visible by user */;
-  /* Only relevant if type is "Array" */
-  items?: Partial<PropertyConfig>;
-  minItems?: number;
-  maxItems?: number;
-  /* Only relevant if type is "Float"/"Integer" */
-  minimum?: number;
-  maximum?: number;
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
-  /* Only relevant if type is "String" */
-  minLength?: number;
-  maxLength?: number;
-  options?: string[] | number[] /* Options if type is dropdown */;
-}
-
-export type PropertyConfigDataType =
-  | "Array"
-  | "Boolean"
-  | "Date"
-  | "DateTime"
-  | "Float"
-  | "Integer"
-  | "Object"
-  | "String"
-  | "Time";
 
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default

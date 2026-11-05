@@ -1,16 +1,16 @@
 import { Request } from "express";
 import { isDuration, isInt, types } from "neo4j-driver";
-import {
-  CursorData,
-  FilterSpec,
-  FilterTarget,
-  HierarchyQuery,
-  HierarchyScope,
-  NodeStatusObject,
-  PropertyConfig,
-} from "../models/types.js";
+import { CursorData, FilterSpec, FilterTarget, HierarchyQuery, HierarchyScope, NodeStatusObject } from "../models/types.js";
 import { parseFilterSpec, parseFilterTarget } from "./filter.js";
-import { isArray, isInteger, isObject } from "./propertyType.js";
+import {
+  getValueType,
+  isList,
+  isRequired,
+  type AttributeValueType,
+  type ModelAttribute,
+  type ModelContext,
+} from "./modelHelper.js";
+import { isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
@@ -248,21 +248,26 @@ export function parseSortDirection(order: unknown): "asc" | "desc" {
  * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
  * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
  *
- * The property allowlist is passed in rather than read here: it comes from the guidelines, and
- * reading it in this module would make the low-level helpers depend on a service that depends on
+ * The model context and the property allowlist are passed in rather than read here: they come from the guidelines
+ * service, and reading them in this module would make the low-level helpers depend on a service that depends on
  * them.
  *
  * @param {Request} req - The express request object.
- * @param {Map<string, PropertyConfig>} properties - Filterable properties, from `filterableProperties`.
+ * @param {ModelContext} context - The model context, for the value types of the properties.
+ * @param {Map<string, ModelAttribute>} properties - Filterable properties, from `filterableProperties`.
  * @returns {HierarchyQuery} The parsed hierarchy query.
  * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
- * @throws {UnknownFilterFieldError} If a filter or the sort names a property the guidelines do not define.
+ * @throws {UnknownFilterFieldError} If a filter or the sort names a property the model does not define.
  */
-export function parseHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
+export function parseHierarchyQuery(
+  req: Request,
+  context: ModelContext,
+  properties: Map<string, ModelAttribute>,
+): HierarchyQuery {
   const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
 
   const scope: HierarchyScope = parseHierarchyScope(body.scope);
-  const filters: FilterSpec = parseFilterSpec(body.filters, properties);
+  const filters: FilterSpec = parseFilterSpec(context, body.filters, properties);
   const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
   const order: "asc" | "desc" = parseSortDirection(body.order);
   const limit: number = parsePaginationLimit(body.limit);
@@ -405,19 +410,20 @@ export function valueToNativeType(value: unknown): unknown {
 }
 
 /**
- * Convert JavaScript types back into Neo4j Properties, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
+ * Convert JavaScript types back into Neo4j Properties, using the attributes of the model. This conversion direction
+ * uses the attributes since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. integers and floats are both numbers in JavaScript).
  *
- * @param {object} properties
- * @param {PropertyConfig[]} fields
+ * @param {ModelContext} context - The model context.
+ * @param {object} properties - The properties to convert.
+ * @param {ModelAttribute[]} fields - The attributes of the node, matched by name.
  * @return {Record<string, unknown>}
  */
-export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Record<string, unknown> {
+export function toNeo4jTypes(context: ModelContext, properties: object, fields: ModelAttribute[]): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
-      const config: PropertyConfig | undefined = fields.find((field) => field.name === key);
-      const value: unknown = valueToNeo4jType(rawValue, config);
+      const entry: ModelAttribute | undefined = fields.find((field) => field.attribute.name === key);
+      const value: unknown = valueToNeo4jType(context, rawValue, entry);
 
       return [key, value];
     }),
@@ -425,38 +431,46 @@ export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Reco
 }
 
 /**
- * Convert an individual value to its Neo4j equivalent, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
+ * Convert an individual value to its Neo4j equivalent, using its model attribute. This conversion direction
+ * uses the attribute since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. integers and floats are both numbers in JavaScript).
  *
  * Objects can not be stored as Neo4j properties, so a property of type `Object` only accepts an empty value for now.
  *
- * @param {unknown} value
- * @param {Partial<PropertyConfig> | undefined} config
+ * @param {ModelContext} context - The model context.
+ * @param {unknown} value - The value to convert.
+ * @param {ModelAttribute | undefined} entry - The attribute of the value. Values without one are kept as they are.
+ * @param {boolean} [asItem] - The value is one item of a list attribute, not the whole list.
  * @returns {unknown}
  * @throws {ValidationError} If a value is given for a property of type `Object`.
  */
-function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | undefined): unknown {
+function valueToNeo4jType(
+  context: ModelContext,
+  value: unknown,
+  entry: ModelAttribute | undefined,
+  asItem: boolean = false,
+): unknown {
   // TODO: How handle empty string?
   // TODO: This is the case for non-customizable properties (uuid, start/endIndex etc.). Keep or handle better?
-  if (!config) {
+  if (!entry) {
     return value;
   }
 
-  const isRequired: boolean = config?.required ?? true;
+  // Items of a list are dropped below when they are empty, so they count as required here
+  const required: boolean = asItem || isRequired(entry);
   const valueIsNull: boolean = value === null || value === undefined;
 
   // This can be applied to all data types - if the value does not exist and is not needed, it doesnt need to be set
-  if (valueIsNull && !isRequired) {
+  if (valueIsNull && !required) {
     return null;
   }
 
   // Call function recursively when needed if data type is array
-  if (isArray(config)) {
+  if (isList(entry) && !asItem) {
     const items: unknown[] = Array.isArray(value) ? value : [];
 
     if (items.length === 0) {
-      if (isRequired) {
+      if (required) {
         return [];
       } else {
         return null;
@@ -464,14 +478,16 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     } else {
       return (
         items
-          .map((innerValue: unknown) => valueToNeo4jType(innerValue, config.items))
+          .map((innerValue: unknown) => valueToNeo4jType(context, innerValue, entry, true))
           // This is needed since arrays with null values (e.g. [1, 2, null, 4]) are not allowed as node properties)
           .filter((v: unknown) => v !== null && v !== undefined)
       );
     }
   }
 
-  if (isInteger(config)) {
+  const valueType: AttributeValueType = getValueType(context, entry);
+
+  if (isInteger(valueType)) {
     if (valueIsNull) {
       if (!isRequired) {
         return null;
@@ -481,15 +497,15 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     } else {
       return types.Integer.fromValue(value as number | string);
     }
-  } else if (isObject(config)) {
+  } else if (isObject(valueType)) {
     if (valueIsNull) {
       return null;
     } else {
-      throw new ValidationError(`Property "${config.name}" is of type Object, which can not be stored yet.`);
+      throw new ValidationError(`Property "${entry.attribute.name}" is of type Object, which can not be stored yet.`);
     }
   } else {
-    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates, date times
-    // and times are kept as raw strings (`YYYY-MM-DD`, ISO 8601, `HH:mm:ss`) instead of Neo4j temporals
+    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates and date times
+    // are kept as raw strings (`YYYY-MM-DD`, ISO 8601) instead of Neo4j temporals
     return value;
   }
 }

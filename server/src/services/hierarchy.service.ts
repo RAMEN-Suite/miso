@@ -18,9 +18,9 @@ import {
   NodeStatusObject,
   NodeUpdateObject,
   PaginationResult,
-  PropertyConfig,
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
+import type { ModelAttribute, ModelContext } from "../utils/modelHelper.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -32,8 +32,10 @@ export interface HierarchyListOptions {
   cursor: HierarchyCursor | null;
   /** Signature of the active scope + sort + filter spec, stamped into the produced nextCursor. */
   signature: string;
-  /** Guidelines-derived property allowlist, already used to validate `filters` and `sort`. */
-  properties: Map<string, PropertyConfig>;
+  /** Property allowlist from the model's attributes, already used to validate `filters` and `sort`. */
+  properties: Map<string, ModelAttribute>;
+  /** The model context, for the value types of the allowlisted properties */
+  context: ModelContext;
 }
 
 /**
@@ -159,7 +161,7 @@ export default class HierarchyService {
     scope: HierarchyScope,
     options: HierarchyListOptions,
   ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
-    const { filters, sort, order, limit, cursor, signature, properties } = options;
+    const { filters, sort, order, limit, cursor, signature, properties, context } = options;
 
     // `search` in the pagination payload is a legacy field the client does not read for hierarchy
     // listings; the free-text rule (if any) is the `distinct` one
@@ -178,7 +180,7 @@ export default class HierarchyService {
     const sortValue: string = targetExpression(sort);
     const scopeMatch: string = this.scopeMatchClause(scope);
 
-    const { clause: filterClause, params: filterParams } = buildFilterCypher(filters, properties);
+    const { clause: filterClause, params: filterParams } = buildFilterCypher(context, filters, properties);
 
     // Group rank + sort value, then the rules
     const baseQuery: string = `
@@ -354,7 +356,7 @@ export default class HierarchyService {
    */
   public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const index = await guidelineService.getConfigIndex();
+    const context = await guidelineService.getModelContext();
 
     const targetLabels: string[] | null = this.findNodeLabels(data, uuid);
 
@@ -364,7 +366,7 @@ export default class HierarchyService {
 
     const rootLabel: "Collection" | "Content" = targetLabels.includes("Content") ? "Content" : "Collection";
 
-    const flatNodeTree: NodeUpdateObject = flattenNodeTree(data, index);
+    const flatNodeTree: NodeUpdateObject = flattenNodeTree(data, context);
     const query: string = buildSubgraphUpdateQuery(rootLabel);
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, {

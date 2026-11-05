@@ -3,36 +3,22 @@ import Neo4jDriver from "../database/neo4j.js";
 import GuidelinesService from "./guidelines.service.js";
 import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { ConfigIndex } from "../models/IMisoConfig.js";
-import {
-  PaginationResult,
-  CollectionNode,
-  NodeSearchParams,
-  NodeDto,
-  NodeStatusObject,
-  PropertyConfig,
-} from "../models/types.js";
+import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatusObject } from "../models/types.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
-import { validatePropertyValue } from "../utils/propertyValidation.js";
+import {
+  getCollectionAttributes,
+  getCollectionLabels,
+  isEditable,
+  validateValue,
+  type ModelAttribute,
+  type ModelContext,
+} from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
 export default class CollectionService {
-  /**
-   * Retrieves the available labels that can be assigned to a Collection node.
-   *
-   * Called during creating and updating a collection to check the data validity (specifically, when no additional
-   * node label is provided).
-   *
-   * @param {ConfigIndex} index - The lookup index of the guidelines to check against.
-   * @return {string[]} The available labels.
-   */
-  private getAvailableCollectionLabelsFromGuidelines(index: ConfigIndex): string[] {
-    return index.collections.types.map((collection) => collection.additionalLabel);
-  }
-
   /**
    * Retrieves data of a specified collection node.
    *
@@ -66,19 +52,19 @@ export default class CollectionService {
   }
 
   /**
-   * Checks if the given collection node is valid according to the guidelines. Specifically, it checks if
-   * the collection node has an additional node label if options exist and if the "label" property is not
-   * empty and does not consist of only whitespace characters.
+   * Checks if the given collection node is valid according to the model. Specifically, it checks if
+   * the collection node has an additional node label if the model has Collection refinements and if the "label"
+   * property is not empty and does not consist of only whitespace characters.
    *
    * Called during creating and updating a collection.
    *
    * @param {CollectionNode} collection - The collection node to check for validity.
-   * @param {ConfigIndex} index - The lookup index of the guidelines to check against.
+   * @param {ModelContext} context - The model context to check against.
    * @returns {void} This function does not return any value.
-   * @throws {ValidationError} If the data is not valid according to the guidelines.
+   * @throws {ValidationError} If the data is not valid according to the model.
    */
-  private checkValidity(collection: CollectionNode, index: ConfigIndex): void {
-    const availableNodeLabels = this.getAvailableCollectionLabelsFromGuidelines(index);
+  private checkValidity(collection: CollectionNode, context: ModelContext): void {
+    const availableNodeLabels: string[] = getCollectionLabels(context);
 
     // Collections must have and additional node label (if options exist)
     if (availableNodeLabels.length > 0 && collection.nodeLabels.length === 0) {
@@ -173,11 +159,11 @@ export default class CollectionService {
    */
   public async updateCollection(uuid: string, root: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const index: ConfigIndex = await guidelineService.getConfigIndex();
+    const context: ModelContext = await guidelineService.getModelContext();
 
-    this.checkValidity(root.node as CollectionNode, index);
+    this.checkValidity(root.node as CollectionNode, context);
 
-    const flat = flattenNodeTree(root, index);
+    const flat = flattenNodeTree(root, context);
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
@@ -217,13 +203,13 @@ export default class CollectionService {
 
   /**
    * Updates only the given properties of a Collection node (JSON Merge Patch semantics: `null` removes a property).
-   * The properties are validated against the config of the given node labels.
+   * The properties are validated with RAMEN core against the attributes of the given node labels.
    *
    * @param {string} uuid - UUID of the Collection node.
-   * @param {string[]} nodeLabels - The node labels of the Collection, to derive the property configs.
+   * @param {string[]} nodeLabels - The node labels of the Collection, to derive its attributes.
    * @param {Record<string, unknown>} properties - The changed properties.
    * @throws {NotFoundError} If no Collection with the given UUID exists.
-   * @throws {ValidationError} If a property is not configured for the node labels, not editable or its value is invalid.
+   * @throws {ValidationError} If a property is no attribute of the node labels, not editable or its value is invalid.
    * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
    */
   public async patchCollectionProperties(
@@ -232,21 +218,25 @@ export default class CollectionService {
     properties: Record<string, unknown>,
   ): Promise<NodeDto<CollectionNode>> {
     const guidelineService: GuidelinesService = new GuidelinesService();
-    const index: ConfigIndex = await guidelineService.getConfigIndex();
-    const fields: PropertyConfig[] = guidelineService.getCollectionConfigFieldsFromGuidelines(index, nodeLabels);
+    const context: ModelContext = await guidelineService.getModelContext();
+    const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
 
     Object.entries(properties).forEach(([name, value]: [string, unknown]) => {
-      const config: PropertyConfig | undefined = fields.find((field) => field.name === name);
+      const entry: ModelAttribute | undefined = fields.find((field) => field.attribute.name === name);
 
-      if (!config) {
+      if (!entry) {
         throw new ValidationError(`"${name}" is not a property of this Collection.`);
       }
 
-      if (!config.editable) {
+      if (!isEditable(context, entry)) {
         throw new ValidationError(`"${name}" can not be edited.`);
       }
 
-      validatePropertyValue(value, config);
+      const errors: string[] = validateValue(context, entry, value);
+
+      if (errors.length > 0) {
+        throw new ValidationError(`"${name}": ${errors.join(" ")}`);
+      }
 
       if (name === "label" && typeof value === "string" && value.trim() === "") {
         throw new ValidationError('The "label" property must not consist of only whitespace characters.');
@@ -265,7 +255,7 @@ export default class CollectionService {
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
       uuid,
-      properties: toNeo4jTypes(properties, fields),
+      properties: toNeo4jTypes(context, properties, fields),
     });
 
     const updatedNode: CollectionNode | undefined = result.records[0]?.get("node");

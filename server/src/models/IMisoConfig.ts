@@ -1,5 +1,4 @@
 import type { RamenFile } from "@ramen-suite/core";
-import { AnnotationType, PropertyConfig } from "./types.js";
 
 /** An entry of `miso.base`: settings of a RAMEN base level element, which can't be set in the model itself */
 export interface ConfigBaseEntry {
@@ -39,48 +38,4 @@ export interface IMisoConfig {
     mappings: ConfigMapping[];
     base?: ConfigBaseEntry[];
   };
-}
-
-/** A refinement of the Collection, Content or Entity node */
-export interface NodeTypeConfig {
-  /** The node label, i.e. the classifier name. Used for matching until the lookups use IDs. */
-  additionalLabel: string;
-  /** Qualified ref (`<modelId>:<id>`) of the classifier */
-  classifierRef: string;
-  /** The `ext.miso` block of the classifier */
-  miso?: Record<string, unknown>;
-  /** The attributes of the classifier and of its refinement ancestors (not of the RAMEN base node) */
-  properties: PropertyConfig[];
-}
-
-/** A refinement of the Collection node, with the annotation types only it carries */
-export interface CollectionTypeConfig extends NodeTypeConfig {
-  annotationTypes: AnnotationType[];
-}
-
-/**
- * TRANSITIONAL: the lookups of the guidelines service by name, in the old view types. Removed once the services use
- * the accessors of `utils/modelHelper.ts` directly.
- */
-export interface ConfigIndex {
-  collections: {
-    miso?: Record<string, unknown>;
-    /** Attributes declared by the RAMEN Collection node (identity attributes like `uuid` excluded) */
-    properties: PropertyConfig[];
-    types: CollectionTypeConfig[];
-    /** Annotation types carried by every Collection */
-    annotationTypes: AnnotationType[];
-  };
-  contents: {
-    miso?: Record<string, unknown>;
-    types: NodeTypeConfig[];
-    /** Annotation types carried by Content nodes */
-    annotationTypes: AnnotationType[];
-  };
-  entities: {
-    miso?: Record<string, unknown>;
-    types: NodeTypeConfig[];
-  };
-  /** Problems found while building the index. The index is still usable, the affected entries are left out. */
-  warnings: string[];
 }

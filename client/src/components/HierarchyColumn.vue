@@ -14,7 +14,6 @@ import {
   Level,
   LevelState,
   NodeDto,
-  PropertyConfig,
   SelectionModifiers,
 } from "../models/types";
 import { targetKey } from "../config/filters";
@@ -54,7 +53,7 @@ const props = defineProps<{
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useGuidelinesStore();
 const {
   levels,
   focus,
@@ -381,12 +380,11 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
   { label: "Alphabetically", value: "distinct" },
-  ...getAllCollectionConfigFields()
-    .filter((config: PropertyConfig, index: number, all: PropertyConfig[]) => {
-      return config?.name && all.findIndex((other: PropertyConfig) => other.name === config.name) === index;
-    })
-    .toSorted((a: PropertyConfig, b: PropertyConfig) => a.name.localeCompare(b.name))
-    .map((property: PropertyConfig) => ({ label: property.name, value: property.name })),
+  // Each name once, see getAllCollectionAttributes
+  ...getAllCollectionAttributes()
+    .map((property) => property.attribute.name)
+    .toSorted((a: string, b: string) => a.localeCompare(b))
+    .map((name: string) => ({ label: name, value: name })),
 ]);
 
 const sortTargetKey = computed<string>(() => targetKey(levels.value[props.index]?.query.sort.target ?? { kind: "distinct" }));

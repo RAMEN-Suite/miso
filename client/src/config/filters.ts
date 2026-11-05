@@ -1,4 +1,8 @@
-import { FilterComparator, FilterTarget, PropertyConfig, PropertyConfigDataType } from "../models/types";
+import { FilterComparator, FilterTarget } from "../models/types";
+import { getOptions, getValueType, isList, type AttributeValueType, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
+
+/** What a filter compares against: the value type of a single value, or a list */
+type FilterValueType = AttributeValueType | "Array";
 
 /**
  * Which comparators make sense for which datatype.
@@ -7,14 +11,13 @@ import { FilterComparator, FilterTarget, PropertyConfig, PropertyConfigDataType 
  * rejects anything outside its own table with a 400 — so this copy exists only to keep the UI from
  * offering a combination that would be refused. Keep the two in sync.
  */
-export const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterComparator[]> = {
+export const COMPARATORS_BY_DATATYPE: Record<FilterValueType, FilterComparator[]> = {
   String: ["contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "in", "isEmpty", "isNotEmpty"],
   Integer: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
   Float: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
   Boolean: ["equals", "notEquals", "isEmpty", "isNotEmpty"],
   Date: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   DateTime: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
-  Time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Array: ["in", "isEmpty", "isNotEmpty"],
   Object: ["isEmpty", "isNotEmpty"],
 };
@@ -53,15 +56,21 @@ export const COMPARATOR_LABELS: Record<FilterComparator, string> = {
  * The comparators offered for a property.
  *
  * Narrower than what the server accepts, on purpose: `in` is only offered when the property declares
- * `options`, because without a closed set to pick from there is no sensible input for a list.
+ * options (literals), because without a closed set to pick from there is no sensible input for a list.
  *
- * @param {Partial<PropertyConfig> | undefined} config - The property's config. Compared as text when absent.
+ * @param {ModelContext} context - The model context.
+ * @param {ModelAttribute | undefined} field - The property's attribute. Compared as text when absent.
  * @returns {FilterComparator[]} The comparators to offer.
  */
-export function availableComparators(config: Partial<PropertyConfig> | undefined): FilterComparator[] {
-  const supported: FilterComparator[] = COMPARATORS_BY_DATATYPE[config?.type ?? "String"] ?? [];
+export function availableComparators(context: ModelContext, field: ModelAttribute | undefined): FilterComparator[] {
+  if (!field) {
+    return COMPARATORS_BY_DATATYPE.String.filter((comparator: FilterComparator) => comparator !== "in");
+  }
 
-  if (config?.options?.length) {
+  const valueType: FilterValueType = isList(field) ? "Array" : getValueType(context, field);
+  const supported: FilterComparator[] = COMPARATORS_BY_DATATYPE[valueType] ?? [];
+
+  if (getOptions(context, field)?.length) {
     return supported.filter((comparator: FilterComparator) => ENUM_COMPARATORS.includes(comparator));
   }
 

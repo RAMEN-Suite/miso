@@ -5,7 +5,8 @@ import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
+import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject } from "../models/types.ts";
+import type { ModelAttribute } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
@@ -35,13 +36,12 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-const { getAnnotationConfig, getAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
+const { getAnnotationConfig, getTextAnnotationProperties, getAnnotationExtent } = useGuidelinesStore();
 
 const config: AnnotationType | undefined = getAnnotationConfig(props.annotation.node.data.type);
 
 const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.data.type) === "zeroPoint";
-// TODO: Maybe give whole config instead of only fields...?
-const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
+const propertyFields: ModelAttribute[] = getTextAnnotationProperties(props.annotation.node.data.type);
 
 /** Whether the card body is hidden. Can be controlled by the parent via `v-model:collapsed`. */
 const isCollapsed = defineModel<boolean>("collapsed", { default: true });

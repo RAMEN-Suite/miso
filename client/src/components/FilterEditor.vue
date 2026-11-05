@@ -6,13 +6,15 @@ import InputText from "primevue/inputtext";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
 import { useGuidelinesStore } from "../store/guidelines";
-import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec, PropertyConfig } from "../models/types";
+import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec } from "../models/types";
 import { availableComparators, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
+import type { ModelAttribute } from "../utils/helper/modelHelper";
 import FilterRuleRow from "./FilterRuleRow.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons";
 
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes, getModelContext } =
+  useGuidelinesStore();
 
 const props = defineProps<{
   /** The rules to seed the editor from. Read on mount and on {@linkcode sync}, never watched. */
@@ -40,11 +42,10 @@ const labelGroups: { base: string; additional: string[] }[] = [
   { base: "Content", additional: getAvailableContentLabels().toSorted() },
 ];
 
-const availableProperties: PropertyConfig[] = getAllCollectionConfigFields()
-  .filter((config: PropertyConfig, index: number, all: PropertyConfig[]) => {
-    return config?.name && all.findIndex((other: PropertyConfig) => other.name === config.name) === index;
-  })
-  .toSorted((a: PropertyConfig, b: PropertyConfig) => a.name.localeCompare(b.name));
+// Each name once, see getAllCollectionAttributes
+const availableProperties: ModelAttribute[] = getAllCollectionAttributes().toSorted((a: ModelAttribute, b: ModelAttribute) =>
+  a.attribute.name.localeCompare(b.attribute.name),
+);
 
 const rows = ref<FilterRow[]>([]);
 const selectedLabels = ref<string[]>([]);
@@ -78,12 +79,12 @@ function sync(): void {
  * @returns {void} This function does not return a value.
  */
 function addRow(): void {
-  const property: PropertyConfig | undefined = availableProperties[0];
-  const comparators: FilterComparator[] = availableComparators(property);
+  const property: ModelAttribute | undefined = availableProperties[0];
+  const comparators: FilterComparator[] = availableComparators(getModelContext(), property);
 
   rows.value.push({
     id: crypto.randomUUID(),
-    target: { kind: "property", field: property?.name ?? "" },
+    target: { kind: "property", field: property?.attribute.name ?? "" },
     comparator: comparators[0] ?? "contains",
     value: null,
   });

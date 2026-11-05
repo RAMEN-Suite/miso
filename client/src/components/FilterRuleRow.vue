@@ -5,7 +5,7 @@ import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
 import Button from "primevue/button";
-import { FilterComparator, FilterRow, FilterTarget, PropertyConfig } from "../models/types";
+import { FilterComparator, FilterRow, FilterTarget } from "../models/types";
 import { availableComparators, COMPARATOR_LABELS, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
 import {
   getTemporalInputType,
@@ -15,10 +15,21 @@ import {
   toStoredTemporal,
   toTemporalInputValue,
 } from "../utils/helper/propertyTypeHelper";
+import { useGuidelinesStore } from "../store/guidelines";
+import {
+  getOptions,
+  getValueType,
+  type AttributeValueType,
+  type ModelAttribute,
+  type ModelContext,
+} from "../utils/helper/modelHelper";
 
 const props = defineProps<{
-  properties: PropertyConfig[];
+  /** The attributes that can be filtered on */
+  properties: ModelAttribute[];
 }>();
+
+const context: ModelContext = useGuidelinesStore().getModelContext();
 
 /**
  * The row being edited. Replaced rather than mutated on every change, so the parent's array sees a
@@ -29,24 +40,28 @@ const row = defineModel<FilterRow>({ required: true });
 const emit = defineEmits<{ remove: [] }>();
 
 const targetOptions = computed<{ label: string; value: string }[]>(() =>
-  props.properties.map((property: PropertyConfig) => ({ label: property.name, value: property.name })),
+  props.properties.map((property: ModelAttribute) => ({ label: property.attribute.name, value: property.attribute.name })),
 );
 
 const selectedTarget = computed<string>(() => targetKey(row.value.target));
 
-/** The guideline config behind the chosen target. Absent for `distinct`, which is always text. */
-const config = computed<PropertyConfig | undefined>(() =>
+/** The attribute behind the chosen target. Absent for `distinct`, which is always text. */
+const field = computed<ModelAttribute | undefined>(() =>
   row.value.target.kind === "property"
     ? props.properties.find(
-        (property: PropertyConfig) => property.name === (row.value.target as { kind: "property"; field: string }).field,
+        (property: ModelAttribute) =>
+          property.attribute.name === (row.value.target as { kind: "property"; field: string }).field,
       )
     : undefined,
 );
 
-const enumOptions = computed<(string | number)[]>(() => config.value?.options ?? []);
+/** The value type of the chosen attribute, used by the inputs and the conversions of temporal values */
+const valueType = computed<AttributeValueType | undefined>(() => (field.value ? getValueType(context, field.value) : undefined));
+
+const enumOptions = computed<(string | number)[]>(() => (field.value ? (getOptions(context, field.value) ?? []) : []));
 
 const comparatorOptions = computed<{ label: string; value: FilterComparator }[]>(() =>
-  availableComparators(config.value).map((comparator: FilterComparator) => ({
+  availableComparators(context, field.value).map((comparator: FilterComparator) => ({
     label: COMPARATOR_LABELS[comparator],
     value: comparator,
   })),
@@ -54,12 +69,12 @@ const comparatorOptions = computed<{ label: string; value: FilterComparator }[]>
 
 const needsValue = computed<boolean>(() => !VALUELESS_COMPARATORS.includes(row.value.comparator));
 const isRange = computed<boolean>(() => RANGE_COMPARATORS.includes(row.value.comparator));
-const hasTemporalValue = computed<boolean>(() => isTemporal(config.value));
-const hasNumericValue = computed<boolean>(() => isNumeric(config.value));
-const hasBooleanValue = computed<boolean>(() => isBoolean(config.value));
+const hasTemporalValue = computed<boolean>(() => isTemporal(valueType.value));
+const hasNumericValue = computed<boolean>(() => isNumeric(valueType.value));
+const hasBooleanValue = computed<boolean>(() => isBoolean(valueType.value));
 
 /** The `type` attribute the native html `input` element expects */
-const temporalInputType = computed<"date" | "time" | "datetime-local">(() => getTemporalInputType(config.value));
+const temporalInputType = computed<"date" | "datetime-local">(() => getTemporalInputType(valueType.value));
 
 /**
  * Switches the row to another property. Both the comparator and the value are reset, since neither
@@ -70,8 +85,10 @@ const temporalInputType = computed<"date" | "time" | "datetime-local">(() => get
  */
 function handleTargetChange(key: string): void {
   const target: FilterTarget = { kind: "property", field: key };
-  const nextConfig: PropertyConfig | undefined = props.properties.find((property: PropertyConfig) => property.name === key);
-  const comparators: FilterComparator[] = availableComparators(nextConfig);
+  const nextField: ModelAttribute | undefined = props.properties.find(
+    (property: ModelAttribute) => property.attribute.name === key,
+  );
+  const comparators: FilterComparator[] = availableComparators(context, nextField);
 
   row.value = { ...row.value, target, comparator: comparators[0] ?? "equals", value: null };
 }
@@ -173,16 +190,16 @@ const defaultProps = {
             v-bind="defaultProps"
             :type="temporalInputType"
             step="1"
-            :model-value="toTemporalInputValue(boundAt(0) as string | null, config)"
-            @update:model-value="setBound(0, toStoredTemporal($event, config))"
+            :model-value="toTemporalInputValue(boundAt(0) as string | null, valueType)"
+            @update:model-value="setBound(0, toStoredTemporal($event, valueType))"
           />
           <InputText
             v-if="hasTemporalValue"
             v-bind="defaultProps"
             :type="temporalInputType"
             step="1"
-            :model-value="toTemporalInputValue(boundAt(1) as string | null, config)"
-            @update:model-value="setBound(1, toStoredTemporal($event, config))"
+            :model-value="toTemporalInputValue(boundAt(1) as string | null, valueType)"
+            @update:model-value="setBound(1, toStoredTemporal($event, valueType))"
           />
           <template v-else>
             <InputNumber
@@ -222,8 +239,8 @@ const defaultProps = {
           v-bind="defaultProps"
           :type="temporalInputType"
           step="1"
-          :model-value="toTemporalInputValue(row.value as string | null, config)"
-          @update:model-value="setValue(toStoredTemporal($event, config))"
+          :model-value="toTemporalInputValue(row.value as string | null, valueType)"
+          @update:model-value="setValue(toStoredTemporal($event, valueType))"
         />
         <InputNumber
           v-else-if="hasNumericValue"

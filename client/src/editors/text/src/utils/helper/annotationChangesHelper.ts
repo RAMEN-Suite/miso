@@ -340,7 +340,11 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       return;
     }
 
-    pruneUnconfiguredProperties(annotation.node.data, getAnnotationFields(type), INTRINSIC_ANNOTATION_PROPERTIES);
+    pruneUnconfiguredProperties(
+      annotation.node.data,
+      getAnnotationFields(type).map((field) => field.name),
+      INTRINSIC_ANNOTATION_PROPERTIES,
+    );
   }
 
   /**

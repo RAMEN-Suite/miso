@@ -3,24 +3,20 @@ import { computed, ComputedRef, onBeforeUnmount, ref, useTemplateRef, watch } fr
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useGuidelinesStore } from "../store/guidelines";
+import { Annotation, AnnotationType, CollectionNode, CollectionFocus, HierarchyEntry, NodeDto } from "../models/types";
+import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import {
-  Annotation,
-  AnnotationType,
-  CollectionNode,
-  CollectionFocus,
-  HierarchyEntry,
-  PropertyConfig,
-  NodeDto,
-} from "../models/types";
-import {
-  camelCaseToTitleCase,
-  cloneDeep,
-  getDefaultValueForProperty,
-  isRequiredValueMissing,
-  setNodeTreeStatus,
-  pruneDeletedNodes,
-} from "../utils/helper/helper";
-import { isArray, isBoolean } from "../utils/helper/propertyTypeHelper";
+  getDefaultValue,
+  getOptions,
+  getValueType,
+  isEditable,
+  isEmptyValue,
+  isList,
+  isRequired,
+  isVisible,
+  validateValue,
+  type ModelAttribute,
+} from "../utils/helper/modelHelper";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -67,11 +63,12 @@ const pane = useTemplateRef<HTMLDivElement>("pane");
 const {
   isInitialized: areGuidelinesInitialized,
   annotationHasConstraints,
-  getCollectionAnnotationFields,
+  getAllCollectionAttributes,
   getCollectionAnnotationConfig,
-  getCollectionConfigFields,
-  getAllCollectionConfigFields,
+  getCollectionAnnotationProperties,
+  getCollectionAttributes,
   getAvailableCollectionAnnotationConfigs,
+  getModelContext,
 } = useGuidelinesStore();
 const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
@@ -92,9 +89,11 @@ const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
 const annotationPendingRemoval = ref<string | null>(null);
 const removalRunning = ref<boolean>(false);
 
-const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
+const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
   return areGuidelinesInitialized.value
-    ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
+    ? getCollectionAttributes(temporaryWorkData.value.collection.node.nodeLabels).filter((field) =>
+        isVisible(getModelContext(), field),
+      )
     : [];
 });
 
@@ -115,11 +114,12 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
   return availabeAnnotationTypes.value
     .toSorted((a, b) => a.type.localeCompare(b.type))
     .map((type: AnnotationType) => {
-      const subTypeOptions: (string | number)[] = SHOW_ANNOTATION_SUBTYPES
-        ? getCollectionAnnotationFields(temporaryWorkData.value.collection.node.nodeLabels, type.type).find(
-            (field) => field.name === "subType",
-          )?.options ?? []
-        : [];
+      const subTypeField: ModelAttribute | undefined = SHOW_ANNOTATION_SUBTYPES
+        ? getCollectionAnnotationProperties(temporaryWorkData.value.collection.node.nodeLabels, type.type).find(
+            (field) => field.attribute.name === "subType",
+          )
+        : undefined;
+      const subTypeOptions: (string | number)[] = subTypeField ? (getOptions(getModelContext(), subTypeField) ?? []) : [];
 
       if (subTypeOptions.length === 0) {
         return {
@@ -298,16 +298,18 @@ async function commitProperty(name: string, validate: (value: unknown) => string
 }
 
 /**
- * Validates a value against its config and the native constraints of its inputs.
+ * Validates a value against the model (with RAMEN core) and the native constraints of its inputs.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {unknown} value - The value to check.
  * @param {HTMLElement | null} row - The table row with the inputs of the property.
  * @returns {string | null} The validation message, or `null` if the value is valid.
  */
-function validateField(field: PropertyConfig, value: unknown, row: HTMLElement | null): string | null {
-  if (isRequiredValueMissing(value, field)) {
-    return "A value is required.";
+function validateField(field: ModelAttribute, value: unknown, row: HTMLElement | null): string | null {
+  const [modelError] = validateValue(getModelContext(), field, value);
+
+  if (modelError) {
+    return isRequired(field) && isEmptyValue(value) ? "A value is required." : modelError;
   }
 
   const invalidInput: HTMLInputElement | null | undefined = row?.querySelector<HTMLInputElement>("input:invalid");
@@ -328,37 +330,40 @@ function validateLabel(value: unknown): string | null {
 /**
  * Whether a property saves on change instead of on leaving the field, since its value is picked, not typed.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @returns {boolean} Whether the property saves on change.
  */
-function savesOnChange(field: PropertyConfig): boolean {
-  return isBoolean(field) || (Boolean(field.options) && !isArray(field));
+function savesOnChange(field: ModelAttribute): boolean {
+  return (
+    getValueType(getModelContext(), field) === "Boolean" ||
+    (getOptions(getModelContext(), field) !== undefined && !isList(field))
+  );
 }
 
 /**
- * Saves an editable property, validated against its config and the inputs in its row.
+ * Saves an editable property, validated against the model and the inputs in its row.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {HTMLElement | null} row - The table row of the property, for the native input constraints.
  * @returns {void} This function does not return any value.
  */
-function commitField(field: PropertyConfig, row: HTMLElement | null): void {
-  if (!field.editable) {
+function commitField(field: ModelAttribute, row: HTMLElement | null): void {
+  if (!isEditable(getModelContext(), field)) {
     return;
   }
 
-  void commitProperty(field.name, (value) => validateField(field, value, row));
+  void commitProperty(field.attribute.name, (value) => validateField(field, value, row));
 }
 
 /**
  * Writes an input value to the draft and saves it right away if the property saves on change.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {unknown} value - The new value.
  * @returns {void} This function does not return any value.
  */
-function handleFieldInput(field: PropertyConfig, value: unknown): void {
-  temporaryWorkData.value.collection.node.data[field.name] = value;
+function handleFieldInput(field: ModelAttribute, value: unknown): void {
+  temporaryWorkData.value.collection.node.data[field.attribute.name] = value;
 
   // Picked values have no native constraints to check, so no row is needed for validation
   if (savesOnChange(field)) {
@@ -385,11 +390,11 @@ function getFieldStatusIcon(state: FieldSaveState | undefined): string {
 /**
  * Saves the property once the focus leaves its row (not when moving between the inputs of a multi-value property).
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {FocusEvent} event - The focusout event of the row.
  * @returns {void} This function does not return any value.
  */
-function handleFieldFocusOut(field: PropertyConfig, event: FocusEvent): void {
+function handleFieldFocusOut(field: ModelAttribute, event: FocusEvent): void {
   const row: HTMLElement = event.currentTarget as HTMLElement;
 
   if (event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) {
@@ -427,12 +432,12 @@ function revertProperty(name: string): void {
 /**
  * Restores the saved value on Escape and leaves the field.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {KeyboardEvent} event - The keydown event of the row.
  * @returns {void} This function does not return any value.
  */
-function handleFieldEscape(field: PropertyConfig, event: KeyboardEvent): void {
-  revertProperty(field.name);
+function handleFieldEscape(field: ModelAttribute, event: KeyboardEvent): void {
+  revertProperty(field.attribute.name);
   (event.target as HTMLElement).blur();
 }
 
@@ -506,11 +511,13 @@ function applyPersistedAnnotation(annotation: Annotation): void {
  * @returns {void} This function does not return any value.
  */
 function enrichCollectionData(): void {
-  const allPossibleFields: PropertyConfig[] = getAllCollectionConfigFields();
+  const allPossibleFields: ModelAttribute[] = getAllCollectionAttributes();
 
   allPossibleFields.forEach((field) => {
-    if (!(field.name in temporaryWorkData.value.collection.node.data)) {
-      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
+    const name: string = field.attribute.name;
+
+    if (!(name in temporaryWorkData.value.collection.node.data)) {
+      temporaryWorkData.value.collection.node.data[name] = isRequired(field) ? getDefaultValue(getModelContext(), field) : null;
     }
   });
 }
@@ -749,35 +756,38 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
           <table v-if="collectionFields.length > 0" class="properties-table">
             <tr
               v-for="field in collectionFields"
-              :key="field.name"
+              :key="field.attribute.name"
               class="properties-row"
-              :class="{ 'is-multiline': isArray(field) }"
+              :class="{ 'is-multiline': isList(field) }"
               @focusout="handleFieldFocusOut(field, $event)"
               @keydown.enter="handleFieldEnter"
               @keydown.escape="handleFieldEscape(field, $event)"
             >
               <td class="properties-label">
                 <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
-                <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+                <label :for="field.attribute.name">{{ camelCaseToTitleCase(field.attribute.name) }}</label>
               </td>
               <td class="properties-value value-with-status">
                 <span
-                  v-if="fieldStates[field.name]"
-                  v-tooltip.top="fieldStates[field.name].message"
+                  v-if="fieldStates[field.attribute.name]"
+                  v-tooltip.top="fieldStates[field.attribute.name].message"
                   class="field-status input-status"
-                  :class="[`is-${fieldStates[field.name].state}`, getFieldStatusIcon(fieldStates[field.name])]"
+                  :class="[
+                    `is-${fieldStates[field.attribute.name].state}`,
+                    getFieldStatusIcon(fieldStates[field.attribute.name]),
+                  ]"
                 ></span>
                 <DataInputGroup
-                  v-if="isArray(field)"
-                  :model-value="temporaryWorkData.collection.node.data[field.name] as ArrayPropertyValue"
-                  :config="field"
+                  v-if="isList(field)"
+                  :model-value="temporaryWorkData.collection.node.data[field.attribute.name] as ArrayPropertyValue"
+                  :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />
                 <DataInputComponent
                   v-else
-                  :model-value="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
+                  :model-value="temporaryWorkData.collection.node.data[field.attribute.name]"
+                  :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />

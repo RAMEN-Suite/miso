@@ -8,7 +8,7 @@ import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { createCollectionNode } from "../config/ramen";
-import { isRequiredValueMissing } from "../utils/helper/helper";
+import { validateValue } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionConfigFields } = useGuidelinesStore();
+const { getCollectionAttributes, getModelContext } = useGuidelinesStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
@@ -33,12 +33,17 @@ const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
 const isLoading = ref<boolean>(false);
 const newCollectionNode = ref<CollectionNode>(createCollectionNode());
 const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
-const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
+// The label has its own input above the form
+const collectionFields = computed(() =>
+  getCollectionAttributes(nodeLabels.value).filter((field) => field.attribute.name !== "label"),
+);
 
 const inputIsValid = computed<boolean>(
   () =>
     newCollectionNode.value.data.label.trim().length > 0 &&
-    collectionFields.value.every((field) => !isRequiredValueMissing(newCollectionNode.value.data[field.name], field)),
+    collectionFields.value.every(
+      (field) => validateValue(getModelContext(), field, newCollectionNode.value.data[field.attribute.name]).length === 0,
+    ),
 );
 
 watch(() => route.path, closeModal);

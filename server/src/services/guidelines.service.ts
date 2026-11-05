@@ -7,6 +7,7 @@ import ExternalServiceError from "../errors/externalService.error.js";
 import { CONFIG_DIR } from "../constants.js";
 import { isValidConfigFile, isValidHttpUrl } from "../utils/helper.js";
 import { buildConfigIndex } from "../utils/configIndex.js";
+import { createModelContext, ModelContext } from "../utils/modelHelper.js";
 import logger from "../logger.js";
 
 /** The loaded config and its index. `version` is the file's mtime, or `null` for remote configs (loaded once). */
@@ -14,6 +15,9 @@ interface LoadedConfig {
   url: string;
   version: number | null;
   config: IMisoConfig;
+  /** The model and its settings, for the accessors in `utils/modelHelper.ts` */
+  context: ModelContext;
+  /** TRANSITIONAL: the lookups in the old view types, until the services use the accessors directly */
   index: ConfigIndex;
 }
 
@@ -74,6 +78,16 @@ export default class GuidelinesService {
    */
   public async getConfigIndex(): Promise<ConfigIndex> {
     return (await this.load()).index;
+  }
+
+  /**
+   * Retrieves the model of the Miso config and its settings, for the accessors in `utils/modelHelper.ts`.
+   *
+   * @throws {ExternalServiceError} If the config can not be loaded or is invalid.
+   * @return {Promise<ModelContext>} The model context.
+   */
+  public async getModelContext(): Promise<ModelContext> {
+    return (await this.load()).context;
   }
 
   /**
@@ -179,10 +193,11 @@ export default class GuidelinesService {
       throw new ExternalServiceError(`The model in the guidelines is invalid: ${(error as Error).message}`);
     }
 
-    const index: ConfigIndex = buildConfigIndex(config, model);
+    const context: ModelContext = createModelContext(config, model);
+    const index: ConfigIndex = buildConfigIndex(context);
 
     index.warnings.forEach((warning) => logger.warn(`Miso config: ${warning}`));
 
-    return { url, version, config, index };
+    return { url, version, config, context, index };
   }
 }

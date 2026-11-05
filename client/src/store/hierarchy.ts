@@ -17,7 +17,6 @@ import {
   NodeDto,
   NodeStatusObject,
   AnnotationNode,
-  PropertyConfig,
 } from "../models/types";
 import { useAppStore } from "./app";
 import { useGuidelinesStore } from "./guidelines";
@@ -46,7 +45,7 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
-    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useGuidelinesStore();
     const { getSmartViewFilters } = useSmartViewsStore();
     const { getTextPreviewAnnotationTypes } = useTextPreview();
 
@@ -240,7 +239,7 @@ function createStore() {
 
       // Important: A preset outlives the guidelines it was written against - If the guidelines change, the preset
       // might be stale/invalid. This is a safe guard to only apply rules that are still valid.
-      const validProperties = new Set<string>(getAllCollectionConfigFields().map((config: PropertyConfig) => config.name));
+      const validProperties = new Set<string>(getAllCollectionAttributes().map((entry) => entry.attribute.name));
 
       const filters: FilterSpec = preset.filter(
         (rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field),

@@ -80,6 +80,9 @@ export type MisoConfig = z.infer<typeof misoConfigSchema>;
 /** An entry of `miso.base` */
 export type ConfigBaseEntry = z.infer<typeof baseEntrySchema>;
 
+/** An entry of `miso.mappings`: a native editor type and the annotation shape that implements it */
+export type ConfigMapping = z.infer<typeof mappingSchema>;
+
 /** A validated Miso config together with its imported model */
 export interface ParsedMisoConfig {
   config: MisoConfig;

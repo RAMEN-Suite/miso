@@ -1,274 +1,137 @@
+import { ConfigIndex, NodeTypeConfig } from "../models/IMisoConfig.js";
+import { AnnotationType, PropertyConfig } from "../models/types.js";
 import {
-  DataTypes,
-  RAMEN_ELEMENT,
-  RAMEN_MODEL,
-  type AnnotationShape,
-  type AnnotationShapeSuggestion,
-  type Attribute,
-  type AttributeInfo,
-  type DataType,
-  type RamenModel,
-  type Relation,
-} from "@ramen-suite/core";
-import { ConfigBaseEntry, ConfigIndex, IMisoConfig, NodeTypeConfig } from "../models/IMisoConfig.js";
-import { AnnotationType, PropertyConfig, PropertyConfigDataType } from "../models/types.js";
+  BASE_NODE_REF,
+  familyRefOf,
+  getNodeAttributes,
+  getNodeMiso,
+  getOptions,
+  getRefinements,
+  getShapeMiso,
+  getShapeProperties,
+  getShapesForNode,
+  getValueType,
+  isEditable,
+  isList,
+  isRequired,
+  isVisible,
+  refersToEntities,
+  shapeRefOf,
+  type ModelAnnotationShape,
+  type ModelAttribute,
+  type ModelContext,
+} from "./modelHelper.js";
 
-// Builds the lookup index of the guidelines service. Every model question (lineage, attributes, data types, which
-// annotation shapes a node carries) is answered by RAMEN core; the config only adds Miso's settings (`ext.miso`,
-// `miso.base`). Names are only the lookup keys (`additionalLabel`, `type`), as long as the lookups match by name.
+// TRANSITIONAL: the lookup index of the guidelines service, in the old view types (`PropertyConfig`, `AnnotationType`).
+// It only exists until the services use the accessors of `modelHelper.ts` directly (step 2e of the plan), and is built
+// entirely from those accessors. Don't build new features on top of it.
 //
-// The same derivation exists on the client (`client/src/utils/helper/configIndexHelper.ts`). Keep both in sync.
+// The same index exists on the client (`client/src/utils/helper/configIndexHelper.ts`). Keep both in sync.
 
-type MisoBlock = Record<string, unknown> | undefined;
+/** The old view of an attribute */
+function toPropertyConfig(context: ModelContext, entry: ModelAttribute): PropertyConfig {
+  const type = getValueType(context, entry);
+  const options = getOptions(context, entry);
+  const config: PropertyConfig = {
+    name: entry.attribute.name,
+    type: isList(entry) ? "Array" : type,
+    required: isRequired(entry),
+    editable: isEditable(context, entry),
+    visible: isVisible(context, entry),
+    attributeId: entry.attribute.id,
+  };
 
-const COLLECTION_REF: string = `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.COLLECTION}`;
-const CONTENT_REF: string = `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.CONTENT}`;
-const ENTITY_REF: string = `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ENTITY}`;
-const BASE_NODE_REFS: readonly string[] = [
-  COLLECTION_REF,
-  CONTENT_REF,
-  ENTITY_REF,
-  `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ANNOTATION}`,
-];
+  if (isList(entry)) {
+    config.items = { type, ...(options ? { options } : {}) };
 
-const BUILTIN_TYPES: readonly string[] = Object.values(DataTypes);
-
-/** RAMEN data types with a property type of their own. The other data types are handled as their base type. */
-const PROPERTY_TYPE_BY_RAMEN_TYPE_REF: Record<string, PropertyConfigDataType> = {
-  [`${RAMEN_MODEL.id}:${RAMEN_ELEMENT.DATE}`]: "Date",
-  [`${RAMEN_MODEL.id}:${RAMEN_ELEMENT.DATE_TIME}`]: "DateTime",
-};
-
-/**
- * Qualifies a local ref (without model prefix) with the model of the element that holds it.
- *
- * @param {string} ref - A local or qualified ref.
- * @param {string} contextModelId - The model of the element that holds the ref.
- * @returns {string} The qualified ref (`<modelId>:<id>`).
- */
-function qualify(ref: string, contextModelId: string): string {
-  if (ref.includes(":")) {
-    return ref;
-  } else {
-    return `${contextModelId}:${ref}`;
+    if (entry.attribute.bounds.upperBound > 1) {
+      config.maxItems = entry.attribute.bounds.upperBound;
+    }
+  } else if (options) {
+    config.options = options;
   }
+
+  return config;
+}
+
+/** The old view of an annotation shape. The server doesn't need the native mapping, so it isn't added. */
+function toAnnotationType(context: ModelContext, shape: ModelAnnotationShape): AnnotationType {
+  const miso = getShapeMiso(shape);
+
+  return {
+    type: shape.type,
+    properties: getShapeProperties(shape).map((entry) => toPropertyConfig(context, entry)),
+    hasEntities: refersToEntities(context, shape),
+    ...(miso ? { miso: structuredClone(miso) } : {}),
+    annotationRef: shapeRefOf(shape),
+    familyRef: familyRefOf(shape),
+  };
 }
 
 /**
- * Builds the lookup index of the guidelines service.
+ * Builds the lookup index of the guidelines service from the model accessors.
  *
- * @param {IMisoConfig} config - The Miso config, for its `ext.miso` blocks and global settings.
- * @param {RamenModel} model - The model of the config, imported by RAMEN core.
+ * @param {ModelContext} context - The model context.
  * @returns {ConfigIndex} The index, with the problems found in `warnings`.
  */
-export function buildConfigIndex(config: IMisoConfig, model: RamenModel): ConfigIndex {
+export function buildConfigIndex(context: ModelContext): ConfigIndex {
   const warnings: string[] = [];
-  const baseEntries = new Map<string, ConfigBaseEntry>((config.miso.base ?? []).map((e) => [`${e.modelId}:${e.id}`, e]));
-  const shapes = new Map<string, AnnotationShape & { modelId: string }>(
-    config.model.annotations.map((shape) => [`${shape.modelId}:${shape.id}`, shape]),
-  );
-
-  /** The ref of the RAMEN base node a node refines, from its base-first lineage */
-  function baseRefOf(nodeRef: string): string | undefined {
-    const root = model.getNodeLineage(nodeRef)[0];
-
-    return root ? `${root.modelId}:${root.nodeId}` : undefined;
-  }
-
-  /** Property type and options of an attribute type */
-  function valueTypeOf(typeRef: string, label: string): { type: PropertyConfigDataType; options?: string[] | number[] } {
-    if (BUILTIN_TYPES.includes(typeRef)) {
-      return { type: typeRef as PropertyConfigDataType };
-    }
-
-    if (PROPERTY_TYPE_BY_RAMEN_TYPE_REF[typeRef]) {
-      return { type: PROPERTY_TYPE_BY_RAMEN_TYPE_REF[typeRef] };
-    }
-
-    const dataType: DataType | undefined = model.getDataType(typeRef);
-
-    if (!dataType) {
-      warnings.push(`${label}: unknown data type "${typeRef}", handled as String`);
-      return { type: "String" };
-    }
-
-    const type = dataType.baseType as PropertyConfigDataType;
-    const literals = dataType.literals ?? [];
-
-    if (literals.length === 0) {
-      return { type };
-    } else if (type === "Integer" || type === "Float") {
-      return { type, options: literals.map((l) => l.value ?? Number(l.literal ?? l.name)) };
-    } else {
-      return { type, options: literals.map((l) => l.literal ?? l.name) };
-    }
-  }
-
-  /** Built-in type names stay as they are, other type refs are qualified */
-  function qualifyType(typeId: string, declaringModelId: string): string {
-    if (BUILTIN_TYPES.includes(typeId)) {
-      return typeId;
-    } else {
-      return qualify(typeId, declaringModelId);
-    }
-  }
-
-  /** The property config of an attribute, with its `ext.miso` settings */
-  function toPropertyConfig(attribute: Attribute, declaringModelId: string, miso: MisoBlock, label: string): PropertyConfig {
-    const { type, options } = valueTypeOf(qualifyType(attribute.typeId, declaringModelId), label);
-    const { lowerBound, upperBound } = attribute.bounds;
-    const isList: boolean = upperBound === -1 || upperBound > 1;
-
-    const config: PropertyConfig = {
-      name: attribute.name,
-      type: isList ? "Array" : type,
-      required: lowerBound >= 1,
-      editable: attribute.isReadOnly === true ? false : miso?.editable !== false,
-      visible: miso?.visible !== false,
-      attributeId: attribute.id,
-    };
-
-    if (isList) {
-      config.items = { type, ...(options ? { options } : {}) };
-
-      if (upperBound > 1) {
-        config.maxItems = upperBound;
-      }
-    } else if (options) {
-      config.options = options;
-    }
-
-    return config;
-  }
-
-  /** The property config of an attribute visible on a node, read from its declaring node */
-  function attributeConfig(info: AttributeInfo): PropertyConfig | undefined {
-    const declaringRef: string = `${info.declaredBy.modelId}:${info.declaredBy.nodeId}`;
-    const attribute: Attribute | undefined = model.getNode(declaringRef)?.attributes.find((a) => a.id === info.attributeId);
-
-    if (!attribute || attribute.isKey === true) {
-      return undefined;
-    }
-
-    const miso: MisoBlock = declaringRef.startsWith(`${RAMEN_MODEL.id}:`)
-      ? baseEntries.get(declaringRef)?.attributes?.find((a) => a.id === attribute.id)?.ext?.miso
-      : (attribute.ext?.miso as MisoBlock);
-
-    return toPropertyConfig(attribute, info.declaredBy.modelId, miso, `${info.declaredBy.name}.${attribute.name}`);
-  }
-
-  /** The properties of a node, optionally only the ones not declared by its RAMEN base node */
-  function propertiesOf(nodeRef: string, withoutBaseNode: boolean): PropertyConfig[] {
-    return model
-      .getAttributes(nodeRef)
-      .filter((info) => !withoutBaseNode || !BASE_NODE_REFS.includes(`${info.declaredBy.modelId}:${info.declaredBy.nodeId}`))
-      .map(attributeConfig)
-      .filter((config): config is PropertyConfig => config !== undefined);
-  }
-
-  /** Whether an annotation shape may refer to an Entity, from the targets of its outgoing relation rules */
-  function refersToEntities(shape: AnnotationShape & { modelId: string }): boolean {
-    return shape.relations
-      .filter((rule) => rule.direction === "outgoing")
-      .flatMap((rule) => rule.relationIds.map((relationId) => qualify(relationId, shape.modelId)))
-      .some((relationRef) => {
-        const relation: Relation | undefined = model.getRelation(relationRef);
-        const relationModelId: string = relationRef.split(":")[0];
-
-        return relation !== undefined && baseRefOf(qualify(relation.to.nodeId, relationModelId)) === ENTITY_REF;
-      });
-  }
-
-  /** The annotation type of a shape suggested for a carrier */
-  function toAnnotationType(suggestion: AnnotationShapeSuggestion): AnnotationType | undefined {
-    const shapeRef: string = `${suggestion.modelId}:${suggestion.annotationId}`;
-    const shape = shapes.get(shapeRef);
-
-    if (!shape) {
-      warnings.push(`Annotation shape "${suggestion.type}" (${shapeRef}) is not in the ingested model, left out`);
-      return undefined;
-    }
-
-    return {
-      type: shape.type,
-      properties: shape.properties.map((property) =>
-        toPropertyConfig(property, shape.modelId, property.ext?.miso as MisoBlock, `${shape.type}.${property.name}`),
-      ),
-      hasEntities: refersToEntities(shape),
-      ...(shape.ext?.miso ? { miso: structuredClone(shape.ext.miso) } : {}),
-      annotationRef: shapeRef,
-      familyRef: qualify(shape.annotationId, shape.modelId),
-    };
-  }
-
-  /** The annotation types of the shapes a node may carry, without the excluded refs */
-  function annotationTypesOf(nodeRef: string, excludedRefs: Set<string>): AnnotationType[] {
-    return model
-      .suggestAnnotationShapesForNode(nodeRef)
-      .filter((suggestion) => !excludedRefs.has(`${suggestion.modelId}:${suggestion.annotationId}`))
-      .map(toAnnotationType)
-      .filter((annotationType): annotationType is AnnotationType => annotationType !== undefined);
-  }
 
   /** Adds annotation types unless the list already has one with that type, which name matching couldn't tell apart */
-  function addAnnotationTypes(list: AnnotationType[], annotationTypes: AnnotationType[]): void {
-    for (const annotationType of annotationTypes) {
-      const existing: AnnotationType | undefined = list.find((t) => t.type === annotationType.type);
+  function addAnnotationTypes(list: AnnotationType[], shapes: ModelAnnotationShape[]): void {
+    for (const shape of shapes) {
+      const existing: AnnotationType | undefined = list.find((t) => t.type === shape.type);
 
       if (!existing) {
-        list.push(annotationType);
-      } else if (existing.annotationRef !== annotationType.annotationRef) {
-        warnings.push(
-          `A second annotation shape with type "${annotationType.type}" is left out (${annotationType.annotationRef})`,
-        );
+        list.push(toAnnotationType(context, shape));
+      } else if (existing.annotationRef !== shapeRefOf(shape)) {
+        warnings.push(`A second annotation shape with type "${shape.type}" is left out (${shapeRefOf(shape)})`);
       }
     }
   }
+
+  const toNodeType = (ref: string, name: string): NodeTypeConfig => {
+    const miso = getNodeMiso(context, ref);
+
+    return {
+      additionalLabel: name,
+      classifierRef: ref,
+      ...(miso ? { miso } : {}),
+      properties: getNodeAttributes(context, ref, true).map((entry) => toPropertyConfig(context, entry)),
+    };
+  };
+
+  const collectionWideShapes: ModelAnnotationShape[] = getShapesForNode(context, BASE_NODE_REF.Collection);
+  const collectionWideRefs = new Set<string>(collectionWideShapes.map(shapeRefOf));
 
   const index: ConfigIndex = {
     collections: {
-      miso: baseEntries.get(COLLECTION_REF)?.ext?.miso,
-      properties: propertiesOf(COLLECTION_REF, false),
-      types: [],
-      annotationTypes: annotationTypesOf(COLLECTION_REF, new Set()),
+      miso: getNodeMiso(context, BASE_NODE_REF.Collection),
+      properties: getNodeAttributes(context, BASE_NODE_REF.Collection).map((entry) => toPropertyConfig(context, entry)),
+      types: getRefinements(context, BASE_NODE_REF.Collection).map(({ ref, node }) => ({
+        ...toNodeType(ref, node.name),
+        annotationTypes: getShapesForNode(context, ref)
+          .filter((shape) => !collectionWideRefs.has(shapeRefOf(shape)))
+          .map((shape) => toAnnotationType(context, shape)),
+      })),
+      annotationTypes: collectionWideShapes.map((shape) => toAnnotationType(context, shape)),
     },
-    contents: { miso: baseEntries.get(CONTENT_REF)?.ext?.miso, types: [], annotationTypes: [] },
-    entities: { miso: baseEntries.get(ENTITY_REF)?.ext?.miso, types: [] },
+    contents: {
+      miso: getNodeMiso(context, BASE_NODE_REF.Content),
+      types: getRefinements(context, BASE_NODE_REF.Content).map(({ ref, node }) => toNodeType(ref, node.name)),
+      annotationTypes: [],
+    },
+    entities: {
+      miso: getNodeMiso(context, BASE_NODE_REF.Entity),
+      types: getRefinements(context, BASE_NODE_REF.Entity).map(({ ref, node }) => toNodeType(ref, node.name)),
+    },
     warnings,
   };
 
-  const collectionWideRefs = new Set<string>(index.collections.annotationTypes.map((t) => t.annotationRef ?? ""));
+  addAnnotationTypes(index.contents.annotationTypes, getShapesForNode(context, BASE_NODE_REF.Content));
 
-  addAnnotationTypes(index.contents.annotationTypes, annotationTypesOf(CONTENT_REF, new Set()));
-
-  // Node types: every refinement of the Collection, Content and Entity node, in model order
-
-  for (const classifier of config.model.classifiers) {
-    const ref: string = `${classifier.modelId}:${classifier.id}`;
-
-    if (classifier.kind !== "Node" || BASE_NODE_REFS.includes(ref)) {
-      continue;
-    }
-
-    const baseRef: string | undefined = baseRefOf(ref);
-    const miso: MisoBlock = ref.startsWith(`${RAMEN_MODEL.id}:`)
-      ? baseEntries.get(ref)?.ext?.miso
-      : (classifier.ext?.miso as MisoBlock);
-    const entry: NodeTypeConfig = {
-      additionalLabel: classifier.name,
-      classifierRef: ref,
-      ...(miso ? { miso } : {}),
-      properties: propertiesOf(ref, true),
-    };
-
-    if (baseRef === COLLECTION_REF) {
-      index.collections.types.push({ ...entry, annotationTypes: annotationTypesOf(ref, collectionWideRefs) });
-    } else if (baseRef === CONTENT_REF) {
-      index.contents.types.push(entry);
-      addAnnotationTypes(index.contents.annotationTypes, annotationTypesOf(ref, new Set()));
-    } else if (baseRef === ENTITY_REF) {
-      index.entities.types.push(entry);
-    }
+  for (const type of index.contents.types) {
+    addAnnotationTypes(index.contents.annotationTypes, getShapesForNode(context, type.classifierRef));
   }
 
   // Shapes no Content or Collection carries (e.g. annotations on annotations) have no place in the lookups yet
@@ -279,21 +142,21 @@ export function buildConfigIndex(config: IMisoConfig, model: RamenModel): Config
     ...index.collections.types.flatMap((type) => type.annotationTypes.map((t) => t.annotationRef ?? "")),
   ]);
 
-  for (const [ref, shape] of shapes) {
+  for (const [ref, shape] of context.shapes) {
     if (!placedRefs.has(ref)) {
       warnings.push(`Annotation shape "${shape.type}" (${ref}) is not carried by a Content or Collection node, left out`);
     }
   }
 
-  // Native mappings are only checked here. The server doesn't need them, the client turns them into `editing.native`.
+  // Mappings that don't point to an annotation type of the editor, or map a native type twice
 
   const mappedNativeTypes = new Set<string>();
 
-  for (const mapping of config.miso.mappings) {
+  for (const mapping of context.config.miso.mappings) {
     if (!index.contents.annotationTypes.some((t) => t.annotationRef === mapping.annotation)) {
       warnings.push(`miso.mappings: "${mapping.annotation}" (${mapping.native}) is no annotation shape on Content nodes`);
     } else if (mappedNativeTypes.has(mapping.native)) {
-      warnings.push(`miso.mappings: native type "${mapping.native}" is mapped twice, the second mapping is ignored`);
+      warnings.push(`miso.mappings: native type "${mapping.native}" is mapped twice`);
     } else {
       mappedNativeTypes.add(mapping.native);
     }

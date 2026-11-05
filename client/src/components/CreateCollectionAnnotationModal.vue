@@ -3,7 +3,8 @@ import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vu
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { Annotation, AnnotationType, CollectionNode, PropertyConfig } from "../models/types";
+import { Annotation, CollectionNode } from "../models/types";
+import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useGuidelinesStore } from "../store/guidelines";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
@@ -23,24 +24,22 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAnnotationConfig, getCollectionAnnotationFields } = useGuidelinesStore();
+const { getCollectionAnnotationConfig, getCollectionAnnotationProperties, getModelContext } = useGuidelinesStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
-const config: AnnotationType = dialogRef.value.data.config;
 const mode: "create" | "edit" = dialogRef.value.data.mode;
 
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
-const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(collection.nodeLabels, annotation.value.node.data.type).filter(
-  (f) => f.visible,
-);
+const allProperties: ModelAttribute[] = getCollectionAnnotationProperties(collection.nodeLabels, annotation.value.node.data.type);
+const propertyFields: ModelAttribute[] = allProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
 const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
 
 const isLoading = ref<boolean>(false);
 
-const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
+const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, allProperties, getModelContext()));
 
 watch(() => route.path, closeModal);
 
@@ -70,7 +69,11 @@ function prepareAnnotation(): Annotation {
   prepared.meta.status = mode === "create" ? "created" : "modified";
 
   if (getCollectionAnnotationConfig(collection.nodeLabels, type) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
-    pruneUnconfiguredProperties(prepared.node.data, getCollectionAnnotationFields(collection.nodeLabels, type), INTRINSIC_ANNOTATION_PROPERTIES);
+    pruneUnconfiguredProperties(
+      prepared.node.data,
+      getCollectionAnnotationProperties(collection.nodeLabels, type).map((field) => field.attribute.name),
+      INTRINSIC_ANNOTATION_PROPERTIES,
+    );
   }
 
   return prepared;

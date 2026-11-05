@@ -1,24 +1,26 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import DataInputComponent from "./DataInputComponent.vue";
-import { getDefaultValueForProperty } from "../utils/helper/helper";
-import { PropertyConfig } from "../models/types";
+import { useGuidelinesStore } from "../store/guidelines";
+import { getDefaultValue, getValueType, isRequired, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
 import Button from "primevue/button";
 
 const modelValue = defineModel<unknown[] | null>();
 const props = defineProps<{
-  config: Partial<PropertyConfig>;
+  /** The model attribute (a list attribute) the values belong to */
+  attribute: ModelAttribute;
   mode?: "edit" | "view";
 }>();
+
+const context: ModelContext = useGuidelinesStore().getModelContext();
 
 // Check if form either in edit mode or no mode is specified at all (assume edit mode)
 const isEditable = computed(() => props.mode === "edit" || !props.mode);
 
-// Items config is optional in the schema. Without it, items fall back to the defaults of an unconfigured property.
-const itemConfig = computed<Partial<PropertyConfig>>(() => props.config.items ?? {});
-
-const minItems: number | undefined = props.config.minItems;
-const maxItems: number | undefined = props.config.maxItems;
+/** The cardinality of the list, from the bounds of the attribute (an upper bound of -1 means unlimited) */
+const minItems: number = props.attribute.attribute.bounds.lowerBound;
+const maxItems: number | undefined =
+  props.attribute.attribute.bounds.upperBound === -1 ? undefined : props.attribute.attribute.bounds.upperBound;
 
 const itemCount = computed<number>(() => modelValue.value?.length ?? 0);
 
@@ -26,15 +28,15 @@ const itemCount = computed<number>(() => modelValue.value?.length ?? 0);
  * Adds a new input item to the input group. If the input group's value is null (because the entry did not exist before),
  * a new array is created at first.
  *
- * The added element will be the default value for the type of the property as specified in the property configuration.
+ * The added element will be the default value for the type of the attribute.
  *
  * @returns {void} This function does not return any value.
  */
 function handleAddItem(): void {
   if (!modelValue.value) {
-    modelValue.value = [getDefaultValueForProperty(itemConfig.value)];
+    modelValue.value = [getDefaultValue(context, props.attribute, true)];
   } else {
-    modelValue.value.push(getDefaultValueForProperty(itemConfig.value));
+    modelValue.value.push(getDefaultValue(context, props.attribute, true));
   }
 }
 
@@ -54,7 +56,7 @@ function handleDeleteItem(itemIndex: number): void {
   }
 
   if (modelValue.value.length === 1) {
-    if (props.config?.required === true) {
+    if (isRequired(props.attribute)) {
       modelValue.value = modelValue.value.filter((_, i) => i !== itemIndex);
     } else {
       modelValue.value = null;
@@ -69,7 +71,7 @@ function handleDeleteItem(itemIndex: number): void {
   <div class="w-full">
     <template v-if="modelValue">
       <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
-        <DataInputComponent v-model="modelValue[index]" :config="itemConfig" :mode="props.mode" />
+        <DataInputComponent v-model="modelValue[index]" :attribute="props.attribute" item :mode="props.mode" />
         <Button
           v-if="isEditable"
           title="Delete item"
@@ -78,7 +80,7 @@ function handleDeleteItem(itemIndex: number): void {
           outlined
           icon="icon-x"
           size="small"
-          :disabled="itemCount <= (minItems ?? 0)"
+          :disabled="itemCount <= minItems"
           @click="handleDeleteItem(index)"
         />
       </div>
@@ -91,7 +93,7 @@ function handleDeleteItem(itemIndex: number): void {
       severity="secondary"
       label="Add item"
       :disabled="maxItems !== undefined && itemCount >= maxItems"
-      :title="`Add new ${props.config.type} item`"
+      :title="`Add new ${getValueType(context, props.attribute)} item`"
       @click="handleAddItem"
     />
   </div>

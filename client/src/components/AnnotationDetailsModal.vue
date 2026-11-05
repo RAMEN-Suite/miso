@@ -2,11 +2,12 @@
 import { computed, inject, onMounted, Ref, ref, toValue, useTemplateRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
-import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
+import { Annotation } from "../models/types";
 import { useGuidelinesStore } from "../store/guidelines";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
+import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -16,7 +17,7 @@ if (!dialogRef) {
 }
 
 const route: ReturnType<typeof useRoute> = useRoute();
-const { getAnnotationFields } = useGuidelinesStore();
+const { getTextAnnotationProperties, getModelContext } = useGuidelinesStore();
 
 const mode: "create" | "edit" = dialogRef.value.data.mode ?? "edit";
 
@@ -27,17 +28,19 @@ const submitButtonConfig = {
 
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
-const config: AnnotationType = dialogRef.value.data.config;
-
-// TODO: Filter directly in guidelines methods, since this must be done in several places. Done when Nori export is implemented
-const propertyFields: PropertyConfig[] = (
-  (dialogRef.value.data.propertyFields ?? getAnnotationFields(annotation.value.node.data.type)) as PropertyConfig[]
-).filter((f) => f.visible);
+/**
+ * The properties edited (and validated) in the form: all properties of the annotation's shape, or the subset the opener
+ * passes, e.g. without the editor-owned ones that are taken from the editor on save.
+ */
+const editedProperties: ModelAttribute[] =
+  (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ??
+  getTextAnnotationProperties(annotation.value.node.data.type);
+const propertyFields: ModelAttribute[] = editedProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
 const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
 
-const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
+const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, editedProperties, getModelContext()));
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 

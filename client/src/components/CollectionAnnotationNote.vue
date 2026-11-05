@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
+import { Annotation, AnnotationType } from "../models/types";
+import type { ModelAttribute } from "../utils/helper/modelHelper";
 import { useGuidelinesStore } from "../store/guidelines";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
@@ -22,12 +23,12 @@ const emit = defineEmits<{
   remove: [event: Event];
 }>();
 
-const { getCollectionAnnotationConfig, getCollectionAnnotationFields } = useGuidelinesStore();
+const { getCollectionAnnotationConfig, getCollectionAnnotationProperties } = useGuidelinesStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
-const propertyFields: ComputedRef<PropertyConfig[]> = computed(() =>
-  getCollectionAnnotationFields(props.collectionNodeLabels, annotation.value.node.data.type),
+const propertyFields: ComputedRef<ModelAttribute[]> = computed(() =>
+  getCollectionAnnotationProperties(props.collectionNodeLabels, annotation.value.node.data.type),
 );
 
 const config: ComputedRef<AnnotationType | undefined> = computed(() =>

@@ -7,11 +7,9 @@ import {
   EntityNode,
   CollectionNode,
   Annotation,
-  PropertyConfig,
-  AnnotationType,
 } from "../../models/types";
 import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
-import { isArray, isBoolean, isDate, isDateTime, isNumeric, isString, isTime } from "./propertyTypeHelper";
+import { isList, validateValue, type ModelAttribute, type ModelContext } from "./modelHelper";
 
 /**
  * Converts a camelCase or PascalCase string into a space-separated title case string
@@ -113,21 +111,21 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 }
 
 /**
- * Removes all properties from the given node data that are not configured in the guidelines, in place.
+ * Removes all properties from the given node data that are not declared in the model, in place.
  *
  * Is applied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
  *
  * @param {Record<string, unknown>} data - The node data to prune. Is mutated in place.
- * @param {PropertyConfig[]} fields - The properties configured for the node.
- * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are configured or not.
+ * @param {readonly string[]} names - The names of the properties declared for the node.
+ * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are declared or not.
  * @returns {void} This function does not return any value.
  */
 export function pruneUnconfiguredProperties(
   data: Record<string, unknown>,
-  fields: PropertyConfig[],
+  names: readonly string[],
   intrinsic: readonly string[],
 ): void {
-  const allowed = new Set<string>([...fields.map((f) => f.name), ...intrinsic]);
+  const allowed = new Set<string>([...names, ...intrinsic]);
 
   Object.keys(data).forEach((key: string) => {
     if (!allowed.has(key)) {
@@ -191,19 +189,19 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
 }
 
 /**
- * Checks whether an annotation matches the requirements of its configuration.
+ * Checks whether the properties of an annotation are valid according to the model (validated by RAMEN core).
  *
- * Currently only property fields are validated. Will be extended when rules for connected
- * entities etc. are applied.
+ * Currently only properties are validated. Will be extended when rules for connected entities etc. are applied.
  *
  * @param {Annotation} annotation - The annotation whose node data is checked.
- * @param {PropertyConfig[]} config - The config of the annotation type.
- * @return {boolean} Returns `true` if all required fields have a value, `false` otherwise.
+ * @param {ModelAttribute[]} properties - The properties of its annotation shape.
+ * @param {ModelContext} context - The model context.
+ * @return {boolean} Returns `true` if all properties are valid, `false` otherwise.
  */
-export function checkAnnotationValidity(annotation: Annotation, config: AnnotationType): boolean {
-  const fields: PropertyConfig[] = config.properties ?? [];
-
-  return fields.every((field: PropertyConfig) => !isRequiredValueMissing(annotation.node.data[field.name], field));
+export function checkAnnotationValidity(annotation: Annotation, properties: ModelAttribute[], context: ModelContext): boolean {
+  return properties.every(
+    (entry: ModelAttribute) => validateValue(context, entry, annotation.node.data[entry.attribute.name]).length === 0,
+  );
 }
 
 /**
@@ -263,19 +261,19 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * Formats a raw property value for read-only display. When a field's config is known its type is used,
- * otherwise the type is derived from the raw value itself (e.g. for untyped/unconfigured node properties).
+ * Formats a raw property value for read-only display. When the attribute is known, its cardinality is used,
+ * otherwise the shape is derived from the raw value itself (e.g. for properties not declared in the model).
  *
  * @param {unknown} value - The raw property value.
- * @param {Partial<PropertyConfig>} [config] - The config of the property, if known.
+ * @param {ModelAttribute} [entry] - The attribute of the property, if known.
  * @returns {string} The formatted, human-readable value.
  */
-export function formatPropertyValue(value: unknown, config?: Partial<PropertyConfig>): string {
+export function formatPropertyValue(value: unknown, entry?: ModelAttribute): string {
   if (value === null || value === undefined || value === "") {
     return "—";
   }
 
-  if (isArray(config) || Array.isArray(value)) {
+  if ((entry && isList(entry)) || Array.isArray(value)) {
     return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
   }
 
@@ -287,35 +285,6 @@ export function formatPropertyValue(value: unknown, config?: Partial<PropertyCon
 }
 
 /**
- * Checks whether a required property is left without a usable value.
- *
- * Used for input checks in forms.
- *
- * @param {unknown} value - The raw property value.
- * @param {Partial<PropertyConfig>} field - The config of the property the value belongs to.
- * @return {boolean} Returns `true` if the property is required but has no value, `false` otherwise.
- */
-export function isRequiredValueMissing(value: unknown, field: Partial<PropertyConfig>): boolean {
-  if (!field?.required) {
-    return false;
-  }
-
-  if (value === null || value === undefined) {
-    return true;
-  }
-
-  if (typeof value === "string" && value.trim().length === 0) {
-    return true;
-  }
-
-  if (Array.isArray(value) && value.length === 0) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * Removes formatting characters from the input text.
  *
  * @param {string} text - The text containing formatting characters.
@@ -324,36 +293,6 @@ export function isRequiredValueMissing(value: unknown, field: Partial<PropertyCo
 export function removeFormatting(text: string): string {
   const plainText: string = text.replace(/\r\n?|\n/g, "");
   return plainText;
-}
-
-/**
- * Returns a default value based on the data type of a property.
- *
- * Used during import, editing and saving of Collections or Annotations.
- *
- * @param {Partial<PropertyConfig>} config - The config of the property.
- * @return {unknown} The appropriate default value for the data type.
- */
-export function getDefaultValueForProperty(config: Partial<PropertyConfig>): unknown {
-  if (isBoolean(config)) {
-    return false;
-  } else if (isDate(config)) {
-    // Today (UTC) as YYYY-MM-DD
-    return new Date().toISOString().slice(0, 10);
-  } else if (isDateTime(config)) {
-    // Now (UTC), cut to whole seconds like the values the inputs produce
-    return `${new Date().toISOString().slice(0, 19)}.000Z`;
-  } else if (isNumeric(config)) {
-    return 0;
-  } else if (isString(config)) {
-    return "";
-  } else if (isTime(config)) {
-    return "00:00:00";
-  } else if (isArray(config)) {
-    return [];
-  } else {
-    return null;
-  }
 }
 
 /**

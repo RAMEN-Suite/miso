@@ -1,4 +1,4 @@
-import { computed, readonly, ref } from "vue";
+import { computed, readonly, ref, shallowRef } from "vue";
 import { useFilterStore } from "./filter";
 import { useShortcutsStore } from "./shortcuts";
 import {
@@ -20,13 +20,31 @@ import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
 import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
 import { buildConfigIndex, ConfigIndex } from "../utils/helper/configIndexHelper";
+import {
+  BASE_NODE_REF,
+  createModelContext,
+  findRefinementRef,
+  getNodeAttributes,
+  getRefinements,
+  getShapeProperties,
+  getShapesForNode,
+  shapeRefOf,
+  type ModelAnnotationShape,
+  type ModelAttribute,
+  type ModelContext,
+} from "../utils/helper/modelHelper";
 
 /** Group for annotation types without a configured `miso.group`.*/
 const DEFAULT_ANNOTATION_GROUP = "other" as const;
 
 const { initializeFilter } = useFilterStore();
 const { parseShortcut } = useShortcutsStore();
-/** The lookup index built from the Miso config. All access methods read from here. */
+/**
+ * The model of the Miso config and its settings, read by the accessors in `modelHelper.ts`. Not deeply reactive: it
+ * doesn't change after the initialization, and the RAMEN core model is a class instance.
+ */
+const modelContext = shallowRef<ModelContext>();
+/** TRANSITIONAL: the lookup index in the old view types, until all access methods return model types */
 const configIndex = ref<ConfigIndex>();
 const isFetching = ref<boolean>(false);
 const error = ref<Error | null>(null);
@@ -194,20 +212,6 @@ export function useGuidelinesStore() {
     }
 
     return builtInDerived;
-  }
-
-  /**
-   * Retrieves all available field configurations for collection properties.
-   *
-   * This method gathers all available collection labels and fetches their corresponding
-   * field configurations, which are used for rendering data tables or input fields in forms.
-   *
-   * @return {PropertyConfig[]} The field configurations for all available collection types.
-   */
-  function getAllCollectionConfigFields(): PropertyConfig[] {
-    const availableCollectionLabels: string[] = getAvailableCollectionLabels();
-
-    return getCollectionConfigFields(availableCollectionLabels);
   }
 
   /**
@@ -408,36 +412,6 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Retrieves the properties an annotation of given type should have in the context of a Collection with given node labels.
-   * Used for rendering input fields in forms where properties of the annotation can be edited. The fields are the
-   * properties of the annotation shape. Shared system properties are not configured yet.
-   *
-   * @param {string[]} collectionNodeLabels - The node labels of the Collection.
-   * @param {string} annotationType - The type of the annotation.
-   * @return {PropertyConfig[]} The fields for the annotation type in the context of the Collection.
-   */
-  function getCollectionAnnotationFields(collectionNodeLabels: string[], annotationType: string): PropertyConfig[] {
-    return getCollectionAnnotationConfig(collectionNodeLabels, annotationType)?.properties ?? [];
-  }
-
-  /**
-   * Retrieves field configuration of a collection with given additional node labels. Contains information about rendering behaviour as well as validation rules.
-   * Used for rendering data tables or input fields in forms.
-   *
-   * @param {string[]} nodeLabels - The additional labels of the collection.
-   * @return {PropertyConfig[]} The attributes of the Collection node, followed by those of the matching types.
-   */
-  function getCollectionConfigFields(nodeLabels: string[]): PropertyConfig[] {
-    const shared: PropertyConfig[] = configIndex.value?.collections.properties ?? [];
-    const additional: PropertyConfig[] =
-      configIndex.value?.collections.types
-        .filter((type) => nodeLabels.includes(type.additionalLabel))
-        .flatMap((type) => type.properties) ?? [];
-
-    return [...shared, ...additional];
-  }
-
-  /**
    * Returns the editor-owned properties of a structural annotation type: each pairs the editor
    * `attribute` (the tiptap-native attr the editor needs, e.g. `level`) with the `property` (the
    * project's name for it). The property equals the attribute unless the project mapped it — e.g.
@@ -501,6 +475,129 @@ export function useGuidelinesStore() {
   }
 
   /**
+   * Returns the model context for the accessors in `modelHelper.ts`. Only call this from code that runs after
+   * {@linkcode initializeGuidelines}.
+   *
+   * @returns {ModelContext} The model of the Miso config and its settings.
+   * @throws {Error} If the config has not been loaded yet.
+   */
+  function getModelContext(): ModelContext {
+    if (!modelContext.value) {
+      throw new Error("Guidelines are not initialized");
+    }
+
+    return modelContext.value;
+  }
+
+  /**
+   * Returns the attributes of a Collection with the given node labels: the ones declared by the Collection node, then
+   * the ones of its matching types. Matched by label until the lookups use IDs.
+   *
+   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @returns {ModelAttribute[]} The attributes, without identity attributes like `uuid`.
+   */
+  function getCollectionAttributes(nodeLabels: string[]): ModelAttribute[] {
+    const context: ModelContext = getModelContext();
+    const typeRefs: string[] = nodeLabels
+      .map((label) => findRefinementRef(context, BASE_NODE_REF.Collection, label))
+      .filter((ref): ref is string => ref !== undefined);
+
+    return [
+      ...getNodeAttributes(context, BASE_NODE_REF.Collection),
+      ...typeRefs.flatMap((ref) => getNodeAttributes(context, ref, true)),
+    ];
+  }
+
+  /**
+   * Returns the attributes of all Collection types, each name once (the first declaration wins). Used for filters and
+   * sorting across types.
+   *
+   * @returns {ModelAttribute[]} The attributes, without identity attributes like `uuid`.
+   */
+  function getAllCollectionAttributes(): ModelAttribute[] {
+    const context: ModelContext = getModelContext();
+    const all: ModelAttribute[] = getCollectionAttributes(
+      getRefinements(context, BASE_NODE_REF.Collection).map(({ node }) => node.name),
+    );
+
+    return all.filter((entry, position) => all.findIndex((other) => other.attribute.name === entry.attribute.name) === position);
+  }
+
+  /**
+   * Returns the properties of the text annotations with the given type (without the shared ones like `uuid`).
+   *
+   * @param {string} type - The type of the annotation.
+   * @returns {ModelAttribute[]} The properties, empty if no Content node carries that type.
+   */
+  function getTextAnnotationProperties(type: string): ModelAttribute[] {
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
+
+    return shape ? getShapeProperties(shape) : [];
+  }
+
+  /**
+   * Returns the properties of the annotations with the given type on a Collection with the given node labels.
+   *
+   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @param {string} type - The type of the annotation.
+   * @returns {ModelAttribute[]} The properties, empty if the Collection can't carry that type.
+   */
+  function getCollectionAnnotationProperties(nodeLabels: string[], type: string): ModelAttribute[] {
+    const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShapes(nodeLabels).find((s) => s.type === type);
+
+    return shape ? getShapeProperties(shape) : [];
+  }
+
+  /**
+   * Returns the annotation shape of the text annotations with the given type, i.e. one a Content node may carry.
+   * Matched by type until the lookups use IDs.
+   *
+   * @param {string} type - The type of the annotation.
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if no Content node carries that type.
+   */
+  function getTextAnnotationShape(type: string): ModelAnnotationShape | undefined {
+    const context: ModelContext = getModelContext();
+    const carrierRefs: string[] = [
+      BASE_NODE_REF.Content,
+      ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref),
+    ];
+
+    for (const carrierRef of carrierRefs) {
+      const shape: ModelAnnotationShape | undefined = getShapesForNode(context, carrierRef).find((s) => s.type === type);
+
+      if (shape) {
+        return shape;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Returns the annotation shapes a Collection with the given node labels may carry. Matched by label until the
+   * lookups use IDs.
+   *
+   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @returns {ModelAnnotationShape[]} The shapes, each once.
+   */
+  function getCollectionAnnotationShapes(nodeLabels: string[]): ModelAnnotationShape[] {
+    const context: ModelContext = getModelContext();
+    const carrierRefs: string[] = [
+      BASE_NODE_REF.Collection,
+      ...nodeLabels
+        .map((label) => findRefinementRef(context, BASE_NODE_REF.Collection, label))
+        .filter((ref): ref is string => ref !== undefined),
+    ];
+    const shapes = new Map<string, ModelAnnotationShape>();
+
+    for (const shape of carrierRefs.flatMap((ref) => getShapesForNode(context, ref))) {
+      shapes.set(shapeRefOf(shape), shape);
+    }
+
+    return [...shapes.values()];
+  }
+
+  /**
    * Returns the nesting priority of a structural annotation type, from the rules of its built-in type.
    *
    * @param {string} type The project annotation type
@@ -543,7 +640,10 @@ export function useGuidelinesStore() {
    * @return {void} This function does not return anything.
    */
   function initializeGuidelines(parsed: ParsedMisoConfig): void {
-    const index: ConfigIndex = buildConfigIndex(parsed.config, parsed.model);
+    const context: ModelContext = createModelContext(parsed.config, parsed.model);
+    const index: ConfigIndex = buildConfigIndex(context);
+
+    modelContext.value = context;
 
     index.warnings.forEach((warning) => console.warn(`Miso config: ${warning}`));
     validateMisoConfig(index);
@@ -764,7 +864,6 @@ export function useGuidelinesStore() {
     availableEntityLabels,
     availableTextLabels,
     error: readonly(error),
-    getAllCollectionConfigFields,
     getAnnotationConfig,
     getAnnotationExtent,
     getAnnotationFields,
@@ -776,14 +875,19 @@ export function useGuidelinesStore() {
     getAvailableEntityLabels,
     getAvailableNodeLabels,
     getCollectionAnnotationConfig,
-    getCollectionAnnotationFields,
-    getCollectionConfigFields,
+    getAllCollectionAttributes,
+    getCollectionAnnotationProperties,
+    getCollectionAnnotationShapes,
+    getCollectionAttributes,
     getContentMedium,
     getEditorOwnedProperties,
     getEditorRole,
+    getModelContext,
     getPriorityForType,
     getStructuralAnnotationConfig,
     getStructuralAnnotationConfigs: (): AnnotationType[] => mergedStructuralConfigs.value,
+    getTextAnnotationProperties,
+    getTextAnnotationShape,
     groupedAndSortedAnnotationTypes,
     groupedAnnotationTypes,
     initializeGuidelines,

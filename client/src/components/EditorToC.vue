@@ -5,7 +5,8 @@ import Panel from "primevue/panel";
 import Menu from "primevue/menu";
 import { MenuItem } from "primevue/menuitem";
 import { useDialog } from "primevue";
-import { Annotation, AnnotationType, NodeStatus, PropertyConfig } from "../models/types.ts";
+import { Annotation, AnnotationType, NodeStatus } from "../models/types.ts";
+import type { ModelAttribute } from "../utils/helper/modelHelper";
 import { type ToCItem, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useGuidelinesStore } from "../store/guidelines.ts";
 import { useAppStore } from "../store/app.ts";
@@ -14,7 +15,7 @@ import EditorToCItem from "./EditorToCItem.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 
 const { tiptap, tableOfContent, initialStructuralAnnotations } = useTiptapStore();
-const { getAnnotationFields, getEditorOwnedProperties, getStructuralAnnotationConfig } = useGuidelinesStore();
+const { getTextAnnotationProperties, getEditorOwnedProperties, getStructuralAnnotationConfig } = useGuidelinesStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -95,7 +96,7 @@ function handleEditClick(item: ToCItem): void {
   }
 
   const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
-  const isEditableInForm = (field: PropertyConfig): boolean => !editorOwned.includes(field.name);
+  const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
 
   const status: NodeStatus = initialStructuralAnnotations.value?.has(item.key) ? "unchanged" : "created";
   const annotation: Annotation = toAnnotation(item.data._annotation, status);
@@ -108,8 +109,7 @@ function handleEditClick(item: ToCItem): void {
       },
       data: {
         annotation,
-        config: { ...config, properties: (config.properties ?? []).filter(isEditableInForm) },
-        propertyFields: getAnnotationFields(type).filter(isEditableInForm),
+        propertyFields: getTextAnnotationProperties(type).filter(isEditableInForm),
         mode: "edit",
       },
       emits: {

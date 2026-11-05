@@ -1,5 +1,22 @@
-import type { Diagnostic, ModelInstanceGraph, ModelInstanceNode, ValidationResult } from "@ramen-suite/core";
-import type { loadPlaygroundModel } from "./ramenPlaygroundModel";
+import type {
+  Diagnostic,
+  ModelInstanceGraph,
+  ModelInstanceNode,
+  Node,
+  RamenModel,
+  Relation,
+  ValidationResult,
+} from "@ramen-suite/core";
+
+/**
+ * The model elements the checks run against: a Regesta collection with a Summary content, a text annotation family
+ * with `person` and `role` shapes, and a Person entity, plus the relations between them.
+ */
+export interface PlaygroundCheckInput {
+  edition: RamenModel;
+  nodes: Record<"regesta" | "summary" | "textAnnotation" | "person", Node>;
+  relations: Record<"summaryInRegesta" | "summaryCarrier" | "personLink", Relation>;
+}
 
 /** Result of one ramen-core check. `error` is set when the check threw instead of returning diagnostics */
 export interface CheckResult {
@@ -29,7 +46,7 @@ function runCheck(
 /**
  * Single-value checks that need no recorded data graph (see `docs/ramen/validation.md`, "Check one input").
  */
-export function runValueChecks({ edition, nodes }): CheckResult[] {
+export function runValueChecks({ edition, nodes }: Pick<PlaygroundCheckInput, "edition" | "nodes">): CheckResult[] {
   return [
     runCheck("role.name = 'sender'", "valid", () =>
       edition.validateAnnotationValue(nodes.textAnnotation, "role", "name", "sender"),
@@ -52,7 +69,7 @@ export function runValueChecks({ edition, nodes }): CheckResult[] {
  * Validates recorded data as a complete `ModelInstanceGraph` (see `docs/ramen/validation.md`, "Check recorded data").
  * One Regesta with a Summary, a `person` annotation and one Person, plus broken variants of it.
  */
-export function runInstanceChecks({ edition, nodes, relations }: PlaygroundModel): CheckResult[] {
+export function runInstanceChecks({ edition, nodes, relations }: PlaygroundCheckInput): CheckResult[] {
   const regesta: ModelInstanceNode = {
     id: crypto.randomUUID(),
     typeId: nodes.regesta.id,

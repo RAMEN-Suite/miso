@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { RamenModel, type RamenFile } from "@ramen-suite/core";
 import {
-  annotationShapeMisoConfigSchema,
-  attributeMisoConfigSchema,
+  annotationShapeConfigSchema,
+  attributeConfigSchema,
   builtinStructuralTypeSchema,
   checkNativeAttributes,
-  classifierMisoConfigSchema,
+  classifierConfigSchema,
 } from "./guidelines.schema";
 import GuidelinesValidationError from "../utils/errors/guidelinesValidation.error";
 
@@ -37,9 +37,9 @@ const baseEntrySchema = z.strictObject({
   modelId: z.string(),
   /** Name of the base node. A hint for readers, the ID decides. */
   name: z.string(),
-  ext: extSchema(classifierMisoConfigSchema),
+  ext: extSchema(classifierConfigSchema),
   attributes: z
-    .array(z.strictObject({ id: z.string(), name: z.string(), ext: extSchema(attributeMisoConfigSchema) }))
+    .array(z.strictObject({ id: z.string(), name: z.string(), ext: extSchema(attributeConfigSchema) }))
     .optional(),
 });
 
@@ -114,11 +114,11 @@ function checkExtBlocks(model: RamenFile): string[] {
   for (const classifier of model.classifiers) {
     const label: string = `${classifier.kind} "${classifier.name}" (${classifier.modelId}:${classifier.id})`;
 
-    check(classifierMisoConfigSchema, classifier.ext?.miso, label);
+    check(classifierConfigSchema, classifier.ext?.miso, label);
 
     if (classifier.kind === "Node") {
       classifier.attributes.forEach((attribute) =>
-        check(attributeMisoConfigSchema, attribute.ext?.miso, `${label}.${attribute.name}`),
+        check(attributeConfigSchema, attribute.ext?.miso, `${label}.${attribute.name}`),
       );
     }
   }
@@ -126,9 +126,9 @@ function checkExtBlocks(model: RamenFile): string[] {
   for (const shape of model.annotations) {
     const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
 
-    check(annotationShapeMisoConfigSchema, shape.ext?.miso, label);
+    check(annotationShapeConfigSchema, shape.ext?.miso, label);
     shape.properties.forEach((property) =>
-      check(attributeMisoConfigSchema, property.ext?.miso, `${label}.${property.name}`),
+      check(attributeConfigSchema, property.ext?.miso, `${label}.${property.name}`),
     );
   }
 

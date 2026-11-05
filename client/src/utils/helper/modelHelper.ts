@@ -10,13 +10,26 @@ import {
   type RamenModel,
   type Relation,
 } from "@ramen-suite/core";
-import type { AnnotationShapeMisoConfig, AttributeMisoConfig, ContentTypeMisoConfig } from "../../models/types";
+import type { AnnotationShapeConfig, AttributeConfig, ContentTypeConfig } from "../../models/types";
 import type { ConfigBaseEntry, ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
 
-// Accessors on the RAMEN model and the Miso settings of its elements. Model questions are answered by RAMEN core, the
-// Miso settings come from `ext.miso` of the elements (or `miso.base` for the RAMEN base level) and from `miso.mappings`.
-//
-// The same accessors exist on the server (`server/src/utils/modelHelper.ts`). Keep both in sync.
+/**
+ * Accessors on the model and the config. Everything model-related and the app's settings of model elements are read
+ * through these functions.
+ *
+ * - Model questions (lineage, attributes, data types, annotation shapes of a node, value validation) are answered by
+ *   RAMEN core.
+ * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.base`, since
+ *   RAMEN core allows no `ext` there. The editor's native types are mapped in `miso.mappings`.
+ *
+ * All functions take a {@linkcode ModelContext} and work with RAMEN core's types. {@linkcode ModelAttribute} only adds
+ * the declaring element to an attribute. Elements are referenced by qualified refs (`<modelId>:<id>`, see
+ * {@linkcode qualify}).
+ *
+ * Mirrored on the server (`server/src/utils/modelHelper.ts`), keep both in sync.
+ *
+ * @packageDocumentation
+ */
 
 /** An attribute of a node, or a property of an annotation shape, with the element that declares it */
 export interface ModelAttribute {
@@ -87,8 +100,8 @@ function modelIdOf(qualifiedRef: string): string {
 }
 
 /**
- * Whether a ref points into the RAMEN base level. RAMEN core doesn't allow `ext` there, so the Miso settings of these
- * elements live in `miso.base`.
+ * Whether a ref points into the RAMEN base level. RAMEN core doesn't allow `ext` there, so the config of these
+ * elements lives in `miso.base`.
  *
  * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
  * @returns {boolean} `true` if the ref belongs to the RAMEN base model.
@@ -127,7 +140,7 @@ export function findShape(context: ModelContext, ref: string): ModelAnnotationSh
  *
  * @param {ModelContext} context - The model context.
  * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the base level element.
- * @returns {ConfigBaseEntry | undefined} The entry, `undefined` if the element has no Miso settings.
+ * @returns {ConfigBaseEntry | undefined} The entry, `undefined` if the element has no config.
  */
 export function findBaseEntry(context: ModelContext, ref: string): ConfigBaseEntry | undefined {
   return (context.config.miso.base ?? []).find((entry) => `${entry.modelId}:${entry.id}` === ref);
@@ -175,17 +188,17 @@ export function findRefinementRef(context: ModelContext, baseNodeRef: string, la
 }
 
 /**
- * The Miso settings of a node. Base level nodes have theirs in `miso.base`.
+ * The config of a node. Base level nodes have theirs in `miso.base`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} nodeRef - Qualified ref of the node.
- * @returns {ContentTypeMisoConfig | undefined} The `ext.miso` block.
+ * @returns {ContentTypeConfig | undefined} The `ext.miso` block.
  */
-export function getNodeMiso(context: ModelContext, nodeRef: string): ContentTypeMisoConfig | undefined {
+export function getNodeConfig(context: ModelContext, nodeRef: string): ContentTypeConfig | undefined {
   if (isBaseLevel(nodeRef)) {
     return findBaseEntry(context, nodeRef)?.ext?.miso;
   } else {
-    return context.model.getNode(nodeRef)?.ext?.miso as ContentTypeMisoConfig | undefined;
+    return context.model.getNode(nodeRef)?.ext?.miso as ContentTypeConfig | undefined;
   }
 }
 
@@ -307,17 +320,17 @@ export function isRequired(entry: ModelAttribute): boolean {
 }
 
 /**
- * The Miso settings of an attribute. Attributes of the RAMEN base level have theirs in `miso.base`.
+ * The config of an attribute. Attributes of the RAMEN base level have theirs in `miso.base`.
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
- * @returns {AttributeMisoConfig | undefined} The `ext.miso` block.
+ * @returns {AttributeConfig | undefined} The `ext.miso` block.
  */
-export function getAttributeMiso(context: ModelContext, entry: ModelAttribute): AttributeMisoConfig | undefined {
+export function getAttributeConfig(context: ModelContext, entry: ModelAttribute): AttributeConfig | undefined {
   if (isBaseLevel(entry.ownerRef)) {
     return findBaseEntry(context, entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
   } else {
-    return entry.attribute.ext?.miso as AttributeMisoConfig | undefined;
+    return entry.attribute.ext?.miso as AttributeConfig | undefined;
   }
 }
 
@@ -400,7 +413,7 @@ export function getDefaultValue(context: ModelContext, entry: ModelAttribute, as
  * @returns {boolean} `false` if it is read-only in the model or `ext.miso.editable` is `false`, otherwise `true`.
  */
 export function isEditable(context: ModelContext, entry: ModelAttribute): boolean {
-  return entry.attribute.isReadOnly !== true && getAttributeMiso(context, entry)?.editable !== false;
+  return entry.attribute.isReadOnly !== true && getAttributeConfig(context, entry)?.editable !== false;
 }
 
 /**
@@ -411,7 +424,7 @@ export function isEditable(context: ModelContext, entry: ModelAttribute): boolea
  * @returns {boolean} `false` if `ext.miso.visible` is `false`, otherwise `true`.
  */
 export function isVisible(context: ModelContext, entry: ModelAttribute): boolean {
-  return getAttributeMiso(context, entry)?.visible !== false;
+  return getAttributeConfig(context, entry)?.visible !== false;
 }
 
 // ----- Annotation shapes -----
@@ -462,14 +475,14 @@ export function getShapeProperties(shape: ModelAnnotationShape): ModelAttribute[
 }
 
 /**
- * The Miso settings of an annotation shape (group, controls, appearance, editing). The native mapping is not part of
+ * The config of an annotation shape (group, controls, appearance, editing). The native mapping is not part of
  * it, see {@linkcode getMappingForShape}.
  *
  * @param {ModelAnnotationShape} shape - The annotation shape.
- * @returns {AnnotationShapeMisoConfig | undefined} The `ext.miso` block.
+ * @returns {AnnotationShapeConfig | undefined} The `ext.miso` block.
  */
-export function getShapeMiso(shape: ModelAnnotationShape): AnnotationShapeMisoConfig | undefined {
-  return shape.ext?.miso as AnnotationShapeMisoConfig | undefined;
+export function getShapeConfig(shape: ModelAnnotationShape): AnnotationShapeConfig | undefined {
+  return shape.ext?.miso as AnnotationShapeConfig | undefined;
 }
 
 /**

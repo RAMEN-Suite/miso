@@ -1,9 +1,9 @@
 import { RAMEN_ELEMENT, RamenModel, type AnnotationShapeInput } from "@ramen-suite/core";
-import type { AnnotationShapeMisoConfig, BuiltinStructuralType } from "../../src/models/types";
+import type { AnnotationShapeConfig, BuiltinStructuralType } from "../../src/models/types";
 import { parseMisoConfig, type ParsedMisoConfig } from "../../src/schemas/misoConfig.schema";
 
 /** Annotation types of the text family: the built-in structure types plus one or two per representation and extent */
-const TEXT_ANNOTATION_TYPES: { type: string; native?: BuiltinStructuralType; miso?: AnnotationShapeMisoConfig }[] = [
+const TEXT_ANNOTATION_TYPES: { type: string; native?: BuiltinStructuralType; miso?: AnnotationShapeConfig }[] = [
   { type: "p", native: "paragraph" },
   { type: "head", native: "heading" },
   { type: "lb", native: "hardBreak" },

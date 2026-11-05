@@ -6,7 +6,7 @@ import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
 import { ComponentPublicInstance, onMounted, useTemplateRef } from "vue";
 import { resolveAnnotationIcon } from "../config/icons";
-import { getOptions, getShapeMiso, type ModelAnnotationShape, type ModelAttribute } from "../utils/helper/modelHelper";
+import { getOptions, getShapeConfig, type ModelAnnotationShape, type ModelAttribute } from "../utils/helper/modelHelper";
 
 const props = defineProps<{
   type: string;
@@ -33,7 +33,7 @@ const dropdownOptions = options.map((option: string | number) => {
 const hasIcon: boolean = resolveAnnotationIcon(props.shape) !== undefined;
 const buttonElm = useTemplateRef<ComponentPublicInstance<typeof Button | typeof SplitButton>>("buttonElm");
 
-const shortcut: string | undefined = getShapeMiso(props.shape)?.controls?.shortcut;
+const shortcut: string | undefined = getShapeConfig(props.shape)?.controls?.shortcut;
 
 if (shortcut) {
   registerShortcut(shortcut, handleClick);

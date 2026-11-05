@@ -4,7 +4,7 @@ import { useShortcutsStore } from "./shortcuts";
 import {
   AnnotationExtent,
   AnnotationNode,
-  AnnotationShapeMisoConfig,
+  AnnotationShapeConfig,
   AppearanceOverride,
   BaseNodeLabel,
   BuiltinStructuralType,
@@ -24,10 +24,10 @@ import {
   findRefinementRef,
   findShape,
   getNodeAttributes,
-  getNodeMiso,
+  getNodeConfig,
   getOptions,
   getRefinements,
-  getShapeMiso,
+  getShapeConfig,
   getShapeProperties,
   getShapesForNode,
   isRequired,
@@ -98,8 +98,8 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 
 /**
  * Store for making the edition guidelines available to all components. When the app is mounted, the store is
- * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), Miso
- * settings come from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
+ * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), the
+ * config of model elements comes from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
  * the initialization. Other stores (filter.ts) are derived from this store.
  *
  * The lookups still match by name (annotation `type`, node label) until they use IDs.
@@ -137,10 +137,10 @@ export function useGuidelinesStore() {
     ];
 
     for (const [label, baseRef] of bases) {
-      registerNodeIcon(label, getNodeMiso(context, baseRef)?.appearance?.icon);
+      registerNodeIcon(label, getNodeConfig(context, baseRef)?.appearance?.icon);
 
       getRefinements(context, baseRef).forEach(({ ref, node }) =>
-        registerNodeIcon(node.name, getNodeMiso(context, ref)?.appearance?.icon),
+        registerNodeIcon(node.name, getNodeConfig(context, ref)?.appearance?.icon),
       );
     }
   }
@@ -187,7 +187,7 @@ export function useGuidelinesStore() {
     }));
     const custom: StructuralType[] = [...textShapesByType.value.values()]
       .filter((shape) => !builtins.some((b) => b.type === shape.type))
-      .filter((shape) => getShapeMiso(shape)?.editing?.representation === "structure")
+      .filter((shape) => getShapeConfig(shape)?.editing?.representation === "structure")
       .map((shape) => ({ type: shape.type, editorRole: shape.type }));
 
     return [...builtins, ...custom];
@@ -206,7 +206,7 @@ export function useGuidelinesStore() {
       return getBuiltinExtent(type);
     }
 
-    const extent: AnnotationExtent | undefined = getTextAnnotationMiso(type)?.editing?.extent;
+    const extent: AnnotationExtent | undefined = getTextAnnotationConfig(type)?.editing?.extent;
 
     if (!extent) {
       console.error('No extent found for annotation type "' + type + '"');
@@ -231,7 +231,7 @@ export function useGuidelinesStore() {
       return "structure";
     }
 
-    const representation: TextAnnotationRepresentation | undefined = getTextAnnotationMiso(type)?.editing?.representation;
+    const representation: TextAnnotationRepresentation | undefined = getTextAnnotationConfig(type)?.editing?.representation;
 
     if (!representation) {
       console.error('No representation found for annotation type "' + type + '"');
@@ -287,7 +287,7 @@ export function useGuidelinesStore() {
     }
 
     for (const { ref, node } of getRefinements(context, BASE_NODE_REF.Content)) {
-      const medium: ContentMedium | undefined = nodeLabels.includes(node.name) ? getNodeMiso(context, ref)?.medium : undefined;
+      const medium: ContentMedium | undefined = nodeLabels.includes(node.name) ? getNodeConfig(context, ref)?.medium : undefined;
 
       if (medium) {
         return medium;
@@ -472,15 +472,15 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Returns the Miso settings of the text annotations with the given type.
+   * Returns the config of the text annotations with the given type.
    *
    * @param {string} type - The type of the annotation.
-   * @returns {AnnotationShapeMisoConfig | undefined} The `ext.miso` block of the shape, if there is one.
+   * @returns {AnnotationShapeConfig | undefined} The `ext.miso` block of the shape, if there is one.
    */
-  function getTextAnnotationMiso(type: string): AnnotationShapeMisoConfig | undefined {
+  function getTextAnnotationConfig(type: string): AnnotationShapeConfig | undefined {
     const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
 
-    return shape ? getShapeMiso(shape) : undefined;
+    return shape ? getShapeConfig(shape) : undefined;
   }
 
   /**
@@ -578,7 +578,7 @@ export function useGuidelinesStore() {
     for (const shape of textShapesByType.value.values()) {
       const category: string = isBuiltinStructuralType(shape.type)
         ? STRUCTURE_ANNOTATION_GROUP
-        : (getShapeMiso(shape)?.group ?? DEFAULT_ANNOTATION_GROUP);
+        : (getShapeConfig(shape)?.group ?? DEFAULT_ANNOTATION_GROUP);
 
       grouped[category] = [...(grouped[category] ?? []), shape];
     }
@@ -598,7 +598,7 @@ export function useGuidelinesStore() {
     modelContext.value = context;
     textShapesByType.value = collectTextShapes(context);
 
-    validateMisoConfig(context);
+    validateConfig(context);
     applyConfiguredNodeIcons(context);
 
     // Must be set before the structural types are built, since they are keyed by the project's type names
@@ -682,38 +682,38 @@ export function useGuidelinesStore() {
   }
 
   /**
-   * Checks the Miso settings of all annotation shapes for mistakes and logs a warning for each one found.
+   * Checks the config of all annotation shapes for mistakes and logs a warning for each one found.
    * Invalid parts are not removed, they are just ignored where they don't apply.
    *
    * @param {ModelContext} context - The model context to validate.
    * @return {void} This function does not return anything.
    */
-  function validateMisoConfig(context: ModelContext): void {
+  function validateConfig(context: ModelContext): void {
     const warn = (type: string, message: string): void => {
-      console.warn(`Invalid miso configuration for annotation type "${type}": ${message}`);
+      console.warn(`Invalid configuration for annotation type "${type}": ${message}`);
     };
 
     for (const shape of context.config.model.annotations) {
-      const miso: AnnotationShapeMisoConfig | undefined = getShapeMiso(shape);
+      const shapeConfig: AnnotationShapeConfig | undefined = getShapeConfig(shape);
 
-      if (!miso) {
+      if (!shapeConfig) {
         continue;
       }
 
       // The mapping is not built yet, so the extent of a native type is read from its built-in config directly
       const native: string | undefined = context.config.miso.mappings.find((m) => m.annotation === shapeRefOf(shape))?.native;
       const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
-      const extent: AnnotationExtent = nativeExtent ?? miso.editing?.extent ?? "range";
-      const appearances: [string, AppearanceOverride][] = [["ext.miso.appearance", miso.appearance ?? {}]];
+      const extent: AnnotationExtent = nativeExtent ?? shapeConfig.editing?.extent ?? "range";
+      const appearances: [string, AppearanceOverride][] = [["ext.miso.appearance", shapeConfig.appearance ?? {}]];
 
-      if (native && miso.group !== undefined && miso.group !== STRUCTURE_ANNOTATION_GROUP) {
+      if (native && shapeConfig.group !== undefined && shapeConfig.group !== STRUCTURE_ANNOTATION_GROUP) {
         warn(
           shape.type,
-          `ext.miso.group "${miso.group}" is ignored, types mapped to a built-in are always in "${STRUCTURE_ANNOTATION_GROUP}"`,
+          `ext.miso.group "${shapeConfig.group}" is ignored, types mapped to a built-in are always in "${STRUCTURE_ANNOTATION_GROUP}"`,
         );
       }
 
-      (miso.appearance?.variants ?? []).forEach((variant, index) => {
+      (shapeConfig.appearance?.variants ?? []).forEach((variant, index) => {
         const property: ModelAttribute | undefined = getShapeProperties(shape).find(
           (entry) => entry.attribute.name === variant.property,
         );
@@ -752,7 +752,7 @@ export function useGuidelinesStore() {
     const typesByShortcut = new Map<string, string[]>();
 
     for (const shape of textShapesByType.value.values()) {
-      const shortcut: string | undefined = getShapeMiso(shape)?.controls?.shortcut;
+      const shortcut: string | undefined = getShapeConfig(shape)?.controls?.shortcut;
 
       if (shortcut) {
         const normalized: string = parseShortcut(shortcut);
@@ -791,7 +791,7 @@ export function useGuidelinesStore() {
     getModelContext,
     getPriorityForType,
     getStructuralTypes: (): StructuralType[] => structuralTypes.value,
-    getTextAnnotationMiso,
+    getTextAnnotationConfig,
     getTextAnnotationProperties,
     getTextAnnotationShape,
     groupedAndSortedAnnotationTypes,

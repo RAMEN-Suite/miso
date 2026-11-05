@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
 
-// Schemas and types of the Miso-only configuration blocks (`ext.miso`) and of the configs the guidelines store returns.
-// The types are inferred from the schemas, so the format is defined only once. Objects are strict, so unknown or
-// misplaced keys (e.g. a typo or a key on the wrong level) are reported instead of being ignored silently. The Miso
-// config file itself is described in `misoConfig.schema.ts`.
+// Schemas and types of the configuration blocks of model elements (`ext.miso`). The types are inferred from the
+// schemas, so the format is defined only once. Objects are strict, so unknown or misplaced keys (e.g. a typo or a key
+// on the wrong level) are reported instead of being ignored silently. The Miso config file itself is described in
+// `misoConfig.schema.ts`.
 
 // ----- Icons -----
 
@@ -185,7 +185,7 @@ export function checkNativeAttributes(
 }
 
 /** The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in `miso.mappings`. */
-export const annotationShapeMisoConfigSchema = z.strictObject({
+export const annotationShapeConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */
   group: z.string().optional(),
   /** How the user creates and interacts with annotations of this type */
@@ -242,45 +242,45 @@ export type AppearanceVariant = z.infer<typeof appearanceVariantSchema>;
 export type AnnotationAppearance = z.infer<typeof annotationAppearanceSchema>;
 
 /**
- * Miso-only configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not
- * part of the data model. The native mapping lives in `miso.mappings`.
+ * Configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not part of the
+ * data model. The native mapping lives in `miso.mappings`.
  */
-export type AnnotationShapeMisoConfig = z.infer<typeof annotationShapeMisoConfigSchema>;
+export type AnnotationShapeConfig =z.infer<typeof annotationShapeConfigSchema>;
 
 // ----- Node types -----
 
 const nodeAppearanceSchema = z.strictObject({ icon: iconSpecInputSchema.optional() });
 
-const nodeMisoConfigSchema = z.strictObject({ appearance: nodeAppearanceSchema.optional() });
+const nodeConfigSchema = z.strictObject({ appearance: nodeAppearanceSchema.optional() });
 
 const contentMediumSchema = z.enum(["text", "image"]);
 
-const contentTypeMisoConfigSchema = nodeMisoConfigSchema.extend({ medium: contentMediumSchema.optional() });
+const contentTypeConfigSchema = nodeConfigSchema.extend({ medium: contentMediumSchema.optional() });
 
 /** How nodes of a type are displayed, e.g. in the hierarchy */
 export type NodeAppearance = z.infer<typeof nodeAppearanceSchema>;
 
-/** Miso-only configuration of a node type (Collection, Content or Entity refinement) */
-export type NodeMisoConfig = z.infer<typeof nodeMisoConfigSchema>;
+/** Configuration of a node type (Collection, Content or Entity refinement) */
+export type NodeConfig = z.infer<typeof nodeConfigSchema>;
 
 /**
  * The medium of a Content type, which decides how its nodes are edited and how annotation configs are applied.
  */
 export type ContentMedium = z.infer<typeof contentMediumSchema>;
 
-/** Miso-only configuration of a Content type */
-export type ContentTypeMisoConfig = z.infer<typeof contentTypeMisoConfigSchema>;
+/** Configuration of a Content type */
+export type ContentTypeConfig = z.infer<typeof contentTypeConfigSchema>;
 
 /** The `ext.miso` block of a classifier in the Miso config. `medium` only applies to Content refinements. */
-export const classifierMisoConfigSchema = contentTypeMisoConfigSchema;
+export const classifierConfigSchema = contentTypeConfigSchema;
 
 /** The `ext.miso` block of an attribute (or annotation shape property) in the Miso config */
-export const attributeMisoConfigSchema = z.strictObject({
+export const attributeConfigSchema = z.strictObject({
   /** Visible by user. Defaults to `true`. */
   visible: z.boolean().optional(),
   /** Editable by user. Defaults to `true`; always `false` for attributes that are read-only in the model. */
   editable: z.boolean().optional(),
 });
 
-/** Miso-only configuration of an attribute */
-export type AttributeMisoConfig = z.infer<typeof attributeMisoConfigSchema>;
+/** Configuration of an attribute */
+export type AttributeConfig = z.infer<typeof attributeConfigSchema>;

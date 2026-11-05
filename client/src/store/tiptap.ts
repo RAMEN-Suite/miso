@@ -27,7 +27,7 @@ import { useGuidelinesStore } from "./guidelines";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationMiso } = useGuidelinesStore();
+const { getTextAnnotationConfig } = useGuidelinesStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -53,7 +53,7 @@ let editorSchema: Schema | null = null;
  * @returns {AnnotationAppearance | undefined} The configured appearance, if any
  */
 function getAppearance(type: string): AnnotationAppearance | undefined {
-  return getTextAnnotationMiso(type)?.appearance;
+  return getTextAnnotationConfig(type)?.appearance;
 }
 
 /**

@@ -23,13 +23,13 @@ export interface ConfigMapping {
  * is validated and read by RAMEN core, the `ext.miso` blocks are validated by the client; the server passes them through.
  */
 export interface IMisoConfig {
-  $schema?: string;
+  /** The config format and its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
+  $schema: string;
+  /** Identity of the config, kept across regenerations */
+  id: string;
   meta: {
-    configVersion: string;
     project: string;
     description?: string;
-    /** Where and when the model was ingested. Reserved for the drift check against the original model. */
-    ingest?: { source: string; ingestedAt: string; modelFileId: string; checksum: string };
   };
   model: RamenFile;
   miso: {

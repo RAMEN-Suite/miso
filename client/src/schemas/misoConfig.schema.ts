@@ -11,7 +11,7 @@ import {
 } from "./configBlocks.schema";
 import ConfigValidationError from "../utils/errors/configValidation.error";
 
-// Schema of the Miso config file: `meta`, the ingested model with `ext.miso` blocks, and the global `miso` settings.
+// Schema of the Miso config file: `$schema`, `id`, `meta`, the model with `ext.miso` blocks, and the global `miso` settings.
 // The model is validated and read by RAMEN core, so it is typed with RAMEN core's `RamenFile`. Only the Miso parts are
 // described here: the global settings by the schema below, the `ext.miso` blocks element by element in `parseMisoConfig`.
 
@@ -45,21 +45,17 @@ const baseEntrySchema = z.strictObject({
     .optional(),
 });
 
+/** URL of the config format, with its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
+const CONFIG_SCHEMA_URL_PATTERN: RegExp = /^https:\/\/ramen-schema\.org\/miso\/\d+\.\d+\.\d+\/config\.schema\.json$/;
+
 const misoConfigSchema = z.strictObject({
-  $schema: z.string().optional(),
-  meta: z.looseObject({
-    configVersion: z.string(),
+  /** The config format and its version */
+  $schema: z.string().regex(CONFIG_SCHEMA_URL_PATTERN, "Not a Miso config schema URL"),
+  /** Identity of the config, kept across regenerations */
+  id: z.string().min(1),
+  meta: z.strictObject({
     project: z.string(),
     description: z.string().optional(),
-    /** Where and when the model was ingested. Reserved for the drift check against the original model. */
-    ingest: z
-      .looseObject({
-        source: z.string(),
-        ingestedAt: z.string(),
-        modelFileId: z.string(),
-        checksum: z.string(),
-      })
-      .optional(),
   }),
   /** The ingested model. Validated by RAMEN core in `parseMisoConfig`. */
   model: z.custom<RamenFile>((value) => typeof value === "object" && value !== null, "The model must be an object"),

@@ -2,7 +2,8 @@
 import { computed } from "vue";
 import DataInputComponent from "./DataInputComponent.vue";
 import { useConfigStore } from "../store/config";
-import { getDefaultValue, getValueType, isRequired, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
+import { getDefaultValue, getValueType, isRequired } from "../utils/helper/modelHelper";
+import type { ModelAttribute, ModelContext } from "../models/types";
 import Button from "primevue/button";
 
 const modelValue = defineModel<unknown[] | null>();

@@ -18,9 +18,10 @@ import {
   NodeStatusObject,
   NodeUpdateObject,
   PaginationResult,
+  ModelAttribute,
+  ModelContext,
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
-import type { ModelAttribute, ModelContext } from "../utils/modelHelper.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 

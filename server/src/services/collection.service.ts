@@ -3,16 +3,17 @@ import Neo4jDriver from "../database/neo4j.js";
 import ConfigService from "./config.service.js";
 import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatusObject } from "../models/types.js";
-import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
 import {
-  getCollectionAttributes,
-  getCollectionLabels,
-  isEditable,
-  validateValue,
-  type ModelAttribute,
-  type ModelContext,
-} from "../utils/modelHelper.js";
+  PaginationResult,
+  CollectionNode,
+  NodeSearchParams,
+  NodeDto,
+  NodeStatusObject,
+  ModelAttribute,
+  ModelContext,
+} from "../models/types.js";
+import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
+import { getCollectionAttributes, getCollectionLabels, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
 

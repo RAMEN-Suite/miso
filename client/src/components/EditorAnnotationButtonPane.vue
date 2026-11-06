@@ -3,8 +3,7 @@ import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
-import { NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
-import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
+import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";

@@ -2,7 +2,8 @@
 import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
 import { useConfigStore } from "../store/config";
-import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
+import { isVisible } from "../utils/helper/modelHelper";
+import type { ModelAttribute } from "../models/types";
 
 const props = defineProps<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future

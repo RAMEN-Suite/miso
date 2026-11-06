@@ -7,9 +7,11 @@ import {
   EntityNode,
   CollectionNode,
   Annotation,
+  ModelAttribute,
+  ModelContext,
 } from "../../models/types";
 import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
-import { isList, validateValue, type ModelAttribute, type ModelContext } from "./modelHelper";
+import { isList, validateValue } from "./modelHelper";
 
 /**
  * Converts a camelCase or PascalCase string into a space-separated title case string

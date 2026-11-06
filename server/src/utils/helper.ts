@@ -1,19 +1,22 @@
 import { Request } from "express";
 import { isDuration, isInt, types } from "neo4j-driver";
-import { CursorData, FilterSpec, FilterTarget, HierarchyQuery, HierarchyScope, NodeStatusObject } from "../models/types.js";
-import { parseFilterSpec, parseFilterTarget } from "./filter.js";
 import {
-  getValueType,
-  isList,
-  isRequired,
-  type AttributeValueType,
-  type ModelAttribute,
-  type ModelContext,
-} from "./modelHelper.js";
+  CursorData,
+  FilterSpec,
+  FilterTarget,
+  HierarchyQuery,
+  HierarchyScope,
+  NodeStatusObject,
+  ModelAttribute,
+  ModelContext,
+} from "../models/types.js";
+import { parseFilterSpec, parseFilterTarget } from "./filter.js";
+import { getValueType, isList, isRequired } from "./modelHelper.js";
 import { isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
+import { AttributeValueType } from "./ramen.js";
 
 /**
  * Capitalizes the first letter of a given string.

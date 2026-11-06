@@ -3,7 +3,7 @@ import { computed, ComputedRef, ref, useTemplateRef } from "vue";
 import { useFilterStore } from "../store/filter";
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
-import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
+import type { ModelAnnotationShape } from "../models/types";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import Button from "primevue/button";

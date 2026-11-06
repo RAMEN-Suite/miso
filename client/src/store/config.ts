@@ -10,6 +10,9 @@ import {
   BuiltinStructuralType,
   ContentMedium,
   TextAnnotationRepresentation,
+  ModelAnnotationShape,
+  ModelAttribute,
+  ModelContext,
 } from "../models/types";
 import type { AnnotationMapping } from "../editors/text/src";
 import type { NativeTypeConfig, StructuralType } from "../editors/text/src/models/types";
@@ -18,8 +21,8 @@ import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { registerNodeIcon } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
+import { BASE_NODE_REF } from "../config/ramen";
 import {
-  BASE_NODE_REF,
   createModelContext,
   findRefinementRef,
   findShape,
@@ -33,9 +36,6 @@ import {
   isRequired,
   refersToEntities,
   shapeRefOf,
-  type ModelAnnotationShape,
-  type ModelAttribute,
-  type ModelContext,
 } from "../utils/helper/modelHelper";
 
 /** Group for annotation types without a configured `miso.group`.*/

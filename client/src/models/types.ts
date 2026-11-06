@@ -1,3 +1,5 @@
+import type { AnnotationShape, Attribute, Owned, RamenModel } from "@ramen-suite/core";
+import type { MisoConfig } from "../schemas/misoConfig.schema";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
@@ -56,6 +58,28 @@ export type {
   TextAnnotationRepresentation,
   UrlIconSpec,
 } from "../schemas/configBlocks.schema";
+
+/** The model and the config the accessors in `modelHelper.ts` work on */
+export interface ModelContext {
+  /** The model, imported by RAMEN core */
+  model: RamenModel;
+  /** The validated Miso config */
+  config: MisoConfig;
+}
+
+/** An attribute of a node, or a property of an annotation shape, with the element that declares it */
+export interface ModelAttribute {
+  /** The attribute as declared in the model */
+  attribute: Attribute;
+  /** Qualified ref (`<modelId>:<id>`) of the declaring node or annotation shape */
+  ownerRef: string;
+}
+
+/**
+ * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
+ * flattens all levels into one `annotations` list.
+ */
+export type ModelAnnotationShape = Owned<AnnotationShape>;
 
 export interface BaseNodeData {
   uuid: string;

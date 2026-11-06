@@ -1,16 +1,9 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
 import { useConfigStore } from "../store/config";
-import {
-  getOptions,
-  getValueType,
-  isEditable,
-  isRequired,
-  validateValue,
-  type AttributeValueType,
-  type ModelAttribute,
-  type ModelContext,
-} from "../utils/helper/modelHelper";
+import { getOptions, getValueType, isEditable, isRequired, validateValue } from "../utils/helper/modelHelper";
+import type { ModelAttribute, ModelContext } from "../models/types";
+import type { AttributeValueType } from "../config/ramen";
 import {
   getTemporalInputType,
   isBoolean,

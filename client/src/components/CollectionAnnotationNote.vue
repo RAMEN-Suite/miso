@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation } from "../models/types";
-import type { ModelAnnotationShape, ModelAttribute } from "../utils/helper/modelHelper";
+import { Annotation, ModelAnnotationShape, ModelAttribute } from "../models/types";
 import { useConfigStore } from "../store/config";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";

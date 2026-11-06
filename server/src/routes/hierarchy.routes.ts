@@ -1,10 +1,16 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import ConfigService from "../services/config.service.js";
-import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult } from "../models/types.js";
+import {
+  HierarchyNode,
+  NodeAncestry,
+  NodeDto,
+  PaginationResult,
+  ModelAttribute,
+  ModelContext,
+} from "../models/types.js";
 import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
-import type { ModelAttribute, ModelContext } from "../utils/modelHelper.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
 const router: Router = express.Router();

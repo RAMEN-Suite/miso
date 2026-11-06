@@ -1,4 +1,4 @@
-import type { AttributeValueType } from "./modelHelper.js";
+import type { AttributeValueType } from "./ramen.js";
 
 /*
  * Checks on the value type of an attribute (see `getValueType` in `modelHelper.ts`). Lists are told apart by `isList`

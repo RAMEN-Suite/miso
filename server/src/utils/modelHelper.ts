@@ -1,17 +1,22 @@
 import {
-  DataTypes,
-  RAMEN_ELEMENT,
   RAMEN_MODEL,
-  type AnnotationShape,
-  type Attribute,
-  type BuiltinType,
-  type DataType,
-  type Node,
-  type Owned,
-  type RamenModel,
-  type Relation,
+  Attribute,
+  BuiltinType,
+  DataType,
+  Node,
+  RamenModel,
+  Relation,
 } from "@ramen-suite/core";
+import {
+  BASE_NODE_REF,
+  BASE_NODE_REFS,
+  BUILTIN_TYPES,
+  VALUE_TYPE_BY_FORMAT,
+  AttributeValueType,
+  FormatValueType,
+} from "./ramen.js";
 import { ConfigBaseEntry, IMisoConfig } from "../models/IMisoConfig.js";
+import type { ConfigBlock, ModelAnnotationShape, ModelAttribute, ModelContext } from "../models/types.js";
 
 /**
  * Accessors on the model and the config. Everything model-related and the app's settings of model elements are read
@@ -23,63 +28,15 @@ import { ConfigBaseEntry, IMisoConfig } from "../models/IMisoConfig.js";
  *   RAMEN core allows no `ext` there. The server passes them through and only checks the native mappings
  *   (`miso.mappings`); the client validates and applies both.
  *
- * All functions take a {@linkcode ModelContext} and work with RAMEN core's types. {@linkcode ModelAttribute} only adds
- * the declaring element to an attribute. Elements are referenced by qualified refs (`<modelId>:<id>`, see
- * {@linkcode qualify}).
+ * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
+ * to an attribute (both in `models/types.ts`). The model constants are in `utils/ramen.ts`. Elements are referenced by
+ * qualified refs (`<modelId>:<id>`, see {@linkcode qualify}).
  *
  * Mirrored on the client (`client/src/utils/helper/modelHelper.ts`), keep both in sync. The name lookups at the end
  * correspond to getters of the client's config store.
  *
  * @packageDocumentation
  */
-
-/** An `ext.miso` block. The server passes it through, the client validates it. */
-type ConfigBlock = Record<string, unknown> | undefined;
-
-/** An attribute of a node, or a property of an annotation shape, with the element that declares it */
-export interface ModelAttribute {
-  /** The attribute as declared in the model */
-  attribute: Attribute;
-  /** Qualified ref (`<modelId>:<id>`) of the declaring node or annotation shape */
-  ownerRef: string;
-}
-
-/**
- * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
- * flattens all levels into one `annotations` list.
- */
-export type ModelAnnotationShape = Owned<AnnotationShape>;
-
-/**
- * The value type of an attribute: RAMEN core's built-in types, plus the temporal types (strings with a date format, see
- * {@linkcode getValueType}). Lists are told apart by {@linkcode isList}.
- */
-export type AttributeValueType = BuiltinType | "Date" | "DateTime";
-
-/** The model and the config the accessors work on */
-export interface ModelContext {
-  /** The model, imported by RAMEN core */
-  model: RamenModel;
-  config: IMisoConfig;
-}
-
-/** Qualified refs of the RAMEN base nodes */
-export const BASE_NODE_REF = {
-  Collection: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.COLLECTION}`,
-  Content: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.CONTENT}`,
-  Entity: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ENTITY}`,
-  Annotation: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ANNOTATION}`,
-} as const;
-
-const BASE_NODE_REFS: readonly string[] = Object.values(BASE_NODE_REF);
-
-const BUILTIN_TYPES: readonly string[] = Object.values(DataTypes);
-
-/** Value types of String data types by their `format` constraint. Other formats (`uri`, `email` ...) stay `String`. */
-const VALUE_TYPE_BY_FORMAT: Record<string, AttributeValueType> = {
-  date: "Date",
-  "date-time": "DateTime",
-};
 
 /**
  * Qualifies a local ref (without model prefix) with the model of the element that holds it.
@@ -276,15 +233,17 @@ export function getValueType(context: ModelContext, entry: ModelAttribute): Attr
 }
 
 /**
- * The temporal value type of a data type by its `format` constraint.
+ * The value type of a data type by its `format` constraint.
  *
  * @param {DataType} dataType - The data type.
- * @returns {AttributeValueType | undefined} `Date` or `DateTime`, `undefined` if it has no date format.
+ * @returns {FormatValueType | undefined} The value type, `undefined` if it has no format of {@linkcode VALUE_TYPE_BY_FORMAT}.
  */
-function formatValueType(dataType: DataType): AttributeValueType | undefined {
+function formatValueType(dataType: DataType): FormatValueType | undefined {
+  const byFormat: Readonly<Record<string, FormatValueType | undefined>> = VALUE_TYPE_BY_FORMAT;
+
   for (const constraint of dataType.constraints ?? []) {
     if (constraint.language === "format" && typeof constraint.expression === "string") {
-      const valueType: AttributeValueType | undefined = VALUE_TYPE_BY_FORMAT[constraint.expression];
+      const valueType: FormatValueType | undefined = byFormat[constraint.expression];
 
       if (valueType) {
         return valueType;

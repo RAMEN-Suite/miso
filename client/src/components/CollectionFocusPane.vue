@@ -3,7 +3,15 @@ import { computed, ComputedRef, onBeforeUnmount, ref, useTemplateRef, watch } fr
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useConfigStore } from "../store/config";
-import { Annotation, CollectionNode, CollectionFocus, HierarchyEntry, NodeDto } from "../models/types";
+import {
+  Annotation,
+  CollectionNode,
+  CollectionFocus,
+  HierarchyEntry,
+  NodeDto,
+  ModelAnnotationShape,
+  ModelAttribute,
+} from "../models/types";
 import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import {
   getDefaultValue,
@@ -16,8 +24,6 @@ import {
   isRequired,
   isVisible,
   validateValue,
-  type ModelAnnotationShape,
-  type ModelAttribute,
 } from "../utils/helper/modelHelper";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";

@@ -6,7 +6,8 @@ import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
 import { ComponentPublicInstance, onMounted, useTemplateRef } from "vue";
 import { resolveAnnotationIcon } from "../config/icons";
-import { getOptions, getShapeConfig, type ModelAnnotationShape, type ModelAttribute } from "../utils/helper/modelHelper";
+import { getOptions, getShapeConfig } from "../utils/helper/modelHelper";
+import type { ModelAnnotationShape, ModelAttribute } from "../models/types";
 
 const props = defineProps<{
   type: string;

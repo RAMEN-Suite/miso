@@ -1,5 +1,6 @@
-import { FilterComparator, FilterTarget } from "../models/types";
-import { getOptions, getValueType, isList, type AttributeValueType, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
+import { FilterComparator, FilterTarget, ModelAttribute, ModelContext } from "../models/types";
+import type { AttributeValueType } from "./ramen";
+import { getOptions, getValueType, isList } from "../utils/helper/modelHelper";
 
 /** What a filter compares against: the value type of a single value, or a list */
 type FilterValueType = AttributeValueType | "Array";

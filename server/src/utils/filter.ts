@@ -1,17 +1,17 @@
 import ValidationError from "../errors/validation.error.js";
 import UnknownFilterFieldError from "../errors/unknownFilterField.error.js";
-import { FilterComparator, FilterCondition, FilterOperator, FilterRule, FilterSpec, FilterTarget } from "../models/types.js";
 import {
-  BASE_NODE_REF,
-  getNodeAttributes,
-  getOptions,
-  getRefinements,
-  getValueType,
-  isList,
-  type AttributeValueType,
-  type ModelAttribute,
-  type ModelContext,
-} from "./modelHelper.js";
+  FilterComparator,
+  FilterCondition,
+  FilterOperator,
+  FilterRule,
+  FilterSpec,
+  FilterTarget,
+  ModelAttribute,
+  ModelContext,
+} from "../models/types.js";
+import { BASE_NODE_REF, AttributeValueType } from "./ramen.js";
+import { getNodeAttributes, getOptions, getRefinements, getValueType, isList } from "./modelHelper.js";
 import { isBoolean, isDate, isNumeric, isString } from "./propertyType.js";
 
 /** What a filter compares against: the value type of a single value, or a list */

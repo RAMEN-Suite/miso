@@ -1,6 +1,6 @@
 import { useConfigStore } from "../store/config";
-import { Annotation, AnnotationNode } from "../models/types";
-import { getDefaultValue, getOptions, isRequired, type ModelAttribute } from "../utils/helper/modelHelper";
+import { Annotation, AnnotationNode, ModelAttribute } from "../models/types";
+import { getDefaultValue, getOptions, isRequired } from "../utils/helper/modelHelper";
 import { IAnnotation } from "../models/IAnnotation";
 
 /**

@@ -2,12 +2,12 @@
 import { computed, inject, onMounted, Ref, ref, toValue, useTemplateRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
-import { Annotation } from "../models/types";
+import { Annotation, ModelAttribute } from "../models/types";
 import { useConfigStore } from "../store/config";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
-import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
+import { isVisible } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");

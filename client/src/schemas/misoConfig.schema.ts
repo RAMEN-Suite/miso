@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RamenModel, type RamenFile } from "@ramen-suite/core";
+import { RamenModel, RamenFile } from "@ramen-suite/core";
 import {
   annotationShapeConfigSchema,
   attributeConfigSchema,

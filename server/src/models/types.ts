@@ -2,7 +2,32 @@ import { IAnnotation } from "./IAnnotation.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
-import type { ModelAttribute } from "../utils/modelHelper.js";
+import type { AnnotationShape, Attribute, Owned, RamenModel } from "@ramen-suite/core";
+import type { IMisoConfig } from "./IMisoConfig.js";
+
+/** The model and the config the accessors in `utils/modelHelper.ts` work on */
+export interface ModelContext {
+  /** The model, imported by RAMEN core */
+  model: RamenModel;
+  config: IMisoConfig;
+}
+
+/** An attribute of a node, or a property of an annotation shape, with the element that declares it */
+export interface ModelAttribute {
+  /** The attribute as declared in the model */
+  attribute: Attribute;
+  /** Qualified ref (`<modelId>:<id>`) of the declaring node or annotation shape */
+  ownerRef: string;
+}
+
+/**
+ * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
+ * flattens all levels into one `annotations` list.
+ */
+export type ModelAnnotationShape = Owned<AnnotationShape>;
+
+/** An `ext.miso` block. The server passes it through, the client validates it. */
+export type ConfigBlock = Record<string, unknown> | undefined;
 
 export type AnnotationNode = Node<IAnnotation>;
 

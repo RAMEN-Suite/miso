@@ -5,7 +5,8 @@ import { IMisoConfig } from "../models/IMisoConfig.js";
 import ExternalServiceError from "../errors/externalService.error.js";
 import { CONFIG_DIR } from "../constants.js";
 import { isValidConfigFile, isValidHttpUrl } from "../utils/helper.js";
-import { collectConfigWarnings, createModelContext, ModelContext } from "../utils/modelHelper.js";
+import { collectConfigWarnings, createModelContext } from "../utils/modelHelper.js";
+import { ModelContext } from "../models/types.js";
 import logger from "../logger.js";
 
 /**

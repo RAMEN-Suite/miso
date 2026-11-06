@@ -7,14 +7,11 @@ import {
   NodeStatusObject,
   NodeUpdateObject,
   ContentNode,
+  ModelAttribute,
+  ModelContext,
 } from "../models/types.js";
 import { toNeo4jTypes } from "./helper.js";
-import {
-  getCollectionAttributes,
-  getTextAnnotationProperties,
-  type ModelAttribute,
-  type ModelContext,
-} from "./modelHelper.js";
+import { getCollectionAttributes, getTextAnnotationProperties } from "./modelHelper.js";
 import { inferRelationship } from "./ramen.js";
 
 function convertNodeToNeo4jFormat(

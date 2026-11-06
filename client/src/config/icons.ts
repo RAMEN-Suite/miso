@@ -1,6 +1,6 @@
-import { BaseNodeLabel, IconSpec, IconSpecInput } from "../models/types";
+import { BaseNodeLabel, IconSpec, IconSpecInput, ModelAnnotationShape } from "../models/types";
 import { filterBaseNodeLabels } from "./ramen";
-import { getShapeConfig, type ModelAnnotationShape } from "../utils/helper/modelHelper";
+import { getShapeConfig } from "../utils/helper/modelHelper";
 
 /** Used when a node matches none of the known base labels. */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };

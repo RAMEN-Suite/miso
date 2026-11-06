@@ -3,8 +3,8 @@ import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vu
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { Annotation, CollectionNode } from "../models/types";
-import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
+import { Annotation, CollectionNode, ModelAttribute } from "../models/types";
+import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";

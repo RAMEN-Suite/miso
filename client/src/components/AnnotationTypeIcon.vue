@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { IconSpecInput } from "../models/types";
+import { IconSpecInput, ModelAnnotationShape } from "../models/types";
 import { resolveAnnotationIcon } from "../config/icons";
-import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const props = withDefaults(

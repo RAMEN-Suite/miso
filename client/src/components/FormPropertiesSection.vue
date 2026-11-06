@@ -2,7 +2,8 @@
 import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
 import { useConfigStore } from "../store/config";
-import { isList, isVisible, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
+import { isList, isVisible } from "../utils/helper/modelHelper";
+import type { ModelAttribute, ModelContext } from "../models/types";
 import DataInputComponent from "../components/DataInputComponent.vue";
 import DataInputGroup from "../components/DataInputGroup.vue";
 

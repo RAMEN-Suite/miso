@@ -5,8 +5,9 @@ import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
 import Button from "primevue/button";
-import { FilterComparator, FilterRow, FilterTarget } from "../models/types";
+import { FilterComparator, FilterRow, FilterTarget, ModelAttribute, ModelContext } from "../models/types";
 import { availableComparators, COMPARATOR_LABELS, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
+import type { AttributeValueType } from "../config/ramen";
 import {
   getTemporalInputType,
   isBoolean,
@@ -16,13 +17,7 @@ import {
   toTemporalInputValue,
 } from "../utils/helper/propertyTypeHelper";
 import { useConfigStore } from "../store/config";
-import {
-  getOptions,
-  getValueType,
-  type AttributeValueType,
-  type ModelAttribute,
-  type ModelContext,
-} from "../utils/helper/modelHelper";
+import { getOptions, getValueType } from "../utils/helper/modelHelper";
 
 const props = defineProps<{
   /** The attributes that can be filtered on */

@@ -2,6 +2,7 @@ import {
   RAMEN_MODEL,
   Attribute,
   BuiltinType,
+  Constraint,
   DataType,
   Node,
   RamenModel,
@@ -268,7 +269,8 @@ export function getDataType(context: ModelContext, entry: ModelAttribute): DataT
 }
 
 /**
- * The allowed values of an attribute, from the literals of its data type.
+ * The allowed values of an attribute: the literals of its data type, otherwise the `enum` of a `json-schema` constraint
+ * on the attribute or its data type.
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
@@ -279,12 +281,37 @@ export function getOptions(context: ModelContext, entry: ModelAttribute): string
   const literals = dataType?.literals ?? [];
 
   if (literals.length === 0) {
-    return undefined;
+    return enumConstraintValues([...(entry.attribute.constraints ?? []), ...(dataType?.constraints ?? [])]);
   } else if (dataType?.baseType === "Integer" || dataType?.baseType === "Float") {
     return literals.map((literal) => literal.value ?? Number(literal.literal ?? literal.name));
   } else {
     return literals.map((literal) => literal.literal ?? literal.name);
   }
+}
+
+/**
+ * The values of the first `json-schema` constraint with an `enum` of only strings or only numbers.
+ *
+ * @param {Constraint[]} constraints - The constraints to search.
+ * @returns {string[] | number[] | undefined} The values, `undefined` if there is no such constraint.
+ */
+function enumConstraintValues(constraints: Constraint[]): string[] | number[] | undefined {
+  for (const constraint of constraints) {
+    const values: unknown =
+      constraint.language === "json-schema" && typeof constraint.expression === "object"
+        ? constraint.expression.enum
+        : undefined;
+
+    if (Array.isArray(values) && values.length > 0) {
+      if (values.every((value) => typeof value === "string")) {
+        return values;
+      } else if (values.every((value) => typeof value === "number")) {
+        return values;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**

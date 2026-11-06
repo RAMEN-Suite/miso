@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { RamenModel, RamenFile } from "@ramen-suite/core";
+import { Attribute, Constraint, RamenModel, RamenFile } from "@ramen-suite/core";
+import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
+import { NativeTypeConfig } from "../editors/text/src/models/types";
 import {
   annotationShapeConfigSchema,
   attributeConfigSchema,
@@ -136,8 +138,65 @@ function checkExtBlocks(model: RamenFile): string[] {
 }
 
 /**
+ * Checks that the annotation shapes in `miso.mappings` don't override the editor's built-in attributes: each one must be
+ * a property of the shape (under its mapped name) with the built-in type, cardinality and constraints. Shapes may add
+ * properties of their own.
+ *
+ * @param {RamenFile} model - The ingested model.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {string[]} The problems found, each with the shape and attribute it belongs to.
+ */
+function checkBuiltinAttributes(model: RamenFile, mappings: ConfigMapping[]): string[] {
+  const problems: string[] = [];
+  const constraintsKey = (constraints: Pick<Constraint, "language" | "expression">[] | undefined): string =>
+    (constraints ?? [])
+      .map((constraint) => `${constraint.language}:${JSON.stringify(constraint.expression)}`)
+      .sort()
+      .join("|");
+
+  for (const mapping of mappings) {
+    const shape = model.annotations.find((candidate) => `${candidate.modelId}:${candidate.id}` === mapping.annotation);
+    const builtin: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.native);
+
+    if (!shape || !builtin) {
+      continue;
+    }
+
+    for (const builtinAttribute of builtin.attributes) {
+      const name: string = mapping.attributes?.[builtinAttribute.name] ?? builtinAttribute.name;
+      const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
+      const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;
+
+      if (!property) {
+        problems.push(`${label}: missing, the editor sets it`);
+      } else {
+        if (property.typeId !== builtinAttribute.typeId) {
+          problems.push(`${label}: type "${property.typeId}" overrides the built-in "${builtinAttribute.typeId}"`);
+        }
+
+        if (
+          property.bounds.lowerBound !== builtinAttribute.bounds.lowerBound ||
+          property.bounds.upperBound !== builtinAttribute.bounds.upperBound
+        ) {
+          problems.push(
+            `${label}: bounds ${property.bounds.lowerBound}..${property.bounds.upperBound} override the built-in ${builtinAttribute.bounds.lowerBound}..${builtinAttribute.bounds.upperBound}`,
+          );
+        }
+
+        if (constraintsKey(property.constraints) !== constraintsKey(builtinAttribute.constraints)) {
+          problems.push(`${label}: constraints differ from the built-in ones`);
+        }
+      }
+    }
+  }
+
+  return problems;
+}
+
+/**
  * Checks that the given data is a Miso config and imports its model. The global settings and the `ext.miso` blocks are
- * checked against their schemas, the model by RAMEN core.
+ * checked against their schemas, the model by RAMEN core, and the mapped shapes against the editor's built-in
+ * attributes.
  *
  * @param {unknown} data - The config as received, e.g. the parsed JSON response of the API.
  * @returns {ParsedMisoConfig} The validated config and its imported model.
@@ -159,7 +218,10 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
     throw new ConfigValidationError(`The model in the config is invalid: ${(error as Error).message}`);
   }
 
-  const problems: string[] = checkExtBlocks(result.data.model);
+  const problems: string[] = [
+    ...checkExtBlocks(result.data.model),
+    ...checkBuiltinAttributes(result.data.model, result.data.miso.mappings),
+  ];
 
   if (problems.length > 0) {
     throw new ConfigValidationError(problems.join("\n"));

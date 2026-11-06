@@ -1,5 +1,6 @@
-import { RAMEN_ELEMENT, RamenModel, AnnotationShapeInput } from "@ramen-suite/core";
+import { ModelFactory, RAMEN_ELEMENT, RamenModel, AnnotationShapeInput } from "@ramen-suite/core";
 import type { AnnotationShapeConfig, BuiltinStructuralType } from "../../src/models/types";
+import { BUILTIN_STRUCTURAL_CONFIGS } from "../../src/editors/text/src/config/constants";
 import { parseMisoConfig, ParsedMisoConfig } from "../../src/schemas/misoConfig.schema";
 
 /** Annotation types of the text family: the built-in structure types plus one or two per representation and extent */
@@ -20,8 +21,8 @@ const TEXT_ANNOTATION_TYPES: { type: string; native?: BuiltinStructuralType; mis
 ];
 
 /**
- * Builds a minimal Miso config for the tests: a `Text` content type, one text annotation family with the types above,
- * and the native mappings of the structure types. The model is built with RAMEN core, so it stays valid when the
+ * Builds a minimal Miso config for the tests: a `Text` content type, one text annotation family with the types above
+ * (the structure types with the editor's built-in attributes), and the native mappings of the structure types. The model is built with RAMEN core, so it stays valid when the
  * library changes, and the config is validated the same way the app does on load.
  *
  * @returns {ParsedMisoConfig} The validated config and its imported model.
@@ -35,9 +36,17 @@ function buildTestConfig(): ParsedMisoConfig {
   const mappings: { native: BuiltinStructuralType; annotation: string; type: string }[] = [];
 
   for (const { type, native, miso } of TEXT_ANNOTATION_TYPES) {
+    // Mapped shapes must declare the editor's built-in attributes unchanged, see `parseMisoConfig`
+    const builtinAttributes = BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.attributes ?? [];
     const input: AnnotationShapeInput = {
       node: family,
       type,
+      properties: builtinAttributes.map(({ constraints, ...attribute }) => ({
+        ...attribute,
+        ...(constraints
+          ? { constraints: constraints.map((constraint) => ({ ...constraint, id: ModelFactory.createIdentifier() })) }
+          : {}),
+      })),
       relations: [{ relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } }],
       ...(miso ? { ext: { miso } } : {}),
     };

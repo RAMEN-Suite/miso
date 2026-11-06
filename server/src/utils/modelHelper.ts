@@ -4,6 +4,7 @@ import {
   RAMEN_MODEL,
   type AnnotationShape,
   type Attribute,
+  type BuiltinType,
   type DataType,
   type Node,
   type Owned,
@@ -49,8 +50,11 @@ export interface ModelAttribute {
  */
 export type ModelAnnotationShape = Owned<AnnotationShape>;
 
-/** The value type of an attribute. Lists are told apart by {@linkcode isList}. */
-export type AttributeValueType = "String" | "Integer" | "Float" | "Boolean" | "Object" | "Date" | "DateTime";
+/**
+ * The value type of an attribute: RAMEN core's built-in types, plus the temporal types (strings with a date format, see
+ * {@linkcode getValueType}). Lists are told apart by {@linkcode isList}.
+ */
+export type AttributeValueType = BuiltinType | "Date" | "DateTime";
 
 /** The model and the config the accessors work on */
 export interface ModelContext {
@@ -71,10 +75,10 @@ const BASE_NODE_REFS: readonly string[] = Object.values(BASE_NODE_REF);
 
 const BUILTIN_TYPES: readonly string[] = Object.values(DataTypes);
 
-/** RAMEN data types with a value type of their own. The other data types are handled as their base type. */
-const VALUE_TYPE_BY_RAMEN_TYPE_REF: Record<string, AttributeValueType> = {
-  [`${RAMEN_MODEL.id}:${RAMEN_ELEMENT.DATE}`]: "Date",
-  [`${RAMEN_MODEL.id}:${RAMEN_ELEMENT.DATE_TIME}`]: "DateTime",
+/** Value types of String data types by their `format` constraint. Other formats (`uri`, `email` ...) stay `String`. */
+const VALUE_TYPE_BY_FORMAT: Record<string, AttributeValueType> = {
+  date: "Date",
+  "date-time": "DateTime",
 };
 
 /**
@@ -248,6 +252,8 @@ export function getTypeRef(entry: ModelAttribute): string {
 
 /**
  * The value type of an attribute (of a single value, for lists the item type).
+ * A String data type with a `date` or `date-time` format constraint (RAMEN's `Date`/`DateTime` or a project's own)
+ * is `Date`/`DateTime`, any other data type its base type.
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
@@ -257,14 +263,36 @@ export function getValueType(context: ModelContext, entry: ModelAttribute): Attr
   const typeRef: string = getTypeRef(entry);
 
   if (BUILTIN_TYPES.includes(typeRef)) {
-    return typeRef as AttributeValueType;
+    return typeRef as BuiltinType;
   }
 
-  if (VALUE_TYPE_BY_RAMEN_TYPE_REF[typeRef]) {
-    return VALUE_TYPE_BY_RAMEN_TYPE_REF[typeRef];
+  const dataType: DataType | undefined = context.model.getDataType(typeRef);
+
+  if (!dataType) {
+    return "String";
   }
 
-  return (context.model.getDataType(typeRef)?.baseType as AttributeValueType | undefined) ?? "String";
+  return (dataType.baseType === "String" && formatValueType(dataType)) || dataType.baseType;
+}
+
+/**
+ * The temporal value type of a data type by its `format` constraint.
+ *
+ * @param {DataType} dataType - The data type.
+ * @returns {AttributeValueType | undefined} `Date` or `DateTime`, `undefined` if it has no date format.
+ */
+function formatValueType(dataType: DataType): AttributeValueType | undefined {
+  for (const constraint of dataType.constraints ?? []) {
+    if (constraint.language === "format" && typeof constraint.expression === "string") {
+      const valueType: AttributeValueType | undefined = VALUE_TYPE_BY_FORMAT[constraint.expression];
+
+      if (valueType) {
+        return valueType;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**

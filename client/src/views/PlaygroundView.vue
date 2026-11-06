@@ -17,7 +17,9 @@ import type {
   RamenModel,
   Relation,
 } from "@ramen-suite/core";
-import { loadPlaygroundModel } from "../playground/ramenPlaygroundModel";
+import { ref } from "vue";
+import Button from "primevue/button";
+import { useConfigStore } from "../store/config";
 
 interface AttributeRow {
   name: string;
@@ -60,12 +62,14 @@ interface CarrierRow {
   types: string[];
 }
 
+const { getModelContext } = useConfigStore();
+
+/** The model of the loaded Miso config. The app only renders routes after the config is initialized. */
 let edition: RamenModel | undefined;
 let loadError: string | undefined;
 
 try {
-  edition = loadPlaygroundModel();
-  console.log("export: ", edition.export());
+  edition = getModelContext().model;
 } catch (error: unknown) {
   loadError = error instanceof Error ? error.message : String(error);
 }
@@ -221,6 +225,33 @@ const annotationRows: AnnotationRow[] = edition ? buildAnnotationRows(edition) :
 const carrierRows: CarrierRow[] = edition ? buildCarrierRows(edition) : [];
 const exportJson: string = edition ? JSON.stringify(edition.export(), null, 2) : "";
 
+/** Feedback duration of the copy button's check icon */
+const COPY_FEEDBACK_MS = 1500 as const;
+
+const isCopying = ref<boolean>(false);
+const hasCopied = ref<boolean>(false);
+
+/** Copies the export JSON to the clipboard and shows a check icon on the button for a moment. */
+async function copyExportJson(): Promise<void> {
+  if (isCopying.value) {
+    return;
+  }
+
+  isCopying.value = true;
+
+  try {
+    await navigator.clipboard.writeText(exportJson);
+    hasCopied.value = true;
+    setTimeout(() => {
+      hasCopied.value = false;
+    }, COPY_FEEDBACK_MS);
+  } catch (error: unknown) {
+    console.error("Copying the export JSON failed:", error);
+  } finally {
+    isCopying.value = false;
+  }
+}
+
 function formatDiagnostic(diagnostic: Diagnostic): string {
   return `[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${diagnostic.path ? ` (${diagnostic.path})` : ""}`;
 }
@@ -230,7 +261,7 @@ function formatDiagnostic(diagnostic: Diagnostic): string {
   <div class="playground flex flex-col gap-8 p-6">
     <h1 class="text-2xl font-semibold">ramen-core playground</h1>
 
-    <div v-if="loadError" class="text-red-600">Loading the model failed: {{ loadError }}</div>
+    <div v-if="loadError" class="text-red-600">The model of the config is not available: {{ loadError }}</div>
 
     <template v-if="edition">
       <section>
@@ -352,7 +383,19 @@ function formatDiagnostic(diagnostic: Diagnostic): string {
       </section>
 
       <section>
-        <h2 class="text-xl font-semibold mb-2">6. Export (RamenFile)</h2>
+        <div class="flex items-center gap-2 mb-2">
+          <h2 class="text-xl font-semibold">6. Export (RamenFile)</h2>
+          <Button
+            :icon="hasCopied ? 'icon-check' : 'icon-copy'"
+            severity="secondary"
+            text
+            aria-label="Copy export JSON"
+            title="Copy export JSON"
+            class="w-8! h-8!"
+            :disabled="isCopying"
+            @click="copyExportJson"
+          />
+        </div>
         <details>
           <summary>Show export JSON</summary>
           <pre class="playground-pre">{{ exportJson }}</pre>

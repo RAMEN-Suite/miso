@@ -63,6 +63,7 @@ const propertiesTextStyleSchema = z.strictObject({
   fontStyle: z.string().optional(),
   fontVariant: z.string().optional(),
   fontSize: z.string().optional(),
+  letterSpacing: z.string().optional(),
   verticalAlign: z.string().optional(),
   textDecorationLine: z.string().optional(),
   textDecorationStyle: z.string().optional(),
@@ -245,7 +246,7 @@ export type AnnotationAppearance = z.infer<typeof annotationAppearanceSchema>;
  * Configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not part of the
  * data model. The native mapping lives in `miso.mappings`.
  */
-export type AnnotationShapeConfig =z.infer<typeof annotationShapeConfigSchema>;
+export type AnnotationShapeConfig = z.infer<typeof annotationShapeConfigSchema>;
 
 // ----- Node types -----
 

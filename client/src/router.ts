@@ -16,18 +16,17 @@ const allRoutes = [
     meta: { layout: "default" as const },
   },
   { path: "/contents/:uuid", component: EditorView, meta: { layout: "default" as const }, alias: ["/texts/:uuid"] },
-  // Lazy, so the playground and ramen-core stay out of the production bundle
-  { path: "/playground", component: () => import("./views/PlaygroundView.vue"), meta: { layout: "default" as const } },
+  // Dev only: `import.meta.env.DEV` is replaced with `false` in production builds, so the dynamic import is removed and
+  // no playground chunk is emitted
+  ...(import.meta.env.DEV
+    ? [{ path: "/playground", component: () => import("./views/PlaygroundView.vue"), meta: { layout: "default" as const } }]
+    : []),
   { path: "/:pathMatch(.*)*", component: NotFound, meta: { layout: "blank" as const } },
 ];
 
-const prodRoutes = allRoutes.filter((r) => !["/test", "/playground"].includes(r.path));
-
-const usedRoutes = import.meta.env.DEV ? allRoutes : prodRoutes;
-
 const router: Router = createRouter({
   history: createWebHistory(),
-  routes: usedRoutes,
+  routes: allRoutes,
 });
 
 router.beforeEach(() => hasOpenModal());

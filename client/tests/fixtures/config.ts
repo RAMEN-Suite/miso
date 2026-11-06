@@ -60,7 +60,6 @@ function buildTestConfig(): ParsedMisoConfig {
   return parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "testConfig",
-    meta: { project: "test" },
     model: edition.export(),
     miso: { templates: [], mappings },
   });

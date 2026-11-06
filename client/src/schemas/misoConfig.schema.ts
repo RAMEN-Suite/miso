@@ -53,10 +53,13 @@ const misoConfigSchema = z.strictObject({
   $schema: z.string().regex(CONFIG_SCHEMA_URL_PATTERN, "Not a Miso config schema URL"),
   /** Identity of the config, kept across regenerations */
   id: z.string().min(1),
-  meta: z.strictObject({
-    project: z.string(),
-    description: z.string().optional(),
-  }),
+  /** About the config itself. The project's name and description are in the model's `project`. */
+  meta: z
+    .strictObject({
+      /** What this editor configuration is for */
+      description: z.string().optional(),
+    })
+    .optional(),
   /** The ingested model. Validated by RAMEN core in `parseMisoConfig`. */
   model: z.custom<RamenFile>((value) => typeof value === "object" && value !== null, "The model must be an object"),
   miso: z.strictObject({

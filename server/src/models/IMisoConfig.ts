@@ -27,8 +27,9 @@ export interface IMisoConfig {
   $schema: string;
   /** Identity of the config, kept across regenerations */
   id: string;
-  meta: {
-    project: string;
+  /** About the config itself. The project's name and description are in the model's `project`. */
+  meta?: {
+    /** What this editor configuration is for */
     description?: string;
   };
   model: RamenFile;

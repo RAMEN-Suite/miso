@@ -105,7 +105,7 @@ export default class ConfigService {
   private prepare(data: unknown): ModelContext {
     const candidate = data as Partial<IMisoConfig> | null;
 
-    if (!candidate?.$schema || !candidate.id || !candidate.model || !candidate.miso || !candidate.meta) {
+    if (!candidate?.$schema || !candidate.id || !candidate.model || !candidate.miso) {
       throw new ExternalServiceError(
         `The config file is no Miso config (old guidelines format or missing $schema/id?). Generate one with scripts/generate-miso-config.mjs`,
       );

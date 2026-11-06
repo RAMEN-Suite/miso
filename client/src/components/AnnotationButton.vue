@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { useShortcutsStore } from "../store/shortcuts";
 import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
@@ -17,7 +17,7 @@ const props = defineProps<{
 
 const emit = defineEmits<(e: "clicked", data: { type: string; subType?: string | number }) => void>();
 
-const { getTextAnnotationProperties, getModelContext } = useGuidelinesStore();
+const { getTextAnnotationProperties, getModelContext } = useConfigStore();
 const { registerShortcut } = useShortcutsStore();
 
 const fields: ModelAttribute[] = getTextAnnotationProperties(props.type);

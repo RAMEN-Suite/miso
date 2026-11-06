@@ -1,7 +1,7 @@
 import { Schema } from "@tiptap/pm/model";
 import { AnnotationNode, NodeDto } from "../models/types";
 import { StandoffConverter, type TiptapJson } from "../editors/text/src";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
 
 /** A read-only document built from the beginning of a text. */
@@ -24,7 +24,7 @@ interface UseTextPreviewReturnType {
  * @returns {UseTextPreviewReturnType} An object containing the functions to build previews.
  */
 export function useTextPreview(): UseTextPreviewReturnType {
-  const { getAnnotationRepresentation, getEditorRole, getStructuralTypes } = useGuidelinesStore();
+  const { getAnnotationRepresentation, getEditorRole, getStructuralTypes } = useConfigStore();
   const { getEditorSchema } = useTiptapStore();
 
   /**

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGuidelinesStore } from "../store/guidelines.ts";
+import { useConfigStore } from "../store/config.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
@@ -36,7 +36,7 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-const { getTextAnnotationShape, getTextAnnotationProperties, getAnnotationExtent } = useGuidelinesStore();
+const { getTextAnnotationShape, getTextAnnotationProperties, getAnnotationExtent } = useConfigStore();
 
 const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(props.annotation.node.data.type);
 

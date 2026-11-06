@@ -1,6 +1,6 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
-import GuidelinesService from "../services/guidelines.service.js";
+import ConfigService from "../services/config.service.js";
 import { HierarchyNode, NodeAncestry, NodeDto, PaginationResult } from "../models/types.js";
 import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
@@ -10,7 +10,7 @@ import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature }
 const router: Router = express.Router();
 
 const hierarchyService: HierarchyService = new HierarchyService();
-const guidelinesService: GuidelinesService = new GuidelinesService();
+const configService: ConfigService = new ConfigService();
 
 /**
  * The single hierarchy listing endpoint. What is listed is decided by the `scope` in the body —
@@ -23,7 +23,7 @@ const guidelinesService: GuidelinesService = new GuidelinesService();
  */
 router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const context: ModelContext = await guidelinesService.getModelContext();
+    const context: ModelContext = await configService.getModelContext();
     const properties: Map<string, ModelAttribute> = filterableProperties(context);
 
     const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, context, properties);

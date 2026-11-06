@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { isList, isVisible, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
 import DataInputComponent from "../components/DataInputComponent.vue";
 import DataInputGroup from "../components/DataInputGroup.vue";
@@ -15,7 +15,7 @@ const props = defineProps<{
   mode?: "edit" | "view";
 }>();
 
-const context: ModelContext = useGuidelinesStore().getModelContext();
+const context: ModelContext = useConfigStore().getModelContext();
 
 const isViewMode: ComputedRef<boolean> = computed(() => props.mode === "view");
 

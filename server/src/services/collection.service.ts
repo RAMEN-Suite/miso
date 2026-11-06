@@ -1,6 +1,6 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import GuidelinesService from "./guidelines.service.js";
+import ConfigService from "./config.service.js";
 import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
 import NotFoundError from "../errors/notFound.error.js";
 import { PaginationResult, CollectionNode, NodeSearchParams, NodeDto, NodeStatusObject } from "../models/types.js";
@@ -158,8 +158,8 @@ export default class CollectionService {
    * @returns The updated Collection node.
    */
   public async updateCollection(uuid: string, root: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
-    const guidelineService: GuidelinesService = new GuidelinesService();
-    const context: ModelContext = await guidelineService.getModelContext();
+    const configService: ConfigService = new ConfigService();
+    const context: ModelContext = await configService.getModelContext();
 
     this.checkValidity(root.node as CollectionNode, context);
 
@@ -217,8 +217,8 @@ export default class CollectionService {
     nodeLabels: string[],
     properties: Record<string, unknown>,
   ): Promise<NodeDto<CollectionNode>> {
-    const guidelineService: GuidelinesService = new GuidelinesService();
-    const context: ModelContext = await guidelineService.getModelContext();
+    const configService: ConfigService = new ConfigService();
+    const context: ModelContext = await configService.getModelContext();
     const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
 
     Object.entries(properties).forEach(([name, value]: [string, unknown]) => {

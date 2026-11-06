@@ -4,7 +4,7 @@ import NotFoundError from "../errors/notFound.error.js";
 import { NodeDto, NodeSearchParams, PaginationResult, TextNode, TextUpdateDto } from "../models/types.js";
 import { toNativeTypes } from "../utils/helper.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
-import GuidelinesService from "./guidelines.service.js";
+import ConfigService from "./config.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -104,8 +104,8 @@ export default class ContentService {
   }
 
   public async updateText(uuid: string, data: TextUpdateDto): Promise<TextNode> {
-    const guidelineService: GuidelinesService = new GuidelinesService();
-    const context = await guidelineService.getModelContext();
+    const configService: ConfigService = new ConfigService();
+    const context = await configService.getModelContext();
 
     const flatNodeTree = flattenNodeTree({ ...data.text, connectedNodes: data.annotations }, context);
 

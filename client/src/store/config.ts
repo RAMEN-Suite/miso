@@ -97,14 +97,14 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 });
 
 /**
- * Store for making the edition guidelines available to all components. When the app is mounted, the store is
+ * Store for making the Miso config available to all components. When the app is mounted, the store is
  * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), the
  * config of model elements comes from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
  * the initialization. Other stores (filter.ts) are derived from this store.
  *
  * The lookups still match by name (annotation `type`, node label) until they use IDs.
  */
-export function useGuidelinesStore() {
+export function useConfigStore() {
   /**
    * Checks if an annotation type has constraints such as required properties, entities etc.
    *
@@ -391,14 +391,14 @@ export function useGuidelinesStore() {
 
   /**
    * Returns the model context for the accessors in `modelHelper.ts`. Only call this from code that runs after
-   * {@linkcode initializeGuidelines}.
+   * {@linkcode initializeConfig}.
    *
    * @returns {ModelContext} The model of the Miso config and its settings.
    * @throws {Error} If the config has not been loaded yet.
    */
   function getModelContext(): ModelContext {
     if (!modelContext.value) {
-      throw new Error("Guidelines are not initialized");
+      throw new Error("Config is not initialized");
     }
 
     return modelContext.value;
@@ -592,7 +592,7 @@ export function useGuidelinesStore() {
    * @param {ParsedMisoConfig} parsed - The validated Miso config and its imported model.
    * @return {void} This function does not return anything.
    */
-  function initializeGuidelines(parsed: ParsedMisoConfig): void {
+  function initializeConfig(parsed: ParsedMisoConfig): void {
     const context: ModelContext = createModelContext(parsed.config, parsed.model);
 
     modelContext.value = context;
@@ -796,7 +796,7 @@ export function useGuidelinesStore() {
     getTextAnnotationShape,
     groupedAndSortedAnnotationTypes,
     groupedAnnotationTypes,
-    initializeGuidelines,
+    initializeConfig,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,
     isFetching: readonly(isFetching),

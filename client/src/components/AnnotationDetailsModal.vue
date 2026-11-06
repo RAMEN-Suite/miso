@@ -3,7 +3,7 @@ import { computed, inject, onMounted, Ref, ref, toValue, useTemplateRef, watch }
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { Annotation } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
@@ -17,7 +17,7 @@ if (!dialogRef) {
 }
 
 const route: ReturnType<typeof useRoute> = useRoute();
-const { getTextAnnotationProperties, getModelContext } = useGuidelinesStore();
+const { getTextAnnotationProperties, getModelContext } = useConfigStore();
 
 const mode: "create" | "edit" = dialogRef.value.data.mode ?? "edit";
 

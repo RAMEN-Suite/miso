@@ -2,15 +2,15 @@ import { getSchema } from "@tiptap/core";
 import { beforeAll, describe, expect, test } from "vitest";
 import { StandoffConverter, TiptapNode, createExtensions } from "../../../../../src/editors/text/src";
 import { ApiJson } from "../../../../../src/editors/text/src/models/types";
-import { useGuidelinesStore } from "../../../../../src/store/guidelines";
-import { guidelines } from "../../../../fixtures/guidelines";
+import { useConfigStore } from "../../../../../src/store/config";
+import { testConfig } from "../../../../fixtures/config";
 import * as fixtures from "../../../../fixtures/standoff";
 
 // Appearance only affects rendering, the node types don't depend on it
 const schema = getSchema(createExtensions({ getAppearance: () => undefined }));
 
 beforeAll(() => {
-  useGuidelinesStore().initializeGuidelines(guidelines);
+  useConfigStore().initializeConfig(testConfig);
 });
 
 function convert(doc: ApiJson) {

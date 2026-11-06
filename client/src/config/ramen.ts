@@ -44,7 +44,7 @@ export function createTextNode(params?: { additionalNodeLabels: string[] }): Tex
 /**
  * Creates a new Entity object with default values.
  *
- * There are no guidelines for Entities yet, so a new Entity only consists of a UUID and an (empty) label.
+ * There is no config for Entities yet, so a new Entity only consists of a UUID and an (empty) label.
  *
  * @param {Object} params - The optional parameters for the new node.
  * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.

@@ -1,4 +1,4 @@
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { Annotation, AnnotationNode } from "../models/types";
 import { getDefaultValue, getOptions, isRequired, type ModelAttribute } from "../utils/helper/modelHelper";
 import { IAnnotation } from "../models/IAnnotation";
@@ -24,7 +24,7 @@ interface UseCreateAnnotationReturnType {
  */
 export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateAnnotationReturnType {
   const { getTextAnnotationProperties, getCollectionAnnotationProperties, getAnnotationExtent, getModelContext } =
-    useGuidelinesStore();
+    useConfigStore();
 
   /**
    * Creates an annotation object with the given parameters.

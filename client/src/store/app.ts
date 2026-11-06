@@ -1,12 +1,12 @@
 import { readonly, ref } from "vue";
 import ApiService from "../services/api";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { ToastMessageOptions, ToastServiceMethods } from "primevue";
 import AppError from "../utils/errors/app.error";
 import { ParsedMisoConfig, parseMisoConfig } from "../schemas/misoConfig.schema";
 
-const { error: guidelinesError, initializeGuidelines } = useGuidelinesStore();
+const { error: configError, initializeConfig } = useConfigStore();
 
 // Data
 const api: ApiService = new ApiService();
@@ -25,8 +25,8 @@ const error = ref<AppError | null>(null);
  * Returns an object containing methods for fetching data from the API and initializing the application.
  *
  * The object contains the following methods:
- *   - `fetchAndInitializeGuidelines`: Fetches the guidelines and initializes the store with the fetched data.
- *   - `initializeApp`: Initializes the application by fetching guidelines, configuration etc.
+ *   - `fetchAndInitializeConfig`: Fetches the Miso config and initializes the config store with it.
+ *   - `initializeApp`: Initializes the application by fetching the config etc.
  *
  * The object also contains the following properties:
  *   - `api`: The API instance.
@@ -73,15 +73,15 @@ export function useAppStore() {
   }
 
   /**
-   * Fetches the Miso config, validates it and initializes the guidelines store with it.
+   * Fetches the Miso config, validates it and initializes the config store with it.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
    * @throws {ConfigValidationError} If the fetched config does not have the expected format or its model is invalid.
    */
-  async function fetchAndInitializeGuidelines(): Promise<void> {
-    const parsed: ParsedMisoConfig = parseMisoConfig(await api.getGuidelines());
+  async function fetchAndInitializeConfig(): Promise<void> {
+    const parsed: ParsedMisoConfig = parseMisoConfig(await api.getConfig());
 
-    initializeGuidelines(parsed);
+    initializeConfig(parsed);
   }
 
   /**
@@ -96,7 +96,7 @@ export function useAppStore() {
   }
 
   /**
-   * Initializes the application by fetching guidelines, styles, configuration etc.
+   * Initializes the application by fetching the config etc.
    *
    * This function is called when the application is mounted.
    *
@@ -107,10 +107,10 @@ export function useAppStore() {
 
     try {
       await checkDatabaseStatus();
-      await fetchAndInitializeGuidelines();
+      await fetchAndInitializeConfig();
 
-      if (guidelinesError.value) {
-        throw guidelinesError.value;
+      if (configError.value) {
+        throw configError.value;
       }
     } catch (e: unknown) {
       console.error("Error initializing the app:", e);

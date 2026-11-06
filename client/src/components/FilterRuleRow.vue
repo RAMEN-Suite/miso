@@ -15,7 +15,7 @@ import {
   toStoredTemporal,
   toTemporalInputValue,
 } from "../utils/helper/propertyTypeHelper";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import {
   getOptions,
   getValueType,
@@ -29,7 +29,7 @@ const props = defineProps<{
   properties: ModelAttribute[];
 }>();
 
-const context: ModelContext = useGuidelinesStore().getModelContext();
+const context: ModelContext = useConfigStore().getModelContext();
 
 /**
  * The row being edited. Replaced rather than mutated on every change, so the parent's array sees a

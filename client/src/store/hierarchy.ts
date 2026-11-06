@@ -19,7 +19,7 @@ import {
   AnnotationNode,
 } from "../models/types";
 import { useAppStore } from "./app";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 import { useSmartViewsStore } from "./smartViews";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
 import { getBaseNodeLabel } from "../config/ramen";
@@ -45,7 +45,7 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
-    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useGuidelinesStore();
+    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useConfigStore();
     const { getSmartViewFilters } = useSmartViewsStore();
     const { getTextPreviewAnnotationTypes } = useTextPreview();
 
@@ -181,8 +181,8 @@ function createStore() {
     /**
      * The query a freshly built level starts with: everything, unsorted-by-default, unfiltered.
      *
-     * The labels are read on every call rather than once at store creation, because the guidelines
-     * are fetched asynchronously and this store may be created before they arrive — an early read
+     * The labels are read on every call rather than once at store creation, because the config
+     * is fetched asynchronously and this store may be created before it arrives — an early read
      * would bake in an empty list and leave the first column listing nothing.
      *
      * @returns {LevelQuery} A fresh default query. Never shared between levels.
@@ -237,7 +237,7 @@ function createStore() {
         return defaults;
       }
 
-      // Important: A preset outlives the guidelines it was written against - If the guidelines change, the preset
+      // Important: A preset outlives the config it was written against - If the config changes, the preset
       // might be stale/invalid. This is a safe guard to only apply rules that are still valid.
       const validProperties = new Set<string>(getAllCollectionAttributes().map((entry) => entry.attribute.name));
 

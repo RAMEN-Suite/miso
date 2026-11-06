@@ -55,4 +55,5 @@ function buildTestConfig(): ParsedMisoConfig {
   });
 }
 
-export const guidelines: ParsedMisoConfig = buildTestConfig();
+/** The validated Miso config the unit tests initialize the config store with. */
+export const testConfig: ParsedMisoConfig = buildTestConfig();

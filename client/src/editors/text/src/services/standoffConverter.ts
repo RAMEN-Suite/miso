@@ -10,7 +10,7 @@ import {
   TextAnnotationRepresentation,
   cloneDeep,
   createNodeStatusObjectFromRawData,
-  useGuidelinesStore,
+  useConfigStore,
 } from "../external";
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
@@ -34,7 +34,7 @@ const {
   getPriorityForType,
   getEditorOwnedProperties,
   isConfiguredAnnotationType,
-} = useGuidelinesStore();
+} = useConfigStore();
 
 export default class StandoffConverter {
   // Built-in structural annotations (paragraph, heading, table, ...) — form the TipTap tree.

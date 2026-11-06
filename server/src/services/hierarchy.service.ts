@@ -6,7 +6,7 @@ import { orderDirection } from "../utils/cypher.js";
 import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
-import GuidelinesService from "./guidelines.service.js";
+import ConfigService from "./config.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
   FilterSpec,
@@ -355,8 +355,8 @@ export default class HierarchyService {
    * @throws {NotFoundError} If the node could not be created/added.
    */
   public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
-    const guidelineService: GuidelinesService = new GuidelinesService();
-    const context = await guidelineService.getModelContext();
+    const configService: ConfigService = new ConfigService();
+    const context = await configService.getModelContext();
 
     const targetLabels: string[] | null = this.findNodeLabels(data, uuid);
 

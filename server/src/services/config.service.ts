@@ -14,14 +14,14 @@ import logger from "../logger.js";
  */
 let lastWarnedConfig: string | null = null;
 
-export default class GuidelinesService {
+export default class ConfigService {
   /**
-   * Retrieves the guidelines, i.e. the Miso config, as stored. Used to serve it to the client.
+   * Retrieves the Miso config as stored. Used to serve it to the client.
    *
    * @throws {ExternalServiceError} If the config can not be loaded or is invalid.
    * @return {Promise<IMisoConfig>} The Miso config.
    */
-  public async getGuidelines(): Promise<IMisoConfig> {
+  public async getConfig(): Promise<IMisoConfig> {
     return (await this.load()).config;
   }
 
@@ -48,7 +48,7 @@ export default class GuidelinesService {
     const url: string | undefined = process.env.GUIDELINES_URL;
 
     if (!url) {
-      throw new ExternalServiceError(`URL to guidelines is not provided`);
+      throw new ExternalServiceError(`URL to the config is not provided`);
     }
 
     if (isValidHttpUrl(url)) {
@@ -56,7 +56,7 @@ export default class GuidelinesService {
     }
 
     if (!isValidConfigFile(url)) {
-      throw new ExternalServiceError(`Provided guidelines URL is not a valid file name.`);
+      throw new ExternalServiceError(`Provided config URL is not a valid file name.`);
     }
 
     return this.prepare(await this.readLocal(path.join(CONFIG_DIR, url)));
@@ -67,12 +67,12 @@ export default class GuidelinesService {
       const response: Response = await fetch(url);
 
       if (!response.ok) {
-        throw new ExternalServiceError(`Guidelines could not be loaded from remote url`);
+        throw new ExternalServiceError(`Config could not be loaded from remote url`);
       }
 
       return await response.json();
     } catch {
-      throw new ExternalServiceError(`Guidelines could not be loaded from remote url`);
+      throw new ExternalServiceError(`Config could not be loaded from remote url`);
     }
   }
 
@@ -82,13 +82,13 @@ export default class GuidelinesService {
     try {
       fileContent = await fs.readFile(filePath, "utf-8");
     } catch {
-      throw new ExternalServiceError(`Failed to read guidelines from the provided file`);
+      throw new ExternalServiceError(`Failed to read the config from the provided file`);
     }
 
     try {
       return JSON.parse(fileContent);
     } catch {
-      throw new ExternalServiceError(`Invalid JSON in the provided guidelines file`);
+      throw new ExternalServiceError(`Invalid JSON in the provided config file`);
     }
   }
 
@@ -97,7 +97,8 @@ export default class GuidelinesService {
    * name lookups can't handle (only when the config differs from the one they were last logged for).
    *
    * @param {unknown} data - The parsed JSON.
-   * @throws {ExternalServiceError} If the data is no Miso config (e.g. an old guidelines file) or its model is invalid.
+   * @throws {ExternalServiceError} If the data is no Miso config (e.g. a file in the old guidelines format) or its
+   * model is invalid.
    * @return {ModelContext} The model context of the config.
    */
   private prepare(data: unknown): ModelContext {
@@ -105,7 +106,7 @@ export default class GuidelinesService {
 
     if (!candidate?.model || !candidate.miso || !candidate.meta) {
       throw new ExternalServiceError(
-        `The guidelines file is no Miso config (old guidelines format?). Generate one with scripts/generate-miso-config.mjs`,
+        `The config file is no Miso config (old guidelines format?). Generate one with scripts/generate-miso-config.mjs`,
       );
     }
 

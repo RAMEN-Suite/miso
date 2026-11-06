@@ -6,7 +6,7 @@ import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { Annotation, CollectionNode } from "../models/types";
 import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
@@ -24,7 +24,7 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAnnotationShape, getCollectionAnnotationProperties, getModelContext } = useGuidelinesStore();
+const { getCollectionAnnotationShape, getCollectionAnnotationProperties, getModelContext } = useConfigStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
 const mode: "create" | "edit" = dialogRef.value.data.mode;

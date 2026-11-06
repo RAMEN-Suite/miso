@@ -248,7 +248,7 @@ export function parseSortDirection(order: unknown): "asc" | "desc" {
  * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
  * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
  *
- * The model context and the property allowlist are passed in rather than read here: they come from the guidelines
+ * The model context and the property allowlist are passed in rather than read here: they come from the config
  * service, and reading them in this module would make the low-level helpers depend on a service that depends on
  * them.
  *
@@ -300,7 +300,7 @@ function parsePaginationLimit(rawLimit: unknown): number {
 /**
  * Checks if a given file name is a valid configuration file.
  *
- * Currently used to validate the provided file name for guidelines when the provided URL
+ * Currently used to validate the provided file name for the config when the provided URL
  * is not a valid HTTP URL, to prevent path traversal and only allow JSON files in the config directory.
  *
  * @param {string} fileName The file name (maybe including a path) to check.
@@ -312,7 +312,7 @@ export function isValidConfigFile(fileName: string): boolean {
     return false;
   }
 
-  // Files in the directry is JSON (guidelines), so only these should be allowed
+  // Files in the directry is JSON (config), so only these should be allowed
   if (!fileName.endsWith(".json")) {
     return false;
   }
@@ -324,7 +324,7 @@ export function isValidConfigFile(fileName: string): boolean {
  * Checks if a given string is a valid HTTP URL.
  *
  * Currently only used to determine whether the provided URLs for
- * guidelines are a remote URL that needs to be fetched
+ * the config are a remote URL that needs to be fetched
  * or a local file path that can be read from the file system directly.
  *
  * @param {string} string The string to check.

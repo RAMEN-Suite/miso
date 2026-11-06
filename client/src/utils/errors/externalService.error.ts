@@ -1,7 +1,7 @@
 import ApiError from "./api.error.js";
 
 /**
- * Represents an error for external service failures (currently, when fetching guidelines fails).
+ * Represents an error for external service failures (currently, when fetching the config fails).
  *
  * @extends {AppError} - The generic `AppError` class.
  */

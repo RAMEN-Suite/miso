@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import SelectButton from "primevue/selectbutton";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { CollectionNode, NodeDto, SmartViewScope } from "../models/types";
 import SmartViewCollectionPicker from "./SmartViewCollectionPicker.vue";
 
@@ -13,7 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{ change: [SmartViewScope] }>();
 
 const { api } = useAppStore();
-const { getAvailableCollectionLabels } = useGuidelinesStore();
+const { getAvailableCollectionLabels } = useConfigStore();
 
 const canSearchInside: boolean = getAvailableCollectionLabels().length > 0;
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import {
   getOptions,
   getValueType,
@@ -38,7 +38,7 @@ const props = defineProps<{
   mode?: "edit" | "view";
 }>();
 
-const context: ModelContext = useGuidelinesStore().getModelContext();
+const context: ModelContext = useConfigStore().getModelContext();
 
 const name: string = props.attribute.attribute.name;
 const valueType: AttributeValueType = getValueType(context, props.attribute);

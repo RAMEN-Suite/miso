@@ -4,7 +4,7 @@
  * editor is its own package.
  */
 
-export { useGuidelinesStore } from "../../../store/guidelines";
+export { useConfigStore } from "../../../store/config";
 export {
   cloneDeep,
   createNodeStatusObjectFromRawData,

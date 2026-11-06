@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import { NodeStatusObject, AnnotationNode } from "../models/types";
 import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
@@ -22,7 +22,7 @@ export interface TreeNode {
   type: "category" | "type" | "annotation";
 }
 
-const { groupedAndSortedAnnotationTypes, isZeroPoint } = useGuidelinesStore();
+const { groupedAndSortedAnnotationTypes, isZeroPoint } = useConfigStore();
 const { tiptap } = useTiptapStore();
 
 /** Delay in ms before the list is rebuilt after a change in the editor. */

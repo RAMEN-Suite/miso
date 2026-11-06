@@ -55,7 +55,7 @@ export type {
   SvgIconSpec,
   TextAnnotationRepresentation,
   UrlIconSpec,
-} from "../schemas/guidelines.schema";
+} from "../schemas/configBlocks.schema";
 
 export interface BaseNodeData {
   uuid: string;

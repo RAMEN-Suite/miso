@@ -8,14 +8,14 @@ import { useDialog } from "primevue";
 import { Annotation, NodeStatus } from "../models/types.ts";
 import type { ModelAttribute } from "../utils/helper/modelHelper";
 import { type ToCItem, findNodePosByUuid, toAnnotation } from "../editors/text/src";
-import { useGuidelinesStore } from "../store/guidelines.ts";
+import { useConfigStore } from "../store/config.ts";
 import { useAppStore } from "../store/app.ts";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 import EditorToCItem from "./EditorToCItem.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 
 const { tiptap, tableOfContent, initialStructuralAnnotations } = useTiptapStore();
-const { getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useGuidelinesStore();
+const { getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useConfigStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 

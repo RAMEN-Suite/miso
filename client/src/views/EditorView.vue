@@ -24,7 +24,7 @@ import PageOverlay from "../components/PageOverlay.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import EditorAnnotationButtonPane from "../components/EditorAnnotationButtonPane.vue";
 import { Node as DocNode } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../store/guidelines.ts";
+import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
 import {
@@ -54,7 +54,7 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getAnnotationType } = useGuidelinesStore();
+const { getAnnotationType } = useConfigStore();
 
 onUnmounted(() => destroyTiptap());
 

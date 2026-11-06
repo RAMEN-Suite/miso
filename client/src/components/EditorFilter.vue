@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, ComputedRef, ref, useTemplateRef } from "vue";
 import { useFilterStore } from "../store/filter";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import type { ModelAnnotationShape } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -11,7 +11,7 @@ import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
 
 const { areAllOptionsSelected, selectedOptions, selectAllOptions, toggleOptions } = useFilterStore();
-const { groupedAndSortedAnnotationTypes } = useGuidelinesStore();
+const { groupedAndSortedAnnotationTypes } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 

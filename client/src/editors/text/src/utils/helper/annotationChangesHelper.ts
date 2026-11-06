@@ -10,7 +10,7 @@ import {
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
   pruneUnconfiguredProperties,
-  useGuidelinesStore,
+  useConfigStore,
 } from "../../external";
 import { collectInlineAnnotations, collectBlockClassifications, toAnnotation } from "./annotationHelper";
 import { createIndexMapBuilder } from "./indexMapHelper";
@@ -46,7 +46,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     isBuiltinStructuralType,
     isConfiguredAnnotationType,
     isZeroPoint,
-  } = useGuidelinesStore();
+  } = useConfigStore();
 
   /**
    * Collects and returns all properties for the neo4j payload of a structural annotation node.

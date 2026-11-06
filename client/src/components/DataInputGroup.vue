@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import DataInputComponent from "./DataInputComponent.vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { getDefaultValue, getValueType, isRequired, type ModelAttribute, type ModelContext } from "../utils/helper/modelHelper";
 import Button from "primevue/button";
 
@@ -12,7 +12,7 @@ const props = defineProps<{
   mode?: "edit" | "view";
 }>();
 
-const context: ModelContext = useGuidelinesStore().getModelContext();
+const context: ModelContext = useConfigStore().getModelContext();
 
 // Check if form either in edit mode or no mode is specified at all (assume edit mode)
 const isEditable = computed(() => props.mode === "edit" || !props.mode);

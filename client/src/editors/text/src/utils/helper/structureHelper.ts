@@ -1,8 +1,8 @@
 import { Node } from "@tiptap/pm/model";
 import { BlockClassificationRange, DocAnnotation, ToCItem } from "../../models/types";
-import { useGuidelinesStore } from "../../external";
+import { useConfigStore } from "../../external";
 
-const { getAnnotationType } = useGuidelinesStore();
+const { getAnnotationType } = useConfigStore();
 
 /**
  * Recursively builds a tree of {@link ToCItem} nodes from a ProseMirror node's block children.

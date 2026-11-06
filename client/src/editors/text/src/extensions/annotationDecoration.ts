@@ -11,13 +11,13 @@ import {
   HighlightTextStyle,
   IAnnotation,
   cloneDeep,
-  useGuidelinesStore,
+  useConfigStore,
 } from "../external";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../utils/helper/positionHelper";
 
-const { isZeroPoint } = useGuidelinesStore();
+const { isZeroPoint } = useConfigStore();
 
 export const ANNOTATION_DECORATION_KEY = new PluginKey<AnnotationDecorationState>("annotationDecoration");
 

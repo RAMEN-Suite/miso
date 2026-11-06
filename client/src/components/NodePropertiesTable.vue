@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { isVisible, type ModelAttribute } from "../utils/helper/modelHelper";
 
 const props = defineProps<{
@@ -11,7 +11,7 @@ const props = defineProps<{
   fields?: ModelAttribute[];
 }>();
 
-const { getModelContext } = useGuidelinesStore();
+const { getModelContext } = useConfigStore();
 
 interface PropertyRow {
   name: string;

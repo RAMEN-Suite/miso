@@ -3,7 +3,7 @@ import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import { Annotation } from "../models/types";
 import type { ModelAnnotationShape, ModelAttribute } from "../utils/helper/modelHelper";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -23,7 +23,7 @@ const emit = defineEmits<{
   remove: [event: Event];
 }>();
 
-const { getCollectionAnnotationShape, getCollectionAnnotationProperties } = useGuidelinesStore();
+const { getCollectionAnnotationShape, getCollectionAnnotationProperties } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 

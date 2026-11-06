@@ -6,7 +6,7 @@ import {
   builtinStructuralTypeSchema,
   checkNativeAttributes,
   classifierConfigSchema,
-} from "./guidelines.schema";
+} from "./configBlocks.schema";
 import ConfigValidationError from "../utils/errors/configValidation.error";
 
 // Schema of the Miso config file: `meta`, the ingested model with `ext.miso` blocks, and the global `miso` settings.

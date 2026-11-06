@@ -2,7 +2,7 @@
 import { computed, ComputedRef, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { Annotation, CollectionNode, CollectionFocus, HierarchyEntry, NodeDto } from "../models/types";
 import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import {
@@ -63,14 +63,14 @@ const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const pane = useTemplateRef<HTMLDivElement>("pane");
 
 const {
-  isInitialized: areGuidelinesInitialized,
+  isInitialized: isConfigInitialized,
   annotationHasConstraints,
   getAllCollectionAttributes,
   getCollectionAnnotationShape,
   getCollectionAnnotationShapes,
   getCollectionAttributes,
   getModelContext,
-} = useGuidelinesStore();
+} = useConfigStore();
 const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
@@ -91,7 +91,7 @@ const annotationPendingRemoval = ref<string | null>(null);
 const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
-  return areGuidelinesInitialized.value
+  return isConfigInitialized.value
     ? getCollectionAttributes(temporaryWorkData.value.collection.node.nodeLabels).filter((field) =>
         isVisible(getModelContext(), field),
       )

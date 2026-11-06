@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, useTemplateRef, watch } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { CollectionNode, EntityNode, TextNode } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
 import NodeSearchbar from "./NodeSearchbar.vue";
@@ -8,7 +8,7 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const collectionInScope = defineModel<CollectionNode | null>({ required: true });
 
-const { getAvailableCollectionLabels } = useGuidelinesStore();
+const { getAvailableCollectionLabels } = useConfigStore();
 
 const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
 

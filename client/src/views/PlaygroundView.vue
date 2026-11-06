@@ -230,7 +230,7 @@ function formatDiagnostic(diagnostic: Diagnostic): string {
   <div class="playground flex flex-col gap-8 p-6">
     <h1 class="text-2xl font-semibold">ramen-core playground</h1>
 
-    <div v-if="loadError" class="text-red-600">Loading the guidelines failed: {{ loadError }}</div>
+    <div v-if="loadError" class="text-red-600">Loading the model failed: {{ loadError }}</div>
 
     <template v-if="edition">
       <section>

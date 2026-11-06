@@ -6,7 +6,7 @@ import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../mod
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { createCollectionNode } from "../config/ramen";
 import { validateValue } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAttributes, getModelContext } = useGuidelinesStore();
+const { getCollectionAttributes, getModelContext } = useConfigStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;

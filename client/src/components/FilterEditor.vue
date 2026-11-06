@@ -5,7 +5,7 @@ import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec } from "../models/types";
 import { availableComparators, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
 import type { ModelAttribute } from "../utils/helper/modelHelper";
@@ -14,7 +14,7 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons";
 
 const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes, getModelContext } =
-  useGuidelinesStore();
+  useConfigStore();
 
 const props = defineProps<{
   /** The rules to seed the editor from. Read on mount and on {@linkcode sync}, never watched. */

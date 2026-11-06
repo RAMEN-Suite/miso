@@ -10,7 +10,7 @@ import FilterableMenu from "./FilterableMenu.vue";
 import { MenuItem } from "primevue/menuitem";
 import AddNodeModal from "./AddNodeModal.vue";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { useDialog } from "primevue/usedialog";
 import { resolveNodeIcon } from "../config/icons.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -31,7 +31,7 @@ const props = defineProps<{
 }>();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEntityLabels } = useGuidelinesStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAvailableEntityLabels } = useConfigStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const menu = useTemplateRef<InstanceType<typeof FilterableMenu>>("menu");

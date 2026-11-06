@@ -27,7 +27,7 @@ import { ConfigBaseEntry, IMisoConfig } from "../models/IMisoConfig.js";
  * {@linkcode qualify}).
  *
  * Mirrored on the client (`client/src/utils/helper/modelHelper.ts`), keep both in sync. The name lookups at the end
- * correspond to getters of the client's guidelines store.
+ * correspond to getters of the client's config store.
  *
  * @packageDocumentation
  */

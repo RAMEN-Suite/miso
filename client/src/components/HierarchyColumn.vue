@@ -19,7 +19,7 @@ import {
 import { targetKey } from "../config/filters";
 import { useTagsStore } from "../store/tags";
 import { useSmartViewsStore } from "../store/smartViews";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import FilterableMenu from "./FilterableMenu.vue";
 import FilterPopover from "./FilterPopover.vue";
 import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
@@ -53,7 +53,7 @@ const props = defineProps<{
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useGuidelinesStore();
+const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useConfigStore();
 const {
   levels,
   focus,

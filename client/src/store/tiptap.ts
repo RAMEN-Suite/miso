@@ -23,11 +23,11 @@ import {
   getVisibleDocRange,
   pastedSliceToRawText,
 } from "../editors/text/src";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationConfig } = useGuidelinesStore();
+const { getTextAnnotationConfig } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -39,10 +39,10 @@ let resizeObserver: ResizeObserver | null = null;
 
 // Shallow: items are frozen and reused across transactions, so only the array reference needs to be reactive
 const tableOfContent = shallowRef<ToCItem[]>([]);
-// Recreated per editor, so a newly loaded text (or changed guidelines) never reuses stale items
+// Recreated per editor, so a newly loaded text (or changed config) never reuses stale items
 let tocItemCache = new WeakMap<Node, ToCItem>();
 const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
-// Built on first use by `getEditorSchema`. The node types don't depend on the guidelines, so it never goes stale.
+// Built on first use by `getEditorSchema`. The node types don't depend on the config, so it never goes stale.
 let editorSchema: Schema | null = null;
 
 /**

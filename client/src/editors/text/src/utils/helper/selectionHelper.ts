@@ -1,5 +1,5 @@
 import { Selection } from "@tiptap/pm/state";
-import { AnnotationExtent, TextAnnotationRepresentation, useGuidelinesStore } from "../../external";
+import { AnnotationExtent, TextAnnotationRepresentation, useConfigStore } from "../../external";
 import AnnotationRangeError from "../errors/annotationRange.error";
 
 /**
@@ -12,7 +12,7 @@ import AnnotationRangeError from "../errors/annotationRange.error";
  * @throws {AnnotationRangeError} If the text selection is not valid.
  */
 export function validateSelection(selection: Selection | undefined, type: string): boolean {
-  const { getAnnotationRepresentation, getAnnotationExtent } = useGuidelinesStore();
+  const { getAnnotationRepresentation, getAnnotationExtent } = useConfigStore();
 
   if (!selection) {
     throw new AnnotationRangeError("No valid text selected.");

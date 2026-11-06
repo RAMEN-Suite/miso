@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
 import type { Annotation, NodeStatus } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
@@ -29,7 +29,7 @@ interface PositionedLine {
 
 const { tiptap, blockClassificationRanges, initialStructuralAnnotations } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { getTextAnnotationShape } = useGuidelinesStore();
+const { getTextAnnotationShape } = useConfigStore();
 const dialog = useDialog();
 const { settings } = useEditorSettingsStore();
 const menuItems = ref<MenuItem[]>([]);

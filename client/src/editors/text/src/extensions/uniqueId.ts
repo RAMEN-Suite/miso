@@ -1,10 +1,10 @@
 import { UniqueID, type UniqueIDOptions } from "@tiptap/extension-unique-id";
 import { EditorState, Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../external";
+import { useConfigStore } from "../external";
 import { createDefaultDocAnnotation } from "../utils/helper/annotationHelper";
 
-const { getAnnotationType, isBuiltinStructuralType } = useGuidelinesStore();
+const { getAnnotationType, isBuiltinStructuralType } = useConfigStore();
 
 /**
  * Gives every node whose id already occurs earlier in the document a new id and, if it is a structural node, a new

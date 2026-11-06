@@ -1,5 +1,5 @@
 /**
- * Annotation properties the model and editor needs, whatever the guidelines list. They will never removed automatically
+ * Annotation properties the model and editor needs, whatever the config lists. They will never removed automatically
  * when the data of an annotation are pruned to the configured properties before saving.
  *
  * TODO: Should come from the Nori export in the future.

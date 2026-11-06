@@ -1,6 +1,6 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
 import { DocAnnotation, StructuralType } from "../models/types";
-import { Annotation, useGuidelinesStore } from "../external";
+import { Annotation, useConfigStore } from "../external";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
   createDefaultDocAnnotation,
@@ -54,7 +54,7 @@ declare module "@tiptap/core" {
   }
 }
 
-const { getStructuralTypes } = useGuidelinesStore();
+const { getStructuralTypes } = useConfigStore();
 
 /**
  * Creates the annotation attributes for a structural node type. Both hold {@link DocAnnotation} objects.

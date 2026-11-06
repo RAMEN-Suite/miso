@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
 import { NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
@@ -39,7 +39,7 @@ const {
   getTextAnnotationShape,
   getAnnotationRepresentation,
   isZeroPoint,
-} = useGuidelinesStore();
+} = useConfigStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
 const { tiptap } = useTiptapStore();

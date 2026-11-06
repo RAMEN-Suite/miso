@@ -1,7 +1,7 @@
 import { RamenModel } from "@ramen-suite/core";
 
 /**
- * Loads the RAMEN guidelines from `config/sbwi.ramen.json` as an editable model.
+ * Loads the RAMEN model from `config/sbwi.ramen.json` as an editable model.
  * Throws if the file fails validation.
  */
 export function loadPlaygroundModel(): RamenModel {

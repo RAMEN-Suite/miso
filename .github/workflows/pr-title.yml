@@ -1,0 +1,19 @@
+name: PR title
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  pr-title:
+    name: Conventional
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/pr-title-node.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    permissions:
+      contents: read # required for actions/checkout to fetch repo contents if this repo is private

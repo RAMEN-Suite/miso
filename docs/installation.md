@@ -16,22 +16,29 @@
    cp .env.example .env
    ```
 
-   **Afterwards, replace the placeholder values with actual values.**
+   Its values fit the local compose setup; change the URLs (favicon, Tori, Shoyu) if you need them.
 
-4. Install dependencies in your hosts's server and client folder.
+4. Install the dependencies on your machine and set up the commit hook once (the repository uses Conventional
+   Commits, see CONTRIBUTING.md). The containers install their own dependencies; the local ones are for your editor
+   (types, ESLint, Prettier).
 
    ```sh
-   (cd server && npm install)
-   (cd client && npm install)
+   nvm install && npm ci && npm run prepare
+   (cd server && npm ci)
+   (cd client && npm ci)
    ```
 
-5. Build docker containers and run the app
+5. Build the development images and run the app. Compose installs the dependencies inside the images and syncs your
+   changes into the running containers.
 
    ```
-   docker compose up -d
+   docker compose up --build --watch
    ```
 
    **Please be patient, Neo4j takes its time. Wait approx. 1 minute**.
+
+   Neo4j runs the 5.26 LTS release, as on the servers. Data and plugins from the earlier 2026.x image can't be opened by
+   5.26: before the first start, delete `./neo4j/data` and `./neo4j/plugins` (export anything you still need first).
 
 You can now access the editor and the database:
 

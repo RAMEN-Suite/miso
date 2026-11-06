@@ -8,13 +8,6 @@ import { isValidConfigFile, isValidHttpUrl } from "../utils/helper.js";
 import { collectConfigWarnings, createModelContext, ModelContext } from "../utils/modelHelper.js";
 import logger from "../logger.js";
 
-/** The loaded config */
-interface LoadedConfig {
-  config: IMisoConfig;
-  /** The model and its settings, for the accessors in `utils/modelHelper.ts` */
-  context: ModelContext;
-}
-
 /**
  * The config (as JSON string) whose warnings were logged last. The config is loaded on every call, so its warnings are
  * only logged again when the content changes.
@@ -40,7 +33,7 @@ export default class GuidelinesService {
    * @return {Promise<ModelContext>} The model context.
    */
   public async getModelContext(): Promise<ModelContext> {
-    return (await this.load()).context;
+    return this.load();
   }
 
   /**
@@ -48,9 +41,9 @@ export default class GuidelinesService {
    * config directory) and validates its model. Loaded anew on every call, so changes take effect immediately.
    *
    * @throws {ExternalServiceError} If the URL is not provided, the config can not be loaded, or it is invalid.
-   * @return {Promise<LoadedConfig>} The loaded config.
+   * @return {Promise<ModelContext>} The model context of the loaded config.
    */
-  private async load(): Promise<LoadedConfig> {
+  private async load(): Promise<ModelContext> {
     // TODO: Improve error handling...technically a local file read error is not a external service error
     const url: string | undefined = process.env.GUIDELINES_URL;
 
@@ -105,9 +98,9 @@ export default class GuidelinesService {
    *
    * @param {unknown} data - The parsed JSON.
    * @throws {ExternalServiceError} If the data is no Miso config (e.g. an old guidelines file) or its model is invalid.
-   * @return {LoadedConfig} The loaded config.
+   * @return {ModelContext} The model context of the config.
    */
-  private prepare(data: unknown): LoadedConfig {
+  private prepare(data: unknown): ModelContext {
     const candidate = data as Partial<IMisoConfig> | null;
 
     if (!candidate?.model || !candidate.miso || !candidate.meta) {
@@ -133,6 +126,6 @@ export default class GuidelinesService {
       lastWarnedConfig = content;
     }
 
-    return { config, context };
+    return context;
   }
 }

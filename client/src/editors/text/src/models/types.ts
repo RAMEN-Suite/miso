@@ -11,9 +11,9 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
 };
 
 /**
- * A structural type the editor implements natively (paragraph, heading, table …), with the values the editor fixes.
+ * A structural type the editor implements natively (paragraph, heading, table ...), with the values the editor fixes.
  * Not a RAMEN annotation shape: the project's shape for it (named via `miso.mappings`) is a normal shape with its own
- * properties and `ext.miso` (appearance, shortcut …). Only the values here can't be changed by it.
+ * properties and `ext.miso` (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
   type: BuiltinStructuralType;
@@ -146,7 +146,7 @@ export interface BlockClassificationRange {
  * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
  *    are lost, the repaired state is written to the database on the next save.
  * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
- *    configured in the guidelines. Saving it can corrupt the stored data, so the user should be asked before continuing.
+ *    in the config. Saving it can corrupt the stored data, so the user should be asked before continuing.
  */
 export interface StandoffParseIssue {
   severity: "warning" | "error";

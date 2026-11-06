@@ -465,7 +465,7 @@ export function familyRefOf(shape: ModelAnnotationShape): string {
 }
 
 /**
- * The properties of an annotation shape, without the shared attributes of its family node (`uuid`, `selector` …).
+ * The properties of an annotation shape, without the shared attributes of its family node (`uuid`, `selector` ...).
  *
  * @param {ModelAnnotationShape} shape - The annotation shape.
  * @returns {ModelAttribute[]} The properties, each owned by the shape.

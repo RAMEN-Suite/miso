@@ -31,8 +31,8 @@ interface InitialAnnotations {
  * - block classifications in the `_blockClassifications` attribute of the block nodes they wrap.
  *
  * Every collector works the same way: each annotation that is currently in the editor gets its live
- * indices, text and status and is reduced to the properties configured in the guidelines, and every annotation that was part of the last saved state but is gone
- * from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
+ * indices, text and status and is reduced to the properties in the config, and every annotation that was part of the
+ * last saved state but is gone from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
  *
  * @param {EditorState} state - The current editor state.
  * @param {InitialAnnotations} initial - The inline and structural annotations of the last saved state.
@@ -52,7 +52,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * Collects and returns all properties for the neo4j payload of a structural annotation node.
    *
    * Single assembly point for a structural node's data which merges the different sources of truth:
-   * - Domain props from the tiptap node's `_annotation` attribute (as configured in the guidelines),
+   * - Domain props from the tiptap node's `_annotation` attribute (as declared in the config),
    * - Editor-owned props from the live tiptap-native attrs (e.g. `level` for headings),
    * - uuid from the UniqueID extension
    * - The annotation type itself from the node's editor role (if a mapping between built-in and custom name was configured)
@@ -320,7 +320,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   }
 
   /**
-   * Removes all properties from the given annotation that are not configured in the guidelines, in place.
+   * Removes all properties from the given annotation that are not in the config, in place.
    * Used for inline annotations and block classifications, whose data are sent as they are stored in the editor.
    *
    * Annotations of an unconfigured type are left untouched unless {@link PRUNE_UNCONFIGURED_ANNOTATION_TYPES} is set.

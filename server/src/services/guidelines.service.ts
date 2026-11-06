@@ -122,7 +122,7 @@ export default class GuidelinesService {
     try {
       model = RamenModel.import(structuredClone(config.model));
     } catch (error: unknown) {
-      throw new ExternalServiceError(`The model in the guidelines is invalid: ${(error as Error).message}`);
+      throw new ExternalServiceError(`The model in the config is invalid: ${(error as Error).message}`);
     }
 
     const context: ModelContext = createModelContext(config, model);

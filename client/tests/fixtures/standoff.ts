@@ -90,7 +90,7 @@ export const unicode: ApiJson = standoff("a😀b́ c\td", [
   { type: "add", startIndex: 3, endIndex: 4 },
 ]);
 
-/** Two annotations of a type that is not in the guidelines. */
+/** Two annotations of a type that is not in the config. */
 export const unconfigured: ApiJson = standoff("abc", [
   { type: "p", startIndex: 0, endIndex: 2 },
   { type: "unknownType", startIndex: 0, endIndex: 1 },

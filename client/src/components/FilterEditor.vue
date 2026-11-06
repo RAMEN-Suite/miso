@@ -222,7 +222,7 @@ defineExpose({ sync });
       <InputText
         v-model="search"
         size="small"
-        placeholder="Label or text…"
+        placeholder="Label or text..."
         title="Matches labels and the full text"
         :aria-labelledby="`${instanceId}-search-target`"
         class="w-full"

@@ -37,12 +37,12 @@ const {
 } = useGuidelinesStore();
 
 export default class StandoffConverter {
-  // Built-in structural annotations (paragraph, heading, table, …) — form the TipTap tree.
+  // Built-in structural annotations (paragraph, heading, table, ...) — form the TipTap tree.
   private structuralAnnotations = new Map<string, Anno>();
-  // Custom structural annotations (closer, address, addrLine, …) — attached as _blockClassifications
+  // Custom structural annotations (closer, address, addrLine, ...) — attached as _blockClassifications
   // Block classifications on the built-in nodes that contain them (e.g. closer, div, ...), never form tree nodes.
   private blockClassificationAnnotations = new Map<string, Anno>();
-  // Content annotations (person, place, …) — rendered as decorations.
+  // Content annotations (person, place, ...) — rendered as decorations.
   private inlineAnnotations = new Map<string, Anno>();
 
   private standoffJson: ApiJson;

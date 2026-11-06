@@ -14,7 +14,7 @@ export const INTRINSIC_ANNOTATION_PROPERTIES: readonly string[] = [
 ];
 
 /**
- * Whether the data of annotations with a type that is not configured in the guidelines are pruned before saving.
+ * Whether the data of annotations with a type that is not in the config are pruned before saving.
  *
  * - `false`: Saved with all the properties they carry. Data beat config.
  * - `true`: Pruned like all other annotations. config beats data.

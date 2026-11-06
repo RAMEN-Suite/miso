@@ -76,7 +76,7 @@ export function useAppStore() {
    * Fetches the Miso config, validates it and initializes the guidelines store with it.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   * @throws {GuidelinesValidationError} If the fetched config does not have the expected format or its model is invalid.
+   * @throws {ConfigValidationError} If the fetched config does not have the expected format or its model is invalid.
    */
   async function fetchAndInitializeGuidelines(): Promise<void> {
     const parsed: ParsedMisoConfig = parseMisoConfig(await api.getGuidelines());

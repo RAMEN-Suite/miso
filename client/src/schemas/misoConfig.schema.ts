@@ -7,7 +7,7 @@ import {
   checkNativeAttributes,
   classifierConfigSchema,
 } from "./guidelines.schema";
-import GuidelinesValidationError from "../utils/errors/guidelinesValidation.error";
+import ConfigValidationError from "../utils/errors/configValidation.error";
 
 // Schema of the Miso config file: `meta`, the ingested model with `ext.miso` blocks, and the global `miso` settings.
 // The model is validated and read by RAMEN core, so it is typed with RAMEN core's `RamenFile`. Only the Miso parts are
@@ -141,14 +141,14 @@ function checkExtBlocks(model: RamenFile): string[] {
  *
  * @param {unknown} data - The config as received, e.g. the parsed JSON response of the API.
  * @returns {ParsedMisoConfig} The validated config and its imported model.
- * @throws {GuidelinesValidationError} If the data does not match the format or the model is invalid. The message lists
+ * @throws {ConfigValidationError} If the data does not match the format or the model is invalid. The message lists
  * the problems with their paths.
  */
 export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   const result = misoConfigSchema.safeParse(data);
 
   if (!result.success) {
-    throw new GuidelinesValidationError(z.prettifyError(result.error));
+    throw new ConfigValidationError(z.prettifyError(result.error));
   }
 
   let model: RamenModel;
@@ -156,13 +156,13 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   try {
     model = RamenModel.import(structuredClone(result.data.model));
   } catch (error: unknown) {
-    throw new GuidelinesValidationError(`The model in the config is invalid: ${(error as Error).message}`);
+    throw new ConfigValidationError(`The model in the config is invalid: ${(error as Error).message}`);
   }
 
   const problems: string[] = checkExtBlocks(result.data.model);
 
   if (problems.length > 0) {
-    throw new GuidelinesValidationError(problems.join("\n"));
+    throw new ConfigValidationError(problems.join("\n"));
   }
 
   return { config: result.data, model };

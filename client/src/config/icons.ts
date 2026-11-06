@@ -16,7 +16,7 @@ export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
 /**
  * Map for refined RAMEN node icons (e.g.`{ Letter: { kind: "lucide", name: "mail" } }`).
  *
- * Contains defaults that are extended with the icons configured in the guidelines via {@link registerNodeIcon}.
+ * Contains defaults that are extended with the icons from the config via {@link registerNodeIcon}.
  * Configured icons for base labels (e.g. `Collection`) are stored here as well and take precedence over {@link BASE_NODE_ICONS}.
  */
 export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {

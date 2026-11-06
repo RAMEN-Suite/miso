@@ -14,7 +14,7 @@ import { EditorState } from "@tiptap/pm/state";
  * Three maps are produced, one per place the annotations are stored in:
  * - `inlineIndexMap`        – inline annotations: range decorations (from/to in
  *                             plain-text chars) and `zeroPointAnnotation` inline atoms (position between two chars)
- * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, …)
+ * - `structureIndexMap`     – structural nodes: block nodes that carry a `uuid` attr (paragraphs, headings, ...)
  *                             and `hardBreak` inline atoms (position between two chars)
  * - `blockClassificationIndexMap` – block classifications stored in the `_blockClassifications` attribute of the block nodes they wrap
  *

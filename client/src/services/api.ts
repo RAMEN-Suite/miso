@@ -5,7 +5,6 @@ import {
   CollectionNode,
   NodeSearchParams,
   EntityNode,
-  NetworkPostData,
   NodeAncestry,
   PaginationResult,
   TextNode,
@@ -17,11 +16,18 @@ import {
   HierarchyFilters,
   HierarchyScope,
   HierarchySort,
+  ElementDiagnostic,
+  ElementGraph,
+  ElementResponse,
 } from "../models/types";
 import DatabaseConnectionError from "../utils/errors/databaseConnection.error";
 import ApiError from "../utils/errors/api.error";
 import NotFoundError from "../utils/errors/notFound.error";
 import ExternalServiceError from "../utils/errors/externalService.error";
+import { useConfigStore } from "../store/config";
+import { useAppStore } from "../store/app";
+import { toWritePayload } from "../utils/helper/writePayload";
+import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
 
 /**
  * The ApiService class provides methods for making API requests to the backend server.
@@ -140,7 +146,8 @@ export default class ApiService {
   }
 
   /**
-   * Fetches the annotations of a Collection or Content, each with its nested annotations and referenced nodes.
+   * Fetches the annotations of a Collection or Content, each with its nested annotations and referenced nodes. They
+   * are read in the element format and rebuilt into trees.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
@@ -161,12 +168,22 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const elements: ElementResponse = await response.json();
+
+      this.reportReadDiagnostics(`Annotations of ${nodeUuid}`, elements.diagnostics);
+
+      return toNodeDtoTrees(elements, nodeUuid) as NodeDto<AnnotationNode>[];
     } catch (error: unknown) {
       this.handleApiError(error);
     }
   }
 
+  /**
+   * Fetches a Collection node.
+   *
+   * @param {string} collectionUuid - The UUID of the Collection.
+   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   */
   public async getCollection(collectionUuid: string): Promise<NodeDto<CollectionNode>> {
     try {
       const url: string = `${this.baseUrl}/collections/${collectionUuid}`;
@@ -175,12 +192,22 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const elements: ElementResponse = await response.json();
+
+      this.reportReadDiagnostics(`Collection ${collectionUuid}`, elements.diagnostics);
+
+      return toNodeDto<CollectionNode>(elements, collectionUuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
   }
 
+  /**
+   * Fetches the ancestries of a hierarchy node: the paths of Collections above it, read in the element format.
+   *
+   * @param {string} nodeUuid - The UUID of the Collection or Content.
+   * @returns {Promise<NodeAncestry[]>} One path per ancestry, top-level Collection first, without the node itself.
+   */
   public async getHierarchyNodeAncestry(nodeUuid: string): Promise<NodeAncestry[]> {
     try {
       const url: string = `${this.hierarchyUrl}/ancestry/${nodeUuid}`;
@@ -189,7 +216,11 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const elements: ElementResponse = await response.json();
+
+      this.reportReadDiagnostics(`Ancestry of ${nodeUuid}`, elements.diagnostics);
+
+      return toAncestryPaths(elements, nodeUuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -226,7 +257,11 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const result: PaginationResult<ElementResponse> = await response.json();
+
+      this.reportReadDiagnostics(`Search results (${baseNodeLabel})`, result.data.diagnostics);
+
+      return { data: toNodes<CollectionNode | EntityNode | TextNode>(result.data), pagination: result.pagination };
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -270,27 +305,14 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
+      const result: PaginationResult<ElementResponse> = await response.json();
 
-  /**
-   * Validates an ordered hierarchy path (root first, focused node last).
-   *
-   * @param {string} uuidString - Comma-separated UUIDs of the path.
-   * @returns {Promise<NodeDto<HierarchyNode>[]>} The validated path with full node labels.
-   */
-  public async validateHierarchyPath(uuidString: string): Promise<NodeDto<HierarchyNode>[]> {
-    try {
-      const url: string = `${this.hierarchyUrl}/path?path=${uuidString}`;
+      this.reportReadDiagnostics("Hierarchy listing", result.data.diagnostics);
 
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
+      return {
+        data: toNodes<HierarchyNode>(result.data).map((node) => ({ node, connectedNodes: [] })),
+        pagination: result.pagination,
+      };
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -300,18 +322,23 @@ export default class ApiService {
    * Creates a new hierarchy node (Collection or Content) or attaches an existing one.
    *
    * @param {string} uuid - UUID of the created/added node (the operative node in the tree).
-   * @param {NodeStatusObject} data - The ownership tree to persist.
-   * @returns {Promise<NodeDto<HierarchyNode>>} The created/added node.
+   * @param {NodeStatusObject} data - The ownership tree to persist, sent as write payload.
+   * @returns {Promise<NodeDto<HierarchyNode>>} The created/added node, with the findings of the server's validation.
    */
   public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
     try {
       const url: string = `${this.hierarchyUrl}/nodes`;
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
 
-      const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data }));
+      const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data: payload }));
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const created: ElementResponse = await response.json();
+
+      this.reportWriteDiagnostics(created.diagnostics);
+
+      return toNodeDto<HierarchyNode>(created, uuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -350,10 +377,57 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const elements: ElementResponse = await response.json();
+
+      this.reportReadDiagnostics(`Content ${contentUuid}`, elements.diagnostics);
+
+      return toNodeDto<TextNode>(elements, contentUuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
+  }
+
+  /**
+   * Logs the problems of stored data that a read reports (e.g. labels that match no type of the model). Reads never fail
+   * because of them.
+   *
+   * @param {string} what - What was read, for the log message.
+   * @param {ElementDiagnostic[]} diagnostics - The diagnostics of the response.
+   * @returns {void} This function does not return any value.
+   */
+  private reportReadDiagnostics(what: string, diagnostics: ElementDiagnostic[]): void {
+    if (diagnostics.length > 0) {
+      console.warn(`${what}: stored data that doesn't match the model`, diagnostics);
+    }
+  }
+
+  /**
+   * Shows the findings of the server's validation of a write. Not blocking: while the server is in report mode, the
+   * write is saved anyway. All findings are logged to the console, the first few are shown in a toast.
+   *
+   * @param {ElementDiagnostic[] | undefined} diagnostics - The findings from the response.
+   * @returns {void} This function does not return any value.
+   */
+  private reportWriteDiagnostics(diagnostics: ElementDiagnostic[] | undefined): void {
+    if (!diagnostics || diagnostics.length === 0) {
+      return;
+    }
+
+    const shownCount: number = 3;
+    const lines: string[] = diagnostics.slice(0, shownCount).map((diagnostic) => diagnostic.message);
+
+    if (diagnostics.length > shownCount) {
+      lines.push(`... and ${diagnostics.length - shownCount} more`);
+    }
+
+    console.warn("The saved data has problems:", diagnostics);
+
+    useAppStore().addToastMessage({
+      severity: "warn",
+      summary: "Saved, but some data has problems",
+      detail: lines.join(" · "),
+      life: 8000,
+    });
   }
 
   /**
@@ -373,15 +447,28 @@ export default class ApiService {
     throw error;
   }
 
+  /**
+   * Saves a Collection subgraph.
+   *
+   * @param {string} uuid - UUID of the Collection.
+   * @param {NodeStatusObject} data - The tree rooted at the Collection, sent as write payload.
+   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
+   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node, with the findings of the server's validation.
+   */
   public async updateCollection(uuid: string, data: NodeStatusObject, signal?: AbortSignal): Promise<NodeDto<CollectionNode>> {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const response: Response = await fetch(url, this.jsonBodyRequest(data, { signal }));
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
+      const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const updated: ElementResponse = await response.json();
+
+      this.reportWriteDiagnostics(updated.diagnostics);
+
+      return toNodeDto<CollectionNode>(updated, uuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -411,7 +498,9 @@ export default class ApiService {
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const updated: ElementResponse = await response.json();
+
+      return toNodeDto<CollectionNode>(updated, uuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -433,41 +522,28 @@ export default class ApiService {
     });
   }
 
-  public async updateNetwork(data: NetworkPostData): Promise<(CollectionNode | TextNode)[]> {
-    const url: string = `${this.baseUrl}/network`;
-
-    try {
-      const response: Response = await fetch(url, this.jsonBodyRequest(data));
-
-      await this.assertResponseOk(response);
-
-      return await response.json();
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
+  /**
+   * Saves a Content and its annotations.
+   *
+   * @param {string} uuid - UUID of the Content.
+   * @param {TextUpdateDto} text - The Content and its changed annotations, sent as write payload.
+   * @returns {Promise<void>}
+   */
   public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
     try {
       const url: string = `${this.baseUrl}/contents/${uuid}`;
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), {
+        ...text.text,
+        connectedNodes: text.annotations,
+      });
 
-      const response: Response = await fetch(url, this.jsonBodyRequest(text));
-
-      await this.assertResponseOk(response);
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  public async validateCollectionPath(uuidString: string): Promise<NodeDto<CollectionNode>[]> {
-    try {
-      const url: string = `${this.baseUrl}/network?path=${uuidString}`;
-
-      const response: Response = await fetch(url);
+      const response: Response = await fetch(url, this.jsonBodyRequest(payload));
 
       await this.assertResponseOk(response);
 
-      return await response.json();
+      const updated: ElementResponse = await response.json();
+
+      this.reportWriteDiagnostics(updated.diagnostics);
     } catch (error: unknown) {
       this.handleApiError(error);
     }

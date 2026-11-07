@@ -26,7 +26,7 @@ const isMac: boolean = detectPlatform() === "mac";
 const { entryIndex, tags } = useTagsStore();
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
-const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node));
 const tagColors = computed<string[]>(() => {
   const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
 

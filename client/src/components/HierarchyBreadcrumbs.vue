@@ -5,6 +5,8 @@ import { HierarchyPath, IconSpec } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { ellipsize, getContentLabelText } from "../utils/helper/helper";
 import { resolveNodeIcon } from "../config/icons";
+import { useConfigStore } from "../store/config";
+import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 /**
@@ -25,6 +27,8 @@ const props = defineProps<{
 
 const emit = defineEmits(["itemClicked", "homeClicked"]);
 
+const { getModelContext } = useConfigStore();
+
 const LABEL_MAX_LENGTH: number = 30;
 
 const home = computed<BreadcrumbMenuItem>(() => ({
@@ -35,7 +39,7 @@ const home = computed<BreadcrumbMenuItem>(() => ({
 
 const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
   props.path.map((item, index) => {
-    const isContent: boolean = item.node.nodeLabels.includes("Content");
+    const isContent: boolean = getBaseNodeLabel(getModelContext(), item.node) === "Content";
     const itemLabel: string = isContent
       ? getContentLabelText(item.node.nodeLabels)
       : (item.node.data as { label?: string }).label ?? "";
@@ -44,7 +48,7 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
     return {
       index,
       label: shortened,
-      icon: resolveNodeIcon(item.node.nodeLabels),
+      icon: resolveNodeIcon(item.node),
       title: itemLabel,
       command: () => emit("itemClicked", { index, uuid: item.node.data.uuid }),
     };

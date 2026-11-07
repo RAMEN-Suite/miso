@@ -24,14 +24,14 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAnnotationShape, getCollectionAnnotationProperties, getModelContext } = useConfigStore();
+const { getAnnotationShape, getAnnotationProperties, getMissingAnnotationReferences, getModelContext } = useConfigStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
 const mode: "create" | "edit" = dialogRef.value.data.mode;
 
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
-const allProperties: ModelAttribute[] = getCollectionAnnotationProperties(collection.nodeLabels, annotation.value.node.data.type);
+const allProperties: ModelAttribute[] = getAnnotationProperties(annotation.value.node);
 const propertyFields: ModelAttribute[] = allProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
@@ -39,7 +39,12 @@ const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReference
 
 const isLoading = ref<boolean>(false);
 
-const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, allProperties, getModelContext()));
+/** Valid properties and no missing required references; the save button stays disabled until then */
+const inputIsValid = computed<boolean>(
+  () =>
+    checkAnnotationValidity(annotation.value, allProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+);
 
 watch(() => route.path, closeModal);
 
@@ -64,14 +69,13 @@ function focusFirstInput(): void {
  */
 function prepareAnnotation(): Annotation {
   const prepared: Annotation = cloneDeep(annotation.value);
-  const type: string = prepared.node.data.type;
 
   prepared.meta.status = mode === "create" ? "created" : "modified";
 
-  if (getCollectionAnnotationShape(collection.nodeLabels, type) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+  if (getAnnotationShape(prepared.node) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
     pruneUnconfiguredProperties(
       prepared.node.data,
-      getCollectionAnnotationProperties(collection.nodeLabels, type).map((field) => field.attribute.name),
+      getAnnotationProperties(prepared.node).map((field) => field.attribute.name),
       INTRINSIC_ANNOTATION_PROPERTIES,
     );
   }
@@ -110,7 +114,12 @@ async function handleSubmit(): Promise<void> {
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content px-1">
       <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
-      <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
+      <AnnotationReferencesSection
+        ref="referencesSection"
+        v-model="annotation.connectedNodes"
+        :annotation="annotation.node"
+        mode="edit"
+      />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">

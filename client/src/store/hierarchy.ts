@@ -22,7 +22,7 @@ import { useAppStore } from "./app";
 import { useConfigStore } from "./config";
 import { useSmartViewsStore } from "./smartViews";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
-import { getBaseNodeLabel } from "../config/ramen";
+import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import { useTextPreview } from "../composables/useTextPreview";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
@@ -45,7 +45,7 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
-    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes } = useConfigStore();
+    const { getAllCollectionAttributes, getHierarchyClassifierRefs, getModelContext } = useConfigStore();
     const { getSmartViewFilters } = useSmartViewsStore();
     const { getTextPreviewAnnotationTypes } = useTextPreview();
 
@@ -181,7 +181,7 @@ function createStore() {
     /**
      * The query a freshly built level starts with: everything, unsorted-by-default, unfiltered.
      *
-     * The labels are read on every call rather than once at store creation, because the config
+     * The node types are read on every call rather than once at store creation, because the config
      * is fetched asynchronously and this store may be created before it arrives — an early read
      * would bake in an empty list and leave the first column listing nothing.
      *
@@ -192,9 +192,9 @@ function createStore() {
         filters: [
           { target: { kind: "distinct" }, operator: "and", conditions: [{ comparator: "contains", value: "" }] },
           {
-            target: { kind: "labels" },
+            target: { kind: "classifier" },
             operator: "and",
-            conditions: [{ comparator: "in", value: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()] }],
+            conditions: [{ comparator: "in", value: getHierarchyClassifierRefs() }],
           },
         ],
         sort: { target: { kind: "distinct" }, order: "asc" },
@@ -238,12 +238,24 @@ function createStore() {
       }
 
       // Important: A preset outlives the config it was written against - If the config changes, the preset
-      // might be stale/invalid. This is a safe guard to only apply rules that are still valid.
+      // might be stale/invalid. This is a safe guard to only apply rules that are still valid: properties the model
+      // still has, node types it still knows (the server ignores unknown ones too).
       const validProperties = new Set<string>(getAllCollectionAttributes().map((entry) => entry.attribute.name));
+      const validClassifiers = new Set<string>(getHierarchyClassifierRefs());
 
-      const filters: FilterSpec = preset.filter(
-        (rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field),
-      );
+      const filters: FilterSpec = preset
+        .filter((rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field))
+        .map((rule: FilterRule) =>
+          rule.target.kind === "classifier"
+            ? {
+                ...rule,
+                conditions: rule.conditions.map((condition) => ({
+                  ...condition,
+                  value: (condition.value as string[]).filter((ref) => validClassifiers.has(ref)),
+                })),
+              }
+            : rule,
+        );
 
       return { ...defaults, filters };
     }
@@ -258,7 +270,7 @@ function createStore() {
     async function fetchFocusData(item: NodeDto<HierarchyNode>): Promise<FocusData> {
       const uuid: string = item.node.data.uuid;
 
-      if (getBaseNodeLabel(item.node.nodeLabels) === "Collection") {
+      if (getBaseNodeLabel(getModelContext(), item.node) === "Collection") {
         isFetchingFocus.value = true;
 
         try {
@@ -549,7 +561,9 @@ function createStore() {
       const lastItem: NodeDto<HierarchyNode> | null = path.value[newPathLength - 1] ?? null;
 
       // Empty path (root) behaves like a collection: it still gets a top-level child column
-      const lastItemCanHaveChildren: boolean = lastItem ? getBaseNodeLabel(lastItem.node.nodeLabels) === "Collection" : true;
+      const lastItemCanHaveChildren: boolean = lastItem
+        ? getBaseNodeLabel(getModelContext(), lastItem.node) === "Collection"
+        : true;
 
       // Column that would show the focused item's children — captured before resizing, for reuse
       const currentChildColumn: Level | undefined = levels.value[newPathLength];

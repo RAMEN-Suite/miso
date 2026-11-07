@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, Ref } from "vue";
 import { useRouter } from "vue-router";
-import { CollectionNode, NodeAncestry, NodeDto } from "../models/types";
+import { CollectionNode, HierarchyPath, NodeAncestry, NodeDto } from "../models/types";
 import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Card from "primevue/card";
@@ -15,7 +15,7 @@ const props = defineProps<{
 const router = useRouter();
 
 const { addToastMessage, api } = useAppStore();
-const { updatePath } = useHierarchyStore();
+const { setRoot, updatePath } = useHierarchyStore();
 
 const collection: Ref<NodeDto<CollectionNode> | null> = ref(null);
 const ancestryPaths = ref<NodeAncestry[]>([]);
@@ -27,9 +27,7 @@ onMounted(async () => {
     const [paths, node] = await Promise.all([api.getHierarchyNodeAncestry(props.uuid), api.getCollection(props.uuid)]);
 
     if (paths.length <= 1) {
-      updatePath([...(paths[0] ?? []), node]);
-
-      await router.replace("/");
+      await openInHierarchy([...(paths[0] ?? []), node]);
 
       return;
     }
@@ -60,7 +58,19 @@ async function handlePathClick(ancestry: NodeAncestry): Promise<void> {
     return;
   }
 
-  updatePath([...ancestry, collection.value]);
+  await openInHierarchy([...ancestry, collection.value]);
+}
+
+/**
+ * Opens a path in the hierarchy view under the database root. A path from the database hierarchy doesn't fit under a
+ * smart view or tag root that was selected before, whose first column lists other nodes.
+ *
+ * @param {HierarchyPath} hierarchyPath - The path, top-level Collection first, the opened collection last.
+ * @returns {Promise<void>} Resolves once the hierarchy view has been navigated to.
+ */
+async function openInHierarchy(hierarchyPath: HierarchyPath): Promise<void> {
+  setRoot({ kind: "database" });
+  updatePath(hierarchyPath);
 
   await router.replace("/");
 }

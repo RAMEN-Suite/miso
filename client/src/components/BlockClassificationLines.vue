@@ -29,7 +29,7 @@ interface PositionedLine {
 
 const { tiptap, blockClassificationRanges, initialStructuralAnnotations } = useTiptapStore();
 const { createModalInstance, destroyModalInstance } = useAppStore();
-const { getTextAnnotationShape } = useConfigStore();
+const { getAnnotationShape } = useConfigStore();
 const dialog = useDialog();
 const { settings } = useEditorSettingsStore();
 const menuItems = ref<MenuItem[]>([]);
@@ -242,7 +242,7 @@ function handleDetailsClick(line: PositionedLine): void {
   const status: NodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
   const annotation: Annotation = toAnnotation(docAnnotation, status);
 
-  if (!getTextAnnotationShape(annotation.node.data.type)) {
+  if (!getAnnotationShape(annotation.node)) {
     throw Error(`Annotation type "${annotation.node.data.type}" is not supported.`);
   }
 

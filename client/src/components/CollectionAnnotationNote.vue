@@ -11,7 +11,6 @@ import NodePreviewPopover from "./NodePreviewPopover.vue";
 const annotation = defineModel<Annotation>({ required: true });
 
 const props = defineProps<{
-  collectionNodeLabels: string[];
   /** Blocks all interaction with the note, e.g. while it is being deleted. */
   disabled?: boolean;
 }>();
@@ -22,17 +21,13 @@ const emit = defineEmits<{
   remove: [event: Event];
 }>();
 
-const { getCollectionAnnotationShape, getCollectionAnnotationProperties } = useConfigStore();
+const { getAnnotationShape, getAnnotationProperties } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
-const propertyFields: ComputedRef<ModelAttribute[]> = computed(() =>
-  getCollectionAnnotationProperties(props.collectionNodeLabels, annotation.value.node.data.type),
-);
+const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotationProperties(annotation.value.node));
 
-const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() =>
-  getCollectionAnnotationShape(props.collectionNodeLabels, annotation.value.node.data.type),
-);
+const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value.node));
 
 const label: ComputedRef<string> = computed(() => String(annotation.value.node.data.subType ?? annotation.value.node.data.type));
 
@@ -93,7 +88,7 @@ function handleEditFromPopover(event: MouseEvent): void {
 
     <NodePreviewPopover ref="popover">
       <NodePropertiesTable :data="annotation.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
+      <AnnotationReferencesSection v-model="annotation.connectedNodes" :annotation="annotation.node" mode="view" />
       <div class="flex justify-center">
         <Button
           icon="icon-pencil"

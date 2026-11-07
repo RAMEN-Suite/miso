@@ -8,38 +8,54 @@ import {
   AppearanceOverride,
   BaseNodeLabel,
   BuiltinStructuralType,
+  CollectionNode,
   ContentMedium,
+  ContentNode,
   TextAnnotationRepresentation,
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
+  NodeStatusObject,
+  NodeTypeOption,
 } from "../models/types";
 import type { AnnotationMapping } from "../editors/text/src";
 import type { NativeTypeConfig, StructuralType } from "../editors/text/src/models/types";
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
 import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
-import { registerNodeIcon } from "../config/icons";
+import { initializeNodeIcons } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
 import { BASE_NODE_REF } from "../config/ramen";
 import {
   createModelContext,
-  findRefinementRef,
   findShape,
+  getClassifierRef,
   getNodeAttributes,
   getNodeConfig,
+  getNodeTypeOption,
   getOptions,
   getRefinements,
   getShapeConfig,
   getShapeProperties,
   getShapesForNode,
   isRequired,
+  getMissingReferences,
+  getReferenceTargetRefs,
+  isAllowedTarget,
+  isAnnotationNode,
+  type MissingReference,
   refersToEntities,
+  requiresReferences,
+  resolveRelationRef,
+  resolveShapeRef,
   shapeRefOf,
 } from "../utils/helper/modelHelper";
 
 /** Group for annotation types without a configured `miso.group`.*/
 const DEFAULT_ANNOTATION_GROUP = "other" as const;
+
+/** The RAMEN base relation that places a Collection or Content in a Collection */
+const PART_OF = "PART_OF";
 
 const { initializeFilter } = useFilterStore();
 const { parseShortcut } = useShortcutsStore();
@@ -102,13 +118,16 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
  * config of model elements comes from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
  * the initialization. Other stores (filter.ts) are derived from this store.
  *
- * The lookups still match by name (annotation `type`, node label) until they use IDs.
+ * Nodes are looked up by their classifier (`classifierRef`, see `getClassifierRef` in `modelHelper.ts`), annotations
+ * by their `shapeRef`. Text annotation types are still matched by `type`, which is the editor's key.
  */
 export function useConfigStore() {
   /**
-   * Checks if an annotation type has constraints such as required properties, entities etc.
+   * Checks if an annotation type has constraints such as required properties, required references, or references to
+   * entities.
    *
-   * Currently used for when the user clicks on an annotation button to enforce constraints.
+   * Used when the user clicks on an annotation button: with constraints, the annotation is created through the modal,
+   * which only lets it through once it fulfils them.
    *
    * @param {ModelAnnotationShape} shape The annotation shape to check.
    * @returns {boolean} True if the annotation type has constraints.
@@ -119,30 +138,29 @@ export function useConfigStore() {
       return true;
     }
 
-    return refersToEntities(getModelContext(), shape);
+    return requiresReferences(getModelContext(), shape) || refersToEntities(getModelContext(), shape);
   }
 
   /**
-   * Registers the node icons configured in the `ext.miso` blocks of the Collection, Content and Entity nodes and their
-   * refinements, so that {@linkcode resolveNodeIcon} picks them up.
+   * The required references an annotation is still missing, from the `REFERS_TO` rules of its annotation type.
    *
-   * @param {ModelContext} context - The model context to read the icons from.
-   * @return {void} This function does not return anything.
+   * @param {AnnotationNode} annotation - The annotation.
+   * @param {NodeStatusObject[]} connectedNodes - Its connected nodes; removed ones and annotations are not counted.
+   * @returns {MissingReference[]} The unfulfilled rules, empty if complete or if the annotation type can't be resolved.
    */
-  function applyConfiguredNodeIcons(context: ModelContext): void {
-    const bases: [BaseNodeLabel, string][] = [
-      ["Collection", BASE_NODE_REF.Collection],
-      ["Content", BASE_NODE_REF.Content],
-      ["Entity", BASE_NODE_REF.Entity],
-    ];
+  function getMissingAnnotationReferences(annotation: AnnotationNode, connectedNodes: NodeStatusObject[]): MissingReference[] {
+    const context: ModelContext = getModelContext();
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation);
 
-    for (const [label, baseRef] of bases) {
-      registerNodeIcon(label, getNodeConfig(context, baseRef)?.appearance?.icon);
-
-      getRefinements(context, baseRef).forEach(({ ref, node }) =>
-        registerNodeIcon(node.name, getNodeConfig(context, ref)?.appearance?.icon),
-      );
+    if (!shape) {
+      return [];
     }
+
+    const referencedRefs: string[] = connectedNodes
+      .filter((node) => node.meta.status !== "deleted" && node.meta.status !== "removed" && !isAnnotationNode(context, node))
+      .flatMap((node) => getClassifierRef(context, node.node) ?? []);
+
+    return getMissingReferences(context, shape, referencedRefs);
   }
 
   /**
@@ -274,20 +292,88 @@ export function useConfigStore() {
   }
 
   /**
-   * Retrieves the medium of a Content node from its labels. The first label with a configured medium wins.
+   * Retrieves the classifier refs of the node types listed in the hierarchy: the refinements of Collection and Content.
+   * Empty before the config is loaded.
    *
-   * @param {string[]} nodeLabels - All node labels of the Content node.
-   * @return {ContentMedium} The configured medium, `text` if none is configured.
+   * @return {string[]} The qualified refs.
    */
-  function getContentMedium(nodeLabels: string[]): ContentMedium {
+  function getHierarchyClassifierRefs(): string[] {
     const context: ModelContext | undefined = modelContext.value;
 
     if (!context) {
+      return [];
+    }
+
+    return [BASE_NODE_REF.Collection, BASE_NODE_REF.Content].flatMap((baseNodeRef) =>
+      getRefinements(context, baseNodeRef).map(({ ref }) => ref),
+    );
+  }
+
+  /**
+   * Retrieves the node types new nodes of a base node can be created with: its refinements, sorted by name. With a
+   * parent, only the types the model allows as `PART_OF` that parent.
+   *
+   * @param {string} baseNodeRef - One of `BASE_NODE_REF`.
+   * @param {string | null} [partOfRef] - Classifier ref of the parent Collection. All refinements if omitted or `null`
+   *   (top level, or a parent whose type can't be resolved).
+   * @return {NodeTypeOption[]} The node types.
+   */
+  function getNodeTypeOptions(baseNodeRef: string, partOfRef: string | null = null): NodeTypeOption[] {
+    const context: ModelContext = getModelContext();
+
+    return getRefinements(context, baseNodeRef)
+      .filter(({ ref }) => !partOfRef || resolveRelationRef(context, ref, PART_OF, partOfRef).ref !== null)
+      .map(({ ref }) => getNodeTypeOption(context, ref))
+      .toSorted((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Retrieves the node types of a base node an annotation may (still) refer to: the refinements that are or refine a
+   * target of its annotation type's `REFERS_TO` rules whose upper bound isn't reached yet, sorted by name.
+   *
+   * @param {string} baseNodeRef - One of `BASE_NODE_REF` (Collection, Content or Entity).
+   * @param {AnnotationNode} annotation - The annotation. If its annotation type can't be resolved, all refinements.
+   * @param {string[]} [referencedRefs] - Classifier refs of the nodes the annotation already refers to, one per
+   *   reference, see `getReferenceTargetRefs`.
+   * @return {NodeTypeOption[]} The node types.
+   */
+  function getReferenceTypeOptions(
+    baseNodeRef: string,
+    annotation: AnnotationNode,
+    referencedRefs: string[] = [],
+  ): NodeTypeOption[] {
+    const context: ModelContext = getModelContext();
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation);
+
+    if (!shape) {
+      return getNodeTypeOptions(baseNodeRef);
+    }
+
+    const targetRefs: string[] = getReferenceTargetRefs(context, shape, referencedRefs);
+
+    return getRefinements(context, baseNodeRef)
+      .filter(({ ref }) => isAllowedTarget(context, ref, targetRefs))
+      .map(({ ref }) => getNodeTypeOption(context, ref))
+      .toSorted((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Retrieves the medium of a Content node from its classifier: the nearest configured medium along its lineage.
+   *
+   * @param {ContentNode} content - The Content node.
+   * @return {ContentMedium} The configured medium, `text` if none is configured or the node can't be resolved.
+   */
+  function getContentMedium(content: ContentNode): ContentMedium {
+    const context: ModelContext | undefined = modelContext.value;
+    const classifierRef: string | null = context ? getClassifierRef(context, content) : null;
+
+    if (!context || !classifierRef) {
       return "text";
     }
 
-    for (const { ref, node } of getRefinements(context, BASE_NODE_REF.Content)) {
-      const medium: ContentMedium | undefined = nodeLabels.includes(node.name) ? getNodeConfig(context, ref)?.medium : undefined;
+    // The lineage is base-first, the nearest configuration wins
+    for (const item of context.model.getNodeLineage(classifierRef).toReversed()) {
+      const medium: ContentMedium | undefined = getNodeConfig(context, `${item.modelId}:${item.nodeId}`)?.medium;
 
       if (medium) {
         return medium;
@@ -405,32 +491,35 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the attributes of a Collection with the given node labels: the ones declared by the Collection node, then
-   * the ones of its matching types. Matched by label until the lookups use IDs.
+   * Returns the attributes of a Collection, own and inherited, from its classifier. A Collection whose labels can't be
+   * resolved gets the attributes of the RAMEN Collection node.
    *
-   * @param {string[]} nodeLabels - The node labels of the Collection.
-   * @returns {ModelAttribute[]} The attributes, without identity attributes like `uuid`.
+   * @param {CollectionNode} collection - The Collection.
+   * @returns {ModelAttribute[]} The attributes, most general first, without identity attributes like `uuid`.
    */
-  function getCollectionAttributes(nodeLabels: string[]): ModelAttribute[] {
+  function getCollectionAttributes(collection: CollectionNode): ModelAttribute[] {
     const context: ModelContext = getModelContext();
-    const typeRefs: string[] = nodeLabels
-      .map((label) => findRefinementRef(context, BASE_NODE_REF.Collection, label))
-      .filter((ref): ref is string => ref !== undefined);
 
-    return [
-      ...getNodeAttributes(context, BASE_NODE_REF.Collection),
-      ...typeRefs.flatMap((ref) => getNodeAttributes(context, ref, true)),
-    ];
+    return getNodeAttributes(context, getClassifierRef(context, collection) ?? BASE_NODE_REF.Collection);
   }
 
   /**
    * Returns the attributes of all Collection types, each name once (the first declaration wins). Used for filters and
-   * sorting across types.
+   * sorting across types. With a parent, only the attributes of the Collection types allowed `PART_OF` it (see
+   * {@linkcode getNodeTypeOptions}); the base Collection's attributes are always included.
    *
+   * @param {string | null} [partOfRef] - Classifier ref of the parent Collection. All Collection types if omitted or
+   *   `null`.
    * @returns {ModelAttribute[]} The attributes, without identity attributes like `uuid`.
    */
-  function getAllCollectionAttributes(): ModelAttribute[] {
-    const all: ModelAttribute[] = getCollectionAttributes(getAvailableCollectionLabels());
+  function getAllCollectionAttributes(partOfRef: string | null = null): ModelAttribute[] {
+    const context: ModelContext = getModelContext();
+    const all: ModelAttribute[] = [
+      ...getNodeAttributes(context, BASE_NODE_REF.Collection),
+      ...getNodeTypeOptions(BASE_NODE_REF.Collection, partOfRef).flatMap(({ classifierRef }) =>
+        getNodeAttributes(context, classifierRef, true),
+      ),
+    ];
 
     return all.filter((entry, position) => all.findIndex((other) => other.attribute.name === entry.attribute.name) === position);
   }
@@ -448,21 +537,43 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the properties of the annotations with the given type on a Collection with the given node labels.
+   * Returns the annotation shape of an annotation, from its `shapeRef` (resolved by the server, or set on creation).
+   * The text editor keys annotations by `type` and doesn't carry the ref (structural annotations are rebuilt, and their
+   * type can change), so without a matching ref the text annotation type decides, see {@linkcode getTextAnnotationShape}.
    *
-   * @param {string[]} nodeLabels - The node labels of the Collection.
-   * @param {string} type - The type of the annotation.
-   * @returns {ModelAttribute[]} The properties, empty if the Collection can't carry that type.
+   * @param {AnnotationNode} annotation - The annotation.
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for stored annotations that couldn't be resolved
+   *   (`shapeRef: null`) or unknown types.
    */
-  function getCollectionAnnotationProperties(nodeLabels: string[], type: string): ModelAttribute[] {
-    const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShape(nodeLabels, type);
+  function getAnnotationShape(annotation: AnnotationNode): ModelAnnotationShape | undefined {
+    const byRef: ModelAnnotationShape | undefined = annotation.shapeRef
+      ? findShape(getModelContext(), annotation.shapeRef)
+      : undefined;
+
+    if (byRef && byRef.type === annotation.data.type) {
+      return byRef;
+    } else if (annotation.shapeRef === null) {
+      return undefined;
+    } else {
+      return getTextAnnotationShape(annotation.data.type);
+    }
+  }
+
+  /**
+   * Returns the properties of an annotation's shape (without the shared ones like `uuid`).
+   *
+   * @param {AnnotationNode} annotation - The annotation.
+   * @returns {ModelAttribute[]} The properties, empty if the annotation has no shape.
+   */
+  function getAnnotationProperties(annotation: AnnotationNode): ModelAttribute[] {
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation);
 
     return shape ? getShapeProperties(shape) : [];
   }
 
   /**
-   * Returns the annotation shape of the text annotations with the given type, i.e. one a Content node may carry.
-   * Matched by type until the lookups use IDs.
+   * Returns the annotation shape of the text annotations with the given type, i.e. one a Content node may carry. The
+   * type is the text editor's key for annotation types; with an annotation at hand, use {@linkcode getAnnotationShape}.
    *
    * @param {string} type - The type of the annotation.
    * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if no Content node carries that type.
@@ -484,20 +595,16 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the annotation shapes a Collection with the given node labels may carry. Matched by label until the
-   * lookups use IDs.
+   * Returns the annotation shapes a Collection may carry, from its classifier (the ones of the RAMEN Collection node
+   * included).
    *
-   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @param {CollectionNode} collection - The Collection.
    * @returns {ModelAnnotationShape[]} The shapes, each once.
    */
-  function getCollectionAnnotationShapes(nodeLabels: string[]): ModelAnnotationShape[] {
+  function getCollectionAnnotationShapes(collection: CollectionNode): ModelAnnotationShape[] {
     const context: ModelContext = getModelContext();
-    const carrierRefs: string[] = [
-      BASE_NODE_REF.Collection,
-      ...nodeLabels
-        .map((label) => findRefinementRef(context, BASE_NODE_REF.Collection, label))
-        .filter((ref): ref is string => ref !== undefined),
-    ];
+    const classifierRef: string | null = getClassifierRef(context, collection);
+    const carrierRefs: string[] = classifierRef ? [BASE_NODE_REF.Collection, classifierRef] : [BASE_NODE_REF.Collection];
     const shapes = new Map<string, ModelAnnotationShape>();
 
     for (const shape of carrierRefs.flatMap((ref) => getShapesForNode(context, ref))) {
@@ -508,14 +615,23 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the annotation shape with the given type that a Collection with the given node labels may carry.
+   * Returns the annotation shape of a new annotation with the given type on a Collection, resolved from the
+   * Collection's classifier and the type. Existing annotations have theirs in `shapeRef`, see
+   * {@linkcode getAnnotationShape}.
    *
-   * @param {string[]} nodeLabels - The node labels of the Collection.
+   * @param {CollectionNode} collection - The Collection.
    * @param {string} type - The type of the annotation.
    * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if the Collection can't carry that type.
    */
-  function getCollectionAnnotationShape(nodeLabels: string[], type: string): ModelAnnotationShape | undefined {
-    return getCollectionAnnotationShapes(nodeLabels).find((shape) => shape.type === type);
+  function findCollectionAnnotationShape(collection: CollectionNode, type: string): ModelAnnotationShape | undefined {
+    const context: ModelContext = getModelContext();
+    const shapeRef: string | null = resolveShapeRef(
+      context,
+      getClassifierRef(context, collection) ?? BASE_NODE_REF.Collection,
+      type,
+    ).ref;
+
+    return shapeRef ? findShape(context, shapeRef) : undefined;
   }
 
   /**
@@ -599,7 +715,7 @@ export function useConfigStore() {
     textShapesByType.value = collectTextShapes(context);
 
     validateConfig(context);
-    applyConfiguredNodeIcons(context);
+    initializeNodeIcons(context);
 
     // Must be set before the structural types are built, since they are keyed by the project's type names
     annotationMapping.value = buildAnnotationMapping(context);
@@ -781,14 +897,19 @@ export function useConfigStore() {
     getAvailableContentLabels,
     getAvailableEntityLabels,
     getAvailableNodeLabels,
-    getCollectionAnnotationProperties,
-    getCollectionAnnotationShape,
+    findCollectionAnnotationShape,
+    getAnnotationProperties,
+    getAnnotationShape,
     getCollectionAnnotationShapes,
     getCollectionAttributes,
     getContentMedium,
     getEditorOwnedProperties,
     getEditorRole,
     getModelContext,
+    getHierarchyClassifierRefs,
+    getNodeTypeOptions,
+    getReferenceTypeOptions,
+    getMissingAnnotationReferences,
     getPriorityForType,
     getStructuralTypes: (): StructuralType[] => structuralTypes.value,
     getTextAnnotationConfig,

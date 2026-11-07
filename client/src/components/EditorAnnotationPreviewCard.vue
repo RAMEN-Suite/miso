@@ -35,12 +35,12 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.data.uuid),
 );
 
-const { getTextAnnotationShape, getTextAnnotationProperties, getAnnotationExtent } = useConfigStore();
+const { getAnnotationShape, getAnnotationProperties, getAnnotationExtent } = useConfigStore();
 
-const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(props.annotation.node.data.type);
+const shape: ModelAnnotationShape | undefined = getAnnotationShape(props.annotation.node);
 
 const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.data.type) === "zeroPoint";
-const propertyFields: ModelAttribute[] = getTextAnnotationProperties(props.annotation.node.data.type);
+const propertyFields: ModelAttribute[] = getAnnotationProperties(props.annotation.node);
 
 /** Whether the card body is hidden. Can be controlled by the parent via `v-model:collapsed`. */
 const isCollapsed = defineModel<boolean>("collapsed", { default: true });
@@ -211,7 +211,11 @@ function updateData(updated: Annotation): void {
 
     <div v-show="!isCollapsed" class="annotation-card-body">
       <NodePropertiesTable :data="props.annotation.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection :model-value="props.annotation.connectedNodes" mode="view" />
+      <AnnotationReferencesSection
+        :model-value="props.annotation.connectedNodes"
+        :annotation="props.annotation.node"
+        mode="view"
+      />
     </div>
 
     <div class="annotation-card-footer">

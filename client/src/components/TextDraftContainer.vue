@@ -2,12 +2,12 @@
 import { ComponentPublicInstance, computed, onMounted, ref, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
-import { NodeStatusObject, TextNode } from "../models/types";
+import { NodeStatusObject, NodeTypeOption, TextNode } from "../models/types";
 import { createContentNodeStatusObject } from "../utils/helper/helper";
-import { filterBaseNodeLabels } from "../config/ramen";
 
 const props = defineProps<{
-  nodeLabels: string[];
+  /** The type of the new Content */
+  nodeType: NodeTypeOption;
 }>();
 
 const emit = defineEmits<{
@@ -17,9 +17,7 @@ const emit = defineEmits<{
 
 const textInput = useTemplateRef<ComponentPublicInstance>("text-input");
 
-const additionalNodeLabels: string[] = filterBaseNodeLabels(props.nodeLabels);
-
-const draft = ref<NodeStatusObject<TextNode>>(createContentNodeStatusObject({ additionalNodeLabels }));
+const draft = ref<NodeStatusObject<TextNode>>(createContentNodeStatusObject(props.nodeType));
 
 const isEmptyDraft = computed<boolean>(() => draft.value.node.data.text.trim().length === 0);
 
@@ -53,7 +51,7 @@ function handleDiscardClick(): void {
       rows="3"
       auto-resize
       class="w-full"
-      :placeholder="`Add ${additionalNodeLabels.join(', ')} text`"
+      :placeholder="`Add ${props.nodeType.name} text`"
       autocomplete="off"
     />
 

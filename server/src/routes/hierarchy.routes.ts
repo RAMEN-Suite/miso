@@ -1,14 +1,7 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import ConfigService from "../services/config.service.js";
-import {
-  HierarchyNode,
-  NodeAncestry,
-  NodeDto,
-  PaginationResult,
-  ModelAttribute,
-  ModelContext,
-} from "../models/types.js";
+import { ElementResponse, PaginationResult, ModelAttribute, ModelContext } from "../models/types.js";
 import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
@@ -36,7 +29,7 @@ router.post("/query", async (req: Request, res: Response, next: NextFunction) =>
     const signature: string = createQuerySignature({ scope, filters, sort, order });
     const decodedCursor: HierarchyCursor | null = cursor ? decodeCursor(cursor, signature) : null;
 
-    const nodes: PaginationResult<NodeDto<HierarchyNode>[]> = await hierarchyService.listNodes(scope, {
+    const nodes: PaginationResult<ElementResponse> = await hierarchyService.listNodes(scope, {
       filters,
       sort,
       order,
@@ -53,24 +46,11 @@ router.post("/query", async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-router.get("/path", async (req: Request, res: Response, next: NextFunction) => {
-  const uuidString: string | null = req.query.path as string | null;
-  const uuids: string[] = uuidString ? uuidString.split(",") : [];
-
-  try {
-    const path: NodeDto<HierarchyNode>[] = await hierarchyService.validatePath(uuids);
-
-    res.status(200).json(path);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
 router.post("/nodes", async (req: Request, res: Response, next: NextFunction) => {
   const { uuid, data } = parseCreateNodePayload(req);
 
   try {
-    const node: NodeDto<HierarchyNode> = await hierarchyService.createNode(uuid, data);
+    const node: ElementResponse = await hierarchyService.createNode(uuid, data);
 
     res.status(201).json(node);
   } catch (error: unknown) {
@@ -82,9 +62,9 @@ router.get("/ancestry/:uuid", async (req: Request, res: Response, next: NextFunc
   const uuid: string = parseUuidFrom(req.params, ["uuid"]);
 
   try {
-    const ancestryPaths: NodeAncestry[] = await hierarchyService.getAncestry(uuid);
+    const ancestry: ElementResponse = await hierarchyService.getAncestry(uuid);
 
-    res.status(200).json(ancestryPaths);
+    res.status(200).json(ancestry);
   } catch (error: unknown) {
     next(error);
   }

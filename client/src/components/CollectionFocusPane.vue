@@ -72,7 +72,7 @@ const {
   isInitialized: isConfigInitialized,
   annotationHasConstraints,
   getAllCollectionAttributes,
-  getCollectionAnnotationShape,
+  getAnnotationShape,
   getCollectionAnnotationShapes,
   getCollectionAttributes,
   getModelContext,
@@ -98,7 +98,7 @@ const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
   return isConfigInitialized.value
-    ? getCollectionAttributes(temporaryWorkData.value.collection.node.nodeLabels).filter((field) =>
+    ? getCollectionAttributes(temporaryWorkData.value.collection.node).filter((field) =>
         isVisible(getModelContext(), field),
       )
     : [];
@@ -110,7 +110,7 @@ const displayLabel = computed<string>(
 );
 
 const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
-  getCollectionAnnotationShapes(temporaryWorkData.value.collection.node.nodeLabels),
+  getCollectionAnnotationShapes(temporaryWorkData.value.collection.node),
 );
 
 const SHOW_ANNOTATION_SUBTYPES: boolean = true;
@@ -528,12 +528,12 @@ function enrichCollectionData(): void {
 }
 
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
-  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
-  const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const shape: ModelAnnotationShape | undefined = getCollectionAnnotationShape(nodeLabels, data.type);
+  const collection: CollectionNode = temporaryWorkData.value.collection.node;
+  const newAnnotation: Annotation = createAnnotation({ ...data, collection });
+  const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation.node);
 
   if (!shape) {
-    console.error(`No annotation shape found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+    console.error(`No annotation shape found for type "${data.type}" on Collection with labels ${collection.nodeLabels.join(", ")}`);
     return;
   }
 
@@ -631,9 +631,7 @@ function handleEditAnnotation(uuid: string): void {
     return;
   }
 
-  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
-
-  if (!getCollectionAnnotationShape(nodeLabels, annotation.node.data.type)) {
+  if (!getAnnotationShape(annotation.node)) {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
@@ -651,6 +649,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
   if (entry) {
     entry.data.node.data = data.node.data;
     entry.data.node.nodeLabels = data.node.nodeLabels;
+    entry.data.node.classifierRef = data.node.classifierRef;
   }
 }
 </script>
@@ -684,7 +683,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
               value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
-            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node)"
             :size="30"
           />
           <span class="label-input-wrapper">
@@ -709,7 +708,6 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
             v-for="(annotation, index) in annotations"
             :key="annotation.node.data.uuid"
             v-model="annotations[index]"
-            :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
             :disabled="removalRunning && annotationPendingRemoval === annotation.node.data.uuid"
             @edit="handleEditAnnotation(annotation.node.data.uuid)"
             @remove="handleRemoveAnnotation(annotation.node.data.uuid, $event)"

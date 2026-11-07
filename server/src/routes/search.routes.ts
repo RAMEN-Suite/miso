@@ -1,5 +1,5 @@
 import express, { Request, Response, Router, NextFunction } from "express";
-import { CollectionNode, PaginationResult, TextNode, EntityNode, NodeSearchParams } from "../models/types.js";
+import { ElementResponse, PaginationResult, NodeSearchParams } from "../models/types.js";
 import { getPagination } from "../utils/helper.js";
 import SearchService from "../services/search.service.js";
 
@@ -17,7 +17,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 
     const nodeLabels: string[] = (req.query.nodeLabels as string).split(",").filter((label) => label.trim() !== "");
 
-    const nodes: PaginationResult<(CollectionNode | EntityNode | TextNode)[]> = await searchService.searchNodes(scope, {
+    const nodes: PaginationResult<ElementResponse> = await searchService.searchNodes(scope, {
       nodeLabels,
       limit,
       order,

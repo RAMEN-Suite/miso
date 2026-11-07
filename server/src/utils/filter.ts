@@ -1,4 +1,5 @@
 import ValidationError from "../errors/validation.error.js";
+import logger from "../logger.js";
 import UnknownFilterFieldError from "../errors/unknownFilterField.error.js";
 import {
   FilterComparator,
@@ -112,12 +113,12 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, ModelAtt
     return { kind: "distinct" };
   }
 
-  if (target.kind === "labels") {
+  if (target.kind === "classifier") {
     if (forSort) {
-      throw new ValidationError("Cannot sort by node labels.");
+      throw new ValidationError("Cannot sort by node type.");
     }
 
-    return { kind: "labels" };
+    return { kind: "classifier" };
   }
 
   if (target.kind === "property") {
@@ -136,7 +137,7 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, ModelAtt
 }
 
 /**
- * How a scalar target compares. `labels` never gets here — it is a set, handled on its own path in
+ * How a scalar target compares. `classifier` never gets here — it is a set, handled on its own path in
  * {@link parseFilterSpec} and {@link buildFilterCypher}.
  *
  * @param {ModelContext} context - The model context.
@@ -145,8 +146,8 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, ModelAtt
  * @returns {Comparison} The comparison of the target's attribute, or a plain string comparison if it has none.
  */
 function comparisonOf(context: ModelContext, target: FilterTarget, properties: Map<string, ModelAttribute>): Comparison {
-  if (target.kind === "labels") {
-    throw new ValidationError("Node labels have no datatype.");
+  if (target.kind === "classifier") {
+    throw new ValidationError("Node types have no datatype.");
   }
 
   // `distinct` is `label` or a slice of `text` -> always a string
@@ -370,12 +371,12 @@ export function parseFilterSpec(context: ModelContext, raw: unknown, properties:
     const target: FilterTarget = parseFilterTarget(rule.target, properties);
     const operator: FilterOperator = parseConcatenationOperator(rule.operator);
 
-    // A label set is matched as a set, not compared as a scalar, so it never enters the datatype
+    // A set of node types is matched as a set, not compared as a scalar, so it never enters the datatype
     // machinery: one comparator, one Cypher fragment
     let conditions: FilterCondition[];
 
-    if (target.kind === "labels") {
-      conditions = parseLabelConditions(rule.conditions);
+    if (target.kind === "classifier") {
+      conditions = parseClassifierConditions(context, rule.conditions);
     } else {
       conditions = parsePropertyConditions(rule.conditions, comparisonOf(context, target, properties));
     }
@@ -389,24 +390,58 @@ export function parseFilterSpec(context: ModelContext, raw: unknown, properties:
 }
 
 /**
- * Reads the conditions of a `labels` rule, which only ever means "carries one of these labels".
+ * Reads the conditions of a `classifier` rule, which only ever means "is of one of these node types". Refs the model
+ * doesn't know (e.g. a smart view saved against an older model) are dropped and logged, so a stale view still lists
+ * the types that exist. An empty list matches nothing, like deselecting every type.
  *
- * Tailored very specific on checking the labels of neo4j nodes instead of their properties
- *
+ * @param {ModelContext} context - The model context.
  * @param {unknown[]} raw - The rule's `conditions` array.
- * @returns {FilterCondition[]} The validated conditions.
+ * @returns {FilterCondition[]} The validated conditions, with the known classifier refs.
  * @throws {ValidationError} If a condition is not an `in` over an array of strings.
  */
-function parseLabelConditions(raw: unknown[]): FilterCondition[] {
+function parseClassifierConditions(context: ModelContext, raw: unknown[]): FilterCondition[] {
   return raw.map((rawCondition: unknown) => {
     const { comparator, value } = (rawCondition ?? {}) as { comparator?: unknown; value?: unknown };
 
-    if (comparator !== "in" || !Array.isArray(value) || value.some((label) => typeof label !== "string")) {
-      throw new ValidationError("A `labels` rule needs an `in` comparator over an array of label strings.");
+    if (comparator !== "in" || !Array.isArray(value) || value.some((ref) => typeof ref !== "string")) {
+      throw new ValidationError("A `classifier` rule needs an `in` comparator over an array of classifier refs.");
     }
 
-    return { comparator: "in", value };
+    const unknownRefs: string[] = (value as string[]).filter((ref) => !context.model.getNode(ref));
+
+    if (unknownRefs.length > 0) {
+      logger.warn(`Filter on node types the model doesn't know, ignored: ${unknownRefs.join(", ")}`);
+    }
+
+    return { comparator: "in", value: (value as string[]).filter((ref) => !unknownRefs.includes(ref)) };
   });
+}
+
+/**
+ * The labels that identify nodes of the given types: the names of the types and of all their refinements. Refinements
+ * are included, since a node is stored with the name of its own type (older data only with that one besides the base
+ * label), and a filter on a type should also find its refinements.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string[]} classifierRefs - Qualified refs of the node types.
+ * @returns {string[]} The labels.
+ */
+function labelsOfClassifiers(context: ModelContext, classifierRefs: string[]): string[] {
+  const labels = new Set<string>();
+
+  for (const classifier of context.config.model.classifiers) {
+    if (classifier.kind !== "Node") {
+      continue;
+    }
+
+    const lineage = context.model.getNodeLineage(`${classifier.modelId}:${classifier.id}`);
+
+    if (lineage.some((item) => classifierRefs.includes(`${item.modelId}:${item.nodeId}`))) {
+      labels.add(classifier.name);
+    }
+  }
+
+  return [...labels];
 }
 
 /**
@@ -414,7 +449,7 @@ function parseLabelConditions(raw: unknown[]): FilterCondition[] {
  *
  * @param {FilterTarget} target - A validated target that has been through {@link parseFilterTarget}.
  * @returns {string} - A Cypher expression.
- * @throws {ValidationError} If the target is invalid (e.g. sorting by node labels with `labels` is not allowed currently).
+ * @throws {ValidationError} If the target has no scalar value (`classifier`).
  * @example
  * // Passing a node's "status" property as sort value or filtering rule:
  * {
@@ -434,7 +469,7 @@ export function targetExpression(target: FilterTarget): string {
     return `n.\`${target.field}\``;
   }
 
-  throw new ValidationError("Node labels have no scalar value.");
+  throw new ValidationError("Node types have no scalar value.");
 }
 
 /**
@@ -552,12 +587,14 @@ export function buildFilterCypher(
     const predicates: string[] = rule.conditions.map((condition: FilterCondition) => {
       const name: string = `f${paramIndex++}`;
 
-      params[name] = condition.value;
+      // Filtering by node type is a special case: the types are matched by the labels of their nodes, not by a property
+      if (rule.target.kind === "classifier") {
+        params[name] = labelsOfClassifiers(context, condition.value as string[]);
 
-      // Filtering by node labels is a special case since comparison doesn't happen on property level
-      if (rule.target.kind === "labels") {
         return `(size(apoc.coll.intersection($${name}, labels(n))) > 0)`;
       }
+
+      params[name] = condition.value;
 
       return conditionCypher(
         targetExpression(rule.target),

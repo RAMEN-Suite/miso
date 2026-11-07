@@ -17,7 +17,13 @@ import {
   FormatValueType,
 } from "./ramen.js";
 import { ConfigBaseEntry, IMisoConfig } from "../models/IMisoConfig.js";
-import type { ConfigBlock, ModelAnnotationShape, ModelAttribute, ModelContext } from "../models/types.js";
+import type {
+  ConfigBlock,
+  ModelAnnotationShape,
+  ModelAttribute,
+  ModelContext,
+  RefResolution,
+} from "../models/types.js";
 
 /**
  * Accessors on the model and the config. Everything model-related and the app's settings of model elements are read
@@ -138,18 +144,6 @@ export function getRefinements(context: ModelContext, baseNodeRef: string): { re
     .filter((classifier): classifier is Node & { modelId: string } => classifier.kind === "Node")
     .map((node) => ({ ref: `${node.modelId}:${node.id}`, node: node as Node }))
     .filter(({ ref }) => !BASE_NODE_REFS.includes(ref) && getBaseNodeRef(context, ref) === baseNodeRef);
-}
-
-/**
- * The ref of the refinement of a base node with the given name (node label). Name matching, until the lookups use IDs.
- *
- * @param {ModelContext} context - The model context.
- * @param {string} baseNodeRef - One of {@linkcode BASE_NODE_REF}.
- * @param {string} label - The node label, i.e. the classifier name.
- * @returns {string | undefined} The qualified ref, `undefined` if there is no such refinement.
- */
-export function findRefinementRef(context: ModelContext, baseNodeRef: string, label: string): string | undefined {
-  return getRefinements(context, baseNodeRef).find(({ node }) => node.name === label)?.ref;
 }
 
 /**
@@ -497,6 +491,215 @@ export function refersToEntities(context: ModelContext, shape: ModelAnnotationSh
     });
 }
 
+// ----- Resolution of stored names -----
+
+/**
+ * The resolutions of {@linkcode resolveClassifierRef}, {@linkcode resolveShapeRef} and {@linkcode resolveRelationRef},
+ * per context
+ */
+interface ResolutionCache {
+  /** By the sorted node labels */
+  classifiers: Map<string, RefResolution>;
+  /** By carrier ref and annotation type */
+  shapes: Map<string, RefResolution>;
+  /** By start node ref, relationship type and end node ref */
+  relations: Map<string, RefResolution>;
+}
+
+/**
+ * Resolutions per context. The database stores names, and the same label sets and types occur on many nodes, so each
+ * is resolved once.
+ */
+const resolutionCache = new WeakMap<ModelContext, ResolutionCache>();
+
+/** The resolution cache of a context, created on first use */
+function getResolutionCache(context: ModelContext): ResolutionCache {
+  let cache: ResolutionCache | undefined = resolutionCache.get(context);
+
+  if (!cache) {
+    cache = { classifiers: new Map(), shapes: new Map(), relations: new Map() };
+    resolutionCache.set(context, cache);
+  }
+
+  return cache;
+}
+
+/** The name of a node for problem messages, the ref if it is unknown */
+function nodeNameOf(context: ModelContext, nodeRef: string): string {
+  return context.model.getNode(nodeRef)?.name ?? nodeRef;
+}
+
+/**
+ * Resolves the stored labels of a node to its classifier: the most specific of the node types the labels name. Labels
+ * that name no node type (e.g. leftovers of an import) are ignored. Cached per context.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string[]} nodeLabels - The labels of the node in the database.
+ * @returns {RefResolution} The qualified ref of the classifier, or `null` if no label names a node type, or the labels
+ *   name node types on separate branches.
+ */
+export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]): RefResolution {
+  const cache: Map<string, RefResolution> = getResolutionCache(context).classifiers;
+  const key: string = [...nodeLabels].sort().join(",");
+  let resolution: RefResolution | undefined = cache.get(key);
+
+  if (!resolution) {
+    resolution = findClassifierRef(context, nodeLabels);
+    cache.set(key, resolution);
+  }
+
+  return resolution;
+}
+
+/** Uncached {@linkcode resolveClassifierRef} */
+function findClassifierRef(context: ModelContext, nodeLabels: string[]): RefResolution {
+  const candidateRefs: string[] = context.config.model.classifiers
+    .filter((classifier): classifier is Node & { modelId: string } => classifier.kind === "Node")
+    .filter((node) => nodeLabels.includes(node.name))
+    .map((node) => `${node.modelId}:${node.id}`);
+
+  if (candidateRefs.length === 0) {
+    return { ref: null, problem: `No node type matches the labels ${nodeLabels.join(", ")}` };
+  }
+
+  const mostSpecific = context.model.getAdvisor().getMostSpecificNode(context.model.getModel().id, candidateRefs);
+
+  if (mostSpecific) {
+    return { ref: `${mostSpecific.modelId}:${mostSpecific.nodeId}` };
+  } else {
+    return { ref: null, problem: `The labels ${nodeLabels.join(", ")} name node types on separate branches` };
+  }
+}
+
+/**
+ * Resolves the stored `type` of an annotation to its annotation shape, among the shapes its carrier may have. The
+ * carrier decides the family, since stored annotations only have the `Annotation` label: a `commentary` on a text and
+ * a `commentary` on an annotation are different shapes. Cached per context.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} carrierRef - Classifier ref of the node that has the annotation: a Content or Collection, or for
+ *   annotations on annotations the family of the annotated annotation.
+ * @param {string} type - The `type` of the annotation in the database.
+ * @returns {RefResolution} The qualified ref of the shape, or `null` if the carrier may have no shape or several shapes
+ *   of that type. The annotation's own classifier is the shape's family, see {@linkcode familyRefOf}.
+ */
+export function resolveShapeRef(context: ModelContext, carrierRef: string, type: string): RefResolution {
+  const cache: Map<string, RefResolution> = getResolutionCache(context).shapes;
+  const key: string = `${carrierRef}|${type}`;
+  let resolution: RefResolution | undefined = cache.get(key);
+
+  if (!resolution) {
+    resolution = findShapeRef(context, carrierRef, type);
+    cache.set(key, resolution);
+  }
+
+  return resolution;
+}
+
+/** Uncached {@linkcode resolveShapeRef} */
+function findShapeRef(context: ModelContext, carrierRef: string, type: string): RefResolution {
+  const matchingRefs: string[] = [
+    ...new Set(
+      getShapesForNode(context, carrierRef)
+        .filter((shape) => shape.type === type)
+        .map(shapeRefOf),
+    ),
+  ];
+
+  if (matchingRefs.length === 1) {
+    return { ref: matchingRefs[0] };
+  } else if (matchingRefs.length === 0) {
+    return { ref: null, problem: `No annotation type "${type}" is allowed on ${nodeNameOf(context, carrierRef)}` };
+  } else {
+    return {
+      ref: null,
+      problem: `Several annotation types "${type}" are allowed on ${nodeNameOf(context, carrierRef)}: ${matchingRefs.join(", ")}`,
+    };
+  }
+}
+
+/**
+ * Resolves a stored relationship to its relation definition: among the definitions between the classifiers of its ends
+ * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → TextAnnotation rather than
+ * RAMEN's Content → Annotation, which it refines). Cached per context.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} fromRef - Classifier ref of the start node.
+ * @param {string} type - The relationship type in the database (`HAS_ANNOTATION`, `REFERS_TO`, `PART_OF`).
+ * @param {string} toRef - Classifier ref of the end node.
+ * @returns {RefResolution} The qualified ref of the relation definition, or `null` if none or several unrelated ones
+ *   match.
+ */
+export function resolveRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
+  const cache: Map<string, RefResolution> = getResolutionCache(context).relations;
+  const key: string = `${fromRef}|${type}|${toRef}`;
+  let resolution: RefResolution | undefined = cache.get(key);
+
+  if (!resolution) {
+    resolution = findRelationRef(context, fromRef, type, toRef);
+    cache.set(key, resolution);
+  }
+
+  return resolution;
+}
+
+/**
+ * The relation definition of a qualified ref.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} ref - Qualified ref of the relation definition.
+ * @returns {(Relation & { modelId: string }) | undefined} The definition, `undefined` if the model has none.
+ */
+export function findRelation(context: ModelContext, ref: string): (Relation & { modelId: string }) | undefined {
+  return context.config.model.relations.find((relation) => `${relation.modelId}:${relation.id}` === ref);
+}
+
+/** Qualified refs of all relation definitions a relation definition refines, directly or indirectly */
+function relationSuperRefsOf(context: ModelContext, ref: string, seen: Set<string> = new Set()): Set<string> {
+  const relation: (Relation & { modelId: string }) | undefined = findRelation(context, ref);
+
+  if (!relation) {
+    return seen;
+  }
+
+  for (const superRef of relation.superTypes.map((superType) => qualify(superType, relation.modelId))) {
+    if (!seen.has(superRef)) {
+      seen.add(superRef);
+      relationSuperRefsOf(context, superRef, seen);
+    }
+  }
+
+  return seen;
+}
+
+/** Uncached {@linkcode resolveRelationRef} */
+function findRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
+  const modelId: string = context.model.getModel().id;
+  const candidateRefs: string[] = [
+    ...new Set(
+      context.model
+        .getAdvisor()
+        .getRelations(modelId, fromRef, toRef)
+        .map((selection) => qualify(selection.ref, modelId))
+        .filter((ref) => findRelation(context, ref)?.name === type),
+    ),
+  ];
+  const mostSpecificRefs: string[] = candidateRefs.filter((ref) => {
+    const superRefs: Set<string> = relationSuperRefsOf(context, ref);
+
+    return candidateRefs.every((other) => other === ref || superRefs.has(other));
+  });
+  const description: string = `${type} from ${nodeNameOf(context, fromRef)} to ${nodeNameOf(context, toRef)}`;
+
+  if (mostSpecificRefs.length === 1) {
+    return { ref: mostSpecificRefs[0] };
+  } else if (candidateRefs.length === 0) {
+    return { ref: null, problem: `No relation ${description} is allowed` };
+  } else {
+    return { ref: null, problem: `Several relations ${description} are allowed: ${candidateRefs.join(", ")}` };
+  }
+}
+
 // ----- Lookups by name (until the lookups use IDs) -----
 
 /** {@linkcode getTextShapesByType} per context, since the shapes of a carrier are computed by RAMEN core on every call */
@@ -530,18 +733,6 @@ export function getTextShapesByType(context: ModelContext): Map<string, ModelAnn
   }
 
   return byType;
-}
-
-/** The properties of the text annotation type with the given name, empty if Content nodes can't carry such a type */
-export function getTextAnnotationProperties(context: ModelContext, type: string): ModelAttribute[] {
-  const shape: ModelAnnotationShape | undefined = getTextShapesByType(context).get(type);
-
-  return shape ? getShapeProperties(shape) : [];
-}
-
-/** The node labels of the Collection refinements */
-export function getCollectionLabels(context: ModelContext): string[] {
-  return getRefinements(context, BASE_NODE_REF.Collection).map(({ node }) => node.name);
 }
 
 /**
@@ -587,24 +778,6 @@ export function collectConfigWarnings(context: ModelContext): string[] {
     if (!textShapeRefs.has(shapeRefOf(shape))) {
       warnings.push(`A second annotation shape with type "${shape.type}" is left out (${shapeRefOf(shape)})`);
       textShapeRefs.add(shapeRefOf(shape));
-    }
-  }
-
-  // Shapes no Content or Collection carries (e.g. annotations on annotations) have no place in the lookups yet
-  const collectionCarrierRefs: string[] = [
-    BASE_NODE_REF.Collection,
-    ...getRefinements(context, BASE_NODE_REF.Collection).map(({ ref }) => ref),
-  ];
-  const placedRefs = new Set<string>([
-    ...textShapeRefs,
-    ...collectionCarrierRefs.flatMap((ref) => getShapesForNode(context, ref)).map(shapeRefOf),
-  ]);
-
-  for (const shape of context.config.model.annotations) {
-    if (!placedRefs.has(shapeRefOf(shape))) {
-      warnings.push(
-        `Annotation shape "${shape.type}" (${shapeRefOf(shape)}) is not carried by a Content or Collection node, left out`,
-      );
     }
   }
 

@@ -1,96 +1,139 @@
-import { IAnnotation } from "../models/IAnnotation.js";
+import ValidationError from "../errors/validation.error.js";
 import {
-  AnnotationNode,
-  CollectionNode,
-  EntityNode,
-  Node,
-  NodeStatusObject,
-  NodeUpdateObject,
-  ContentNode,
+  ElementGraph,
+  ElementNode,
+  ElementRelation,
+  ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
+  Node,
+  NodeUpdateObject,
 } from "../models/types.js";
 import { toNeo4jTypes } from "./helper.js";
-import { getCollectionAttributes, getTextAnnotationProperties } from "./modelHelper.js";
-import { inferRelationship } from "./ramen.js";
+import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
+import { BASE_NODE_REF } from "./ramen.js";
 
-function convertNodeToNeo4jFormat(
-  node: EntityNode | AnnotationNode | CollectionNode | ContentNode,
-  context: ModelContext,
-): Node<object> {
+/**
+ * Converts a node for the write query: only labels and data (the refs are not stored), with the values converted to
+ * Neo4j types by the attributes of its classifier (Collections) or its annotation shape (annotations). The values of
+ * Contents and Entities are stored as sent.
+ */
+function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): Node<object> {
+  const baseNodeRef: string | undefined = node.classifierRef ? getBaseNodeRef(context, node.classifierRef) : undefined;
   let fields: ModelAttribute[];
 
-  if (node.nodeLabels.includes("Content") || node.nodeLabels.includes("Entity")) {
-    return node;
-  } else if (node.nodeLabels.includes("Collection")) {
-    fields = getCollectionAttributes(context, node.nodeLabels);
-  } else if (node.nodeLabels.includes("Annotation")) {
-    fields = getTextAnnotationProperties(context, (node.data as IAnnotation).type);
+  if (baseNodeRef === BASE_NODE_REF.Collection && node.classifierRef) {
+    fields = getNodeAttributes(context, node.classifierRef);
+  } else if (baseNodeRef === BASE_NODE_REF.Annotation) {
+    const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
+
+    fields = shape ? getShapeProperties(shape) : [];
   } else {
-    return node;
+    return { nodeLabels: node.nodeLabels, data: node.data };
   }
 
-  return {
-    nodeLabels: node.nodeLabels,
-    data: toNeo4jTypes(context, node.data, fields),
-  };
-}
-
-function insertNodeIntoObject(
-  parent: NodeStatusObject | null,
-  node: NodeStatusObject,
-  obj: NodeUpdateObject,
-  context: ModelContext,
-): NodeUpdateObject {
-  node.connectedNodes.forEach((child) => insertNodeIntoObject(node, child, obj, context));
-
-  if (node.meta.status === "deleted") {
-    obj.delete.push(node.node);
-  }
-
-  if (node.meta.status === "created") {
-    obj.create.push(convertNodeToNeo4jFormat(node.node, context));
-  }
-
-  if (node.meta.status === "modified") {
-    obj.update.push(convertNodeToNeo4jFormat(node.node, context));
-  }
-
-  if (parent && (node.meta.status === "created" || node.meta.status === "added")) {
-    obj.attach.push(inferRelationship(parent.node, node.node));
-  }
-
-  if (parent && node.meta.status === "removed" && parent.meta.status !== "deleted") {
-    obj.remove.push(inferRelationship(parent.node, node.node));
-  }
-
-  return obj;
+  return { nodeLabels: node.nodeLabels, data: toNeo4jTypes(context, node.data, fields) };
 }
 
 /**
- * Flattens a {@link NodeStatusObject} tree into a {@link NodeUpdateObject} ready for database execution.
+ * The labels a node is stored with: the names of its classifier's lineage, RAMEN base node first.
  *
- * Traverses the tree depth-first, classifying each node into the appropriate CRUD bucket
- * (`create`, `update`, `delete`) and deriving the relationship changes (`attach`, `remove`)
- * from the parent–child status pairs. Type conversion to Neo4j-compatible values is applied
- * using the attributes of the model.
- *
- * @param root - Root of the ownership tree (e.g. a Content or Collection node with its children already set as `connectedNodes`).
- * @param context - The model context, used to resolve the attributes of Annotation and Collection nodes.
- * @returns A flat {@link NodeUpdateObject} with separate lists for each operation category.
+ * @param {ModelContext} context - The model context.
+ * @param {ElementNode} node - The node of the payload.
+ * @returns {string[]} The labels.
+ * @throws {ValidationError} If the classifier is missing or not in the model.
  */
-export function flattenNodeTree(root: NodeStatusObject, context: ModelContext): NodeUpdateObject {
-  const obj: NodeUpdateObject = {
-    create: [],
-    delete: [],
-    update: [],
-    remove: [],
-    attach: [],
+function nodeLabelsOf(context: ModelContext, node: ElementNode): string[] {
+  if (!node.classifierRef || !context.model.getNode(node.classifierRef)) {
+    throw new ValidationError(`Node ${node.data.uuid} has an unknown node type: ${String(node.classifierRef)}.`);
+  }
+
+  if (node.shapeRef && !findShape(context, node.shapeRef)) {
+    throw new ValidationError(`Node ${node.data.uuid} has an unknown annotation type: ${node.shapeRef}.`);
+  }
+
+  return context.model.getNodeLineage(node.classifierRef).map((item) => item.name);
+}
+
+/**
+ * The relationship of a payload relation as the write query takes it: its type is the name of its relation definition.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ElementRelation} relation - The relation of the payload.
+ * @returns {NodeUpdateObject["attach"][number]} The relationship.
+ * @throws {ValidationError} If the relation definition is missing (`null` is only allowed on reads) or not in the model.
+ */
+function toEdge(context: ModelContext, relation: ElementRelation): NodeUpdateObject["attach"][number] {
+  const type: string | undefined = relation.relationRef ? findRelation(context, relation.relationRef)?.name : undefined;
+
+  if (!type) {
+    throw new ValidationError(`Unknown relation ${String(relation.relationRef)} from ${relation.from} to ${relation.to}.`);
+  }
+
+  return { type, startUuid: relation.from, endUuid: relation.to };
+}
+
+/**
+ * Converts a write payload into the changes of the write, with the values as sent. The labels of created and updated
+ * nodes come from their `classifierRef`, the relationship types from the `relationRef`s; the client sends no labels.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ElementGraph} payload - The nodes (`created`, `modified`, `deleted`) and relations (`added`, `removed`), as
+ *   parsed by `parseWritePayload` in `utils/helper.ts`.
+ * @returns {NodeUpdateObject} The changes, grouped by operation.
+ * @throws {ValidationError} If a node or relation is malformed or references unknown model elements.
+ */
+export function toNodeChanges(context: ModelContext, payload: ElementGraph): NodeUpdateObject {
+  const changes: NodeUpdateObject = { create: [], update: [], delete: [], remove: [], attach: [] };
+
+  for (const node of payload.nodes) {
+    if (typeof node?.data?.uuid !== "string") {
+      throw new ValidationError("Every node needs `data.uuid`.");
+    }
+
+    if (node.status === "deleted") {
+      changes.delete.push({ nodeLabels: [], data: { uuid: node.data.uuid } });
+    } else if (node.status === "created" || node.status === "modified") {
+      const stored: Node<object> = {
+        nodeLabels: nodeLabelsOf(context, node),
+        classifierRef: node.classifierRef,
+        shapeRef: node.shapeRef,
+        data: node.data,
+      };
+
+      (node.status === "created" ? changes.create : changes.update).push(stored);
+    } else {
+      throw new ValidationError(`Node ${node.data.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`);
+    }
+  }
+
+  for (const relation of payload.relations) {
+    if (relation.status === "added") {
+      changes.attach.push(toEdge(context, relation));
+    } else if (relation.status === "removed") {
+      changes.remove.push(toEdge(context, relation));
+    } else {
+      throw new ValidationError(`A relation has the status "${String(relation.status)}", expected added or removed.`);
+    }
+  }
+
+  return changes;
+}
+
+/**
+ * Converts the values of created and updated nodes to Neo4j types, using the attributes of the model, for
+ * {@link buildSubgraphUpdateQuery}.
+ *
+ * @param changes - The changes, as returned by {@link toNodeChanges}.
+ * @param context - The model context, used to resolve the attributes of Annotation and Collection nodes.
+ * @returns The changes with converted values.
+ */
+export function toNeo4jChanges(changes: NodeUpdateObject, context: ModelContext): NodeUpdateObject {
+  return {
+    ...changes,
+    create: changes.create.map((node) => convertNodeToNeo4jFormat(node, context)),
+    update: changes.update.map((node) => convertNodeToNeo4jFormat(node, context)),
   };
-
-  insertNodeIntoObject(null, root, obj, context);
-
-  return obj;
 }
 
 /**
@@ -98,7 +141,7 @@ export function flattenNodeTree(root: NodeStatusObject, context: ModelContext): 
  * and returns the root node after all changes are applied.
  *
  * Expected parameters: `$uuid`, `$delete`, `$create`, `$update`, `$remove`, `$attach` —
- * as produced by {@link flattenNodeTree}.
+ * as produced by {@link toNodeChanges} and {@link toNeo4jChanges}.
  *
  * @param rootLabel - `'Content'` or `'Collection'` — the label of the root node that is matched and returned.
  */

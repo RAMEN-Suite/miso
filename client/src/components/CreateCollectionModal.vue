@@ -2,7 +2,7 @@
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
@@ -28,14 +28,13 @@ const { api, addToastMessage } = useAppStore();
 const { getCollectionAttributes, getModelContext } = useConfigStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
-const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newCollectionNode = ref<CollectionNode>(createCollectionNode());
-const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
+const newCollectionNode = ref<CollectionNode>(createCollectionNode(nodeType));
 // The label has its own input above the form
 const collectionFields = computed(() =>
-  getCollectionAttributes(nodeLabels.value).filter((field) => field.attribute.name !== "label"),
+  getCollectionAttributes(newCollectionNode.value).filter((field) => field.attribute.name !== "label"),
 );
 
 const inputIsValid = computed<boolean>(
@@ -83,7 +82,7 @@ async function handleSubmit() {
     return;
   }
 
-  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: toValue(nodeLabels.value) };
+  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value };
 
   isLoading.value = true;
 
@@ -113,7 +112,7 @@ async function handleSubmit() {
     <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <CollectionLabelInput
       v-model:label="newCollectionNode.data.label"
-      :placeholder="`Provide a ${additionalNodeLabel} label`"
+      :placeholder="`Provide a ${nodeType.name} label`"
       autofocus
     />
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->

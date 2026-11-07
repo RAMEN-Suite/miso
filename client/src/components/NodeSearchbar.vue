@@ -46,7 +46,7 @@ const labelMenuItems = computed<MenuItem[]>(() => [
     label: props.baseNodeLabel,
     items: (props.additionalNodeLabelOptions ?? []).map((label: string) => ({
       label,
-      nodeIcon: resolveNodeIcon([props.baseNodeLabel, label]),
+      nodeIcon: resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, label] }),
       command: () => emit("update:additionalNodeLabel", label),
     })),
   },
@@ -321,7 +321,7 @@ defineExpose({ focus });
         :title="`Searching ${props.additionalNodeLabel} nodes. Click to search another type`"
         @click="labelMenu?.toggle($event)"
       >
-        <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
+        <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
         <i class="icon-chevron-down" />
       </Button>
       <FilterableMenu ref="label-menu" :model="labelMenuItems">
@@ -331,7 +331,7 @@ defineExpose({ focus });
       </FilterableMenu>
     </template>
     <InputGroupAddon v-else class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
-      <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
+      <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
@@ -376,7 +376,7 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -387,7 +387,7 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
             <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
               {{ getPreviewText(option.data?.label ?? option.data?.text) }}
@@ -398,7 +398,7 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
             <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
           </div>

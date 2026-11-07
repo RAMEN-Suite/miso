@@ -1,33 +1,23 @@
-import { BaseNodeLabel, IconSpec, IconSpecInput, ModelAnnotationShape } from "../models/types";
-import { filterBaseNodeLabels } from "./ramen";
-import { getShapeConfig } from "../utils/helper/modelHelper";
+import { BaseNodeData, IconSpec, IconSpecInput, ModelAnnotationShape, ModelContext, Node } from "../models/types";
+import { BASE_NODE_REF } from "./ramen";
+import { getNodeConfig, getShapeConfig, resolveClassifierRef } from "../utils/helper/modelHelper";
 
-/** Used when a node matches none of the known base labels. */
+/** Used for nodes whose labels can't be resolved to a node type (invalid data). */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
 
-/** Default icons specs for each RAMEN base node label. */
-export const BASE_NODE_ICONS: Record<BaseNodeLabel, IconSpec> = {
-  Collection: { kind: "lucide", name: "folder" },
-  Content: { kind: "lucide", name: "file-text" },
-  Annotation: { kind: "lucide", name: "pencil" },
-  Entity: { kind: "lucide", name: "user" },
+/** Default icons of the RAMEN base nodes, by their qualified refs. Used when no icon is configured along a lineage. */
+export const BASE_NODE_ICONS: Readonly<Record<string, IconSpec>> = {
+  [BASE_NODE_REF.Collection]: { kind: "lucide", name: "folder" },
+  [BASE_NODE_REF.Content]: { kind: "lucide", name: "file-text" },
+  [BASE_NODE_REF.Annotation]: { kind: "lucide", name: "pencil" },
+  [BASE_NODE_REF.Entity]: { kind: "lucide", name: "user" },
 };
 
-/**
- * Map for refined RAMEN node icons (e.g.`{ Letter: { kind: "lucide", name: "mail" } }`).
- *
- * Contains defaults that are extended with the icons from the config via {@link registerNodeIcon}.
- * Configured icons for base labels (e.g. `Collection`) are stored here as well and take precedence over {@link BASE_NODE_ICONS}.
- */
-export const NODE_ICONS_BY_LABEL: Record<string, IconSpec> = {
-  Event: { kind: "lucide", name: "calendar-days" },
-  Person: { kind: "lucide", name: "user" },
-  Place: { kind: "lucide", name: "map-pinned" },
-  Role: { kind: "lucide", name: "award" },
-  Thing: { kind: "lucide", name: "box" },
-  Regesta: { kind: "lucide", name: "scroll-text" },
-  Volume: { kind: "lucide", name: "book" },
-};
+/** The model context node icons are resolved with, set by {@linkcode initializeNodeIcons} */
+let iconContext: ModelContext | undefined;
+
+/** The resolved icon per classifier ref, see {@linkcode getClassifierIcon} */
+const nodeIconsByRef = new Map<string, IconSpec>();
 
 /**
  * Resolves the configured icon of an annotation type. The icon identifies the type itself and doesn't depend on the
@@ -41,19 +31,43 @@ export function resolveAnnotationIcon(shape: ModelAnnotationShape | undefined): 
 }
 
 /**
- * Registers a configured node icon for a (base or refined) node label. Overrides the default icon of that label.
- * Does nothing if no valid icon is given.
+ * Sets the model context node icons are resolved with, and drops the icons resolved with a previous one. Called when
+ * the config is initialized.
  *
- * @param {string} label - The node label, e.g. `Letter` or `Collection`.
- * @param {IconSpecInput | undefined} icon - The configured icon.
+ * @param {ModelContext} context - The model context.
  * @returns {void} This function does not return anything.
  */
-export function registerNodeIcon(label: string, icon: IconSpecInput | undefined): void {
-  const spec: IconSpec | null = normalizeIconSpec(icon);
+export function initializeNodeIcons(context: ModelContext): void {
+  iconContext = context;
+  nodeIconsByRef.clear();
+}
 
-  if (spec) {
-    NODE_ICONS_BY_LABEL[label] = spec;
+/**
+ * The icon of a node type: the nearest `ext.miso.appearance.icon` along its lineage (base level ones are in
+ * `miso.base`), otherwise the default of its base node. Cached per classifier.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} classifierRef - Qualified ref of the node type.
+ * @returns {IconSpec} The icon.
+ */
+function getClassifierIcon(context: ModelContext, classifierRef: string): IconSpec {
+  const cached: IconSpec | undefined = nodeIconsByRef.get(classifierRef);
+
+  if (cached) {
+    return cached;
   }
+
+  // Base-first lineage, so the nearest configuration is searched from the end
+  const lineageRefs: string[] = context.model.getNodeLineage(classifierRef).map((item) => `${item.modelId}:${item.nodeId}`);
+  const configured: IconSpec | undefined = lineageRefs
+    .toReversed()
+    .map((ref) => normalizeIconSpec(getNodeConfig(context, ref)?.appearance?.icon))
+    .find((spec): spec is IconSpec => spec !== null);
+  const icon: IconSpec = configured ?? BASE_NODE_ICONS[lineageRefs[0] ?? ""] ?? FALLBACK_NODE_ICON;
+
+  nodeIconsByRef.set(classifierRef, icon);
+
+  return icon;
 }
 
 /**
@@ -100,27 +114,20 @@ export function normalizeIconSpec(input: IconSpecInput | undefined): IconSpec | 
 }
 
 /**
- * Resolves the icon for a node from its labels.
+ * Resolves the icon of a node from its node type (see {@linkcode getClassifierIcon}). Takes the node's
+ * `classifierRef`, or resolves its labels if it has none, so it also works for label lists like `{ nodeLabels:
+ * ["Collection", "Letter"] }`.
  *
- * Projects will be able to override the RAMEN base node's icons. Defaults to a generic "file" icon.
- *
- * @param {string[]} nodeLabels - The node's full label list.
- * @returns {IconSpec} The icon to render, for example `{ kind: "lucide", name: "folder" }`.
+ * @param {Pick<Node<BaseNodeData>, "nodeLabels" | "classifierRef">} node - The node, or a node type option.
+ * @returns {IconSpec} The icon to render, a question mark for nodes whose labels can't be resolved.
  */
-export function resolveNodeIcon(nodeLabels: string[]): IconSpec {
-  const additionalLabels: string[] = filterBaseNodeLabels(nodeLabels);
-
-  for (const label of additionalLabels) {
-    if (NODE_ICONS_BY_LABEL[label]) {
-      return NODE_ICONS_BY_LABEL[label];
-    }
+export function resolveNodeIcon(node: Pick<Node<BaseNodeData>, "nodeLabels" | "classifierRef">): IconSpec {
+  if (!iconContext) {
+    return FALLBACK_NODE_ICON;
   }
 
-  for (const baseLabel of ["Collection", "Content", "Entity", "Annotation"] as const) {
-    if (nodeLabels.includes(baseLabel)) {
-      return NODE_ICONS_BY_LABEL[baseLabel] ?? BASE_NODE_ICONS[baseLabel];
-    }
-  }
+  const classifierRef: string | null =
+    node.classifierRef !== undefined ? node.classifierRef : resolveClassifierRef(iconContext, node.nodeLabels).ref;
 
-  return FALLBACK_NODE_ICON;
+  return classifierRef ? getClassifierIcon(iconContext, classifierRef) : FALLBACK_NODE_ICON;
 }

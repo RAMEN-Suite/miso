@@ -1,23 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref, useId, watch } from "vue";
+import { computed, onMounted, ref, useId, watch } from "vue";
 import Checkbox from "primevue/checkbox";
 import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
 import { useConfigStore } from "../store/config";
-import { FilterComparator, FilterOperator, FilterRow, FilterRule, FilterSpec, ModelAttribute } from "../models/types";
+import {
+  FilterComparator,
+  FilterOperator,
+  FilterRow,
+  FilterRule,
+  FilterSpec,
+  ModelAttribute,
+  NodeTypeOption,
+} from "../models/types";
 import { availableComparators, RANGE_COMPARATORS, targetKey, VALUELESS_COMPARATORS } from "../config/filters";
+import { BASE_NODE_REF } from "../config/ramen";
 import FilterRuleRow from "./FilterRuleRow.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons";
 
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionAttributes, getModelContext } =
-  useConfigStore();
+const { getNodeTypeOptions, getHierarchyClassifierRefs, getAllCollectionAttributes, getModelContext } = useConfigStore();
 
 const props = defineProps<{
   /** The rules to seed the editor from. Read on mount and on {@linkcode sync}, never watched. */
   filters: FilterSpec;
+  /**
+   * Classifier ref of the Collection whose children are filtered. Only the types the model allows `PART_OF` it, and
+   * their properties, are offered. All types if omitted or `null` (top level, smart views, unresolvable parent).
+   */
+  partOfRef?: string | null;
 }>();
 
 const emit = defineEmits<{ change: [FilterSpec] }>();
@@ -36,18 +49,41 @@ function emitChange(): void {
 // ids have to be unique per instance
 const instanceId: string = useId();
 
-const labelGroups: { base: string; additional: string[] }[] = [
-  { base: "Collection", additional: getAvailableCollectionLabels().toSorted() },
-  { base: "Content", additional: getAvailableContentLabels().toSorted() },
-];
+/** The node types to filter by, one group per base node, each sorted by name. Empty groups are left out. */
+const typeGroups = computed<{ base: string; types: NodeTypeOption[] }[]>(() =>
+  [
+    { base: "Collection", types: getNodeTypeOptions(BASE_NODE_REF.Collection, props.partOfRef ?? null) },
+    { base: "Content", types: getNodeTypeOptions(BASE_NODE_REF.Content, props.partOfRef ?? null) },
+  ].filter((group) => group.types.length > 0),
+);
 
-// Each name once, see getAllCollectionAttributes
-const availableProperties: ModelAttribute[] = getAllCollectionAttributes().toSorted((a: ModelAttribute, b: ModelAttribute) =>
-  a.attribute.name.localeCompare(b.attribute.name),
+/**
+ * The classifier refs the type rule is sent with. With every offered type checked, the listing is not narrowed by
+ * type: all types are sent, so children of types the model doesn't allow there (legacy data) stay visible. Otherwise
+ * exactly the checked offered types.
+ *
+ * @returns {string[]} The classifier refs.
+ */
+function selectedClassifierRefs(): string[] {
+  const offeredRefs: string[] = typeGroups.value.flatMap((group) => group.types.map((type) => type.classifierRef));
+
+  if (offeredRefs.every((ref) => selectedTypes.value.includes(ref))) {
+    return getHierarchyClassifierRefs();
+  }
+
+  return offeredRefs.filter((ref) => selectedTypes.value.includes(ref));
+}
+
+// Each name once, only of the types allowed under the parent, see getAllCollectionAttributes
+const availableProperties = computed<ModelAttribute[]>(() =>
+  getAllCollectionAttributes(props.partOfRef ?? null).toSorted((a: ModelAttribute, b: ModelAttribute) =>
+    a.attribute.name.localeCompare(b.attribute.name),
+  ),
 );
 
 const rows = ref<FilterRow[]>([]);
-const selectedLabels = ref<string[]>([]);
+/** Classifier refs of the selected node types */
+const selectedTypes = ref<string[]>([]);
 const search = ref<string>("");
 
 /**
@@ -59,8 +95,9 @@ const search = ref<string>("");
  */
 function sync(): void {
   rows.value = filtersToRows();
-  selectedLabels.value = [
-    ...((props.filters.find((rule: FilterRule) => rule.target.kind === "labels")?.conditions[0]?.value as string[]) ?? []),
+  selectedTypes.value = [
+    ...((props.filters.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]?.value as string[]) ??
+      []),
   ];
   search.value =
     (props.filters.find((rule: FilterRule) => rule.target.kind === "distinct")?.conditions[0]?.value as string) ?? "";
@@ -78,7 +115,7 @@ function sync(): void {
  * @returns {void} This function does not return a value.
  */
 function addRow(): void {
-  const property: ModelAttribute | undefined = availableProperties[0];
+  const property: ModelAttribute | undefined = availableProperties.value[0];
   const comparators: FilterComparator[] = availableComparators(getModelContext(), property);
 
   rows.value.push({
@@ -105,7 +142,7 @@ function removeRow(id: string): void {
  * A rule can hold several conditions on the same target, but the editor shows one condition per row —
  * so `status` with two conditions becomes two rows, and {@linkcode rowsToFilters} merges them back.
  *
- * `labels` and `distinct` are left out: They each have a dedicated control (the checkboxes and
+ * `classifier` and `distinct` are left out: They each have a dedicated control (the checkboxes and
  * the search box), so neither is editable as a row.
  *
  * @returns {FilterRow[]} One row per editable condition.
@@ -127,8 +164,8 @@ function filtersToRows(): FilterRow[] {
  * Assembles the editor's three controls into the rules expected by the API. Validates each row and
  * drops incomplete ones.
  *
- * The search box and the label checkboxes each own exactly one rule, so both are written straight
- * from their state. The rows carry everything else and are merged into one rule per target with
+ * The search box and the node type checkboxes each own exactly one rule, so both are written straight
+ * from their state (the types via {@linkcode selectedClassifierRefs}). The rows carry everything else and are merged into one rule per target with
  * multiple conditions.
  *
  * @returns {FilterSpec} The rules to send.
@@ -136,7 +173,7 @@ function filtersToRows(): FilterRow[] {
 function rowsToFilters(): FilterSpec {
   const next: FilterSpec = [
     { target: { kind: "distinct" }, operator: "and", conditions: [{ comparator: "contains", value: search.value }] },
-    { target: { kind: "labels" }, operator: "and", conditions: [{ comparator: "in", value: [...selectedLabels.value] }] },
+    { target: { kind: "classifier" }, operator: "and", conditions: [{ comparator: "in", value: selectedClassifierRefs() }] },
   ];
 
   const byTarget = new Map<string, FilterRule>();
@@ -191,24 +228,29 @@ function isRowComplete(row: FilterRow): boolean {
 
 onMounted(sync);
 
-watch([rows, selectedLabels, search], emitChange, { deep: true });
+watch([rows, selectedTypes, search], emitChange, { deep: true });
 
 defineExpose({ sync });
 </script>
 
 <template>
   <div class="editor flex flex-col gap-2">
-    <div v-for="group in labelGroups" :key="group.base" class="group flex gap-1 flex-wrap">
+    <div v-for="group in typeGroups" :key="group.base" class="group flex gap-1 flex-wrap">
       <div
-        v-for="label in group.additional"
-        :key="label"
+        v-for="type in group.types"
+        :key="type.classifierRef"
         class="node-label-checkbox-container flex items-center gap-2"
-        :title="`${selectedLabels.includes(label) ? 'Deselect' : 'Select'} ${label}`"
+        :title="`${selectedTypes.includes(type.classifierRef) ? 'Deselect' : 'Select'} ${type.name}`"
       >
-        <Checkbox v-model="selectedLabels" :input-id="`${instanceId}-${label}`" :value="label" :style="{ display: 'none' }" />
+        <Checkbox
+          v-model="selectedTypes"
+          :input-id="`${instanceId}-${type.classifierRef}`"
+          :value="type.classifierRef"
+          :style="{ display: 'none' }"
+        />
         <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
-        <label :for="`${instanceId}-${label}`" class="flex gap-1 items-center"
-          ><RAMENNodeIcon :spec="resolveNodeIcon([group.base, label])" /><span>{{ label }}</span></label
+        <label :for="`${instanceId}-${type.classifierRef}`" class="flex gap-1 items-center"
+          ><RAMENNodeIcon :spec="resolveNodeIcon(type)" /><span>{{ type.name }}</span></label
         >
       </div>
     </div>

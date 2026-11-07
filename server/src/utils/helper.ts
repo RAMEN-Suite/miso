@@ -6,7 +6,7 @@ import {
   FilterTarget,
   HierarchyQuery,
   HierarchyScope,
-  NodeStatusObject,
+  ElementGraph,
   ModelAttribute,
   ModelContext,
 } from "../models/types.js";
@@ -139,32 +139,34 @@ export function parseUuidListFrom(source: Record<string, unknown>, key: string, 
 }
 
 /**
- * Parses a node status object from a request body.
+ * Parses a write payload: nodes and relations in the element format. Their content is checked by `toNodeChanges` in
+ * `utils/nodeUpdate.ts`.
  *
- * @param {Request} req - The express request object.
- * @returns {string} The parsed node status object.
- * @throws {ValidationError} If the `data` field is missing or malformed.
+ * @param {unknown} raw - The payload.
+ * @returns {ElementGraph} The payload.
+ * @throws {ValidationError} If `nodes` or `relations` is missing.
  */
-export function parseNodeStatusObject(req: Request): NodeStatusObject {
-  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+export function parseWritePayload(raw: unknown): ElementGraph {
+  const payload = (raw ?? {}) as Partial<ElementGraph>;
 
-  if (!body.data || typeof body.data !== "object") {
-    throw new ValidationError("`data` is required.");
+  if (!Array.isArray(payload.nodes) || !Array.isArray(payload.relations)) {
+    throw new ValidationError("The payload needs `nodes` and `relations` lists.");
   }
 
-  return body.data as NodeStatusObject;
+  return payload as ElementGraph;
 }
 
 /**
- *  Parses the `POST /nodes` request body into a valid combination of uuid and `NodeStatusObject`.
+ *  Parses the `POST /nodes` request body into the uuid of the created/added node and the write payload.
  *
  * @param {Request} req - The express request object.
- * @returns The parsed uuid and node status object.
+ * @returns The parsed uuid and write payload.
  * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
  */
-export function parseCreateNodePayload(req: Request): { uuid: string; data: NodeStatusObject } {
-  const uuid: string = parseUuidFrom((req.body ?? {}) as Record<string, unknown>, ["uuid"]);
-  const data: NodeStatusObject = parseNodeStatusObject(req);
+export function parseCreateNodePayload(req: Request): { uuid: string; data: ElementGraph } {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+  const uuid: string = parseUuidFrom(body, ["uuid"]);
+  const data: ElementGraph = parseWritePayload(body.data);
 
   return { uuid, data };
 }

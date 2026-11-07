@@ -3,7 +3,7 @@ import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, TextNode } from "../models/types";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption, TextNode } from "../models/types";
 import { useAppStore } from "../store/app";
 import { createTextNode } from "../config/ramen";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
@@ -24,11 +24,10 @@ const route = useRoute();
 const { api, addToastMessage } = useAppStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
-const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newContentNode = ref<TextNode>(createTextNode());
-const nodeLabels = computed<string[]>(() => ["Content", additionalNodeLabel]);
+const newContentNode = ref<TextNode>(createTextNode(nodeType));
 
 const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
 
@@ -73,7 +72,6 @@ async function handleSubmit() {
 
   const contentNodeToAdd: TextNode = {
     ...newContentNode.value,
-    nodeLabels: toValue(nodeLabels.value),
     data: { ...newContentNode.value.data, text },
   };
 

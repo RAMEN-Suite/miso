@@ -19,7 +19,7 @@ const { hasPendingUpdates } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
-const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value));
 /** The Content's type label (e.g. "Text"), empty if it has none. Shown as the heading. */
 const labelText = computed<string>(() => getContentLabelText(contentNode.value.nodeLabels));
 

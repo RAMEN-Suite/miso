@@ -17,7 +17,7 @@ if (!dialogRef) {
 }
 
 const route: ReturnType<typeof useRoute> = useRoute();
-const { getTextAnnotationProperties, getModelContext } = useConfigStore();
+const { getAnnotationProperties, getMissingAnnotationReferences, getModelContext } = useConfigStore();
 
 const mode: "create" | "edit" = dialogRef.value.data.mode ?? "edit";
 
@@ -34,13 +34,18 @@ const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
  */
 const editedProperties: ModelAttribute[] =
   (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ??
-  getTextAnnotationProperties(annotation.value.node.data.type);
+  getAnnotationProperties(annotation.value.node);
 const propertyFields: ModelAttribute[] = editedProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
 const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
 
-const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, editedProperties, getModelContext()));
+/** Valid properties and no missing required references; the submit button stays disabled until then */
+const inputIsValid = computed<boolean>(
+  () =>
+    checkAnnotationValidity(annotation.value, editedProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+);
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 
@@ -74,7 +79,12 @@ onMounted(() => focusFirstInput());
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content px-1">
       <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
-      <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
+      <AnnotationReferencesSection
+        ref="referencesSection"
+        v-model="annotation.connectedNodes"
+        :annotation="annotation.node"
+        mode="edit"
+      />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full shrink-0">

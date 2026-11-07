@@ -1,19 +1,23 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import ConfigService from "./config.service.js";
-import { toNativeTypes, toNeo4jTypes } from "../utils/helper.js";
+import { toNeo4jTypes } from "../utils/helper.js";
+import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import NotFoundError from "../errors/notFound.error.js";
 import {
   PaginationResult,
   CollectionNode,
   NodeSearchParams,
-  NodeDto,
-  NodeStatusObject,
+  NodeUpdateObject,
   ModelAttribute,
   ModelContext,
+  ElementDiagnostic,
+  ElementGraph,
+  ElementResponse,
 } from "../models/types.js";
-import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
-import { getCollectionAttributes, getCollectionLabels, isEditable, validateValue } from "../utils/modelHelper.js";
+import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
+import WriteValidationService from "./writeValidation.service.js";
+import { getCollectionAttributes, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
 
@@ -25,9 +29,9 @@ export default class CollectionService {
    *
    * @param {string} uuid - The UUID of the collection node to retrieve.
    * @throws {NotFoundError} If the collection with the specified UUID is not found.
-   * @return {Promise<NodeDto<CollectionNode>>} A promise that resolves to the retrieved collection.
+   * @return {Promise<ElementResponse>} The collection as the only node.
    */
-  public async getCollection(uuid: string): Promise<NodeDto<CollectionNode>> {
+  public async getCollection(uuid: string): Promise<ElementResponse> {
     const query: string = `
     MATCH (c:Collection {uuid: $uuid})
 
@@ -37,39 +41,35 @@ export default class CollectionService {
     } AS collection
     `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const rawCollection: CollectionNode = result.records[0]?.get("collection");
+    const [result, context]: [QueryResult, ModelContext] = await Promise.all([
+      Neo4jDriver.runQuery(query, { uuid }),
+      new ConfigService().getModelContext(),
+    ]);
+    const rawCollection: StoredNodeRecord | undefined = result.records[0]?.get("collection");
 
     if (!rawCollection) {
       throw new NotFoundError(`Collection with UUID ${uuid} not found`);
     }
 
-    const collection: NodeDto<CollectionNode> = {
-      node: toNativeTypes(rawCollection) as CollectionNode,
-      connectedNodes: [],
-    };
-
-    return collection;
+    return toElementResponse(context, [rawCollection]);
   }
 
   /**
-   * Checks if the given collection node is valid according to the model. Specifically, it checks if
-   * the collection node has an additional node label if the model has Collection refinements and if the "label"
-   * property is not empty and does not consist of only whitespace characters.
+   * Checks the "label" property of a written Collection: it must not be empty and not consist of only whitespace
+   * characters. Rejected in every validation mode, unlike the findings of the model validation.
    *
-   * Called during creating and updating a collection.
-   *
-   * @param {CollectionNode} collection - The collection node to check for validity.
-   * @param {ModelContext} context - The model context to check against.
+   * @param {NodeUpdateObject} changes - The changes of the write.
+   * @param {string} uuid - UUID of the Collection. Nothing is checked if the write doesn't change it.
    * @returns {void} This function does not return any value.
-   * @throws {ValidationError} If the data is not valid according to the model.
+   * @throws {ValidationError} If the label is empty.
    */
-  private checkValidity(collection: CollectionNode, context: ModelContext): void {
-    const availableNodeLabels: string[] = getCollectionLabels(context);
+  private checkValidity(changes: NodeUpdateObject, uuid: string): void {
+    const collection = [...changes.create, ...changes.update].find(
+      (node) => (node.data as { uuid?: unknown }).uuid === uuid,
+    ) as CollectionNode | undefined;
 
-    // Collections must have and additional node label (if options exist)
-    if (availableNodeLabels.length > 0 && collection.nodeLabels.length === 0) {
-      throw new ValidationError("A Collection MUST have an additional node label.");
+    if (!collection) {
+      return;
     }
 
     // Label property must always be a meaningful string
@@ -84,7 +84,13 @@ export default class CollectionService {
     }
   }
 
-  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<CollectionNode[]>> {
+  /**
+   * Retrieves a page of Collections whose `label` contains the search string.
+   *
+   * @param {Required<NodeSearchParams>} options - Pagination and filter options (search, nodeLabels, order, limit, offset).
+   * @return {Promise<PaginationResult<ElementResponse>>} The page, nodes in listing order.
+   */
+  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<ElementResponse>> {
     const { nodeLabels, limit, order, offset, search } = options;
 
     const baseQuery: string = `
@@ -112,7 +118,7 @@ export default class CollectionService {
       
     `;
 
-    const [countResult, dataResult] = await Promise.all([
+    const [countResult, dataResult, context] = await Promise.all([
       Neo4jDriver.runQuery(countQuery, {
         order,
         search,
@@ -127,15 +133,15 @@ export default class CollectionService {
         offset: int(offset),
         limit: int(limit),
       }),
+      new ConfigService().getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: CollectionNode[] = dataResult.records[0]?.get("collections") ?? [];
-    const data: CollectionNode[] = rawData.map((c) => toNativeTypes(c)) as CollectionNode[];
+    const rawData: StoredNodeRecord[] = dataResult.records[0]?.get("collections") ?? [];
 
     return {
-      data,
+      data: toElementResponse(context, rawData),
       pagination: {
         limit,
         order,
@@ -147,24 +153,25 @@ export default class CollectionService {
   }
 
   /**
-   * Updates a Collection subgraph by flattening the provided {@link NodeStatusObject} tree
-   * and executing a single CRUD query against the database. The top entry in the node tree
-   * is the Collection node, the other nodes are the attached Text and Annotation nodes (and optionally,
-   * their subnodes).
+   * Updates a Collection subgraph from a write payload, after validating the write with the model, in a single CRUD
+   * query against the database.
    *
-   * @param uuid - UUID of the root Collection node to update.
-   * @param root - Ownership tree rooted at the Collection node, with connected nodes (texts,
-   *   annotations, sub-collections) already set as `connectedNodes`.
+   * @param uuid - UUID of the Collection node to update.
+   * @param payload - The changed nodes (the Collection, its annotations etc.) and relations.
    * @throws {NotFoundError} If no Collection node with the given UUID exists after the update.
-   * @returns The updated Collection node.
+   * @throws {ValidationError} If the write doesn't match the model, in `enforce` mode.
+   * @returns The updated Collection as the only node, with the findings of the validation as diagnostics.
    */
-  public async updateCollection(uuid: string, root: NodeStatusObject): Promise<NodeDto<CollectionNode>> {
+  public async updateCollection(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
     const configService: ConfigService = new ConfigService();
     const context: ModelContext = await configService.getModelContext();
 
-    this.checkValidity(root.node as CollectionNode, context);
+    const changes: NodeUpdateObject = toNodeChanges(context, payload);
 
-    const flat = flattenNodeTree(root, context);
+    this.checkValidity(changes, uuid);
+
+    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
+    const flat: NodeUpdateObject = toNeo4jChanges(changes, context);
 
     const query: string = buildSubgraphUpdateQuery("Collection");
 
@@ -190,16 +197,13 @@ export default class CollectionService {
       remove: flat.remove.length,
     });
 
-    const updatedNode: CollectionNode = result.records[0]?.get("node");
+    const updatedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
 
     if (!updatedNode) {
       throw new NotFoundError(`Collection with UUID ${uuid} not found`);
     }
 
-    return {
-      node: updatedNode,
-      connectedNodes: [],
-    };
+    return { ...toElementResponse(context, [updatedNode]), diagnostics };
   }
 
   /**
@@ -211,13 +215,13 @@ export default class CollectionService {
    * @param {Record<string, unknown>} properties - The changed properties.
    * @throws {NotFoundError} If no Collection with the given UUID exists.
    * @throws {ValidationError} If a property is no attribute of the node labels, not editable or its value is invalid.
-   * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
+   * @returns {Promise<ElementResponse>} The updated Collection as the only node.
    */
   public async patchCollectionProperties(
     uuid: string,
     nodeLabels: string[],
     properties: Record<string, unknown>,
-  ): Promise<NodeDto<CollectionNode>> {
+  ): Promise<ElementResponse> {
     const configService: ConfigService = new ConfigService();
     const context: ModelContext = await configService.getModelContext();
     const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
@@ -259,15 +263,12 @@ export default class CollectionService {
       properties: toNeo4jTypes(context, properties, fields),
     });
 
-    const updatedNode: CollectionNode | undefined = result.records[0]?.get("node");
+    const updatedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
 
     if (!updatedNode) {
       throw new NotFoundError(`Collection with UUID ${uuid} not found`);
     }
 
-    return {
-      node: toNativeTypes(updatedNode) as CollectionNode,
-      connectedNodes: [],
-    };
+    return toElementResponse(context, [updatedNode]);
   }
 }

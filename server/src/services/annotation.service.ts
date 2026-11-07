@@ -1,89 +1,35 @@
 import { QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import { toNativeTypes } from "../utils/helper.js";
-import { NodeDto } from "../models/types.js";
-import InternalServerError from "../errors/server.error.js";
+import { ElementGraph, ElementResponse, ModelContext } from "../models/types.js";
+import ConfigService from "./config.service.js";
+import {
+  addStoredNode,
+  addStoredRelation,
+  ResolutionFinding,
+  StoredGraph,
+  StoredGraphRelation,
+  StoredNodeRecord,
+  toElementGraph,
+} from "../utils/storedGraph.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
-interface FlatAnnotationTree {
-  rootUuid: string;
-  annotationNodes: AnnotationNodeRecord[];
-  edges: AnnotationRecordEdge[];
-}
-type AnnotationNodeRecord = NodeDto;
-interface AnnotationRecordEdge {
-  startUuid: string;
-  endUuid: string;
-}
-
 export default class AnnotationService {
   /**
-   * Converts a flat annotation tree structure (as returned by the database) into a nested {@link NodeDto} tree.
+   * Retrieves the annotations of a Content or Collection node in the element format: the annotations, their nested
+   * annotations and the nodes they refer to, and the relations between them, starting with the `HAS_ANNOTATION`
+   * relations from the annotated node (which is only part of `nodes` if an annotation refers to it). Referenced nodes appear once, however many
+   * annotations refer to them; their own annotations are not included.
    *
-   * Each record contains all annotation nodes for one top-level annotation, the `HAS_ANNOTATION` edges between
-   * them, and the `REFERS_TO` nodes already attached to each annotation. The method reconstructs the nesting
-   * by building an adjacency map from the edges and recursing from the root UUID downward.
-   *
-   * The method is used to generate a nested annotation structure that can be easily consumed by the frontend.
-   *
-   * @param flatTrees - Flat annotation trees, one per top-level annotation.
-   * @returns A nested {@link NodeDto} array representing the full annotation tree.
-   */
-  private buildAnnotationNodeTree(flatTrees: FlatAnnotationTree[]): NodeDto[] {
-    return flatTrees.map((tree) => {
-      const { rootUuid, annotationNodes, edges } = tree;
-
-      const nodeMap = new Map<string, NodeDto>(annotationNodes.map((n) => [n.node.data.uuid, n]));
-      const adjacency = new Map<string, string[]>();
-
-      edges.forEach((edge: AnnotationRecordEdge) => {
-        const children = adjacency.get(edge.startUuid) ?? [];
-        children.push(edge.endUuid);
-        adjacency.set(edge.startUuid, children);
-      });
-
-      const buildNestedDto = (uuid: string): NodeDto => {
-        const root: NodeDto | undefined = nodeMap.get(uuid);
-
-        if (!root) {
-          throw new InternalServerError(`Annotation ${uuid} is referenced by an edge but missing from its tree`);
-        }
-
-        // Current root node
-        const nodeData = {
-          nodeLabels: root.node.nodeLabels,
-          data: toNativeTypes(root.node.data),
-        } as NodeDto["node"];
-
-        // Create node data for children and traverse further into their children using the adjacency list
-        const children = [
-          ...root.connectedNodes.map((child: NodeDto) => ({
-            node: toNativeTypes(child.node) as NodeDto["node"],
-            connectedNodes: [],
-          })),
-          ...(adjacency.get(uuid) ?? []).map((n) => buildNestedDto(n)),
-        ];
-
-        return {
-          node: nodeData,
-          connectedNodes: children,
-        };
-      };
-
-      return buildNestedDto(rootUuid);
-    });
-  }
-
-  /**
-   * Retrieves the annotations of a Content or Collection node, each with its nested annotations and referenced nodes.
+   * The refs are resolved like on writes (`utils/storedGraph.ts`): an annotation's shape from its carrier and `type`.
+   * Unresolvable data never fails the read: it gets `null` refs and a diagnostic.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
    * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
-   * @return {Promise<NodeDto[]>} A promise that resolves to the annotation trees.
+   * @return {Promise<ElementResponse>} The nodes, relations and diagnostics. Empty if the node has no annotations.
    */
-  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<NodeDto[]> {
+  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<ElementResponse> {
     const query: string = `
     MATCH (n:Content|Collection {uuid: $nodeUuid})-[:HAS_ANNOTATION]->(a:Annotation)
     WHERE $types IS NULL OR a.type IN $types
@@ -95,40 +41,55 @@ export default class AnnotationService {
         maxLevel: -1
     }) YIELD nodes, relationships
 
-    // Store relationships for later
     WITH
-        a,
-        nodes,
-        [rel IN relationships | {
-            startUuid: startNode(rel).uuid,
-            endUuid: endNode(rel).uuid
-        }] AS edges
+        n,
+        collect(a) AS topLevel,
+        apoc.coll.toSet(apoc.coll.flatten(collect(nodes))) AS annotations,
+        apoc.coll.toSet(apoc.coll.flatten(collect(relationships))) AS nested
 
-    // For each annotation node, get the directly via REFERS_TO connected nodes (Entity, Collection or Content)
-    UNWIND nodes AS annotationNode
-    OPTIONAL MATCH (annotationNode)-[:REFERS_TO]->(leaf:Entity|Collection|Content)
+    // The nodes the annotations refer to (Entity, Collection or Content)
+    UNWIND annotations AS annotation
+    OPTIONAL MATCH (annotation)-[r:REFERS_TO]->(leaf:Entity|Collection|Content)
 
-    WITH a, edges, annotationNode, collect(leaf) AS leaves
+    WITH n, topLevel, annotations, nested, collect(DISTINCT leaf) AS leaves, collect(r) AS references
 
-    WITH a, edges, collect({
-        node: {nodeLabels: labels(annotationNode), data: annotationNode {.*}},
-        connectedNodes: [l IN leaves | {
-            node: { nodeLabels: labels(l), data: l {.*} },
-            connectedNodes: []
-        }]
-    }) AS annotationNodes
-
-    // Add flattened tree structure to result
-    RETURN collect({
-        rootUuid: a.uuid,
-        annotationNodes: annotationNodes,
-        edges: edges
-    }) as annotations
+    RETURN
+        {data: n {.*}, nodeLabels: labels(n)} AS carrier,
+        [x IN annotations + leaves | {data: x {.*}, nodeLabels: labels(x)}] AS nodes,
+        [t IN topLevel | {type: 'HAS_ANNOTATION', from: n.uuid, to: t.uuid}]
+            + [rel IN references + nested | {type: type(rel), from: startNode(rel).uuid, to: endNode(rel).uuid}] AS relations
     `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid, types: options.types ?? null });
-    const annotations: FlatAnnotationTree[] = result.records[0].get("annotations");
+    const [result, context]: [QueryResult, ModelContext] = await Promise.all([
+      Neo4jDriver.runQuery(query, { nodeUuid, types: options.types ?? null }),
+      new ConfigService().getModelContext(),
+    ]);
+    const record = result.records[0];
 
-    return this.buildAnnotationNodeTree(annotations);
+    if (!record) {
+      return { nodes: [], relations: [], diagnostics: [] };
+    }
+
+    const carrier: StoredNodeRecord = record.get("carrier");
+    const graph: StoredGraph = { nodes: new Map(), relations: new Map() };
+
+    // The carrier decides the annotation shapes of the top-level annotations, so it is resolved too
+    for (const node of [carrier, ...(record.get("nodes") as StoredNodeRecord[])]) {
+      addStoredNode(graph, node);
+    }
+
+    for (const relation of record.get("relations") as StoredGraphRelation[]) {
+      addStoredRelation(graph, relation);
+    }
+
+    const { elements, findings }: { elements: ElementGraph; findings: ResolutionFinding[] } = toElementGraph(context, graph);
+    // The annotated node is only listed if an annotation refers back to it
+    const targetUuids = new Set<string>(elements.relations.map((relation) => relation.to));
+
+    return {
+      nodes: elements.nodes.filter((node) => node.data.uuid !== nodeUuid || targetUuids.has(nodeUuid)),
+      relations: elements.relations,
+      diagnostics: findings.map((finding) => finding.diagnostic),
+    };
   }
 }

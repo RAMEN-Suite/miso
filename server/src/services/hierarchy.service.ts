@@ -3,25 +3,28 @@ import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { orderDirection } from "../utils/cypher.js";
-import { toNativeTypes, valueToNativeType } from "../utils/helper.js";
+import { valueToNativeType } from "../utils/helper.js";
+import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
-import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
+import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
+import { getBaseNodeRef } from "../utils/modelHelper.js";
 import ConfigService from "./config.service.js";
+import WriteValidationService from "./writeValidation.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
+  ElementDiagnostic,
+  ElementGraph,
+  ElementNode,
+  ElementResponse,
   FilterSpec,
   FilterTarget,
-  HierarchyNode,
   HierarchyScope,
-  NodeAncestry,
-  NodeDto,
-  NodeStatusObject,
   NodeUpdateObject,
   PaginationResult,
   ModelAttribute,
   ModelContext,
 } from "../models/types.js";
-import { BASE_NODE_LABELS } from "../utils/ramen.js";
+import { BASE_NODE_LABELS, BASE_NODE_REF } from "../utils/ramen.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -45,71 +48,50 @@ export interface HierarchyListOptions {
  */
 export default class HierarchyService {
   /**
-     * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID.
-     *
-     * The ancestry is the path from the root node (the top-most `Collection` node)
-     * to the given node via outgoing `PART_OF` relationships. This is used to determine a node's position in the Collection/Content
-     * hierarchy and create breadcrumb-like visualization and navigation in the frontend.
-  
-     * Contrary to earlier versions, the ancestry can now only consist of `Collection`/`Content` via outgoing `PART_OF` relationships.
-     * The earlier approach included `HAS_ANNOTATION` and `REFERS_TO` relationships together with all other nodes,
-     * but this lead to circular matches and will likely not be used in the editor anyway.
-     *
-     * @param {string} uuid - The UUID of the node to retrieve the ancestry for.
-     * @return {Promise<NodeAncestry[]>} A promise that resolves to an array of node ancestries. Each node ancestry
-     * is an array of node objects..
-     */
-  public async getAncestry(uuid: string): Promise<NodeAncestry[]> {
+   * Retrieves the ancestry of a `Content` or `Collection` node with the given UUID: the node itself, the Collections
+   * above it via outgoing `PART_OF` relationships, and these relationships. Every path from the node along the
+   * relations up to a node without a parent in the response is one ancestry (used for breadcrumbs and navigation).
+   * Only paths that end at a top-level Collection (no parent, not referred to) are included.
+   *
+   * @param {string} uuid - The UUID of the node to retrieve the ancestry for.
+   * @return {Promise<ElementResponse>} The nodes and `PART_OF` relations of all ancestries. Empty if the node doesn't
+   * exist; only the node itself if it is at the top level.
+   */
+  public async getAncestry(uuid: string): Promise<ElementResponse> {
     // TODO: maxLevel 50 should be enough, but change maybe?
-    // TODO: What if circular matches happen? uniqueness should filter that
     const query: string = `
       MATCH (c:Collection|Content {uuid: $uuid})
-  
+
       CALL apoc.path.expandConfig(c, {
             relationshipFilter: 'PART_OF>',
             labelFilter: 'Collection',
             maxLevel: 50,
             uniqueness: 'NODE_PATH'
         }) YIELD path
-  
-        WITH path, last(nodes(path)) AS topNode
-  
-        // Keep only "longest paths" (which have Collections)
-        WHERE
-            NOT (topNode)-[:PART_OF]->() AND
-            NOT ()-[:REFERS_TO]->(topNode)
-  
-        // Reverse path so that the top node of the hierarchy comes first
-        WITH reverse(tail(nodes(path))) as pathNodes
-  
-        RETURN collect([
-            n IN pathNodes | {
-                node: {
-                    nodeLabels: labels(n), 
-                    data: n {.*}
-                },
-                connectedNodes: []
-            }
-        ]) as paths
+
+      WITH path, last(nodes(path)) AS topNode
+
+      // Keep only "longest paths" (which have Collections)
+      WHERE
+          NOT (topNode)-[:PART_OF]->() AND
+          NOT ()-[:REFERS_TO]->(topNode)
+
+      WITH
+          apoc.coll.toSet(apoc.coll.flatten(collect(nodes(path)))) AS pathNodes,
+          apoc.coll.toSet(apoc.coll.flatten(collect(relationships(path)))) AS pathRelations
+
+      RETURN
+          [n IN pathNodes | {nodeLabels: labels(n), data: n {.*}}] AS nodes,
+          [r IN pathRelations | {type: type(r), from: startNode(r).uuid, to: endNode(r).uuid}] AS relations
       `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const paths: NodeAncestry[] = result.records[0]?.get("paths");
+    const [result, context]: [QueryResult, ModelContext] = await Promise.all([
+      Neo4jDriver.runQuery(query, { uuid }),
+      new ConfigService().getModelContext(),
+    ]);
+    const record = result.records[0];
 
-    // Data need to be tranformed to native types, too, even without the possibility of editing them
-    const mapped: NodeAncestry[] = paths.map((path) =>
-      path.map((pathElement: NodeDto) => {
-        return {
-          ...pathElement,
-          node: {
-            nodeLabels: pathElement.node.nodeLabels,
-            data: toNativeTypes(pathElement.node.data),
-          },
-        };
-      }),
-    ) as NodeAncestry[];
-
-    return mapped;
+    return toElementResponse(context, record?.get("nodes") ?? [], record?.get("relations") ?? []);
   }
 
   /**
@@ -156,12 +138,10 @@ export default class HierarchyService {
    *
    * @param {HierarchyScope} scope - Which set of nodes to list.
    * @param {HierarchyListOptions} options - Filter, sort, limit and cursor parameters.
-   * @return {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of nodes plus pagination info.
+   * @return {Promise<PaginationResult<ElementResponse>>} A page of nodes (in listing order, no relations) plus
+   * pagination info.
    */
-  public async listNodes(
-    scope: HierarchyScope,
-    options: HierarchyListOptions,
-  ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
+  public async listNodes(scope: HierarchyScope, options: HierarchyListOptions): Promise<PaginationResult<ElementResponse>> {
     const { filters, sort, order, limit, cursor, signature, properties, context } = options;
 
     // `search` in the pagination payload is a legacy field the client does not read for hierarchy
@@ -172,7 +152,7 @@ export default class HierarchyService {
     // An empty uuid scope can only ever yield an empty page -> skip db query
     if (scope.kind === "uuids" && scope.uuids.length === 0) {
       return {
-        data: [],
+        data: { nodes: [], relations: [], diagnostics: [] },
         pagination: { limit, order, search, totalRecords: 0, nextCursor: null },
       };
     }
@@ -214,7 +194,6 @@ export default class HierarchyService {
 
       RETURN collect({
           node: { nodeLabels: labels(n), data: n {.*} },
-          connectedNodes: [],
           groupRank: groupRank,
           sortValue: sortValue
       }) AS children
@@ -250,11 +229,7 @@ export default class HierarchyService {
     const hasMore: boolean = rawChildren.length > limit;
     const pageRows = hasMore ? rawChildren.slice(0, limit) : rawChildren;
 
-    // The query already returns each child in NodeDto shape; only native-type conversion is left
-    const data: NodeDto<HierarchyNode>[] = pageRows.map((c) => ({
-      node: toNativeTypes(c.node) as HierarchyNode,
-      connectedNodes: [],
-    }));
+    const data: ElementResponse = toElementResponse(context, pageRows.map((row) => row.node));
 
     let nextCursor: string | null = null;
 
@@ -285,89 +260,35 @@ export default class HierarchyService {
   }
 
   /**
-   * Validates a hierarchy path given as an ordered list of UUIDs (root first, focused node last).
+   * Creates a new hierarchy node (Collection or Content) and returns it. Whether it is a Collection or a Content comes
+   * from the classifier of the node identified by `uuid` in the payload, so the same endpoint serves both types. The
+   * write is validated with the model first.
    *
-   * A valid path starts at a top-level node, follows `PART_OF` child edges, and matches the given
-   * UUID sequence exactly. Only the **last** node may be a Content (Contents are leaves); every
-   * earlier node must be a Collection.
-   *
-   * @param {string[]} uuids - The ordered UUIDs of the path (root first).
-   * @return {Promise<NodeDto<HierarchyNode>[]>} The validated path as node DTOs with full labels.
-   * @throws {NotFoundError} If the path does not exist or violates the leaf/ordering rules.
+   * @param {string} uuid - UUID of the created node (not of its parent).
+   * @param {ElementGraph} payload - The created node, and its relation to the parent unless it is created at top level.
+   * @return {Promise<ElementResponse>} The created node as the only node, with the findings of the validation as
+   * diagnostics.
+   * @throws {ValidationError} If `uuid` is not a node of the payload.
+   * @throws {NotFoundError} If the node could not be created.
    */
-  public async validatePath(uuids: string[]): Promise<NodeDto<HierarchyNode>[]> {
-    if (!uuids || uuids.length === 0) {
-      return [];
-    }
-
-    const query: string = `
-    UNWIND $uuids as uuid
-    MATCH (c:Collection|Content {uuid: uuid})
-    WITH collect(c) as allowlistNodes
-
-    MATCH (first:Collection|Content {uuid: $uuids[0]})
-    WHERE NOT EXISTS { (first)-[:PART_OF]->(:Collection) }
-
-    CALL apoc.path.expandConfig(first, {
-        relationshipFilter: '<PART_OF',
-        allowlistNodes: allowlistNodes
-    }) YIELD path
-
-    WITH collect(path)[-1] as longestPath
-    WITH longestPath, nodes(longestPath) AS ns
-
-    // UUID sequence must match exactly, and every node but the last must be a Collection
-    WHERE [x in ns | x.uuid] = $uuids
-      AND all(i IN range(0, size(ns) - 2) WHERE ns[i]:Collection)
-
-    RETURN [n in ns | {
-        data: n {.*},
-        nodeLabels: labels(n)
-    }] as path
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuids });
-    const nodes: HierarchyNode[] = result.records[0]?.get("path");
-
-    if (!nodes) {
-      throw new NotFoundError(`The requested path [${uuids}] does not exist`);
-    }
-
-    return nodes.map((n) => ({
-      node: {
-        nodeLabels: n.nodeLabels,
-        data: toNativeTypes(n.data),
-      } as HierarchyNode,
-      connectedNodes: [],
-    }));
-  }
-
-  /**
-   * Creates a new hierarchy node (Collection or Content) and returns it.
-   * Generalises the old `createOrAddCollection`: the root node label is derived from the labels
-   * of the node identified by `uuid` within the payload tree, so the same endpoint serves both
-   * types. Everything downstream (`flattenNodeTree`, relationship inference) is already type-agnostic.
-   *
-   * @param {string} uuid - UUID of the created/added node (the tree's operative node, not the parent).
-   * @param {NodeStatusObject} data - Ownership tree (the parent as root with the new node attached,
-   *   or the new node itself when created at top level).
-   * @return {Promise<NodeDto<HierarchyNode>>} The created/added node.
-   * @throws {ValidationError} If `uuid` is not present in the payload tree.
-   * @throws {NotFoundError} If the node could not be created/added.
-   */
-  public async createNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
+  public async createNode(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
     const configService: ConfigService = new ConfigService();
     const context = await configService.getModelContext();
 
-    const targetLabels: string[] | null = this.findNodeLabels(data, uuid);
+    const target: ElementNode | undefined = payload.nodes.find((node) => node.data?.uuid === uuid);
 
-    if (!targetLabels) {
+    if (!target) {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
     }
 
-    const rootLabel: "Collection" | "Content" = targetLabels.includes("Content") ? "Content" : "Collection";
+    const rootLabel: "Collection" | "Content" =
+      target.classifierRef && getBaseNodeRef(context, target.classifierRef) === BASE_NODE_REF.Content
+        ? "Content"
+        : "Collection";
 
-    const flatNodeTree: NodeUpdateObject = flattenNodeTree(data, context);
+    const changes: NodeUpdateObject = toNodeChanges(context, payload);
+    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
+    const flatNodeTree: NodeUpdateObject = toNeo4jChanges(changes, context);
     const query: string = buildSubgraphUpdateQuery(rootLabel);
 
     const result: QueryResult = await Neo4jDriver.runQuery(query, {
@@ -379,16 +300,13 @@ export default class HierarchyService {
       attach: flatNodeTree.attach,
     });
 
-    const createdOrAddedNode: HierarchyNode = result.records[0]?.get("node");
+    const createdOrAddedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
 
     if (!createdOrAddedNode) {
       throw new NotFoundError(`Could not add/create node with UUID ${uuid}`);
     }
 
-    return {
-      node: toNativeTypes(createdOrAddedNode) as HierarchyNode,
-      connectedNodes: [],
-    };
+    return { ...toElementResponse(context, [createdOrAddedNode]), diagnostics };
   }
 
   /**
@@ -463,29 +381,5 @@ export default class HierarchyService {
     const deleted: string[] = result.records[0]?.get("deleted") ?? [];
 
     return deleted;
-  }
-
-  /**
-   * Depth-first search for the node with the given UUID inside a {@link NodeStatusObject} tree,
-   * returning its labels.
-   *
-   * @param {NodeStatusObject} node - The current tree node.
-   * @param {string} uuid - The UUID to look for.
-   * @return {string[] | null} The matching node's labels, or null if not found.
-   */
-  private findNodeLabels(node: NodeStatusObject, uuid: string): string[] | null {
-    if (node.node.data.uuid === uuid) {
-      return node.node.nodeLabels;
-    }
-
-    for (const child of node.connectedNodes) {
-      const found: string[] | null = this.findNodeLabels(child, uuid);
-
-      if (found) {
-        return found;
-      }
-    }
-
-    return null;
   }
 }

@@ -1,10 +1,19 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
-import { NodeDto, NodeSearchParams, PaginationResult, TextNode, TextUpdateDto } from "../models/types.js";
-import { toNativeTypes } from "../utils/helper.js";
-import { flattenNodeTree, buildSubgraphUpdateQuery } from "../utils/nodeUpdate.js";
+import {
+  ElementDiagnostic,
+  ElementGraph,
+  ElementResponse,
+  ModelContext,
+  NodeSearchParams,
+  NodeUpdateObject,
+  PaginationResult,
+} from "../models/types.js";
+import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
+import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
+import WriteValidationService from "./writeValidation.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -13,9 +22,9 @@ export default class ContentService {
    * Retrieves a paginated list of Text nodes whose `text` property contains the search string.
    *
    * @param {Required<NodeSearchParams>} options - Pagination and filter options (search, nodeLabels, order, limit, offset).
-   * @return {Promise<PaginationResult<TextNode[]>>} A promise that resolves to a paginated result of Text nodes.
+   * @return {Promise<PaginationResult<ElementResponse>>} The page, nodes in listing order.
    */
-  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<TextNode[]>> {
+  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<ElementResponse>> {
     const { nodeLabels, limit, order, offset, search } = options;
 
     const baseQuery: string = `
@@ -49,18 +58,18 @@ export default class ContentService {
       limit: int(limit),
     };
 
-    const [countResult, dataResult] = await Promise.all([
+    const [countResult, dataResult, context] = await Promise.all([
       Neo4jDriver.runQuery(countQuery, queryParams),
       Neo4jDriver.runQuery(dataQuery, queryParams),
+      new ConfigService().getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: TextNode[] = dataResult.records[0]?.get("texts") ?? [];
-    const data: TextNode[] = rawData.map((t) => toNativeTypes(t)) as TextNode[];
+    const rawData: StoredNodeRecord[] = dataResult.records[0]?.get("texts") ?? [];
 
     return {
-      data,
+      data: toElementResponse(context, rawData),
       pagination: {
         limit,
         order,
@@ -76,9 +85,9 @@ export default class ContentService {
    *
    * @param {string} uuid - The UUID of the Content node to retrieve.
    * @throws {NotFoundError} If the Content with the specified UUID is not found.
-   * @return {Promise<NodeDto<TextNode>>} A promise that resolves to the retrieved Content.
+   * @return {Promise<ElementResponse>} The Content as the only node.
    */
-  public async getContent(uuid: string): Promise<NodeDto<TextNode>> {
+  public async getContent(uuid: string): Promise<ElementResponse> {
     const query: string = `
     MATCH (t:Content {uuid: $uuid})
 
@@ -88,26 +97,36 @@ export default class ContentService {
     } AS text
     `;
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { uuid });
-    const rawText: TextNode = result.records[0]?.get("text");
+    const [result, context]: [QueryResult, ModelContext] = await Promise.all([
+      Neo4jDriver.runQuery(query, { uuid }),
+      new ConfigService().getModelContext(),
+    ]);
+    const rawText: StoredNodeRecord | undefined = result.records[0]?.get("text");
 
     if (!rawText) {
       throw new NotFoundError(`Text with UUID ${uuid} not found`);
     }
 
-    const text: NodeDto<TextNode> = {
-      node: toNativeTypes(rawText) as TextNode,
-      connectedNodes: [],
-    };
-
-    return text;
+    return toElementResponse(context, [rawText]);
   }
 
-  public async updateText(uuid: string, data: TextUpdateDto): Promise<TextNode> {
+  /**
+   * Updates a Content and its annotations, after validating the write with the model.
+   *
+   * @param {string} uuid - The UUID of the Content.
+   * @param {ElementGraph} payload - The changed Content and annotations, and their relations.
+   * @throws {NotFoundError} If the Content doesn't exist after the update.
+   * @throws {ValidationError} If the payload is malformed, or the write doesn't match the model in `enforce` mode.
+   * @return {Promise<ElementResponse>} The updated Content as the only node, with the findings of the validation as
+   * diagnostics.
+   */
+  public async updateText(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
     const configService: ConfigService = new ConfigService();
     const context = await configService.getModelContext();
 
-    const flatNodeTree = flattenNodeTree({ ...data.text, connectedNodes: data.annotations }, context);
+    const changes: NodeUpdateObject = toNodeChanges(context, payload);
+    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
+    const flatNodeTree: NodeUpdateObject = toNeo4jChanges(changes, context);
 
     const query: string = buildSubgraphUpdateQuery("Content");
 
@@ -120,12 +139,12 @@ export default class ContentService {
       attach: flatNodeTree.attach,
     });
 
-    const updatedText: TextNode = result.records[0]?.get("node");
+    const updatedText: StoredNodeRecord | undefined = result.records[0]?.get("node");
 
     if (!updatedText) {
       throw new NotFoundError(`Text with UUID ${uuid} not found`);
     }
 
-    return toNativeTypes(updatedText) as TextNode;
+    return { ...toElementResponse(context, [updatedText]), diagnostics };
   }
 }

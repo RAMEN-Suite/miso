@@ -366,7 +366,9 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   }
 
   try {
-    if (!getTextAnnotationShape(data.type)) {
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
+
+    if (!shape) {
       console.error(`No annotation shape found for type "${data.type}"`);
       return;
     }
@@ -384,7 +386,30 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       selectedText: textInSelection,
     });
 
-    tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    // Like inline annotations: with required properties or references, the modal only lets a complete one through
+    if (annotationHasConstraints(shape)) {
+      createModalInstance(
+        dialog.open(AnnotationDetailsModal, {
+          props: {
+            ...ANNOTATION_MODAL_PROPS,
+            header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
+          },
+          data: {
+            annotation: newAnnotationTemplate,
+            mode: "create",
+          },
+          emits: {
+            onSubmit: (editedAnnotationData: Annotation) => {
+              tiptap.value?.commands.addBlockClassification(editedAnnotationData, capturedSelection.from, capturedSelection.to);
+              destroyModalInstance();
+            },
+          },
+          onClose: destroyModalInstance,
+        }),
+      );
+    } else {
+      tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    }
   } catch (error: unknown) {
     if (error instanceof AnnotationRangeError) {
       addToastMessage({

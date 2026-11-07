@@ -1,6 +1,13 @@
 import { useConfigStore } from "../store/config";
-import { Annotation, AnnotationNode, ModelAttribute } from "../models/types";
-import { getDefaultValue, getOptions, isRequired } from "../utils/helper/modelHelper";
+import { Annotation, AnnotationNode, CollectionNode, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import {
+  familyRefOf,
+  getDefaultValue,
+  getOptions,
+  getShapeProperties,
+  isRequired,
+  shapeRefOf,
+} from "../utils/helper/modelHelper";
 import { IAnnotation } from "../models/IAnnotation";
 
 /**
@@ -8,7 +15,7 @@ import { IAnnotation } from "../models/IAnnotation";
  * Provides factory functions for creating different types of annotations.
  */
 interface UseCreateAnnotationReturnType {
-  createCollectionAnnotation: (params: { nodeLabels: string[]; subType?: string | number; type: string }) => Annotation;
+  createCollectionAnnotation: (params: { collection: CollectionNode; subType?: string | number; type: string }) => Annotation;
   createTextAnnotation: (params: { selectedText: string; subType?: string | number; type: string }) => Annotation;
 }
 
@@ -23,8 +30,7 @@ interface UseCreateAnnotationReturnType {
  * @returns {UseCreateAnnotationReturnType} An object containing the functions to create annotations.
  */
 export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateAnnotationReturnType {
-  const { getTextAnnotationProperties, getCollectionAnnotationProperties, getAnnotationExtent, getModelContext } =
-    useConfigStore();
+  const { getTextAnnotationShape, findCollectionAnnotationShape, getAnnotationExtent, getModelContext } = useConfigStore();
 
   /**
    * Creates an annotation object with the given parameters.
@@ -87,18 +93,22 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   }
 
   /**
-   * Creates an annotation for a collection with given node labels and type.
+   * Creates an annotation with the given type for a collection. Its shape is resolved from the collection's classifier
+   * and the type, and set as `shapeRef` (its family as `classifierRef`), like on annotations read from the server.
    * The subType is optional and will default to the first option if not provided.
    *
-   * @param {Object} params - The parameters object. Contains the type, subType (optional) and node labels of the collection.
+   * @param {Object} params - The parameters object. Contains the type, subType (optional) and the collection.
    * @returns {Annotation} An object containing the properties, entities and additional texts of the annotation.
    */
-  function createCollectionAnnotation(params: { type: string; subType?: string | number; nodeLabels: string[] }): Annotation {
-    const { type, nodeLabels } = params;
+  function createCollectionAnnotation(params: { type: string; subType?: string | number; collection: CollectionNode }): Annotation {
+    const { type, subType, collection } = params;
+    const shape: ModelAnnotationShape | undefined = findCollectionAnnotationShape(collection, type);
+    const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-    const fields: ModelAttribute[] = getCollectionAnnotationProperties(nodeLabels, type);
+    const annotationObject: Annotation = createAnnotationObject({ type, subType, fields });
 
-    const annotationObject: Annotation = createAnnotationObject({ ...params, fields });
+    annotationObject.node.shapeRef = shape ? shapeRefOf(shape) : null;
+    annotationObject.node.classifierRef = shape ? familyRefOf(shape) : null;
 
     return annotationObject;
   }
@@ -132,17 +142,25 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   }
 
   /**
-   * Creates a content annotation with the given type and subtype.
+   * Creates a content annotation with the given type and subtype. Its shape is the text annotation type (the editor's
+   * key), set as `shapeRef` (its family as `classifierRef`), like on annotations read from the server.
    *
    * @param {Object} params - The parameters object. Currently consists only of the type and subtype (optional).
    * @returns {Annotation} - The created content annotation object.
    */
   function createTextAnnotation(params: { type: string; subType?: string | number; selectedText: string }): Annotation {
-    const { type, selectedText } = params;
+    const { type, subType, selectedText } = params;
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
+    const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-    const fields: ModelAttribute[] = getTextAnnotationProperties(type);
+    const annotation: Annotation = createAnnotationObject({ type, subType, fields });
 
-    const annotation: Annotation = createAnnotationObject({ ...params, fields });
+    // Without a modelled shape (e.g. an editor built-in the project doesn't model) the refs stay unset, `null` is for
+    // stored data that can't be resolved
+    if (shape) {
+      annotation.node.shapeRef = shapeRefOf(shape);
+      annotation.node.classifierRef = familyRefOf(shape);
+    }
 
     // Initial text property from text selection.
     annotation.node.data.text = selectedText;

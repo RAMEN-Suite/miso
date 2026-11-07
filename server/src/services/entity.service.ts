@@ -1,7 +1,8 @@
-import { int, QueryResult } from "neo4j-driver";
+import { int } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import { EntityNode, NodeSearchParams, PaginationResult } from "../models/types.js";
-import { toNativeTypes } from "../utils/helper.js";
+import { ElementResponse, NodeSearchParams, PaginationResult } from "../models/types.js";
+import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
+import ConfigService from "./config.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -10,9 +11,9 @@ export default class EntityService {
    * Retrieves a paginated list of Entity nodes whose `label` property contains the search string.
    *
    * @param {Required<NodeSearchParams>} options - Pagination and filter options (search, nodeLabels, order, limit, offset).
-   * @return {Promise<PaginationResult<EntityNode[]>>} A promise that resolves to a paginated result of Entity nodes.
+   * @return {Promise<PaginationResult<ElementResponse>>} The page, nodes in listing order.
    */
-  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<EntityNode[]>> {
+  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<ElementResponse>> {
     const { nodeLabels, limit, order, offset, search } = options;
 
     const baseQuery: string = `
@@ -46,18 +47,18 @@ export default class EntityService {
       limit: int(limit),
     };
 
-    const [countResult, dataResult] = await Promise.all([
+    const [countResult, dataResult, context] = await Promise.all([
       Neo4jDriver.runQuery(countQuery, queryParams),
       Neo4jDriver.runQuery(dataQuery, queryParams),
+      new ConfigService().getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
 
-    const rawData: EntityNode[] = dataResult.records[0]?.get("entities") ?? [];
-    const data: EntityNode[] = rawData.map((e) => toNativeTypes(e)) as EntityNode[];
+    const rawData: StoredNodeRecord[] = dataResult.records[0]?.get("entities") ?? [];
 
     return {
-      data,
+      data: toElementResponse(context, rawData),
       pagination: {
         limit,
         order,
@@ -66,28 +67,5 @@ export default class EntityService {
         offset,
       },
     };
-  }
-
-  /**
-   * Retrieves entities of a given node label that contain the search string in their `label` property.
-   *
-   * @param {string} nodeLabel - The node label to match, e.g. "ActorRole" or "Entity".
-   * @param {string} searchStr - The search string to filter by.
-   * @return {Promise<EntityNode[]>} A promise that resolves to an array of matching Entity nodes.
-   */
-  async searchByLabel(nodeLabel: string, searchStr: string): Promise<EntityNode[]> {
-    const query: string = `
-		MATCH (n:${nodeLabel})
-    WHERE toLower(n.label) CONTAINS toLower($searchStr)
-    WITH n ORDER BY n.label ASC
-		RETURN collect({
-      nodeLabels: [l IN labels(n) WHERE l <> 'Entity' | l],
-      data: n {.*}
-    }) as entities
-		`;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeLabel, searchStr });
-
-    return result.records[0]?.get("entities") as EntityNode[];
   }
 }

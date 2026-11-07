@@ -1,4 +1,4 @@
-import type { AnnotationShape, Attribute, Owned, RamenModel } from "@ramen-suite/core";
+import type { AnnotationShape, Attribute, Diagnostic, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
@@ -81,6 +81,77 @@ export interface ModelAttribute {
  */
 export type ModelAnnotationShape = Owned<AnnotationShape>;
 
+/** A node type new nodes can be created with, e.g. in the "add" menus */
+export interface NodeTypeOption {
+  /** Qualified ref of the classifier */
+  classifierRef: string;
+  /** The classifier's name, for display */
+  name: string;
+  /** The labels new nodes of the type are stored with: the names of its lineage, base first */
+  nodeLabels: string[];
+  /**
+   * The values new nodes of the type start with: `false` for required Boolean attributes (an untouched checkbox would
+   * otherwise have no value). Other required attributes stay empty, so they are filled in deliberately.
+   */
+  initialData: Record<string, unknown>;
+}
+
+/**
+ * The model element a stored name (node labels, annotation `type`) resolves to: its qualified ref, or `null` and the
+ * problem, so reads can report unresolvable data instead of failing.
+ */
+export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
+
+/** A node in the element format: `uuid` inside `data`, attributes by name, the model refs next to them */
+export interface ElementNode {
+  /** What a write does with the node. Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
+  classifierRef: string | null;
+  /** Annotations only: qualified ref of the annotation shape */
+  shapeRef?: string | null;
+  /** Reads only: the labels as stored. Writes derive them from `classifierRef`. */
+  nodeLabels?: string[];
+  data: BaseNodeData & Record<string, unknown>;
+}
+
+/** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
+export interface ElementRelation {
+  /** What a write does with the relation (`added`/`removed`). Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
+  relationRef: string | null;
+  /** uuid of the start node */
+  from: string;
+  /** uuid of the end node */
+  to: string;
+}
+
+/** Nodes and relations in the element format, as validated by `validateElements` in `instanceMapper.ts` */
+export interface ElementGraph {
+  nodes: ElementNode[];
+  relations: ElementRelation[];
+}
+
+/** A read in the element format: the stored nodes and relations, and the problems of resolving them to the model */
+export interface ElementResponse extends ElementGraph {
+  diagnostics: ElementDiagnostic[];
+}
+
+/** A validation finding, mapped back to the element it belongs to */
+export interface ElementDiagnostic {
+  severity: Diagnostic["severity"];
+  /** RAMEN core's code, or a `MISO_` code for the app's own checks */
+  code: string;
+  message: string;
+  /** uuid of the node the finding belongs to */
+  uuid?: string;
+  /** The relation the finding belongs to */
+  relation?: Omit<ElementRelation, "status">;
+  /** Name of the property the finding belongs to */
+  attribute?: string;
+}
+
 export interface BaseNodeData {
   uuid: string;
 }
@@ -95,8 +166,6 @@ export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" 
 export type LayoutName = "default" | "blank";
 
 export type CollectionNode = Node<ICollection>;
-
-export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
 
 export interface NodeSearchParams {
   searchInput?: string;
@@ -120,7 +189,7 @@ export interface HierarchyEntry {
   data: NodeDto<HierarchyNode>;
   meta: {
     /**
-     * Derived from `data.node.nodeLabels` via `getBaseNodeLabel()`. Cached here because it is read
+     * Derived from the node type via `getBaseNodeLabel()` in `modelHelper.ts`. Cached here because it is read
      * on every render (icon, click behaviour).
      */
     baseLabel: "Collection" | "Content";
@@ -273,8 +342,11 @@ export type FilterTarget =
   | { kind: "property"; field: string }
   /** The node's default value to fulltext-search — `label`, falling back to a `text` currently */
   | { kind: "distinct" }
-  /** The node's labels. Filter only — not a valid sort target. */
-  | { kind: "labels" };
+  /**
+   * The node's type: an `in` condition over classifier refs matches nodes of these types and their refinements. Filter
+   * only — not a valid sort target.
+   */
+  | { kind: "classifier" };
 
 export type FilterOperator = "and" | "or";
 
@@ -300,7 +372,7 @@ export interface HierarchySort {
   /**
    * What to sort by, named the same way a {@linkcode FilterRule} names what it matches — so anything
    * filterable is sortable, and both resolve through the same expression builder on the server.
-   * `{ kind: "labels" }` is rejected: a label set has no ordering.
+   * `{ kind: "classifier" }` is rejected: a set of node types has no ordering.
    */
   target: FilterTarget;
   /** Direction to sort by. */
@@ -315,16 +387,17 @@ export interface MalformedAnnotation {
   data: StandoffAnnotation;
 }
 
-export interface NetworkPostData {
-  type: CollectionNetworkActionType;
-  nodes: (CollectionNode | TextNode)[];
-  origin: CollectionNode | null;
-  target: CollectionNode | null;
-}
-
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
   data: T;
+  /** The labels as stored in the database */
   nodeLabels: string[];
+  /**
+   * Qualified ref of the node's classifier, resolved by the server from the labels (for annotations: the family of
+   * its shape). `null` if the stored data can't be resolved, missing on nodes the client created itself.
+   */
+  classifierRef?: string | null;
+  /** Annotations only: qualified ref of the annotation shape, resolved by the server from the carrier and `type` */
+  shapeRef?: string | null;
 }
 
 export type NodeAncestry = NodeDto<CollectionNode>[];

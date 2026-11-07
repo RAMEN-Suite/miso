@@ -9,6 +9,7 @@ import {
   Annotation,
   ModelAttribute,
   ModelContext,
+  NodeTypeOption,
 } from "../../models/types";
 import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
 import { isList, validateValue } from "./modelHelper";
@@ -142,14 +143,12 @@ export function pruneUnconfiguredProperties(
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.
  *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Entity" base label.
- *   Defaults to none, leaving the node with the base label only.
+ * @param {NodeTypeOption} type - The node type of the new Entity.
  * @return {NodeStatusObject<EntityNode>} A new Entity node status object with default values.
  */
-export function createEntityNodeStatusObject(params?: { additionalNodeLabels: string[] }): NodeStatusObject<EntityNode> {
+export function createEntityNodeStatusObject(type: NodeTypeOption): NodeStatusObject<EntityNode> {
   const entityNode: NodeStatusObject<EntityNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createEntityNode({ additionalNodeLabels: params?.additionalNodeLabels ?? [] })),
+    createNodeDtoFromNode(createEntityNode(type)),
   ) as NodeStatusObject<EntityNode>;
 
   entityNode.meta.status = "created";
@@ -162,14 +161,12 @@ export function createEntityNodeStatusObject(params?: { additionalNodeLabels: st
  *
  * The node is marked as "created" so that the backend creates it once the parent node is saved.
  *
- * @param {Object} params - The optional parameters for the new node.
- * @param {string[]} params.additionalNodeLabels - The additional labels to append to the "Content" base label.
- *   Defaults to none, leaving the node with the base label only.
+ * @param {NodeTypeOption} type - The node type of the new Content.
  * @return {NodeStatusObject<TextNode>} A new Content node status object with default values.
  */
-export function createContentNodeStatusObject(params?: { additionalNodeLabels: string[] }): NodeStatusObject<TextNode> {
+export function createContentNodeStatusObject(type: NodeTypeOption): NodeStatusObject<TextNode> {
   const contentNode: NodeStatusObject<TextNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createTextNode({ additionalNodeLabels: params?.additionalNodeLabels ?? [] })),
+    createNodeDtoFromNode(createTextNode(type)),
   ) as NodeStatusObject<TextNode>;
 
   contentNode.meta.status = "created";

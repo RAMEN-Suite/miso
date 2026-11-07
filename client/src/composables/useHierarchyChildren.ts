@@ -10,7 +10,8 @@ import {
   NodeDto,
   PaginationResult,
 } from "../models/types";
-import { getBaseNodeLabel } from "../config/ramen";
+import { useConfigStore } from "../store/config";
+import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import ApiError from "../utils/errors/api.error";
 
 export interface UseHierarchyChildrenOptions {
@@ -41,6 +42,7 @@ export function useHierarchyChildren(
   options: UseHierarchyChildrenOptions,
 ) {
   const { api } = useAppStore();
+  const { getModelContext } = useConfigStore();
 
   const hasMore = computed<boolean>(() => state.value.initialized && state.value.cursor !== null);
 
@@ -51,11 +53,13 @@ export function useHierarchyChildren(
    * @returns {HierarchyEntry} The column entry.
    */
   function createEntryFromNode(dto: NodeDto<HierarchyNode>): HierarchyEntry {
+    // Listings only hold Collections and Contents
+    const baseLabel: "Collection" | "Content" =
+      getBaseNodeLabel(getModelContext(), dto.node) === "Collection" ? "Collection" : "Content";
+
     return {
       data: { node: dto.node, connectedNodes: [] },
-      meta: {
-        baseLabel: getBaseNodeLabel(dto.node.nodeLabels) as "Collection" | "Content",
-      },
+      meta: { baseLabel },
     };
   }
 

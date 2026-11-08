@@ -9,10 +9,9 @@ import {
   Node,
   NodeUpdateObject,
 } from "../models/types.js";
-import { toNeo4jTypes } from "./helper.js";
+import { toNeo4jTypes, toStoredSelector } from "./helper.js";
 import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
 import { BASE_NODE_REF } from "./ramen.js";
-import { toStoredSelector } from "./selector.js";
 
 /**
  * Converts a node for the write query: only labels and data (the refs are not stored), with the values converted to

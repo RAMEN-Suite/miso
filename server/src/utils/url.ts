@@ -1,37 +1,24 @@
 /**
- * Checks if a given file name is a valid configuration file.
+ * Whether a value is the name of a JSON file in the config directory (no path, so no traversal).
  *
- * Used to validate the config URL when it is not an HTTP URL, to prevent path traversal and only allow JSON files in
- * the config directory.
- *
- * @param {string} fileName The file name (maybe including a path) to check.
- * @return {boolean} True if the file name is a valid configuration file, false otherwise.
+ * @param {string} fileName - The file name.
+ * @returns {boolean} `true` for valid config file names.
  */
 export function isValidConfigFile(fileName: string): boolean {
-  // No path traversal should be allowed, only the file name
-  if (fileName.includes("/") || fileName.includes("..")) {
-    return false;
-  }
-
-  // Files in the config directory are JSON, so only these are allowed
-  if (!fileName.endsWith(".json")) {
-    return false;
-  }
-
-  return true;
+  return !fileName.includes("/") && !fileName.includes("..") && fileName.endsWith(".json");
 }
 
 /**
- * Checks if a given string is a valid HTTP(S) URL.
+ * Whether a value is an http(s) URL.
  *
- * @param {string} string The string to check.
- * @return {boolean} True if the string is a valid HTTP URL, false otherwise.
+ * @param {string} value - The value.
+ * @returns {boolean} `true` for http(s) URLs.
  */
-export function isValidHttpUrl(string: string): boolean {
+export function isValidHttpUrl(value: string): boolean {
   try {
-    const newUrl: URL = new URL(string);
+    const url: URL = new URL(value);
 
-    return newUrl.protocol === "http:" || newUrl.protocol === "https:";
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }

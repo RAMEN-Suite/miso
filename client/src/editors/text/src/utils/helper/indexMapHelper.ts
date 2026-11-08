@@ -213,11 +213,8 @@ export function createIndexMapBuilder(state: EditorState) {
   }
 
   /**
-   * Recursively walks `node` and records the standoff position of every inline node of
-   * `nodeTypeName` that carries a `uuid` attr. Zero-point annotations (including hardBreaks) use offset semantics:
-   * the atom sits before the character at plain-text offset `charIndex`, so it has no range and both bounds equal
-   * that offset (`start === end === charIndex`). The char counter is NOT advanced for the
-   * inline atom itself.
+   * Recursively records `{ start: charIndex, end: charIndex }` for every uuid-bearing inline node of `nodeTypeName`.
+   * A zero point stands before the char at `charIndex` and does not advance the counter.
    *
    * @param node - The ProseMirror node to walk.
    * @param charIndex - Plain-text char offset at the start of this node.

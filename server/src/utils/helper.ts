@@ -18,6 +18,7 @@ import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
 import { env } from "../env.js";
 import { AttributeValueType } from "./ramen.js";
+import { isPlainObject } from "./selector.js";
 
 /**
  * Capitalizes the first letter of a given string.
@@ -389,6 +390,43 @@ export function toNeo4jTypes(context: ModelContext, properties: object, fields: 
       return [key, value];
     }),
   );
+}
+
+/** The annotation property that holds the selector */
+const SELECTOR_PROPERTY = "selector";
+
+/**
+ * Neo4j can't store objects as properties, so a selector is stored as JSON string.
+ *
+ * @param {Record<string, unknown>} data - The data with native values.
+ * @returns {Record<string, unknown>} The data with the selector as JSON string.
+ */
+export function toStoredSelector(data: Record<string, unknown>): Record<string, unknown> {
+  const selector: unknown = data[SELECTOR_PROPERTY];
+
+  return isPlainObject(selector) ? { ...data, [SELECTOR_PROPERTY]: JSON.stringify(selector) } : data;
+}
+
+/**
+ * Parses a selector stored as JSON string. A string that isn't a JSON object is kept, so the selector check reports it.
+ *
+ * @param {Record<string, unknown>} data - The stored data.
+ * @returns {Record<string, unknown>} The data with the selector as object.
+ */
+export function fromStoredSelector(data: Record<string, unknown>): Record<string, unknown> {
+  const stored: unknown = data[SELECTOR_PROPERTY];
+
+  if (typeof stored !== "string") {
+    return data;
+  }
+
+  try {
+    const selector: unknown = JSON.parse(stored);
+
+    return isPlainObject(selector) ? { ...data, [SELECTOR_PROPERTY]: selector } : data;
+  } catch {
+    return data;
+  }
 }
 
 /**

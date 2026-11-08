@@ -29,12 +29,8 @@ export default class Neo4jDriver {
    * @return {Promise<Driver>} A promise that resolves to the Neo4j driver instance.
    */
   public static async createDatabaseConnection(): Promise<Driver> {
-    const uri: string = env.NEO4J_URI;
-    const user: string = env.NEO4J_USER;
-    const password: string = env.NEO4J_PW;
-
     try {
-      this.instance = neo4j.driver(uri, neo4j.auth.basic(user, password), {
+      this.instance = neo4j.driver(env.NEO4J_URI, neo4j.auth.basic(env.NEO4J_USER, env.NEO4J_PW), {
         disableLosslessIntegers: true,
       });
 

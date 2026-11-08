@@ -1,6 +1,5 @@
 import type { AnnotationShape, Attribute, Diagnostic, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
-import type { TextPositionSelector } from "../utils/helper/selector";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
@@ -383,11 +382,6 @@ export interface HierarchySort {
 /** Filter state for a hierarchy listing: the rules are ANDed with each other. */
 export type HierarchyFilters = FilterSpec;
 
-export interface MalformedAnnotation {
-  reason: "indexOutOfBounds" | "unconfiguredType";
-  data: StandoffAnnotation;
-}
-
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
   data: T;
   /** The labels as stored in the database */
@@ -440,14 +434,6 @@ export interface SmartView {
     scope: SmartViewScope;
     filters: FilterSpec;
   };
-}
-
-export interface StandoffAnnotation {
-  [key: string]: unknown;
-  selector: TextPositionSelector;
-  text: string;
-  type: string;
-  subType?: string | number;
 }
 
 export type TextNode = Node<IText>;

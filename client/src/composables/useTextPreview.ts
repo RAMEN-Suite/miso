@@ -3,6 +3,7 @@ import { AnnotationNode, NodeDto } from "../models/types";
 import { StandoffConverter, type TiptapJson } from "../editors/text/src";
 import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
+import { createTextPositionSelector, type TextPositionSelector } from "../utils/helper/selector";
 
 /** A read-only document built from the beginning of a text. */
 export interface TextPreview {
@@ -111,7 +112,7 @@ export function useTextPreview(): UseTextPreviewReturnType {
           return a;
         }
 
-        const selector = { ...a.node.data.selector, end: cut - 1 };
+        const selector: TextPositionSelector = createTextPositionSelector(a.node.data.selector.start, cut - 1);
 
         return { ...a, node: { ...a.node, data: { ...a.node.data, selector } } };
       });

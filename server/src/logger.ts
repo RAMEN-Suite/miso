@@ -1,6 +1,7 @@
 import winston from "winston";
 import "winston-daily-rotate-file";
 import { env } from "./env.js";
+import type { Env } from "./schemas/env.schema.js";
 
 const { combine, timestamp, printf, colorize, json, errors } = winston.format;
 
@@ -80,10 +81,10 @@ const allTransports = [
 /**
  * Returns the transports (console or log files) to use based on the given mode.
  *
- * @param {string | undefined} mode The mode to select transports for (env `NODE_ENV`); without one, both are used.
+ * @param {Env["NODE_ENV"]} mode The mode to select transports for (env `NODE_ENV`); without one, both are used.
  * @returns {winston.transport[]} The transports to use.
  */
-function getTransports(mode: string | undefined): winston.transport[] {
+function getTransports(mode: Env["NODE_ENV"]): winston.transport[] {
   if (mode === "development") {
     return allTransports.filter((t) => t instanceof winston.transports.Console);
   } else if (mode === "production") {

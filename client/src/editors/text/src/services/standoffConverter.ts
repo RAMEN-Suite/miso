@@ -1,7 +1,15 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
-import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue } from "../models/types";
+import {
+  ApiJson,
+  TiptapNode,
+  TiptapNodeAttrs,
+  TiptapJson,
+  DocAnnotation,
+  StandoffParseIssue,
+  TextRange,
+} from "../models/types";
 import {
   AnnotationNode,
   BuiltinStructuralType,
@@ -16,15 +24,6 @@ import {
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
 type Anno = NodeStatusObject<AnnotationNode>;
-
-/**
- * Helper for text ranges, used during creation of gap paragraphs when indices are orphaned
- * (not part of any block annotation)
- */
-interface IndexRange {
-  start: number;
-  end: number;
-}
 
 const {
   isZeroPoint,
@@ -232,20 +231,14 @@ export default class StandoffConverter {
   }
 
   /**
-   * Checks whether a zero-point annotation is within a given text range, taking into account zero-point annotations
-   * that are at the end of the text (after the last character).
+   * Whether a zero-point annotation lies in a leaf's range. A zero point stands before the char at `start`
+   * (`start === end`), so one at the end of the text (offset `text.length`) belongs to the last leaf.
    *
-   * A zero-point annotation's selector `start` is an offset (`start === end === N` rather than the index
-   * of the first annotated character (there is no "range" to be covered by a zero-point annotation). Therefore,
-   * the rule is "insert before the character at index N", and its valid range is [0..standoffText.length]. If the annotation is
-   * at the very end of the text, its `start` would technically never be contained in a range. So in this case,
-   * the range to be checked is incremented by one.
-   *
-   * @param {Anno} a The zero-point (including hardBreak) annotation to test.
-   * @param {IndexRange} range The leaf's inclusive char range.
-   * @returns {boolean} `true` if the annotation's offset belongs to this leaf, `false` otherwise
+   * @param {Anno} a The zero-point (including hardBreak) annotation.
+   * @param {TextRange} range The leaf's inclusive char range.
+   * @returns {boolean} `true` if the annotation's offset belongs to this leaf.
    */
-  private inRange(a: Anno, range: IndexRange): boolean {
+  private inRange(a: Anno, range: TextRange): boolean {
     const rangeEnd: number = range.end === this.standoffJson.text.length - 1 ? range.end + 1 : range.end;
 
     return a.node.data.selector.start >= range.start && a.node.data.selector.start <= rangeEnd;
@@ -380,9 +373,9 @@ export default class StandoffConverter {
    *
    * @param {number} gapStart The start index of the gap
    * @param {number} gapEnd The end index of the gap
-   * @returns {IndexRange[]} An array of sub-ranges for this gap
+   * @returns {TextRange[]} An array of sub-ranges for this gap
    */
-  private splitGapByBlockClassifications(gapStart: number, gapEnd: number): IndexRange[] {
+  private splitGapByBlockClassifications(gapStart: number, gapEnd: number): TextRange[] {
     const boundaries = new Set<number>([gapStart, gapEnd + 1]);
 
     for (const anno of this.blockClassificationAnnotations.values()) {
@@ -400,7 +393,7 @@ export default class StandoffConverter {
     }
 
     const sorted: number[] = [...boundaries].sort((a, b) => a - b);
-    const ranges: IndexRange[] = [];
+    const ranges: TextRange[] = [];
 
     for (let i = 0; i < sorted.length - 1; i++) {
       ranges.push({ start: sorted[i], end: sorted[i + 1] - 1 });
@@ -443,9 +436,9 @@ export default class StandoffConverter {
       return;
     }
 
-    const subRanges: IndexRange[] = this.splitGapByBlockClassifications(gapStart, gapEnd);
+    const subRanges: TextRange[] = this.splitGapByBlockClassifications(gapStart, gapEnd);
 
-    let leadingWhitespaceBuffer: IndexRange[] = [];
+    let leadingWhitespaceBuffer: TextRange[] = [];
     let lastParagraph: TiptapNode | null = null;
 
     for (const { start, end } of subRanges) {
@@ -485,8 +478,8 @@ export default class StandoffConverter {
         }
       } else {
         // Leading whitespace at the very start with no siblings: keep it in its own paragraph.
-        const first: IndexRange = leadingWhitespaceBuffer[0];
-        const last: IndexRange = leadingWhitespaceBuffer[leadingWhitespaceBuffer.length - 1];
+        const first: TextRange = leadingWhitespaceBuffer[0];
+        const last: TextRange = leadingWhitespaceBuffer[leadingWhitespaceBuffer.length - 1];
 
         content.push(this.syntheticParagraph(first.start, last.end, this.createLeafContent(first.start, last.end)));
       }
@@ -634,7 +627,7 @@ export default class StandoffConverter {
 
     let cursor: number = start;
     // Holds a leading gap that has no previous sibling yet, so it can be prepended to the next child.
-    let pendingLeadingGap: IndexRange | null = null;
+    let pendingLeadingGap: TextRange | null = null;
 
     for (const child of directChildren) {
       const gapEnd: number = child.node.data.selector.start - 1;

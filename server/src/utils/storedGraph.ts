@@ -10,7 +10,7 @@ import type {
   NodeUpdateObject,
   RefResolution,
 } from "../models/types.js";
-import { toNativeTypes } from "./helper.js";
+import { fromStoredSelector, toNativeTypes } from "./helper.js";
 import { ELEMENT_DIAGNOSTIC_CODE } from "./instanceMapper.js";
 import {
   familyRefOf,
@@ -21,7 +21,6 @@ import {
   resolveShapeRef,
 } from "./modelHelper.js";
 import { BASE_NODE_REF } from "./ramen.js";
-import { fromStoredSelector } from "./selector.js";
 
 /**
  * A graph by its stored names (labels, relationship types, annotation `type`), as loaded from the database and changed
@@ -138,10 +137,12 @@ export interface StoredNodeRecord {
  * @param {StoredNodeRecord} record - The node as the query returned it.
  */
 export function addStoredNode(graph: StoredGraph, record: StoredNodeRecord): void {
-  const data = fromStoredSelector(toNativeTypes(record.data) as Record<string, unknown>) as StoredGraphNode["data"];
+  const uuid: string = uuidOf(record.data);
 
-  if (!graph.nodes.has(data.uuid)) {
-    graph.nodes.set(data.uuid, { nodeLabels: record.nodeLabels, data });
+  if (!graph.nodes.has(uuid)) {
+    const data = fromStoredSelector(toNativeTypes(record.data) as Record<string, unknown>) as StoredGraphNode["data"];
+
+    graph.nodes.set(uuid, { nodeLabels: record.nodeLabels, data });
   }
 }
 

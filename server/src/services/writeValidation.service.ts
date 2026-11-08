@@ -19,12 +19,6 @@ import {
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
-/**
- * How findings of a write are handled (env `VALIDATION_MODE`): `report` logs and returns them and saves anyway,
- * `enforce` rejects writes with errors. `report` until the data of the projects is migrated.
- */
-type ValidationMode = Env["VALIDATION_MODE"];
-
 /** The longest chain of annotations on annotations that is followed to find the carrier of an annotation */
 const MAX_CARRIER_CHAIN = 5;
 
@@ -49,7 +43,8 @@ export default class WriteValidationService {
    * @throws {ValidationError} In `enforce` mode, if there are errors.
    */
   public async validate(context: ModelContext, changes: NodeUpdateObject): Promise<ElementDiagnostic[]> {
-    const mode: ValidationMode = env.VALIDATION_MODE;
+    // `report` logs and returns the findings and saves anyway, `enforce` rejects writes with errors
+    const mode: Env["VALIDATION_MODE"] = env.VALIDATION_MODE;
     const touched: Set<string> = touchedUuids(changes);
     let diagnostics: ElementDiagnostic[];
 

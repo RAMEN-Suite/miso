@@ -199,7 +199,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const cloned: Annotation = cloneDeep(currentEntry);
 
-      stampRange(cloned, range, plainText, isZeroPointAnno);
+      stampSelector(cloned, range, plainText, isZeroPointAnno);
 
       if (isZeroPointAnno) {
         cloned.node.data.isZeroPoint = true;
@@ -241,7 +241,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
       const annotation: Annotation = toAnnotation(entry, status);
 
-      stampRange(annotation, range, plainText);
+      stampSelector(annotation, range, plainText);
       pruneAnnotationData(annotation);
 
       affected.push(annotation);
@@ -296,7 +296,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       };
 
       // Structural zero-points (hardBreaks) are treated like any other zero-point annotation
-      stampRange(annotation, range, plainText, isZeroPoint(annotation.node));
+      stampSelector(annotation, range, plainText, isZeroPoint(annotation.node));
 
       affected.push(annotation);
     });
@@ -344,16 +344,14 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   }
 
   /**
-   * Writes the live standoff range and the text it covers onto the given annotation.
+   * Writes the live selector and the text it covers onto the annotation.
    *
    * @param {Annotation} annotation - The (cloned) annotation to update.
    * @param {TextRange} range - The live range from the index map.
    * @param {string} plainText - The plain text of the whole document.
-   * @param {boolean} hasNoText - Whether the annotation covers no text (zero-point annotations occupy an
-   *   offset between characters, not a range).
-   * @returns {void} This function does not return any value.
+   * @param {boolean} hasNoText - Whether the annotation covers no text (zero points).
    */
-  function stampRange(annotation: Annotation, range: TextRange, plainText: string, hasNoText: boolean = false): void {
+  function stampSelector(annotation: Annotation, range: TextRange, plainText: string, hasNoText: boolean = false): void {
     const { start, end } = range;
 
     annotation.node.data.selector = createTextPositionSelector(start, end);

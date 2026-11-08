@@ -8,7 +8,7 @@ import type { SelectorByMedium, SelectorMedium } from "../utils/helper/selector"
  */
 export type IAnnotation<M extends SelectorMedium = "text"> = BaseNodeData & {
   [keyof: string]: unknown;
-  /** The part of the annotated Content the annotation covers. Only annotations on a Content have one. */
+  /** The part of the annotated Content the annotation covers */
   selector: SelectorByMedium[M];
   subType?: string | number;
   text: string;

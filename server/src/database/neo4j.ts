@@ -1,6 +1,7 @@
 import neo4j, { Driver, Neo4jError, QueryResult, ServerInfo, Session } from "neo4j-driver";
 import DatabaseConnectionError from "../errors/databaseConnection.error.js";
 import InternalServerError from "../errors/server.error.js";
+import { env } from "../env.js";
 
 export default class Neo4jDriver {
   public static instance: Driver;
@@ -28,9 +29,9 @@ export default class Neo4jDriver {
    * @return {Promise<Driver>} A promise that resolves to the Neo4j driver instance.
    */
   public static async createDatabaseConnection(): Promise<Driver> {
-    const uri: string = `${process.env.NEO4J_URI}`;
-    const user: string = `${process.env.NEO4J_USER}`;
-    const password: string = `${process.env.NEO4J_PW}`;
+    const uri: string = env.NEO4J_URI;
+    const user: string = env.NEO4J_USER;
+    const password: string = env.NEO4J_PW;
 
     try {
       this.instance = neo4j.driver(uri, neo4j.auth.basic(user, password), {
@@ -76,7 +77,7 @@ export default class Neo4jDriver {
   public static async runQuery(query: string, params?: Record<string, unknown>): Promise<QueryResult> {
     try {
       const session: Session = this.instance.session({
-        database: process.env.DATABASE_NAME ?? "neo4j",
+        database: env.DATABASE_NAME,
       });
 
       // TODO: This should ideally be split up in "exectuteWrite" and "executeRead"

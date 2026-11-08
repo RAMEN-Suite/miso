@@ -1,3 +1,5 @@
+// First import: checks the environment variables before anything else runs
+import { env } from "./env.js";
 import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import Neo4jDriver from "./database/neo4j.js";
@@ -25,6 +27,6 @@ app.get("/", (req: Request, res: Response) => {
 
 void Neo4jDriver.createDatabaseConnection();
 
-app.listen(process.env.APP_PORT, (): void =>
-  console.log(`Running an Express API server at ${process.env.PROTOCOL}://${process.env.APP_HOST}:${process.env.APP_PORT}/api`),
+app.listen(env.APP_PORT, (): void =>
+  console.log(`Running an Express API server at ${env.PROTOCOL}://${env.APP_HOST}:${env.APP_PORT}/api`),
 );

@@ -1,6 +1,8 @@
 import Neo4jDriver from "../database/neo4j.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
+import { env } from "../env.js";
+import type { Env } from "../schemas/env.schema.js";
 import type { BaseNodeData, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
 import {
@@ -21,7 +23,7 @@ import {
  * How findings of a write are handled (env `VALIDATION_MODE`): `report` logs and returns them and saves anyway,
  * `enforce` rejects writes with errors. `report` until the data of the projects is migrated.
  */
-type ValidationMode = "report" | "enforce";
+type ValidationMode = Env["VALIDATION_MODE"];
 
 /** The longest chain of annotations on annotations that is followed to find the carrier of an annotation */
 const MAX_CARRIER_CHAIN = 5;
@@ -47,7 +49,7 @@ export default class WriteValidationService {
    * @throws {ValidationError} In `enforce` mode, if there are errors.
    */
   public async validate(context: ModelContext, changes: NodeUpdateObject): Promise<ElementDiagnostic[]> {
-    const mode: ValidationMode = process.env.VALIDATION_MODE === "enforce" ? "enforce" : "report";
+    const mode: ValidationMode = env.VALIDATION_MODE;
     const touched: Set<string> = touchedUuids(changes);
     let diagnostics: ElementDiagnostic[];
 

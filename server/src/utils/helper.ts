@@ -16,6 +16,7 @@ import { isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
+import { env } from "../env.js";
 import { AttributeValueType } from "./ramen.js";
 
 /**
@@ -303,69 +304,24 @@ function parsePaginationLimit(rawLimit: unknown): number {
 }
 
 /**
- * Checks if a given file name is a valid configuration file.
- *
- * Currently used to validate the provided file name for the config when the provided URL
- * is not a valid HTTP URL, to prevent path traversal and only allow JSON files in the config directory.
- *
- * @param {string} fileName The file name (maybe including a path) to check.
- * @return {boolean} True if the file name is a valid configuration file, false otherwise.
- */
-export function isValidConfigFile(fileName: string): boolean {
-  // No path traversal should be allowed, only the file name
-  if (fileName.includes("/") || fileName.includes("..")) {
-    return false;
-  }
-
-  // Files in the directry is JSON (config), so only these should be allowed
-  if (!fileName.endsWith(".json")) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Checks if a given string is a valid HTTP URL.
- *
- * Currently only used to determine whether the provided URLs for
- * the config are a remote URL that needs to be fetched
- * or a local file path that can be read from the file system directly.
- *
- * @param {string} string The string to check.
- * @return {boolean} True if the string is a valid HTTP URL, false otherwise.
- */
-export function isValidHttpUrl(string: string): boolean {
-  try {
-    const newUrl: URL = new URL(string);
-
-    return newUrl.protocol === "http:" || newUrl.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Resolves the base URL of a per-project external tool from the environment.
  *
  * The tool name is looked up in the `TOOL_URL_MAPPING` whitelist to find the
  * environment variable holding its base URL. Only known tool names resolve, so arbitrary environment
- * variables cannot be probed via the request path.
+ * variables cannot be probed via the request path. The URL itself is checked at startup (`env.ts`).
  *
  * @param {string} toolName - The name of the tool as provided in the request path.
- * @throws {NotFoundError} If the tool name is unknown or no valid URL is configured for it.
+ * @throws {NotFoundError} If the tool name is unknown or no URL is configured for it.
  * @return {string} The configured base URL of the tool.
  */
 export function getToolUrl(toolName: string): string {
-  const envKey: string | undefined = TOOL_URL_MAPPING[toolName];
-
-  if (!envKey) {
+  if (!Object.prototype.hasOwnProperty.call(TOOL_URL_MAPPING, toolName)) {
     throw new NotFoundError(`Unknown tool: "${toolName}"`);
   }
 
-  const url: string | undefined = process.env[envKey];
+  const url: string | undefined = env[TOOL_URL_MAPPING[toolName]];
 
-  if (!url || !isValidHttpUrl(url)) {
+  if (!url) {
     throw new NotFoundError(`No URL is configured for tool "${toolName}"`);
   }
 

@@ -4,7 +4,8 @@ import { RamenModel } from "@ramen-suite/core";
 import { IMisoConfig } from "../models/IMisoConfig.js";
 import ExternalServiceError from "../errors/externalService.error.js";
 import { CONFIG_DIR } from "../constants.js";
-import { isValidConfigFile, isValidHttpUrl } from "../utils/helper.js";
+import { isValidHttpUrl } from "../utils/url.js";
+import { env } from "../env.js";
 import { collectConfigWarnings, createModelContext } from "../utils/modelHelper.js";
 import { ModelContext } from "../models/types.js";
 import logger from "../logger.js";
@@ -39,25 +40,18 @@ export default class ConfigService {
 
   /**
    * Loads the Miso config from the URL in the GUIDELINES_URL environment variable (a remote location or a file in the
-   * config directory) and validates its model. Loaded anew on every call, so changes take effect immediately.
+   * config directory, checked at startup) and validates its model. Loaded anew on every call, so changes take effect
+   * immediately.
    *
-   * @throws {ExternalServiceError} If the URL is not provided, the config can not be loaded, or it is invalid.
+   * @throws {ExternalServiceError} If the config can not be loaded or is invalid.
    * @return {Promise<ModelContext>} The model context of the loaded config.
    */
   private async load(): Promise<ModelContext> {
     // TODO: Improve error handling...technically a local file read error is not a external service error
-    const url: string | undefined = process.env.GUIDELINES_URL;
-
-    if (!url) {
-      throw new ExternalServiceError(`URL to the config is not provided`);
-    }
+    const url: string = env.GUIDELINES_URL;
 
     if (isValidHttpUrl(url)) {
       return this.prepare(await this.fetchRemote(url));
-    }
-
-    if (!isValidConfigFile(url)) {
-      throw new ExternalServiceError(`Provided config URL is not a valid file name.`);
     }
 
     return this.prepare(await this.readLocal(path.join(CONFIG_DIR, url)));

@@ -456,7 +456,7 @@ function valueToNeo4jType(
   asItem: boolean = false,
 ): unknown {
   // TODO: How handle empty string?
-  // TODO: This is the case for non-customizable properties (uuid, start/endIndex etc.). Keep or handle better?
+  // TODO: This is the case for non-customizable properties (uuid, selector, editor fields etc.). Keep or handle better?
   if (!entry) {
     return value;
   }

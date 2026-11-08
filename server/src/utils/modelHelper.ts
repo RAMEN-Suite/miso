@@ -19,6 +19,7 @@ import {
 import { ConfigBaseEntry, IMisoConfig } from "../models/IMisoConfig.js";
 import type {
   ConfigBlock,
+  ContentMedium,
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
@@ -159,6 +160,26 @@ export function getNodeConfig(context: ModelContext, nodeRef: string): ConfigBlo
   } else {
     return context.model.getNode(nodeRef)?.ext?.miso as ConfigBlock;
   }
+}
+
+/**
+ * The medium of a Content type: the nearest configured `medium` along its lineage.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} contentRef - Qualified ref of the Content type.
+ * @returns {ContentMedium} The configured medium, `text` if none is configured.
+ */
+export function getContentMedium(context: ModelContext, contentRef: string): ContentMedium {
+  // The lineage is base-first, the nearest configuration wins
+  for (const item of [...context.model.getNodeLineage(contentRef)].reverse()) {
+    const medium: unknown = getNodeConfig(context, `${item.modelId}:${item.nodeId}`)?.medium;
+
+    if (medium === "text" || medium === "image") {
+      return medium;
+    }
+  }
+
+  return "text";
 }
 
 // ----- Attributes -----

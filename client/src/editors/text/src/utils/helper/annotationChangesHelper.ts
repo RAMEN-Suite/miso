@@ -1,6 +1,6 @@
 import { Node as DocNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
-import { DocAnnotation, IndexMap } from "../../models/types";
+import { DocAnnotation, IndexMap, TextRange } from "../../models/types";
 import {
   Annotation,
   BuiltinStructuralType,
@@ -9,6 +9,7 @@ import {
   NodeStatus,
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
+  createTextPositionSelector,
   pruneUnconfiguredProperties,
   useConfigStore,
 } from "../../external";
@@ -183,13 +184,13 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
         return;
       }
 
-      const { startIndex, endIndex } = range;
+      const { start, end } = range;
       const isZeroPointAnno: boolean = isZeroPoint(currentEntry.node);
 
       const hasNewRange: boolean =
-        initialEntry?.node.data.startIndex !== startIndex || initialEntry?.node.data.endIndex !== endIndex;
+        initialEntry?.node.data.selector?.start !== start || initialEntry?.node.data.selector?.end !== end;
       const hasChangedText: boolean =
-        !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(startIndex, endIndex + 1);
+        !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(start, end + 1);
       const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
 
       if (!hasNewRange && !hasChangedText && !isEditedOrDeleted) {
@@ -346,23 +347,17 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * Writes the live standoff range and the text it covers onto the given annotation.
    *
    * @param {Annotation} annotation - The (cloned) annotation to update.
-   * @param {{ startIndex: number; endIndex: number }} range - The live range from the index map.
+   * @param {TextRange} range - The live range from the index map.
    * @param {string} plainText - The plain text of the whole document.
    * @param {boolean} hasNoText - Whether the annotation covers no text (zero-point annotations occupy an
    *   offset between characters, not a range).
    * @returns {void} This function does not return any value.
    */
-  function stampRange(
-    annotation: Annotation,
-    range: { startIndex: number; endIndex: number },
-    plainText: string,
-    hasNoText: boolean = false,
-  ): void {
-    const { startIndex, endIndex } = range;
+  function stampRange(annotation: Annotation, range: TextRange, plainText: string, hasNoText: boolean = false): void {
+    const { start, end } = range;
 
-    annotation.node.data.startIndex = startIndex;
-    annotation.node.data.endIndex = endIndex;
-    annotation.node.data.text = hasNoText ? "" : plainText.slice(startIndex, endIndex + 1);
+    annotation.node.data.selector = createTextPositionSelector(start, end);
+    annotation.node.data.text = hasNoText ? "" : plainText.slice(start, end + 1);
   }
 
   return {

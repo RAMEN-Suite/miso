@@ -8,7 +8,10 @@ import type { ModelAttribute } from "../models/types";
 const props = defineProps<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
   data: any;
-  /** The model attributes to show. Without them, all properties of the data are shown as they are. */
+  /**
+   * The model attributes to show; an empty list shows nothing (e.g. an annotation type without properties). Without
+   * it, all properties of the data are shown as they are.
+   */
   fields?: ModelAttribute[];
 }>();
 
@@ -20,7 +23,7 @@ interface PropertyRow {
 }
 
 const rows: ComputedRef<PropertyRow[]> = computed(() => {
-  if (props.fields && props.fields.length > 0) {
+  if (props.fields) {
     return props.fields
       .filter((field: ModelAttribute) => isVisible(getModelContext(), field))
       .map((field: ModelAttribute) => ({

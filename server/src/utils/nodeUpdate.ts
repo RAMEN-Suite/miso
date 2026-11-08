@@ -12,27 +12,26 @@ import {
 import { toNeo4jTypes } from "./helper.js";
 import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
 import { BASE_NODE_REF } from "./ramen.js";
+import { toStoredSelector } from "./selector.js";
 
 /**
  * Converts a node for the write query: only labels and data (the refs are not stored), with the values converted to
- * Neo4j types by the attributes of its classifier (Collections) or its annotation shape (annotations). The values of
- * Contents and Entities are stored as sent.
+ * Neo4j types by the attributes of its classifier (Collections) or its annotation shape (annotations), and the selector
+ * of an annotation as JSON string (see `toStoredSelector`). The values of Contents and Entities are stored as sent.
  */
 function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): Node<object> {
   const baseNodeRef: string | undefined = node.classifierRef ? getBaseNodeRef(context, node.classifierRef) : undefined;
-  let fields: ModelAttribute[];
 
   if (baseNodeRef === BASE_NODE_REF.Collection && node.classifierRef) {
-    fields = getNodeAttributes(context, node.classifierRef);
+    return { nodeLabels: node.nodeLabels, data: toNeo4jTypes(context, node.data, getNodeAttributes(context, node.classifierRef)) };
   } else if (baseNodeRef === BASE_NODE_REF.Annotation) {
     const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
+    const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-    fields = shape ? getShapeProperties(shape) : [];
+    return { nodeLabels: node.nodeLabels, data: toStoredSelector(toNeo4jTypes(context, node.data, fields)) };
   } else {
     return { nodeLabels: node.nodeLabels, data: node.data };
   }
-
-  return { nodeLabels: node.nodeLabels, data: toNeo4jTypes(context, node.data, fields) };
 }
 
 /**

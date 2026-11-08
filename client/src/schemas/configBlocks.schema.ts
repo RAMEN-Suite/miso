@@ -210,11 +210,11 @@ export const annotationShapeConfigSchema = z.strictObject({
 });
 
 /**
- * How far an annotation extends in its content, configured in `ext.miso.editing.extent`. Both values correspond to a
- * Web Annotation `TextPositionSelector` (a zero point has the same start and end).
- * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
+ * How far an annotation extends in its content, configured in `ext.miso.editing.extent`. Both are stored as a
+ * `TextPositionSelector` (a zero point has the same start and end).
+ * - `range`: covers a range in the text, marked with the selector's `start` and `end` (both inclusive).
  *    Required for annotations with representation `blockClassification`.
- * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
+ * - `zeroPoint`: an atom between two characters; `start` is an offset, not a range start.
  */
 export type AnnotationExtent = z.infer<typeof annotationExtentSchema>;
 

@@ -7,7 +7,7 @@ import { EditorState } from "@tiptap/pm/state";
 /**
  * Creates a builder for the standoff-annotation index maps of the given editor state.
  *
- * Each map translates a node or decoration UUID to `{ startIndex, endIndex }` offsets in the
+ * Each map translates a node or decoration UUID to `{ start, end }` offsets (as in a `TextPositionSelector`) in the
  * plain-text representation of the document (i.e. character positions, not ProseMirror doc
  * positions). The maps are used when serialising annotations to standoff format for the backend.
  *
@@ -59,7 +59,7 @@ export function createIndexMapBuilder(state: EditorState) {
    * Label annotations (e.g. `closer`, `address`) are not block nodes themselves; instead, their
    * annotation data are stored in the `_blockClassifications` attribute on the built-in block nodes that
    * fall within their range. For each UUID found, this function accumulates the union of all
-   * contributing nodes' char ranges, giving the annotation's current `startIndex`/`endIndex`.
+   * contributing nodes' char ranges, giving the annotation's current `start`/`end`.
    *
    * @returns The populated `IndexMap`.
    */
@@ -86,10 +86,10 @@ export function createIndexMapBuilder(state: EditorState) {
         const existing = map.get(uuid);
 
         if (!existing) {
-          map.set(uuid, { startIndex: start, endIndex: current - 1 });
+          map.set(uuid, { start, end: current - 1 });
         } else {
-          existing.startIndex = Math.min(existing.startIndex, start);
-          existing.endIndex = Math.max(existing.endIndex, current - 1);
+          existing.start = Math.min(existing.start, start);
+          existing.end = Math.max(existing.end, current - 1);
         }
       });
 
@@ -127,7 +127,7 @@ export function createIndexMapBuilder(state: EditorState) {
 
   /**
    * Converts ProseMirror doc positions for every decoration's `from`/`to` into plain-text char
-   * indices by walking only text nodes and counting characters. The endIndex is stored as
+   * indices by walking only text nodes and counting characters. The end is stored as
    * `to - 1` so both start and end are inclusive char offsets.
    *
    * @returns The populated `IndexMap` keyed by decoration `_uuid`.
@@ -165,16 +165,16 @@ export function createIndexMapBuilder(state: EditorState) {
     const map: IndexMap = new Map();
 
     for (const deco of decorations) {
-      const startIndex: number | undefined = positionMap.get(deco.from);
-      const endIndex: number | undefined = positionMap.get(deco.to);
+      const start: number | undefined = positionMap.get(deco.from);
+      const end: number | undefined = positionMap.get(deco.to);
 
-      if (startIndex === undefined || endIndex === undefined) {
+      if (start === undefined || end === undefined) {
         console.error("Decoration position not found in position map:", deco);
         continue;
       }
       map.set(deco.spec._uuid, {
-        startIndex,
-        endIndex: endIndex - 1,
+        start,
+        end: end - 1,
       });
     }
 
@@ -183,7 +183,7 @@ export function createIndexMapBuilder(state: EditorState) {
 
   /**
    * Recursively walks `node`, accumulating plain-text char count in `charIndex`.
-   * Block nodes with a `uuid` attr are recorded in `map` as `[startIndex, endIndex]` (inclusive).
+   * Block nodes with a `uuid` attr are recorded in `map` as `{ start, end }` (inclusive).
    * Inline atoms are intentionally skipped here; they are handled by `traverseForInlineNode`.
    *
    * @param node - The ProseMirror node to walk.
@@ -196,7 +196,7 @@ export function createIndexMapBuilder(state: EditorState) {
       return charIndex + node.nodeSize;
     }
 
-    const startIndex: number = charIndex;
+    const start: number = charIndex;
     let current: number = charIndex;
 
     node.forEach((child) => {
@@ -206,7 +206,7 @@ export function createIndexMapBuilder(state: EditorState) {
     // Only block nodes map to standoff ranges; inline atoms (zeroPointAnnotation, hardBreak)
     // are handled separately by traverseForInlineNode.
     if (node.attrs.uuid && node.type.isBlock) {
-      map.set(node.attrs.uuid, { startIndex, endIndex: current - 1 });
+      map.set(node.attrs.uuid, { start, end: current - 1 });
     }
 
     return current;
@@ -216,7 +216,7 @@ export function createIndexMapBuilder(state: EditorState) {
    * Recursively walks `node` and records the standoff position of every inline node of
    * `nodeTypeName` that carries a `uuid` attr. Zero-point annotations (including hardBreaks) use offset semantics:
    * the atom sits before the character at plain-text offset `charIndex`, so it has no range and both bounds equal
-   * that offset (`startIndex === endIndex === charIndex`). The char counter is NOT advanced for the
+   * that offset (`start === end === charIndex`). The char counter is NOT advanced for the
    * inline atom itself.
    *
    * @param node - The ProseMirror node to walk.
@@ -232,7 +232,7 @@ export function createIndexMapBuilder(state: EditorState) {
     }
 
     if (node.type.name === nodeTypeName && node.attrs.uuid) {
-      map.set(node.attrs.uuid, { startIndex: charIndex, endIndex: charIndex });
+      map.set(node.attrs.uuid, { start: charIndex, end: charIndex });
       return charIndex;
     }
 

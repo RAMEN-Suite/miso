@@ -85,6 +85,9 @@ export interface ElementDiagnostic {
 /** An `ext.miso` block. The server passes it through, the client validates it. */
 export type ConfigBlock = Record<string, unknown> | undefined;
 
+/** The medium of a Content type (`ext.miso.medium`), which decides the selector type of its annotations */
+export type ContentMedium = "text" | "image";
+
 export type AnnotationNode = Node<IAnnotation>;
 
 /**

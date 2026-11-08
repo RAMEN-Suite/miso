@@ -30,8 +30,8 @@ import {
   createModelContext,
   findShape,
   getClassifierRef,
+  getContentMedium as getContentMediumOfType,
   getNodeAttributes,
-  getNodeConfig,
   getNodeTypeOption,
   getOptions,
   getRefinements,
@@ -371,16 +371,7 @@ export function useConfigStore() {
       return "text";
     }
 
-    // The lineage is base-first, the nearest configuration wins
-    for (const item of context.model.getNodeLineage(classifierRef).toReversed()) {
-      const medium: ContentMedium | undefined = getNodeConfig(context, `${item.modelId}:${item.nodeId}`)?.medium;
-
-      if (medium) {
-        return medium;
-      }
-    }
-
-    return "text";
+    return getContentMediumOfType(context, classifierRef);
   }
 
   /**

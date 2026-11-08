@@ -65,7 +65,13 @@ function buildValidGraph(): { nodes: ElementNode[]; relations: ElementRelation[]
       { classifierRef: refs.text, data: { uuid: T1, text: "Abcd efgh" } },
       {
         classifierRef: refs.family,
-        data: { uuid: A1, type: "persName", startIndex: 0, endIndex: 4, text: "Abcd", isZeroPoint: false },
+        data: {
+          uuid: A1,
+          type: "persName",
+          selector: { type: "TextPositionSelector", start: 0, end: 4 },
+          text: "Abcd",
+          isZeroPoint: false,
+        },
       },
     ],
     relations: [{ relationRef: refs.onText, from: T1, to: A1 }],
@@ -87,10 +93,35 @@ describe("validateElements", () => {
   test("a missing editor field of a text annotation is reported", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    delete graph.nodes[2].data.startIndex;
+    delete graph.nodes[2].data.text;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
-      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED, attribute: "startIndex" }),
+      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED, attribute: "text" }),
+    ]);
+  });
+
+  test("a missing selector of an annotation on a Content is reported", () => {
+    const graph: ElementGraph = buildValidGraph();
+
+    delete graph.nodes[2].data.selector;
+
+    expect(findingsOf(validateElements(context, graph), A1)).toEqual([
+      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_REQUIRED, attribute: "selector" }),
+    ]);
+  });
+
+  test.for([
+    { type: "TextPositionSelector", start: 5, end: 4 },
+    { type: "TextPositionSelector", start: 0, end: 4.5 },
+    { type: "TextPositionSelector", start: 0, end: 4, exact: "Abcd" },
+    { type: "SvgSelector", value: "<svg/>" },
+  ])("the invalid selector %j of an annotation on a text is reported by the app, not by RAMEN core", (selector) => {
+    const graph: ElementGraph = buildValidGraph();
+
+    graph.nodes[2].data.selector = selector;
+
+    expect(findingsOf(validateElements(context, graph), A1)).toEqual([
+      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID, attribute: "selector" }),
     ]);
   });
 
@@ -105,10 +136,10 @@ describe("validateElements", () => {
   test("an editor field with the wrong type is reported", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[2].data.endIndex = -1;
+    graph.nodes[2].data.text = 4;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
-      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID, attribute: "endIndex" }),
+      expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID, attribute: "text" }),
     ]);
   });
 

@@ -58,7 +58,7 @@ describe("inline annotations", () => {
 
     expect(tipTapJson.content).toHaveLength(1);
     expect(tipTapJson.content?.[0].content).toEqual([{ type: "text", text: "abcdefghij" }]);
-    expect([...annotations.values()].map((a) => [a.node.data.uuid, a.node.data.startIndex, a.node.data.endIndex])).toEqual([
+    expect([...annotations.values()].map((a) => [a.node.data.uuid, a.node.data.selector.start, a.node.data.selector.end])).toEqual([
       ["add-1", 1, 5],
       ["del-2", 3, 7],
       ["add-3", 2, 4],
@@ -81,7 +81,7 @@ describe("gaps", () => {
   test("extends the range of the block a whitespace gap was merged into", () => {
     const merged: TiptapNode = blocks(fixtures.gaps)[1];
 
-    expect(merged.attrs?._annotation?.node.data).toMatchObject({ startIndex: 3, endIndex: 9 });
+    expect(merged.attrs?._annotation?.node.data.selector).toMatchObject({ start: 3, end: 9 });
   });
 });
 
@@ -116,10 +116,10 @@ describe("block classifications", () => {
 describe("unicode", () => {
   test("counts indices in UTF-16 code units, like JavaScript string length", () => {
     const { annotations } = convert(fixtures.unicode);
-    const { startIndex, endIndex } = annotations.get("add-1")!.node.data;
+    const { start, end } = annotations.get("add-1")!.node.data.selector;
 
     expect(fixtures.unicode.text).toHaveLength(9);
-    expect(fixtures.unicode.text.slice(startIndex, endIndex + 1)).toBe("b́");
+    expect(fixtures.unicode.text.slice(start, end + 1)).toBe("b́");
   });
 });
 

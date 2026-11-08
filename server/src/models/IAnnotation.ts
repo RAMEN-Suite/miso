@@ -1,9 +1,10 @@
 import { BaseNodeData } from "./types.js";
+import type { Selector } from "../utils/selector.js";
 
 export type IAnnotation = BaseNodeData & {
   [keyof: string]: unknown;
-  endIndex: number;
-  startIndex: number;
+  /** The part of the annotated Content the annotation covers. Only annotations on a Content have one. */
+  selector?: Selector;
   subType?: string | number;
   text: string;
   type: string;

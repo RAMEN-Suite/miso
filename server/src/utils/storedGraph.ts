@@ -21,6 +21,7 @@ import {
   resolveShapeRef,
 } from "./modelHelper.js";
 import { BASE_NODE_REF } from "./ramen.js";
+import { fromStoredSelector } from "./selector.js";
 
 /**
  * A graph by its stored names (labels, relationship types, annotation `type`), as loaded from the database and changed
@@ -130,13 +131,14 @@ export interface StoredNodeRecord {
 }
 
 /**
- * Adds a node from a query result with native values, unless it is already in the graph.
+ * Adds a node from a query result with native values (a selector stored as JSON string parsed, see
+ * `fromStoredSelector`), unless it is already in the graph.
  *
  * @param {StoredGraph} graph - The graph, changed in place.
  * @param {StoredNodeRecord} record - The node as the query returned it.
  */
 export function addStoredNode(graph: StoredGraph, record: StoredNodeRecord): void {
-  const data = toNativeTypes(record.data) as StoredGraphNode["data"];
+  const data = fromStoredSelector(toNativeTypes(record.data) as Record<string, unknown>) as StoredGraphNode["data"];
 
   if (!graph.nodes.has(data.uuid)) {
     graph.nodes.set(data.uuid, { nodeLabels: record.nodeLabels, data });

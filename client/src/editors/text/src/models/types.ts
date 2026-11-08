@@ -1,5 +1,5 @@
 import type { Attribute, Constraint } from "@ramen-suite/core";
-import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto } from "../external";
+import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto, TextPositionSelector } from "../external";
 
 /**
  * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
@@ -127,7 +127,11 @@ export interface EditorSettings {
   documentStructures: boolean;
 }
 
-export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
+/** The live char positions of annotations by uuid, as in their `TextPositionSelector` (see `start`/`end` there) */
+export type IndexMap = Map<string, TextRange>;
+
+/** A char range of the plain text: `start` and `end` of a `TextPositionSelector`, without its `type` */
+export type TextRange = Pick<TextPositionSelector, "start" | "end">;
 
 export interface Range {
   from: number;

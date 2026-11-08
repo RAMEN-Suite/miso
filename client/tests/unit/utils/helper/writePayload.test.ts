@@ -61,7 +61,7 @@ describe("toWritePayload", () => {
       connectedNodes: [
         {
           // Structural annotations rebuilt by the editor carry no refs: they are resolved from the carrier and type
-          node: { nodeLabels: ["Annotation"], data: { uuid: "a1", type: "persName", startIndex: 0, endIndex: 3, text: "Abcd" } },
+          node: { nodeLabels: ["Annotation"], data: { uuid: "a1", type: "persName", selector: { type: "TextPositionSelector", start: 0, end: 3 }, text: "Abcd" } },
           meta: { status: "created" },
           connectedNodes: [
             {

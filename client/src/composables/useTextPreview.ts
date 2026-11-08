@@ -86,11 +86,11 @@ export function useTextPreview(): UseTextPreviewReturnType {
     const textBlock: NodeDto<AnnotationNode> | undefined = structural.find(
       (a) =>
         schema.nodes[getEditorRole(a.node.data.type)]?.isTextblock &&
-        a.node.data.startIndex <= lastIndex &&
-        a.node.data.endIndex >= lastIndex,
+        a.node.data.selector.start <= lastIndex &&
+        a.node.data.selector.end >= lastIndex,
     );
 
-    const blockEnd: number = textBlock ? textBlock.node.data.endIndex + 1 : maxLength;
+    const blockEnd: number = textBlock ? textBlock.node.data.selector.end + 1 : maxLength;
 
     return Math.min(blockEnd, maxLength * 2, text.length);
   }
@@ -105,13 +105,15 @@ export function useTextPreview(): UseTextPreviewReturnType {
    */
   function clipAnnotations(annotations: NodeDto<AnnotationNode>[], cut: number): NodeDto<AnnotationNode>[] {
     return annotations
-      .filter((a) => a.node.data.startIndex < cut)
+      .filter((a) => a.node.data.selector.start < cut)
       .map((a) => {
-        if (a.node.data.endIndex < cut) {
+        if (a.node.data.selector.end < cut) {
           return a;
         }
 
-        return { ...a, node: { ...a.node, data: { ...a.node.data, endIndex: cut - 1 } } };
+        const selector = { ...a.node.data.selector, end: cut - 1 };
+
+        return { ...a, node: { ...a.node, data: { ...a.node.data, selector } } };
       });
   }
 

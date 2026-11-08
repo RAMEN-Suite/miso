@@ -1,5 +1,6 @@
 import type { AnnotationShape, Attribute, Diagnostic, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
+import type { TextPositionSelector } from "../utils/helper/selector";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
@@ -443,8 +444,7 @@ export interface SmartView {
 
 export interface StandoffAnnotation {
   [key: string]: unknown;
-  startIndex: number;
-  endIndex: number;
+  selector: TextPositionSelector;
   text: string;
   type: string;
   subType?: string | number;

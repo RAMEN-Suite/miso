@@ -7,8 +7,7 @@
 export const INTRINSIC_ANNOTATION_PROPERTIES: readonly string[] = [
   "uuid",
   "type",
-  "startIndex",
-  "endIndex",
+  "selector",
   "text",
   "isZeroPoint",
 ];

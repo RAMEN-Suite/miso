@@ -1,5 +1,6 @@
 import type { Diagnostic, ModelInstanceGraph, ModelInstanceNode, ModelInstanceRelation } from "@ramen-suite/core";
 import type {
+  ContentMedium,
   ElementDiagnostic,
   ElementGraph,
   ElementNode,
@@ -8,7 +9,8 @@ import type {
   NodeStatus,
 } from "../models/types.js";
 import { BASE_NODE_REF } from "./ramen.js";
-import { getBaseNodeRef, isEmptyValue } from "./modelHelper.js";
+import { getBaseNodeRef, getContentMedium, isEmptyValue } from "./modelHelper.js";
+import { checkSelector } from "./selector.js";
 
 /**
  * Validation of data in the element format (see `ElementGraph` in `models/types.ts`) with RAMEN core: the elements are
@@ -19,6 +21,8 @@ import { getBaseNodeRef, isEmptyValue } from "./modelHelper.js";
  * - Empty values (see `isEmptyValue`) are left out, since RAMEN core only treats missing values as missing.
  * - The editor fields of text annotations ({@linkcode TEXT_ANNOTATION_EDITOR_FIELDS}) are not part of the model. They
  *   are left out of RAMEN core's validation and checked here instead.
+ * - RAMEN core only checks that a `selector` has a `type`; whether annotations on a Content have one that fits the
+ *   Content's medium is checked here (see `selector.ts`).
  * - Relations have no id of their own. RAMEN core needs one, so it is derived (`<from>_<relationId>_<to>`) and never
  *   stored.
  *
@@ -28,16 +32,13 @@ import { getBaseNodeRef, isEmptyValue } from "./modelHelper.js";
  */
 
 /** The value type of an editor field */
-type EditorFieldType = "Integer" | "String" | "Boolean";
+type EditorFieldType = "String" | "Boolean";
 
 /**
- * The fields the text editor stores flat on annotations carried by a Content, with their value types and whether they
- * are mandatory there (`startIndex`/`endIndex` until `selector` replaces them, a later step). `isZeroPoint` is only set on zero-point
- * annotations.
+ * The fields the text editor stores flat on annotations carried by a text Content, with their value types and whether
+ * they are mandatory there. `isZeroPoint` is only set on zero-point annotations.
  */
 export const TEXT_ANNOTATION_EDITOR_FIELDS: Readonly<Record<string, { type: EditorFieldType; required: boolean }>> = {
-  startIndex: { type: "Integer", required: true },
-  endIndex: { type: "Integer", required: true },
   text: { type: "String", required: true },
   isZeroPoint: { type: "Boolean", required: false },
 };
@@ -52,6 +53,10 @@ export const ELEMENT_DIAGNOSTIC_CODE = {
   EDITOR_FIELD_REQUIRED: "MISO_EDITOR_FIELD_REQUIRED",
   /** An editor field of a text annotation has the wrong type */
   EDITOR_FIELD_INVALID: "MISO_EDITOR_FIELD_INVALID",
+  /** An annotation on a Content has no selector */
+  SELECTOR_REQUIRED: "MISO_SELECTOR_REQUIRED",
+  /** The selector of an annotation on a Content doesn't fit the Content's medium or its selector type */
+  SELECTOR_INVALID: "MISO_SELECTOR_INVALID",
 } as const;
 
 /** Statuses of elements that don't exist after a write */
@@ -184,54 +189,115 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
 }
 
 /**
- * Checks the editor fields of the annotations carried by a Content (an incoming relation from a Content node): the
- * mandatory ones must be present, and all present ones must have their type, see
- * {@linkcode TEXT_ANNOTATION_EDITOR_FIELDS}.
+ * Checks the annotations carried by a Content (an incoming relation from a Content node) for what RAMEN core leaves to
+ * the app: their selector on every Content, and their editor fields on text Contents.
  *
  * @param {ModelContext} context - The model context.
  * @param {InstanceMapping} mapping - The mapped elements.
  * @returns {ElementDiagnostic[]} The findings.
  */
-function checkEditorFields(context: ModelContext, mapping: InstanceMapping): ElementDiagnostic[] {
-  const contentUuids = new Set<string>(
-    mapping.nodes
-      .filter((node) => node.classifierRef && getBaseNodeRef(context, node.classifierRef) === BASE_NODE_REF.Content)
-      .map((node) => node.data.uuid),
+function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping): ElementDiagnostic[] {
+  const mediumByContent = new Map<string, ContentMedium>(
+    mapping.nodes.flatMap((node): [string, ContentMedium][] =>
+      node.classifierRef && getBaseNodeRef(context, node.classifierRef) === BASE_NODE_REF.Content
+        ? [[node.data.uuid, getContentMedium(context, node.classifierRef)]]
+        : [],
+    ),
   );
-  const textAnnotationUuids = new Set<string>(
-    mapping.relations.filter((relation) => contentUuids.has(relation.from)).map((relation) => relation.to),
-  );
+  const carrierMediumByUuid = new Map<string, ContentMedium>();
+
+  for (const relation of mapping.relations) {
+    const medium: ContentMedium | undefined = mediumByContent.get(relation.from);
+
+    if (medium) {
+      carrierMediumByUuid.set(relation.to, medium);
+    }
+  }
+
   const diagnostics: ElementDiagnostic[] = [];
 
   for (const node of mapping.nodes) {
-    if (!textAnnotationUuids.has(node.data.uuid) || !isAnnotation(context, node)) {
+    const medium: ContentMedium | undefined = carrierMediumByUuid.get(node.data.uuid);
+
+    if (!medium || !isAnnotation(context, node)) {
       continue;
     }
 
-    for (const [name, { type: valueType, required }] of Object.entries(TEXT_ANNOTATION_EDITOR_FIELDS)) {
-      const value: unknown = node.data[name];
+    diagnostics.push(...checkAnnotationSelector(node, medium));
 
-      if (value === undefined || value === null) {
-        if (!required) {
-          continue;
-        }
+    if (medium === "text") {
+      diagnostics.push(...checkEditorFields(node));
+    }
+  }
 
-        diagnostics.push({
-          severity: "error",
-          code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED,
-          message: `Property '${name}' is required on text annotations.`,
-          uuid: node.data.uuid,
-          attribute: name,
-        });
-      } else if (!hasValueType(value, valueType)) {
-        diagnostics.push({
-          severity: "error",
-          code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID,
-          message: `Property '${name}' must be of type ${valueType}.`,
-          uuid: node.data.uuid,
-          attribute: name,
-        });
+  return diagnostics;
+}
+
+/**
+ * Checks the selector of an annotation on a Content: it is required and must be valid for the Content's medium (see
+ * `checkSelector` in `selector.ts`).
+ *
+ * @param {ElementNode} node - The annotation.
+ * @param {ContentMedium} medium - The medium of the annotated Content.
+ * @returns {ElementDiagnostic[]} The findings.
+ */
+function checkAnnotationSelector(node: ElementNode, medium: ContentMedium): ElementDiagnostic[] {
+  const selector: unknown = node.data.selector;
+
+  if (selector === undefined || selector === null) {
+    return [
+      {
+        severity: "error",
+        code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_REQUIRED,
+        message: "Annotations on a Content need a selector.",
+        uuid: node.data.uuid,
+        attribute: "selector",
+      },
+    ];
+  }
+
+  return checkSelector(selector, medium).map((message) => ({
+    severity: "error",
+    code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID,
+    message,
+    uuid: node.data.uuid,
+    attribute: "selector",
+  }));
+}
+
+/**
+ * Checks the editor fields of an annotation on a text Content: the mandatory ones must be present, and all present ones
+ * must have their type, see {@linkcode TEXT_ANNOTATION_EDITOR_FIELDS}.
+ *
+ * @param {ElementNode} node - The annotation.
+ * @returns {ElementDiagnostic[]} The findings.
+ */
+function checkEditorFields(node: ElementNode): ElementDiagnostic[] {
+  const diagnostics: ElementDiagnostic[] = [];
+
+  for (const [name, { type: valueType, required }] of Object.entries(TEXT_ANNOTATION_EDITOR_FIELDS)) {
+    const value: unknown = node.data[name];
+
+    if (value === undefined || value === null) {
+      if (!required) {
+        continue;
       }
+
+      diagnostics.push({
+        severity: "error",
+        code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED,
+        message: `Property '${name}' is required on text annotations.`,
+        uuid: node.data.uuid,
+        attribute: name,
+      });
+    } else if (!hasValueType(value, valueType)) {
+      diagnostics.push({
+        severity: "error",
+        code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID,
+        message: `Property '${name}' must be of type ${valueType}.`,
+        uuid: node.data.uuid,
+        attribute: name,
+      });
     }
   }
 
@@ -243,12 +309,10 @@ function checkEditorFields(context: ModelContext, mapping: InstanceMapping): Ele
  *
  * @param {unknown} value - The value.
  * @param {EditorFieldType} valueType - The expected type.
- * @returns {boolean} `true` if the value fits (integers must not be negative).
+ * @returns {boolean} `true` if the value fits.
  */
 function hasValueType(value: unknown, valueType: EditorFieldType): boolean {
-  if (valueType === "Integer") {
-    return Number.isInteger(value) && (value as number) >= 0;
-  } else if (valueType === "String") {
+  if (valueType === "String") {
     return typeof value === "string";
   } else {
     return typeof value === "boolean";
@@ -309,7 +373,7 @@ export function validateElements(context: ModelContext, elements: ElementGraph, 
   const diagnostics: ElementDiagnostic[] = [
     ...mapping.diagnostics,
     ...result.diagnostics.map((diagnostic) => toElementDiagnostic(diagnostic, mapping)),
-    ...checkEditorFields(context, mapping),
+    ...checkContentAnnotations(context, mapping),
   ];
 
   if (!touched) {

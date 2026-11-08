@@ -9,6 +9,7 @@ import {
   shapeRefOf,
 } from "../utils/helper/modelHelper";
 import { IAnnotation } from "../models/IAnnotation";
+import { createTextPositionSelector } from "../utils/helper/selector";
 
 /**
  * Return type for the `useCreateAnnotation` hook.
@@ -117,7 +118,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
    * Creates a node data object with the given parameters.
    *
    * The node data object contains base node data (see `createBaseNodeData`) and, if the scope is 'Content',
-   * additional fields specific to content annotations are added (`startIndex`, `endIndex` and `text`).
+   * additional fields specific to content annotations are added (`selector` and `text`).
    *
    * @param {Object} params - The parameters object. Contains the fields, subType (optional) and type of the annotation.
    * @returns {IAnnotation} A node data object with the given parameters.
@@ -127,9 +128,8 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
 
     // Other fields specifically for content annotations
     if (scope === "Content") {
-      // Both can be 0 since the real values are created in the backend on save
-      nodeData.startIndex = 0;
-      nodeData.endIndex = 0;
+      // Start and end can be 0 since the real values are set from the editor on save
+      nodeData.selector = createTextPositionSelector(0, 0);
       // Empty string since value is added in createTextAnnotation().
       nodeData.text = "";
 

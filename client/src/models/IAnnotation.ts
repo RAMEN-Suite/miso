@@ -1,9 +1,15 @@
 import { BaseNodeData } from "./types";
+import type { SelectorByMedium, SelectorMedium } from "../utils/helper/selector";
 
-export type IAnnotation = BaseNodeData & {
+/**
+ * The data of an annotation on a Content of the medium `M`, which decides its selector (see `SelectorByMedium`). Text
+ * is the default, used by the text editor and everything built on `AnnotationNode`; annotations on images will be
+ * `IAnnotation<"image">`.
+ */
+export type IAnnotation<M extends SelectorMedium = "text"> = BaseNodeData & {
   [keyof: string]: unknown;
-  endIndex: number;
-  startIndex: number;
+  /** The part of the annotated Content the annotation covers. Only annotations on a Content have one. */
+  selector: SelectorByMedium[M];
   subType?: string | number;
   text: string;
   type: string;

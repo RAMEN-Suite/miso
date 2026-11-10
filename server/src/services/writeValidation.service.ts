@@ -1,14 +1,16 @@
+import { ManagedTransaction, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
+import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
 import { env } from "../env.js";
 import type { Env } from "../schemas/env.schema.js";
 import type { BaseNodeData, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
+import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
 import {
   addStoredNode,
   addStoredRelation,
-  applyChanges,
   ResolutionFinding,
   StoredGraph,
   StoredGraphRelation,
@@ -22,37 +24,73 @@ import {
 /** The longest chain of annotations on annotations that is followed to find the carrier of an annotation */
 const MAX_CARRIER_CHAIN = 5;
 
+/** The result of a validated write */
+export interface ValidatedWrite {
+  /** The root node after the write */
+  node: StoredNodeRecord;
+  /** The findings of the touched nodes */
+  diagnostics: ElementDiagnostic[];
+}
+
 /**
- * Validates writes with the model before they are saved: loads the part of the database the write touches, applies the
- * write, and validates the result with RAMEN core and the app's own checks (`utils/instanceMapper.ts`). Only findings
- * of the touched nodes count, since the edges of the loaded part produce findings that don't belong to the write.
+ * Writes changes and validates them with the model in one transaction: the write runs first, then the part of the
+ * database it touches is read back (with the uncommitted changes) and validated with RAMEN core and the app's own
+ * checks (`utils/instanceMapper.ts`). Only findings of the touched nodes count, since the edges of the loaded part
+ * produce findings that don't belong to the write.
  */
 export default class WriteValidationService {
   /**
-   * Validates the changes of a write.
+   * Writes the changes of a subgraph and validates the result. `report` mode (env `VALIDATION_MODE`) logs and returns
+   * the findings and commits anyway, `enforce` rolls back writes with errors.
+   *
+   * @param {ModelContext} context - The model context.
+   * @param {NodeUpdateObject} changes - The changes of the write, with the values as sent.
+   * @param {string} uuid - The uuid of the root node (a Content or a Collection).
+   * @returns {Promise<ValidatedWrite>} The root node after the write and the findings.
+   * @throws {NotFoundError} If the root node doesn't exist after the write (rolled back).
+   * @throws {ValidationError} In `enforce` mode, if there are errors (rolled back).
+   */
+  public async write(context: ModelContext, changes: NodeUpdateObject, uuid: string): Promise<ValidatedWrite> {
+    const params = { uuid, ...toNeo4jChanges(changes, context) };
+
+    // Returning from the callback commits the transaction, throwing rolls it back
+    return Neo4jDriver.commitOrRollback(async (tx) => {
+      const query: string = buildSubgraphUpdateQuery();
+      const writeResult: QueryResult = await tx.run(query, params);
+      const record = writeResult.records[0];
+
+      if (!record) {
+        throw new NotFoundError(`Content or Collection with UUID ${uuid} not found`);
+      }
+
+      const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted"));
+      const diagnostics: ElementDiagnostic[] = await this.validate(tx, context, touched);
+
+      return { node: record.get("node"), diagnostics };
+    });
+  }
+
+  /**
+   * Validates the touched nodes as the transaction sees them.
    *
    * The scope is every touched node with all its relationships and neighbours (so its relation counts are complete),
    * plus the carriers of the loaded annotations (to resolve their annotation type).
    *
-   * Known gap: deleting a node doesn't touch its neighbours, so e.g. a required reference that disappears with a
-   * deleted entity isn't reported.
+   * In `report` mode a failing validation is logged and the write is saved without it. A failing scope query fails the
+   * transaction, and with it the write, in every mode.
    *
+   * @param {ManagedTransaction} tx - The transaction of the write.
    * @param {ModelContext} context - The model context.
-   * @param {NodeUpdateObject} changes - The changes of the write, with the values as sent.
+   * @param {Set<string>} touched - uuids of the touched nodes.
    * @returns {Promise<ElementDiagnostic[]>} The findings of the touched nodes.
    * @throws {ValidationError} In `enforce` mode, if there are errors.
    */
-  public async validate(context: ModelContext, changes: NodeUpdateObject): Promise<ElementDiagnostic[]> {
-    // `report` logs and returns the findings and saves anyway, `enforce` rejects writes with errors
+  private async validate(tx: ManagedTransaction, context: ModelContext, touched: Set<string>): Promise<ElementDiagnostic[]> {
     const mode: Env["VALIDATION_MODE"] = env.VALIDATION_MODE;
-    const touched: Set<string> = touchedUuids(changes);
     let diagnostics: ElementDiagnostic[];
 
     try {
-      const graph: StoredGraph = await this.loadScope([...touched]);
-
-      applyChanges(graph, changes);
-      diagnostics = this.validateGraph(context, graph, touched);
+      diagnostics = this.validateGraph(context, await this.loadScope(tx, [...touched]), touched);
     } catch (error: unknown) {
       if (mode === "enforce") {
         throw error;
@@ -103,16 +141,17 @@ export default class WriteValidationService {
   }
 
   /**
-   * Loads the scope of a write: the existing touched nodes with all their relationships and neighbours, and the chains
-   * of carriers of the loaded annotations whose carrier isn't loaded yet.
+   * Loads the scope of a write: the touched nodes with all their relationships and neighbours, and the chains of
+   * carriers of the loaded annotations whose carrier isn't loaded yet.
    *
-   * @param {string[]} uuids - uuids of the touched nodes. New nodes don't exist yet and are skipped.
+   * @param {ManagedTransaction} tx - The transaction of the write, so the changes are visible.
+   * @param {string[]} uuids - uuids of the touched nodes.
    * @returns {Promise<StoredGraph>} The graph as stored.
    */
-  private async loadScope(uuids: string[]): Promise<StoredGraph> {
+  private async loadScope(tx: ManagedTransaction, uuids: string[]): Promise<StoredGraph> {
     const graph: StoredGraph = { nodes: new Map(), relations: new Map() };
 
-    const scopeResult = await Neo4jDriver.runQuery(
+    const scopeResult = await tx.run(
       `
       UNWIND $uuids AS uuid
       MATCH (n:Annotation|Content|Collection|Entity {uuid: uuid})
@@ -145,7 +184,7 @@ export default class WriteValidationService {
       return graph;
     }
 
-    const chainResult = await Neo4jDriver.runQuery(
+    const chainResult = await tx.run(
       `
       UNWIND $uuids AS uuid
       MATCH path = (carrier)-[:HAS_ANNOTATION*1..${MAX_CARRIER_CHAIN}]->(a:Annotation {uuid: uuid})

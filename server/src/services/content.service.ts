@@ -2,7 +2,6 @@ import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import {
-  ElementDiagnostic,
   ElementGraph,
   ElementResponse,
   ModelContext,
@@ -11,7 +10,7 @@ import {
   PaginationResult,
 } from "../models/types.js";
 import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
-import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
+import { toNodeChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
 import WriteValidationService from "./writeValidation.service.js";
 
@@ -111,7 +110,7 @@ export default class ContentService {
   }
 
   /**
-   * Updates a Content and its annotations, after validating the write with the model.
+   * Updates a Content and its annotations, validated with the model in the same transaction.
    *
    * @param {string} uuid - The UUID of the Content.
    * @param {ElementGraph} payload - The changed Content and annotations, and their relations.
@@ -121,30 +120,10 @@ export default class ContentService {
    * diagnostics.
    */
   public async updateText(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const configService: ConfigService = new ConfigService();
-    const context = await configService.getModelContext();
-
+    const context: ModelContext = await new ConfigService().getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
-    const flatNodeTree: NodeUpdateObject = toNeo4jChanges(changes, context);
+    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
 
-    const query: string = buildSubgraphUpdateQuery("Content");
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, {
-      uuid,
-      delete: flatNodeTree.delete,
-      create: flatNodeTree.create,
-      update: flatNodeTree.update,
-      remove: flatNodeTree.remove,
-      attach: flatNodeTree.attach,
-    });
-
-    const updatedText: StoredNodeRecord | undefined = result.records[0]?.get("node");
-
-    if (!updatedText) {
-      throw new NotFoundError(`Text with UUID ${uuid} not found`);
-    }
-
-    return { ...toElementResponse(context, [updatedText]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics };
   }
 }

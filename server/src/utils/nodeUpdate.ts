@@ -135,23 +135,25 @@ export function toNeo4jChanges(changes: NodeUpdateObject, context: ModelContext)
 }
 
 /**
- * Returns a Cypher query string that executes a full CRUD update cycle for a node subgraph
- * and returns the root node after all changes are applied.
+ * Returns a Cypher query string that executes a full CRUD update cycle for a node subgraph. Returns the root node after
+ * all changes are applied (`node`) and the uuids of the neighbours the deleted nodes had (`neighboursOfDeleted`).
  *
  * Expected parameters: `$uuid`, `$delete`, `$create`, `$update`, `$remove`, `$attach` —
- * as produced by {@link toNodeChanges} and {@link toNeo4jChanges}.
- *
- * @param rootLabel - `'Content'` or `'Collection'` — the label of the root node that is matched and returned.
+ * as produced by {@link toNodeChanges} and {@link toNeo4jChanges}. The root is a Content or a Collection.
  */
-export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): string {
+export function buildSubgraphUpdateQuery(): string {
   return `
-  // Delete nodes and their relationships
+  // Delete nodes and their relationships; the aggregation keeps one row when nothing is deleted
   CALL () {
       UNWIND $delete AS nodeToDelete
 
       MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.data.uuid})
+      OPTIONAL MATCH (n)--(m:Annotation|Content|Collection|Entity)
 
-      DETACH DELETE n
+      WITH collect(DISTINCT n) AS deleted, collect(DISTINCT m.uuid) AS neighbours
+      FOREACH (d IN deleted | DETACH DELETE d)
+
+      RETURN neighbours AS neighboursOfDeleted
   }
 
   // Create new nodes with dynamic labels
@@ -200,11 +202,11 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
   }
 
   // Return the root node
-  MATCH (root:${rootLabel} {uuid: $uuid})
+  MATCH (root:Content|Collection {uuid: $uuid})
 
   RETURN {
       nodeLabels: labels(root),
       data: root {.*}
-  } AS node
+  } AS node, neighboursOfDeleted
   `;
 }

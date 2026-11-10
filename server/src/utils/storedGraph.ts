@@ -23,8 +23,8 @@ import {
 import { BASE_NODE_REF } from "./ramen.js";
 
 /**
- * A graph by its stored names (labels, relationship types, annotation `type`), as loaded from the database and changed
- * by a write, and its conversion to the element format with the names resolved to model refs.
+ * A graph by its stored names (labels, relationship types, annotation `type`), as loaded from the database, and its
+ * conversion to the element format with the names resolved to model refs.
  *
  * @packageDocumentation
  */
@@ -70,54 +70,19 @@ export function relationKey(relation: StoredGraphRelation): string {
 }
 
 /**
- * Applies the changes of a write to a graph, in the order the write query runs them: delete (with the relationships
- * of the deleted nodes), create, update, remove, attach.
- *
- * @param {StoredGraph} graph - The graph, changed in place.
- * @param {NodeUpdateObject} changes - The changes, with plain values (before the conversion to Neo4j types).
- */
-export function applyChanges(graph: StoredGraph, changes: NodeUpdateObject): void {
-  const deletedUuids = new Set<string>(changes.delete.map((node) => uuidOf(node.data)));
-
-  for (const uuid of deletedUuids) {
-    graph.nodes.delete(uuid);
-  }
-
-  for (const [key, relation] of graph.relations) {
-    if (deletedUuids.has(relation.from) || deletedUuids.has(relation.to)) {
-      graph.relations.delete(key);
-    }
-  }
-
-  for (const node of [...changes.create, ...changes.update]) {
-    const data = node.data as BaseNodeData & Record<string, unknown>;
-
-    graph.nodes.set(data.uuid, { nodeLabels: node.nodeLabels, data });
-  }
-
-  for (const edge of changes.remove) {
-    graph.relations.delete(relationKey({ type: edge.type, from: edge.startUuid, to: edge.endUuid }));
-  }
-
-  for (const edge of changes.attach) {
-    const relation: StoredGraphRelation = { type: edge.type, from: edge.startUuid, to: edge.endUuid };
-
-    graph.relations.set(relationKey(relation), relation);
-  }
-}
-
-/**
- * The nodes a write touches: created and updated nodes, and both ends of removed and attached relationships, except
- * deleted nodes.
+ * The nodes a write touches: created and updated nodes, both ends of removed and attached relationships, and the
+ * former neighbours of deleted nodes (they lose a relationship), except deleted nodes.
  *
  * @param {NodeUpdateObject} changes - The changes of the write.
+ * @param {string[]} neighboursOfDeleted - uuids of the nodes the deleted nodes were connected to.
  * @returns {Set<string>} The uuids.
  */
-export function touchedUuids(changes: NodeUpdateObject): Set<string> {
+export function touchedUuids(changes: NodeUpdateObject, neighboursOfDeleted: string[]): Set<string> {
   const deletedUuids = new Set<string>(changes.delete.map((node) => uuidOf(node.data)));
   const uuids = new Set<string>([
     ...[...changes.create, ...changes.update].map((node) => uuidOf(node.data)),
     ...[...changes.remove, ...changes.attach].flatMap((edge) => [edge.startUuid, edge.endUuid]),
+    ...neighboursOfDeleted,
   ]);
 
   return new Set<string>([...uuids].filter((uuid) => !deletedUuids.has(uuid)));

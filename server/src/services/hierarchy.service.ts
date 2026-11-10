@@ -1,20 +1,16 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { orderDirection } from "../utils/cypher.js";
 import { valueToNativeType } from "../utils/helper.js";
-import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
+import { toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
-import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
-import { getBaseNodeRef } from "../utils/modelHelper.js";
+import { toNodeChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
 import WriteValidationService from "./writeValidation.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
-  ElementDiagnostic,
   ElementGraph,
-  ElementNode,
   ElementResponse,
   FilterSpec,
   FilterTarget,
@@ -24,7 +20,7 @@ import {
   ModelAttribute,
   ModelContext,
 } from "../models/types.js";
-import { BASE_NODE_LABELS, BASE_NODE_REF } from "../utils/ramen.js";
+import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -262,7 +258,7 @@ export default class HierarchyService {
   /**
    * Creates a new hierarchy node (Collection or Content) and returns it. Whether it is a Collection or a Content comes
    * from the classifier of the node identified by `uuid` in the payload, so the same endpoint serves both types. The
-   * write is validated with the model first.
+   * write is validated with the model in the same transaction.
    *
    * @param {string} uuid - UUID of the created node (not of its parent).
    * @param {ElementGraph} payload - The created node, and its relation to the parent unless it is created at top level.
@@ -275,38 +271,14 @@ export default class HierarchyService {
     const configService: ConfigService = new ConfigService();
     const context = await configService.getModelContext();
 
-    const target: ElementNode | undefined = payload.nodes.find((node) => node.data?.uuid === uuid);
-
-    if (!target) {
+    if (!payload.nodes.some((node) => node.data?.uuid === uuid)) {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
     }
 
-    const rootLabel: "Collection" | "Content" =
-      target.classifierRef && getBaseNodeRef(context, target.classifierRef) === BASE_NODE_REF.Content
-        ? "Content"
-        : "Collection";
-
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
-    const flatNodeTree: NodeUpdateObject = toNeo4jChanges(changes, context);
-    const query: string = buildSubgraphUpdateQuery(rootLabel);
+    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, {
-      uuid,
-      delete: flatNodeTree.delete,
-      create: flatNodeTree.create,
-      update: flatNodeTree.update,
-      remove: flatNodeTree.remove,
-      attach: flatNodeTree.attach,
-    });
-
-    const createdOrAddedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
-
-    if (!createdOrAddedNode) {
-      throw new NotFoundError(`Could not add/create node with UUID ${uuid}`);
-    }
-
-    return { ...toElementResponse(context, [createdOrAddedNode]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics };
   }
 
   /**

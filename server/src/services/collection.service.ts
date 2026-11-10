@@ -6,16 +6,14 @@ import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import NotFoundError from "../errors/notFound.error.js";
 import {
   PaginationResult,
-  CollectionNode,
   NodeSearchParams,
   NodeUpdateObject,
   ModelAttribute,
   ModelContext,
-  ElementDiagnostic,
   ElementGraph,
   ElementResponse,
 } from "../models/types.js";
-import { toNodeChanges, buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
+import { toNodeChanges } from "../utils/nodeUpdate.js";
 import WriteValidationService from "./writeValidation.service.js";
 import { getCollectionAttributes, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
@@ -52,36 +50,6 @@ export default class CollectionService {
     }
 
     return toElementResponse(context, [rawCollection]);
-  }
-
-  /**
-   * Checks the "label" property of a written Collection: it must not be empty and not consist of only whitespace
-   * characters. Rejected in every validation mode, unlike the findings of the model validation.
-   *
-   * @param {NodeUpdateObject} changes - The changes of the write.
-   * @param {string} uuid - UUID of the Collection. Nothing is checked if the write doesn't change it.
-   * @returns {void} This function does not return any value.
-   * @throws {ValidationError} If the label is empty.
-   */
-  private checkValidity(changes: NodeUpdateObject, uuid: string): void {
-    const collection = [...changes.create, ...changes.update].find(
-      (node) => (node.data as { uuid?: unknown }).uuid === uuid,
-    ) as CollectionNode | undefined;
-
-    if (!collection) {
-      return;
-    }
-
-    // Label property must always be a meaningful string
-    const labelProp: string = collection.data.label;
-
-    if (labelProp === "") {
-      throw new ValidationError('The "label" property must not be empty.');
-    }
-
-    if (labelProp.trim() === "") {
-      throw new ValidationError('The "label" property must not consist of only whitespace characters.');
-    }
   }
 
   /**
@@ -153,8 +121,7 @@ export default class CollectionService {
   }
 
   /**
-   * Updates a Collection subgraph from a write payload, after validating the write with the model, in a single CRUD
-   * query against the database.
+   * Updates a Collection subgraph from a write payload, validated with the model in the same transaction.
    *
    * @param uuid - UUID of the Collection node to update.
    * @param payload - The changed nodes (the Collection, its annotations etc.) and relations.
@@ -163,47 +130,24 @@ export default class CollectionService {
    * @returns The updated Collection as the only node, with the findings of the validation as diagnostics.
    */
   public async updateCollection(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const configService: ConfigService = new ConfigService();
-    const context: ModelContext = await configService.getModelContext();
-
+    const context: ModelContext = await new ConfigService().getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-
-    this.checkValidity(changes, uuid);
-
-    const diagnostics: ElementDiagnostic[] = await new WriteValidationService().validate(context, changes);
-    const flat: NodeUpdateObject = toNeo4jChanges(changes, context);
-
-    const query: string = buildSubgraphUpdateQuery("Collection");
-
     const start: number = performance.now();
+    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
 
-    const result: QueryResult = await Neo4jDriver.runQuery(query, {
-      uuid,
-      delete: flat.delete,
-      create: flat.create,
-      update: flat.update,
-      remove: flat.remove,
-      attach: flat.attach,
-    });
-
-    // Compared with the response time of the request, this shows how much of a save is spent in the database
+    // Compared with the response time of the request, this shows how much of a save is spent in the transaction
+    // (write and validation)
     logger.debug("Collection subgraph updated", {
       uuid,
-      dbDurationMs: Math.round(performance.now() - start),
-      create: flat.create.length,
-      update: flat.update.length,
-      delete: flat.delete.length,
-      attach: flat.attach.length,
-      remove: flat.remove.length,
+      transactionDurationMs: Math.round(performance.now() - start),
+      create: changes.create.length,
+      update: changes.update.length,
+      delete: changes.delete.length,
+      attach: changes.attach.length,
+      remove: changes.remove.length,
     });
 
-    const updatedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
-
-    if (!updatedNode) {
-      throw new NotFoundError(`Collection with UUID ${uuid} not found`);
-    }
-
-    return { ...toElementResponse(context, [updatedNode]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics };
   }
 
   /**

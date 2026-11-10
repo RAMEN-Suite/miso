@@ -20,7 +20,8 @@ export interface ConfigMapping {
 
 /**
  * The Miso config: the ingested RAMEN model with Miso settings in `ext.miso`, plus the global Miso settings. The model
- * is validated and read by RAMEN core, the `ext.miso` blocks are validated by the client; the server passes them through.
+ * is validated and read by RAMEN core, the `ext.miso` blocks and mappings by `checkExtBlocks`/`checkMappings`
+ * (`schemas/configBlocks.schema.ts`).
  */
 export interface IMisoConfig {
   /** The config format and its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */

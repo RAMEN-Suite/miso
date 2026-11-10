@@ -27,7 +27,8 @@ const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
  * `miso.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
  * properties. The built-in attributes can be renamed, but not redefined.
  *
- * Also read by `scripts/build-ramen-from-introspection.mjs`, which declares these types in a generated model.
+ * Also read by `scripts/build-ramen-from-introspection.mjs`, which declares these types in a generated model. The
+ * attributes are mirrored in `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
  */
 export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
   {

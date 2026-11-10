@@ -90,20 +90,27 @@ export interface ParsedMisoConfig {
 }
 
 /**
- * Checks the `ext.miso` blocks of all model elements against their schemas.
+ * Checks the `ext.miso` blocks of all model elements and `miso.base` entries against their schemas. Keys of other tools
+ * next to `miso` are allowed, but Miso's own keys there (e.g. `ext.appearance` instead of `ext.miso.appearance`) are
+ * reported, since they would be silently ignored. Mirrored in `server/src/schemas/configBlocks.schema.ts`.
  *
  * @param {RamenFile} model - The ingested model.
+ * @param {ConfigBaseEntry[]} base - The `miso.base` entries.
  * @returns {string[]} The problems found, each with the element it belongs to.
  */
-function checkExtBlocks(model: RamenFile): string[] {
+function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): string[] {
   const problems: string[] = [];
 
-  function check(schema: z.ZodType, miso: unknown, label: string): void {
-    if (miso === undefined) {
+  function check(schema: z.ZodObject, ext: Record<string, unknown> | undefined, label: string): void {
+    const misplaced: string[] = Object.keys(ext ?? {}).filter((key) => key !== "miso" && key in schema.shape);
+
+    misplaced.forEach((key) => problems.push(`${label}: "ext.${key}" is ignored, it belongs in "ext.miso.${key}"`));
+
+    if (ext?.miso === undefined) {
       return;
     }
 
-    const result = schema.safeParse(miso);
+    const result = schema.safeParse(ext.miso);
 
     if (!result.success) {
       problems.push(`${label} ext.miso:\n${z.prettifyError(result.error)}`);
@@ -113,20 +120,25 @@ function checkExtBlocks(model: RamenFile): string[] {
   for (const classifier of model.classifiers) {
     const label: string = `${classifier.kind} "${classifier.name}" (${classifier.modelId}:${classifier.id})`;
 
-    check(classifierConfigSchema, classifier.ext?.miso, label);
+    check(classifierConfigSchema, classifier.ext, label);
 
     if (classifier.kind === "Node") {
-      classifier.attributes.forEach((attribute) =>
-        check(attributeConfigSchema, attribute.ext?.miso, `${label}.${attribute.name}`),
-      );
+      classifier.attributes.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));
     }
   }
 
   for (const shape of model.annotations) {
     const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
 
-    check(annotationShapeConfigSchema, shape.ext?.miso, label);
-    shape.properties.forEach((property) => check(attributeConfigSchema, property.ext?.miso, `${label}.${property.name}`));
+    check(annotationShapeConfigSchema, shape.ext, label);
+    shape.properties.forEach((property) => check(attributeConfigSchema, property.ext, `${label}.${property.name}`));
+  }
+
+  for (const entry of base) {
+    const label: string = `miso.base "${entry.name}" (${entry.modelId}:${entry.id})`;
+
+    check(classifierConfigSchema, entry.ext, label);
+    entry.attributes?.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));
   }
 
   return problems;
@@ -214,7 +226,7 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   }
 
   const problems: string[] = [
-    ...checkExtBlocks(result.data.model),
+    ...checkExtBlocks(result.data.model, result.data.miso.base ?? []),
     ...checkBuiltinAttributes(result.data.model, result.data.miso.mappings),
   ];
 

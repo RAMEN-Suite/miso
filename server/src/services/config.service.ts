@@ -9,6 +9,7 @@ import { env } from "../env.js";
 import { collectConfigWarnings, createModelContext } from "../utils/modelHelper.js";
 import { ModelContext } from "../models/types.js";
 import logger from "../logger.js";
+import { checkExtBlocks, checkMappings } from "../schemas/configBlocks.schema.js";
 
 /**
  * The config (as JSON string) whose warnings were logged last. The config is loaded on every call, so its warnings are
@@ -88,12 +89,13 @@ export default class ConfigService {
   }
 
   /**
-   * Checks that the data is a Miso config with a valid model, creates its model context and logs the problems the
-   * name lookups can't handle (only when the config differs from the one they were last logged for).
+   * Checks that the data is a Miso config with a valid model and valid Miso settings (`ext.miso` blocks, mappings),
+   * creates its model context and logs the problems the name lookups can't handle (only when the config differs from
+   * the one they were last logged for).
    *
    * @param {unknown} data - The parsed JSON.
-   * @throws {ExternalServiceError} If the data is no Miso config (e.g. a file in the old guidelines format) or its
-   * model is invalid.
+   * @throws {ExternalServiceError} If the data is no Miso config (e.g. a file in the old guidelines format), its model
+   * is invalid, an `ext.miso` block is invalid or misplaced, or a mapping is invalid.
    * @return {ModelContext} The model context of the config.
    */
   private prepare(data: unknown): ModelContext {
@@ -112,6 +114,15 @@ export default class ConfigService {
       model = RamenModel.import(structuredClone(config.model));
     } catch (error: unknown) {
       throw new ExternalServiceError(`The model in the config is invalid: ${(error as Error).message}`);
+    }
+
+    const problems: string[] = [
+      ...checkExtBlocks(config.model, config.miso.base ?? []),
+      ...checkMappings(config.model, config.miso.mappings),
+    ];
+
+    if (problems.length > 0) {
+      throw new ExternalServiceError(`The Miso settings in the config are invalid:\n${problems.join("\n")}`);
     }
 
     const context: ModelContext = createModelContext(config, model);

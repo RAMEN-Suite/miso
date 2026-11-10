@@ -4,7 +4,7 @@ import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants
 // Schemas and types of the configuration blocks of model elements (`ext.miso`). The types are inferred from the
 // schemas, so the format is defined only once. Objects are strict, so unknown or misplaced keys (e.g. a typo or a key
 // on the wrong level) are reported instead of being ignored silently. The Miso config file itself is described in
-// `misoConfig.schema.ts`.
+// `misoConfig.schema.ts`. The schemas are mirrored in `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
 
 // ----- Icons -----
 

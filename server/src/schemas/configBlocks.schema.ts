@@ -121,9 +121,7 @@ const annotationAppearanceSchema = z.strictObject({
   icon: iconSpecInputSchema.optional(),
   highlight: highlightTextStyleSchema.optional(),
   marker: markerStyleSchema.optional(),
-  variants: z
-    .array(z.strictObject({ property: z.string(), values: z.record(z.string(), appearanceOverrideSchema) }))
-    .optional(),
+  variants: z.array(z.strictObject({ property: z.string(), values: z.record(z.string(), appearanceOverrideSchema) })).optional(),
 });
 
 /** The `ext.miso` block of an annotation shape */

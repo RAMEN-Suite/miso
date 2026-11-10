@@ -60,7 +60,7 @@ export default class ContentService {
     const [countResult, dataResult, context] = await Promise.all([
       Neo4jDriver.runQuery(countQuery, queryParams),
       Neo4jDriver.runQuery(dataQuery, queryParams),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
@@ -98,7 +98,7 @@ export default class ContentService {
 
     const [result, context]: [QueryResult, ModelContext] = await Promise.all([
       Neo4jDriver.runQuery(query, { uuid }),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
     const rawText: StoredNodeRecord | undefined = result.records[0]?.get("text");
 
@@ -120,7 +120,7 @@ export default class ContentService {
    * diagnostics.
    */
   public async updateText(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const context: ModelContext = await new ConfigService().getModelContext();
+    const context: ModelContext = await ConfigService.getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
     const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
 

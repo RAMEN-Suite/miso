@@ -62,7 +62,7 @@ export default class AnnotationService {
 
     const [result, context]: [QueryResult, ModelContext] = await Promise.all([
       Neo4jDriver.runQuery(query, { nodeUuid, types: options.types ?? null }),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
     const record = result.records[0];
 

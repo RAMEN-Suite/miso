@@ -50,7 +50,7 @@ export default class EntityService {
     const [countResult, dataResult, context] = await Promise.all([
       Neo4jDriver.runQuery(countQuery, queryParams),
       Neo4jDriver.runQuery(dataQuery, queryParams),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;

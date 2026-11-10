@@ -9,7 +9,6 @@ import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature }
 const router: Router = express.Router();
 
 const hierarchyService: HierarchyService = new HierarchyService();
-const configService: ConfigService = new ConfigService();
 
 /**
  * The single hierarchy listing endpoint. What is listed is decided by the `scope` in the body —
@@ -22,7 +21,7 @@ const configService: ConfigService = new ConfigService();
  */
 router.post("/query", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const context: ModelContext = await configService.getModelContext();
+    const context: ModelContext = await ConfigService.getModelContext();
     const properties: Map<string, ModelAttribute> = filterableProperties(context);
 
     const { scope, filters, sort, order, limit, cursor } = parseHierarchyQuery(req, context, properties);

@@ -4,11 +4,9 @@ import { IMisoConfig } from "../models/IMisoConfig.js";
 
 const router: Router = express.Router();
 
-const configService: ConfigService = new ConfigService();
-
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const config: IMisoConfig = await configService.getConfig();
+    const config: IMisoConfig = await ConfigService.getConfig();
 
     res.json(config);
   } catch (error: unknown) {

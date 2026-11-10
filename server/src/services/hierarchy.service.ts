@@ -83,7 +83,7 @@ export default class HierarchyService {
 
     const [result, context]: [QueryResult, ModelContext] = await Promise.all([
       Neo4jDriver.runQuery(query, { uuid }),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
     const record = result.records[0];
 
@@ -275,8 +275,7 @@ export default class HierarchyService {
    * @throws {NotFoundError} If the node could not be created.
    */
   public async createNode(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const configService: ConfigService = new ConfigService();
-    const context = await configService.getModelContext();
+    const context = await ConfigService.getModelContext();
 
     if (!payload.nodes.some((node) => node.data?.uuid === uuid)) {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);

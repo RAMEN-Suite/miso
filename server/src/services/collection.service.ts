@@ -17,7 +17,6 @@ import { toNodeChanges } from "../utils/nodeUpdate.js";
 import WriteValidationService from "./writeValidation.service.js";
 import { getCollectionAttributes, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
-import logger from "../logger.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -41,7 +40,7 @@ export default class CollectionService {
 
     const [result, context]: [QueryResult, ModelContext] = await Promise.all([
       Neo4jDriver.runQuery(query, { uuid }),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
     const rawCollection: StoredNodeRecord | undefined = result.records[0]?.get("collection");
 
@@ -101,7 +100,7 @@ export default class CollectionService {
         offset: int(offset),
         limit: int(limit),
       }),
-      new ConfigService().getModelContext(),
+      ConfigService.getModelContext(),
     ]);
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
@@ -130,22 +129,9 @@ export default class CollectionService {
    * @returns The updated Collection as the only node, with the findings of the validation as diagnostics.
    */
   public async updateCollection(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const context: ModelContext = await new ConfigService().getModelContext();
+    const context: ModelContext = await ConfigService.getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const start: number = performance.now();
     const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
-
-    // Compared with the response time of the request, this shows how much of a save is spent in the transaction
-    // (write and validation)
-    logger.debug("Collection subgraph updated", {
-      uuid,
-      transactionDurationMs: Math.round(performance.now() - start),
-      create: changes.create.length,
-      update: changes.update.length,
-      delete: changes.delete.length,
-      attach: changes.attach.length,
-      remove: changes.remove.length,
-    });
 
     return { ...toElementResponse(context, [node]), diagnostics };
   }
@@ -166,8 +152,7 @@ export default class CollectionService {
     nodeLabels: string[],
     properties: Record<string, unknown>,
   ): Promise<ElementResponse> {
-    const configService: ConfigService = new ConfigService();
-    const context: ModelContext = await configService.getModelContext();
+    const context: ModelContext = await ConfigService.getModelContext();
     const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
 
     Object.entries(properties).forEach(([name, value]: [string, unknown]) => {

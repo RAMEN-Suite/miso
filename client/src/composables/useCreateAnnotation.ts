@@ -101,7 +101,11 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
    * @param {Object} params - The parameters object. Contains the type, subType (optional) and the collection.
    * @returns {Annotation} An object containing the properties, entities and additional texts of the annotation.
    */
-  function createCollectionAnnotation(params: { type: string; subType?: string | number; collection: CollectionNode }): Annotation {
+  function createCollectionAnnotation(params: {
+    type: string;
+    subType?: string | number;
+    collection: CollectionNode;
+  }): Annotation {
     const { type, subType, collection } = params;
     const shape: ModelAnnotationShape | undefined = findCollectionAnnotationShape(collection, type);
     const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];

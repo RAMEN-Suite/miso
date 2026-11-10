@@ -541,7 +541,7 @@ export function useConfigStore() {
       ? findShape(getModelContext(), annotation.shapeRef)
       : undefined;
 
-    if (byRef && byRef.type === annotation.data.type) {
+    if (byRef?.type === annotation.data.type) {
       return byRef;
     } else if (annotation.shapeRef === null) {
       return undefined;
@@ -685,7 +685,7 @@ export function useConfigStore() {
     for (const shape of textShapesByType.value.values()) {
       const category: string = isBuiltinStructuralType(shape.type)
         ? STRUCTURE_ANNOTATION_GROUP
-        : (getShapeConfig(shape)?.group ?? DEFAULT_ANNOTATION_GROUP);
+        : getShapeConfig(shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
 
       grouped[category] = [...(grouped[category] ?? []), shape];
     }

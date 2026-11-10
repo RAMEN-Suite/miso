@@ -29,7 +29,9 @@ function handleCancel(): void {
 
 <template>
   <div class="editor-button-container flex justify-center gap-4 p-4">
-    <Button aria-label="Save changes" title="Save changes" :disabled="disabled" :loading="disabled" @click="handleSave">Save</Button>
+    <Button aria-label="Save changes" title="Save changes" :disabled="disabled" :loading="disabled" @click="handleSave"
+      >Save</Button
+    >
     <Button severity="secondary" title="Discard changes" aria-label="Cancel changes" :disabled="disabled" @click="handleCancel">
       Cancel
     </Button>

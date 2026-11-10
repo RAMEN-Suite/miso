@@ -42,10 +42,9 @@ interface SelectorDefinition {
 }
 
 /** The selector definition of each medium */
-const SELECTOR_BY_MEDIUM: Readonly<{ [M in SelectorMedium]: SelectorDefinition & { type: SelectorByMedium[M]["type"] } }> =
-  {
-    text: { type: "TextPositionSelector", check: checkTextPositionSelector },
-  };
+const SELECTOR_BY_MEDIUM: Readonly<{ [M in SelectorMedium]: SelectorDefinition & { type: SelectorByMedium[M]["type"] } }> = {
+  text: { type: "TextPositionSelector", check: checkTextPositionSelector },
+};
 
 /**
  * Whether a value is a plain object (not `null`, not a list).
@@ -116,7 +115,9 @@ export function checkSelector(selector: unknown, medium: ContentMedium): string[
     return [`Annotations on ${medium} content need a ${expected.type}, found '${String(selector.type)}'.`];
   }
 
-  const definition: SelectorDefinition | undefined = Object.values<SelectorDefinition>(SELECTOR_BY_MEDIUM).find(({ type }) => type === selector.type);
+  const definition: SelectorDefinition | undefined = Object.values<SelectorDefinition>(SELECTOR_BY_MEDIUM).find(
+    ({ type }) => type === selector.type,
+  );
 
   if (!definition) {
     return [`Unknown selector type '${String(selector.type)}'.`];

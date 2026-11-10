@@ -167,7 +167,11 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
     }
 
     nodes.push(node);
-    instanceNodes.push({ id: instanceIdOf(node.data.uuid), typeId: node.classifierRef, properties: toInstanceProperties(context, node) });
+    instanceNodes.push({
+      id: instanceIdOf(node.data.uuid),
+      typeId: node.classifierRef,
+      properties: toInstanceProperties(context, node),
+    });
   }
 
   const mappedUuids = new Set<string>(nodes.map((node) => node.data.uuid));

@@ -1,15 +1,7 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
-import {
-  ApiJson,
-  TiptapNode,
-  TiptapNodeAttrs,
-  TiptapJson,
-  DocAnnotation,
-  StandoffParseIssue,
-  TextRange,
-} from "../models/types";
+import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
   AnnotationNode,
   BuiltinStructuralType,

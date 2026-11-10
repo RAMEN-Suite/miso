@@ -1,13 +1,4 @@
-import {
-  RAMEN_MODEL,
-  Attribute,
-  BuiltinType,
-  Constraint,
-  DataType,
-  Node,
-  RamenModel,
-  Relation,
-} from "@ramen-suite/core";
+import { RAMEN_MODEL, Attribute, BuiltinType, Constraint, DataType, Node, RamenModel, Relation } from "@ramen-suite/core";
 import {
   BASE_NODE_REF,
   BASE_NODE_REFS,
@@ -143,7 +134,7 @@ export function getBaseNodeRef(context: ModelContext, nodeRef: string): string |
 export function getRefinements(context: ModelContext, baseNodeRef: string): { ref: string; node: Node }[] {
   return context.config.model.classifiers
     .filter((classifier): classifier is Node & { modelId: string } => classifier.kind === "Node")
-    .map((node) => ({ ref: `${node.modelId}:${node.id}`, node: node as Node }))
+    .map((node) => ({ ref: `${node.modelId}:${node.id}`, node }))
     .filter(({ ref }) => !BASE_NODE_REFS.includes(ref) && getBaseNodeRef(context, ref) === baseNodeRef);
 }
 
@@ -245,7 +236,11 @@ export function getValueType(context: ModelContext, entry: ModelAttribute): Attr
     return "String";
   }
 
-  return (dataType.baseType === "String" && formatValueType(dataType)) || dataType.baseType;
+  if (dataType.baseType === "String") {
+    return formatValueType(dataType) ?? dataType.baseType;
+  }
+
+  return dataType.baseType;
 }
 
 /**
@@ -313,9 +308,7 @@ export function getOptions(context: ModelContext, entry: ModelAttribute): string
 function enumConstraintValues(constraints: Constraint[]): string[] | number[] | undefined {
   for (const constraint of constraints) {
     const values: unknown =
-      constraint.language === "json-schema" && typeof constraint.expression === "object"
-        ? constraint.expression.enum
-        : undefined;
+      constraint.language === "json-schema" && typeof constraint.expression === "object" ? constraint.expression.enum : undefined;
 
     if (Array.isArray(values) && values.length > 0) {
       if (values.every((value) => typeof value === "string")) {
@@ -424,9 +417,7 @@ export function validateValue(context: ModelContext, entry: ModelAttribute, valu
       ? context.model.validateAnnotationValue(familyRefOf(shape), shape.type, entry.attribute.name, normalized)
       : context.model.validateAttributeValue(entry.ownerRef, entry.attribute.name, normalized);
 
-    return result.diagnostics
-      .filter((diagnostic) => diagnostic.severity === "error")
-      .map((diagnostic) => diagnostic.message);
+    return result.diagnostics.filter((diagnostic) => diagnostic.severity === "error").map((diagnostic) => diagnostic.message);
   } catch (error: unknown) {
     // RAMEN core throws if the attribute is not on the node or shape, which would be a broken config
     return [(error as Error).message];
@@ -676,7 +667,7 @@ export function findRelation(context: ModelContext, ref: string): (Relation & { 
 }
 
 /** Qualified refs of all relation definitions a relation definition refines, directly or indirectly */
-function relationSuperRefsOf(context: ModelContext, ref: string, seen: Set<string> = new Set()): Set<string> {
+function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<string>()): Set<string> {
   const relation: (Relation & { modelId: string }) | undefined = findRelation(context, ref);
 
   if (!relation) {

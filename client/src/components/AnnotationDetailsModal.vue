@@ -33,8 +33,7 @@ const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
  * passes, e.g. without the editor-owned ones that are taken from the editor on save.
  */
 const editedProperties: ModelAttribute[] =
-  (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ??
-  getAnnotationProperties(annotation.value.node);
+  (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ?? getAnnotationProperties(annotation.value.node);
 const propertyFields: ModelAttribute[] = editedProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");

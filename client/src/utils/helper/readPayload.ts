@@ -107,11 +107,13 @@ export function toNodeDto<T extends NodeDto["node"]>(elements: ElementGraph, uui
  */
 export function toAncestryPaths(elements: ElementGraph, uuid: string): NodeAncestry[] {
   const elementsByUuid = new Map<string, ElementNode>(elements.nodes.map((element) => [element.data.uuid, element]));
-  const parentUuids = new Map<string, string[]>();
+  const parentsByUuid = new Map<string, ElementNode[]>();
 
   for (const relation of elements.relations) {
-    if (elementsByUuid.has(relation.to)) {
-      parentUuids.set(relation.from, [...(parentUuids.get(relation.from) ?? []), relation.to]);
+    const parent: ElementNode | undefined = elementsByUuid.get(relation.to);
+
+    if (parent) {
+      parentsByUuid.set(relation.from, [...(parentsByUuid.get(relation.from) ?? []), parent]);
     }
   }
 
@@ -120,21 +122,21 @@ export function toAncestryPaths(elements: ElementGraph, uuid: string): NodeAnces
   }
 
   /** The paths from a node upwards, each starting with the node's parent */
-  function walk(current: string, visited: ReadonlySet<string>): string[][] {
-    const parents: string[] = (parentUuids.get(current) ?? []).filter((parent) => !visited.has(parent));
+  function walk(current: string, visited: ReadonlySet<string>): ElementNode[][] {
+    const parents: ElementNode[] = (parentsByUuid.get(current) ?? []).filter((parent) => !visited.has(parent.data.uuid));
 
     if (parents.length === 0) {
       return [[]];
     }
 
     return parents.flatMap((parent) =>
-      walk(parent, new Set([...visited, parent])).map((above) => [parent, ...above]),
+      walk(parent.data.uuid, new Set([...visited, parent.data.uuid])).map((above) => [parent, ...above]),
     );
   }
 
   return walk(uuid, new Set([uuid])).map((path) =>
-    path.toReversed().map((pathUuid) => ({
-      node: toTreeNode(elementsByUuid.get(pathUuid)!) as CollectionNode,
+    path.toReversed().map((element) => ({
+      node: toTreeNode(element) as CollectionNode,
       connectedNodes: [],
     })),
   );

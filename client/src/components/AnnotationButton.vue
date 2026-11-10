@@ -23,7 +23,7 @@ const { registerShortcut } = useShortcutsStore();
 
 const fields: ModelAttribute[] = getTextAnnotationProperties(props.type);
 const subTypeField: ModelAttribute | undefined = fields.find((field) => field.attribute.name === "subType");
-const options: string[] | number[] = subTypeField ? (getOptions(getModelContext(), subTypeField) ?? []) : [];
+const options: string[] | number[] = subTypeField ? getOptions(getModelContext(), subTypeField) ?? [] : [];
 const dropdownOptions = options.map((option: string | number) => {
   return {
     label: option.toString(),

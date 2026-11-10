@@ -112,7 +112,7 @@ const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 
 /** The parent of new nodes: the active item of the previous column, always a Collection (Contents have no columns) */
 const parentCollection = computed<HierarchyNode | null>(() =>
-  props.index > 0 ? (levels.value[props.index - 1]?.activeItem?.node ?? null) : null,
+  props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null,
 );
 
 /** Classifier ref of the parent Collection; `null` at the top level or if it can't be resolved */
@@ -151,8 +151,8 @@ const allClassifierRefs: string[] = getHierarchyClassifierRefs();
  * Whether anything in the filter popover currently narrows the listing.
  */
 const hasActiveFilters = computed<boolean>(() => {
-  const selectedTypes: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "classifier")
-    ?.conditions[0]?.value ?? []) as string[];
+  const selectedTypes: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]
+    ?.value ?? []) as string[];
 
   if (allClassifierRefs.some((ref) => !selectedTypes.includes(ref))) {
     return true;

@@ -4,13 +4,7 @@
  *
  * TODO: Should come from the Nori export in the future.
  */
-export const INTRINSIC_ANNOTATION_PROPERTIES: readonly string[] = [
-  "uuid",
-  "type",
-  "selector",
-  "text",
-  "isZeroPoint",
-];
+export const INTRINSIC_ANNOTATION_PROPERTIES: readonly string[] = ["uuid", "type", "selector", "text", "isZeroPoint"];
 
 /**
  * Whether the data of annotations with a type that is not in the config are pruned before saving.

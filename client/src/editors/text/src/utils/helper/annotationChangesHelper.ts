@@ -189,8 +189,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const hasNewRange: boolean =
         initialEntry?.node.data.selector?.start !== start || initialEntry?.node.data.selector?.end !== end;
-      const hasChangedText: boolean =
-        !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(start, end + 1);
+      const hasChangedText: boolean = !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(start, end + 1);
       const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
 
       if (!hasNewRange && !hasChangedText && !isEditedOrDeleted) {

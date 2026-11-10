@@ -14,13 +14,7 @@ import {
   TextNode,
 } from "../models/types";
 import { BASE_NODE_REF } from "../config/ramen";
-import {
-  getClassifierRef,
-  getNodeTypeOption,
-  isCollectionNode,
-  isContentNode,
-  isEntityNode,
-} from "../utils/helper/modelHelper";
+import { getClassifierRef, getNodeTypeOption, isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/modelHelper";
 import Button from "primevue/button";
 import FilterableMenu from "./FilterableMenu.vue";
 import { MenuItem } from "primevue/menuitem";

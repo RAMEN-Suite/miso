@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/core";
 import { BASE_NODE_REF } from "../../../../src/config/ramen";
-import type { ModelAnnotationShape } from "../../../../src/models/types";
+import type { ModelAnnotationShape, ModelContext } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import {
   createModelContext,
@@ -193,9 +193,20 @@ function buildReferenceTestModel(personBounds = { lowerBound: 0, upperBound: 1 }
   };
 }
 
+/** {@linkcode findShape}, failing the test if the model has no shape for the ref */
+function requireShape(context: ModelContext, ref: string): ModelAnnotationShape {
+  const shape: ModelAnnotationShape | undefined = findShape(context, ref);
+
+  if (!shape) {
+    throw new Error(`The test model has no shape ${ref}`);
+  }
+
+  return shape;
+}
+
 describe("getReferenceTargetRefs, getMissingReferences", () => {
   const reference = buildReferenceTestModel();
-  const shape = findShape(reference.context, reference.refs.rs) as ModelAnnotationShape;
+  const shape = requireShape(reference.context, reference.refs.rs);
 
   test("lists the targets of the outgoing REFERS_TO rules", () => {
     expect(getReferenceTargetRefs(reference.context, shape).toSorted()).toEqual(
@@ -209,7 +220,7 @@ describe("getReferenceTargetRefs, getMissingReferences", () => {
 
   test("a required rule is missing until a reference to its target (or a refinement) exists", () => {
     const required = buildReferenceTestModel({ lowerBound: 1, upperBound: 1 });
-    const requiredShape = findShape(required.context, required.refs.rs) as ModelAnnotationShape;
+    const requiredShape = requireShape(required.context, required.refs.rs);
 
     expect(requiresReferences(required.context, requiredShape)).toBe(true);
     expect(getMissingReferences(required.context, requiredShape, [required.refs.letter])).toEqual([

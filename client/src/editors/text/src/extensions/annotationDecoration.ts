@@ -403,7 +403,9 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
     function createInitialDecorations(doc: Node, annotations: Map<string, Annotation>): Decoration[] {
       const decos: Decoration[] = [];
 
-      for (const annotation of [...annotations.values()].toSorted((a, b) => a.node.data.selector.start - b.node.data.selector.start)) {
+      for (const annotation of [...annotations.values()].toSorted(
+        (a, b) => a.node.data.selector.start - b.node.data.selector.start,
+      )) {
         const { start, end } = annotation.node.data.selector;
 
         const from: number = indexToPosition(doc, start);

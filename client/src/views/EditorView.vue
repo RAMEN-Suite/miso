@@ -27,11 +27,7 @@ import { Node as DocNode } from "@tiptap/pm/model";
 import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
-import {
-  type StandoffParseIssue,
-  createAnnotationChangeCollector,
-  normalizeAnnotation,
-} from "../editors/text/src";
+import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -126,9 +122,7 @@ function cleanUpAfterSave(
 
   cleanUpAnnotations(updatedAnnotations.annotations);
 
-  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(
-    updatedAnnotations.structureElements,
-  );
+  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(updatedAnnotations.structureElements);
 
   // Needs to happen before the new initial state is set, since the document is part of it
   tiptap.value?.commands.applySavedDocAnnotations(savedStructuralAnnotations);

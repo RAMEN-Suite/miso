@@ -193,7 +193,7 @@ export function isEntityNode(context: ModelContext, node: NodeStatusObject): nod
 export function getRefinements(context: ModelContext, baseNodeRef: string): { ref: string; node: Node }[] {
   return context.config.model.classifiers
     .filter((classifier): classifier is Node & { modelId: string } => classifier.kind === "Node")
-    .map((node) => ({ ref: `${node.modelId}:${node.id}`, node: node as Node }))
+    .map((node) => ({ ref: `${node.modelId}:${node.id}`, node: node }))
     .filter(({ ref }) => !BASE_NODE_REFS.includes(ref) && getBaseNodeRef(context, ref) === baseNodeRef);
 }
 
@@ -303,7 +303,11 @@ export function getValueType(context: ModelContext, entry: ModelAttribute): Attr
     return "String";
   }
 
-  return (dataType.baseType === "String" && formatValueType(dataType)) || dataType.baseType;
+  if (dataType.baseType === "String") {
+    return formatValueType(dataType) ?? dataType.baseType;
+  }
+
+  return dataType.baseType;
 }
 
 /**
@@ -898,7 +902,7 @@ export function findRelation(context: ModelContext, ref: string): (Relation & { 
 }
 
 /** Qualified refs of all relation definitions a relation definition refines, directly or indirectly */
-function relationSuperRefsOf(context: ModelContext, ref: string, seen: Set<string> = new Set()): Set<string> {
+function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<string>()): Set<string> {
   const relation: (Relation & { modelId: string }) | undefined = findRelation(context, ref);
 
   if (!relation) {

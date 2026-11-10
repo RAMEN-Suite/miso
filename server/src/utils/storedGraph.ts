@@ -158,7 +158,12 @@ export function toElementGraph(
       return known;
     }
 
-    const node: StoredGraphNode = graph.nodes.get(uuid)!;
+    const node: StoredGraphNode | undefined = graph.nodes.get(uuid);
+
+    if (!node) {
+      throw new Error(`The stored graph has no node ${uuid}`);
+    }
+
     const labelResolution: RefResolution = resolveClassifierRef(context, node.nodeLabels);
     let element: ElementNode;
     let problem: string | undefined = labelResolution.problem;
@@ -166,9 +171,7 @@ export function toElementGraph(
     if (labelResolution.ref && getBaseNodeRef(context, labelResolution.ref) === BASE_NODE_REF.Annotation) {
       const carrierUuid: string | undefined = carrierOf.get(uuid);
       const carrierRef: string | null =
-        carrierUuid && !visiting.has(carrierUuid)
-          ? resolve(carrierUuid, new Set([...visiting, uuid])).classifierRef
-          : null;
+        carrierUuid && !visiting.has(carrierUuid) ? resolve(carrierUuid, new Set([...visiting, uuid])).classifierRef : null;
       const type: unknown = node.data.type;
       let shapeResolution: RefResolution;
 

@@ -22,7 +22,10 @@ function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): No
   const baseNodeRef: string | undefined = node.classifierRef ? getBaseNodeRef(context, node.classifierRef) : undefined;
 
   if (baseNodeRef === BASE_NODE_REF.Collection && node.classifierRef) {
-    return { nodeLabels: node.nodeLabels, data: toNeo4jTypes(context, node.data, getNodeAttributes(context, node.classifierRef)) };
+    return {
+      nodeLabels: node.nodeLabels,
+      data: toNeo4jTypes(context, node.data, getNodeAttributes(context, node.classifierRef)),
+    };
   } else if (baseNodeRef === BASE_NODE_REF.Annotation) {
     const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
     const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
@@ -101,7 +104,9 @@ export function toNodeChanges(context: ModelContext, payload: ElementGraph): Nod
 
       (node.status === "created" ? changes.create : changes.update).push(stored);
     } else {
-      throw new ValidationError(`Node ${node.data.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`);
+      throw new ValidationError(
+        `Node ${node.data.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`,
+      );
     }
   }
 

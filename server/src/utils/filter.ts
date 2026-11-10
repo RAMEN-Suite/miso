@@ -489,7 +489,13 @@ export function targetExpression(target: FilterTarget): string {
  * @returns {string} A Cypher boolean expression.
  */
 function conditionCypher(expression: string, valueType: FilterValueType, condition: FilterCondition, name: string): string {
-  const predicate: string = buildPredicate({ comparator: condition.comparator, lhs: expression, rhs: `$${name}`, name, valueType });
+  const predicate: string = buildPredicate({
+    comparator: condition.comparator,
+    lhs: expression,
+    rhs: `$${name}`,
+    name,
+    valueType,
+  });
 
   return `(${predicate})`;
 }

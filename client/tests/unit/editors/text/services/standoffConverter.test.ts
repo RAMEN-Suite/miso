@@ -116,7 +116,13 @@ describe("block classifications", () => {
 describe("unicode", () => {
   test("counts indices in UTF-16 code units, like JavaScript string length", () => {
     const { annotations } = convert(fixtures.unicode);
-    const { start, end } = annotations.get("add-1")!.node.data.selector;
+    const selector = annotations.get("add-1")?.node.data.selector;
+
+    if (!selector) {
+      throw new Error("The conversion is missing the annotation add-1");
+    }
+
+    const { start, end } = selector;
 
     expect(fixtures.unicode.text).toHaveLength(9);
     expect(fixtures.unicode.text.slice(start, end + 1)).toBe("b́");

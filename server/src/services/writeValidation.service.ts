@@ -63,7 +63,7 @@ export default class WriteValidationService {
         throw new NotFoundError(`Content or Collection with UUID ${uuid} not found`);
       }
 
-      const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted"));
+      const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted") as string[]);
       const diagnostics: ElementDiagnostic[] = await this.validate(tx, context, touched);
 
       return { node: record.get("node"), diagnostics };
@@ -170,7 +170,7 @@ export default class WriteValidationService {
     );
 
     for (const record of scopeResult.records) {
-      addStoredNode(graph, record.get("node"));
+      addStoredNode(graph, record.get("node") as StoredNodeRecord);
 
       for (const link of record.get("links") as (StoredGraphRelation & { neighbour: StoredNodeRecord })[]) {
         addStoredNode(graph, link.neighbour);

@@ -40,9 +40,7 @@ const baseEntrySchema = z.strictObject({
   /** Name of the base node. A hint for readers, the ID decides. */
   name: z.string(),
   ext: extSchema(classifierConfigSchema),
-  attributes: z
-    .array(z.strictObject({ id: z.string(), name: z.string(), ext: extSchema(attributeConfigSchema) }))
-    .optional(),
+  attributes: z.array(z.strictObject({ id: z.string(), name: z.string(), ext: extSchema(attributeConfigSchema) })).optional(),
 });
 
 /** URL of the config format, with its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
@@ -128,9 +126,7 @@ function checkExtBlocks(model: RamenFile): string[] {
     const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
 
     check(annotationShapeConfigSchema, shape.ext?.miso, label);
-    shape.properties.forEach((property) =>
-      check(attributeConfigSchema, property.ext?.miso, `${label}.${property.name}`),
-    );
+    shape.properties.forEach((property) => check(attributeConfigSchema, property.ext?.miso, `${label}.${property.name}`));
   }
 
   return problems;

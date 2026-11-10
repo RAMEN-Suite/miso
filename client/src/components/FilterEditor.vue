@@ -96,8 +96,7 @@ const search = ref<string>("");
 function sync(): void {
   rows.value = filtersToRows();
   selectedTypes.value = [
-    ...((props.filters.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]?.value as string[]) ??
-      []),
+    ...((props.filters.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]?.value as string[]) ?? []),
   ];
   search.value =
     (props.filters.find((rule: FilterRule) => rule.target.kind === "distinct")?.conditions[0]?.value as string) ?? "";

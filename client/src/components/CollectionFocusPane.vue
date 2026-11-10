@@ -98,9 +98,7 @@ const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
   return isConfigInitialized.value
-    ? getCollectionAttributes(temporaryWorkData.value.collection.node).filter((field) =>
-        isVisible(getModelContext(), field),
-      )
+    ? getCollectionAttributes(temporaryWorkData.value.collection.node).filter((field) => isVisible(getModelContext(), field))
     : [];
 });
 
@@ -124,7 +122,7 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
       const subTypeField: ModelAttribute | undefined = SHOW_ANNOTATION_SUBTYPES
         ? getShapeProperties(type).find((field) => field.attribute.name === "subType")
         : undefined;
-      const subTypeOptions: (string | number)[] = subTypeField ? (getOptions(getModelContext(), subTypeField) ?? []) : [];
+      const subTypeOptions: (string | number)[] = subTypeField ? getOptions(getModelContext(), subTypeField) ?? [] : [];
 
       if (subTypeOptions.length === 0) {
         return {
@@ -340,8 +338,7 @@ function validateLabel(value: unknown): string | null {
  */
 function savesOnChange(field: ModelAttribute): boolean {
   return (
-    getValueType(getModelContext(), field) === "Boolean" ||
-    (getOptions(getModelContext(), field) !== undefined && !isList(field))
+    getValueType(getModelContext(), field) === "Boolean" || (getOptions(getModelContext(), field) !== undefined && !isList(field))
   );
 }
 
@@ -533,7 +530,9 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation.node);
 
   if (!shape) {
-    console.error(`No annotation shape found for type "${data.type}" on Collection with labels ${collection.nodeLabels.join(", ")}`);
+    console.error(
+      `No annotation shape found for type "${data.type}" on Collection with labels ${collection.nodeLabels.join(", ")}`,
+    );
     return;
   }
 

@@ -3,7 +3,7 @@ import Neo4jDriver from "../database/neo4j.js";
 import ValidationError from "../errors/validation.error.js";
 import { orderDirection } from "../utils/cypher.js";
 import { valueToNativeType } from "../utils/helper.js";
-import { toElementResponse } from "../utils/storedGraph.js";
+import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
 import { toNodeChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
@@ -87,7 +87,11 @@ export default class HierarchyService {
     ]);
     const record = result.records[0];
 
-    return toElementResponse(context, record?.get("nodes") ?? [], record?.get("relations") ?? []);
+    return toElementResponse(
+      context,
+      (record?.get("nodes") ?? []) as StoredNodeRecord[],
+      (record?.get("relations") ?? []) as StoredGraphRelation[],
+    );
   }
 
   /**
@@ -225,7 +229,10 @@ export default class HierarchyService {
     const hasMore: boolean = rawChildren.length > limit;
     const pageRows = hasMore ? rawChildren.slice(0, limit) : rawChildren;
 
-    const data: ElementResponse = toElementResponse(context, pageRows.map((row) => row.node));
+    const data: ElementResponse = toElementResponse(
+      context,
+      pageRows.map((row) => row.node),
+    );
 
     let nextCursor: string | null = null;
 

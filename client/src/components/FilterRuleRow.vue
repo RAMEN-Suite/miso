@@ -44,8 +44,7 @@ const selectedTarget = computed<string>(() => targetKey(row.value.target));
 const field = computed<ModelAttribute | undefined>(() =>
   row.value.target.kind === "property"
     ? props.properties.find(
-        (property: ModelAttribute) =>
-          property.attribute.name === (row.value.target as { kind: "property"; field: string }).field,
+        (property: ModelAttribute) => property.attribute.name === (row.value.target as { kind: "property"; field: string }).field,
       )
     : undefined,
 );
@@ -53,7 +52,7 @@ const field = computed<ModelAttribute | undefined>(() =>
 /** The value type of the chosen attribute, used by the inputs and the conversions of temporal values */
 const valueType = computed<AttributeValueType | undefined>(() => (field.value ? getValueType(context, field.value) : undefined));
 
-const enumOptions = computed<(string | number)[]>(() => (field.value ? (getOptions(context, field.value) ?? []) : []));
+const enumOptions = computed<(string | number)[]>(() => (field.value ? getOptions(context, field.value) ?? [] : []));
 
 const comparatorOptions = computed<{ label: string; value: FilterComparator }[]>(() =>
   availableComparators(context, field.value).map((comparator: FilterComparator) => ({

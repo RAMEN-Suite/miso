@@ -43,10 +43,9 @@ interface SelectorDefinition {
 }
 
 /** The selector definition of each medium */
-const SELECTOR_BY_MEDIUM: Readonly<{ [M in SelectorMedium]: SelectorDefinition & { type: SelectorByMedium[M]["type"] } }> =
-  {
-    text: { type: "TextPositionSelector", check: checkTextPositionSelector },
-  };
+const SELECTOR_BY_MEDIUM: Readonly<{ [M in SelectorMedium]: SelectorDefinition & { type: SelectorByMedium[M]["type"] } }> = {
+  text: { type: "TextPositionSelector", check: checkTextPositionSelector },
+};
 
 /**
  * Whether a value is a plain object (not `null`, not a list).

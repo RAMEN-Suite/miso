@@ -26,7 +26,7 @@ import type {
   RefResolution,
   TextNode,
 } from "../../models/types";
-import type { ConfigBaseEntry, ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
+import type { ConfigBaseClassifier, ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
 
 /**
  * Accessors on the model and the config. Everything model-related and the app's settings of model elements are read
@@ -34,7 +34,7 @@ import type { ConfigBaseEntry, ConfigMapping, MisoConfig } from "../../schemas/m
  *
  * - Model questions (lineage, attributes, data types, annotation shapes of a node, value validation) are answered by
  *   RAMEN core.
- * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.base`, since
+ * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.general.baseClassifiers`, since
  *   RAMEN core allows no `ext` there. The editor's native types are mapped in `miso.editors.text.mappings`.
  *
  * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
@@ -73,7 +73,7 @@ function modelIdOf(qualifiedRef: string): string {
 
 /**
  * Whether a ref points into the RAMEN base level. RAMEN core doesn't allow `ext` there, so the config of these
- * elements lives in `miso.base`.
+ * elements lives in `miso.general.baseClassifiers`.
  *
  * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
  * @returns {boolean} `true` if the ref belongs to the RAMEN base model.
@@ -107,15 +107,15 @@ export function findShape(context: ModelContext, ref: string): ModelAnnotationSh
 }
 
 /**
- * Looks up the `miso.base` entry of a RAMEN base level element (e.g. the Collection node), by comparing
- * `<modelId>:<id>` of each entry with the given ref.
+ * Looks up the `miso.general.baseClassifiers` entry of a RAMEN base level classifier (e.g. the Collection node), by
+ * comparing `<modelId>:<id>` of each entry with the given ref.
  *
  * @param {ModelContext} context - The model context.
- * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the base level element.
- * @returns {ConfigBaseEntry | undefined} The entry, `undefined` if the element has no config.
+ * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the base level classifier.
+ * @returns {ConfigBaseClassifier | undefined} The entry, `undefined` if the classifier has no config.
  */
-export function findBaseEntry(context: ModelContext, ref: string): ConfigBaseEntry | undefined {
-  return (context.config.miso.base ?? []).find((entry) => `${entry.modelId}:${entry.id}` === ref);
+export function findBaseClassifier(context: ModelContext, ref: string): ConfigBaseClassifier | undefined {
+  return (context.config.miso.general.baseClassifiers ?? []).find((entry) => `${entry.modelId}:${entry.id}` === ref);
 }
 
 // ----- Nodes -----
@@ -222,7 +222,7 @@ export function getNodeTypeOption(context: ModelContext, classifierRef: string):
 }
 
 /**
- * The config of a node. Base level nodes have theirs in `miso.base`.
+ * The config of a node. Base level nodes have theirs in `miso.general.baseClassifiers`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} nodeRef - Qualified ref of the node.
@@ -230,7 +230,7 @@ export function getNodeTypeOption(context: ModelContext, classifierRef: string):
  */
 export function getNodeConfig(context: ModelContext, nodeRef: string): ContentTypeConfig | undefined {
   if (isBaseLevel(nodeRef)) {
-    return findBaseEntry(context, nodeRef)?.ext?.miso;
+    return findBaseClassifier(context, nodeRef)?.ext?.miso;
   } else {
     return context.model.getNode(nodeRef)?.ext?.miso as ContentTypeConfig | undefined;
   }
@@ -428,7 +428,7 @@ export function isRequired(entry: ModelAttribute): boolean {
 }
 
 /**
- * The config of an attribute. Attributes of the RAMEN base level have theirs in `miso.base`.
+ * The config of an attribute. Attributes of the RAMEN base level have theirs in `miso.general.baseClassifiers`.
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
@@ -436,7 +436,7 @@ export function isRequired(entry: ModelAttribute): boolean {
  */
 export function getAttributeConfig(context: ModelContext, entry: ModelAttribute): AttributeConfig | undefined {
   if (isBaseLevel(entry.ownerRef)) {
-    return findBaseEntry(context, entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
+    return findBaseClassifier(context, entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
   } else {
     return entry.attribute.ext?.miso as AttributeConfig | undefined;
   }

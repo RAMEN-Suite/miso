@@ -1,7 +1,7 @@
 import type { RamenFile } from "@ramen-suite/core";
 
-/** An entry of `miso.base`: settings of a RAMEN base level element, which can't be set in the model itself */
-export interface ConfigBaseEntry {
+/** An entry of `miso.general.baseClassifiers`: settings of a RAMEN base level classifier, which can't be set in the model itself */
+export interface ConfigBaseClassifier {
   kind: string;
   id: string;
   modelId: string;
@@ -35,8 +35,13 @@ export interface IMisoConfig {
   };
   model: RamenFile;
   miso: {
-    templates: unknown[];
-    base?: ConfigBaseEntry[];
+    /** Settings that concern the whole app, not a single editor */
+    general: {
+      /** Subgraph templates. Not migrated yet, always empty for now. */
+      templates: unknown[];
+      /** Settings of RAMEN base level classifiers, which RAMEN core accepts only unchanged in the model */
+      baseClassifiers?: ConfigBaseClassifier[];
+    };
     /** Settings of the Content editors, one section per editor */
     editors: {
       text: {

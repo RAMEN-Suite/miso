@@ -30,7 +30,7 @@ function buildPayloadTestModel() {
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "payloadTest",
     model: edition.export(),
-    miso: { templates: [], editors: { text: { mappings: [] } } },
+    miso: { general: { templates: [] }, editors: { text: { mappings: [] } } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;

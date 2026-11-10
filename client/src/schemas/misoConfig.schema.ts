@@ -33,7 +33,7 @@ const mappingSchema = z
   })
   .superRefine((mapping, ctx) => checkNativeAttributes(mapping.native, mapping.attributes, ctx));
 
-const baseEntrySchema = z.strictObject({
+const baseClassifierSchema = z.strictObject({
   kind: z.string(),
   id: z.string(),
   modelId: z.string(),
@@ -67,13 +67,16 @@ const misoConfigSchema = z.strictObject({
   /** The ingested model. Validated by RAMEN core in `parseMisoConfig`. */
   model: z.custom<RamenFile>((value) => typeof value === "object" && value !== null, "The model must be an object"),
   miso: z.strictObject({
-    /** Subgraph templates. Not migrated yet, always empty for now. */
-    templates: z.array(z.unknown()),
-    /**
-     * Settings of RAMEN base level elements (e.g. the Collection node and its `label`). RAMEN core accepts the
-     * embedded base model only unchanged, so they can't be set in `ext` of the model elements.
-     */
-    base: z.array(baseEntrySchema).optional(),
+    /** Settings that concern the whole app, not a single editor */
+    general: z.strictObject({
+      /** Subgraph templates. Not migrated yet, always empty for now. */
+      templates: z.array(z.unknown()),
+      /**
+       * Settings of RAMEN base level classifiers (e.g. the Collection node and its `label`). RAMEN core accepts the
+       * embedded base model only unchanged, so they can't be set in `ext` of the model elements.
+       */
+      baseClassifiers: z.array(baseClassifierSchema).optional(),
+    }),
     /** Settings of the Content editors, one section per editor */
     editors: z.strictObject({
       text: textEditorConfigSchema,
@@ -84,8 +87,8 @@ const misoConfigSchema = z.strictObject({
 /** The Miso config: the ingested RAMEN model with Miso settings in `ext.miso`, plus the global Miso settings */
 export type MisoConfig = z.infer<typeof misoConfigSchema>;
 
-/** An entry of `miso.base` */
-export type ConfigBaseEntry = z.infer<typeof baseEntrySchema>;
+/** An entry of `miso.general.baseClassifiers` */
+export type ConfigBaseClassifier = z.infer<typeof baseClassifierSchema>;
 
 /** An entry of `miso.editors.text.mappings`: a native editor type and the annotation shape that implements it */
 export type ConfigMapping = z.infer<typeof mappingSchema>;
@@ -98,15 +101,15 @@ export interface ParsedMisoConfig {
 }
 
 /**
- * Checks the `ext.miso` blocks of all model elements and `miso.base` entries against their schemas. Keys of other tools
+ * Checks the `ext.miso` blocks of all model elements and `miso.general.baseClassifiers` against their schemas. Keys of other tools
  * next to `miso` are allowed, but Miso's own keys there (e.g. `ext.appearance` instead of `ext.miso.appearance`) are
  * reported, since they would be silently ignored. Mirrored in `server/src/schemas/configBlocks.schema.ts`.
  *
  * @param {RamenFile} model - The ingested model.
- * @param {ConfigBaseEntry[]} base - The `miso.base` entries.
+ * @param {ConfigBaseClassifier[]} baseClassifiers - The `miso.general.baseClassifiers` entries.
  * @returns {string[]} The problems found, each with the element it belongs to.
  */
-function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): string[] {
+function checkExtBlocks(model: RamenFile, baseClassifiers: ConfigBaseClassifier[]): string[] {
   const problems: string[] = [];
 
   function check(schema: z.ZodObject, ext: Record<string, unknown> | undefined, label: string): void {
@@ -142,8 +145,8 @@ function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): string[] {
     shape.properties.forEach((property) => check(attributeConfigSchema, property.ext, `${label}.${property.name}`));
   }
 
-  for (const entry of base) {
-    const label: string = `miso.base "${entry.name}" (${entry.modelId}:${entry.id})`;
+  for (const entry of baseClassifiers) {
+    const label: string = `miso.general.baseClassifiers "${entry.name}" (${entry.modelId}:${entry.id})`;
 
     check(classifierConfigSchema, entry.ext, label);
     entry.attributes?.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));
@@ -234,7 +237,7 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   }
 
   const problems: string[] = [
-    ...checkExtBlocks(result.data.model, result.data.miso.base ?? []),
+    ...checkExtBlocks(result.data.model, result.data.miso.general.baseClassifiers ?? []),
     ...checkBuiltinAttributes(result.data.model, result.data.miso.editors.text.mappings),
   ];
 

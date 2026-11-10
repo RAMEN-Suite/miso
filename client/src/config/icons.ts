@@ -44,7 +44,7 @@ export function initializeNodeIcons(context: ModelContext): void {
 
 /**
  * The icon of a node type: the nearest `ext.miso.appearance.icon` along its lineage (base level ones are in
- * `miso.base`), otherwise the default of its base node. Cached per classifier.
+ * `miso.general.baseClassifiers`), otherwise the default of its base node. Cached per classifier.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} classifierRef - Qualified ref of the node type.

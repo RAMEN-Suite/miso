@@ -270,7 +270,7 @@ export default class ConfigService {
     }
 
     const problems: string[] = [
-      ...checkExtBlocks(config.model, config.miso.base ?? []),
+      ...checkExtBlocks(config.model, config.miso.general.baseClassifiers ?? []),
       ...checkMappings(config.model, config.miso.editors.text.mappings),
     ];
 

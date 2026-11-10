@@ -6606,7 +6606,28 @@
     ]
   },
   "miso": {
-    "templates": [],
+    "general": {
+      "templates": [],
+      "baseClassifiers": [
+        {
+          "kind": "Node",
+          "id": "aP3xK8nV1qR6tY2uZ9wB",
+          "modelId": "lW611f30a2ky4276g3l8N",
+          "name": "Collection",
+          "attributes": [
+            {
+              "id": "8c3cef32d4648158",
+              "name": "label",
+              "ext": {
+                "miso": {
+                  "visible": false
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
     "editors": {
       "text": {
         "mappings": [
@@ -6662,25 +6683,6 @@
           }
         ]
       }
-    },
-    "base": [
-      {
-        "kind": "Node",
-        "id": "aP3xK8nV1qR6tY2uZ9wB",
-        "modelId": "lW611f30a2ky4276g3l8N",
-        "name": "Collection",
-        "attributes": [
-          {
-            "id": "8c3cef32d4648158",
-            "name": "label",
-            "ext": {
-              "miso": {
-                "visible": false
-              }
-            }
-          }
-        ]
-      }
-    ]
+    }
   }
 }

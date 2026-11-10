@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Attribute, Constraint, RamenFile } from "@ramen-suite/core";
-import type { ConfigBaseEntry, ConfigMapping } from "../models/IMisoConfig.js";
+import type { ConfigBaseClassifier, ConfigMapping } from "../models/IMisoConfig.js";
 
 // Schemas of the Miso settings in the config (`ext.miso` blocks, `miso.editors.text.mappings`) and their checks. Mirrors
 // `client/src/schemas/configBlocks.schema.ts`, `checkExtBlocks`/`checkBuiltinAttributes` in
@@ -152,15 +152,15 @@ const attributeConfigSchema = z.strictObject({
 });
 
 /**
- * Checks the `ext.miso` blocks of all model elements and `miso.base` entries against their schemas. Keys of other tools
+ * Checks the `ext.miso` blocks of all model elements and `miso.general.baseClassifiers` against their schemas. Keys of other tools
  * next to `miso` are allowed, but Miso's own keys there (e.g. `ext.appearance` instead of `ext.miso.appearance`) are
  * reported, since they would be silently ignored.
  *
  * @param {RamenFile} model - The ingested model.
- * @param {ConfigBaseEntry[]} base - The `miso.base` entries.
+ * @param {ConfigBaseClassifier[]} baseClassifiers - The `miso.general.baseClassifiers` entries.
  * @returns {string[]} The problems found, each with the element it belongs to.
  */
-export function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): string[] {
+export function checkExtBlocks(model: RamenFile, baseClassifiers: ConfigBaseClassifier[]): string[] {
   const problems: string[] = [];
 
   function check(schema: z.ZodObject, ext: Record<string, unknown> | undefined, label: string): void {
@@ -196,8 +196,8 @@ export function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): strin
     shape.properties.forEach((property) => check(attributeConfigSchema, property.ext, `${label}.${property.name}`));
   }
 
-  for (const entry of base) {
-    const label: string = `miso.base "${entry.name}" (${entry.modelId}:${entry.id})`;
+  for (const entry of baseClassifiers) {
+    const label: string = `miso.general.baseClassifiers "${entry.name}" (${entry.modelId}:${entry.id})`;
 
     check(classifierConfigSchema, entry.ext, label);
     entry.attributes?.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));

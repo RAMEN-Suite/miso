@@ -12,7 +12,7 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
 
 /**
  * A structural type the editor implements natively (paragraph, heading, table ...), with the values the editor fixes.
- * Not a RAMEN annotation shape: the project's shape for it (named via `miso.mappings`) is a normal shape with its own
+ * Not a RAMEN annotation shape: the project's shape for it (named via `miso.editors.text.mappings`) is a normal shape with its own
  * properties and `ext.miso` (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
@@ -57,10 +57,10 @@ export interface ApiJson {
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
  * as rowspan/colspan properties in tableRow and tableCell annotations.
  *
- * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.mappings` of the Miso config.
+ * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.editors.text.mappings` of the Miso config.
  *
  * @example
- * // Entry of miso.mappings
+ * // Entry of miso.editors.text.mappings
  * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
  *
  * // Resulting mapping: tiptap defaults as keys, project-specific overrides as values

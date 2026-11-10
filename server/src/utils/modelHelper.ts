@@ -25,7 +25,7 @@ import type {
  *   RAMEN core.
  * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.base`, since
  *   RAMEN core allows no `ext` there. The server passes them through and only checks the native mappings
- *   (`miso.mappings`); the client validates and applies both.
+ *   (`miso.editors.text.mappings`); the client validates and applies both.
  *
  * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
  * to an attribute (both in `models/types.ts`). The model constants are in `utils/ramen.ts`. Elements are referenced by
@@ -796,11 +796,13 @@ export function collectConfigWarnings(context: ModelContext): string[] {
   // Mappings that don't point to a text annotation type, or map a native type twice
   const mappedNativeTypes = new Set<string>();
 
-  for (const mapping of context.config.miso.mappings) {
+  for (const mapping of context.config.miso.editors.text.mappings) {
     if (![...textShapes.values()].some((shape) => shapeRefOf(shape) === mapping.annotation)) {
-      warnings.push(`miso.mappings: "${mapping.annotation}" (${mapping.native}) is no annotation shape on Content nodes`);
+      warnings.push(
+        `miso.editors.text.mappings: "${mapping.annotation}" (${mapping.native}) is no annotation shape on Content nodes`,
+      );
     } else if (mappedNativeTypes.has(mapping.native)) {
-      warnings.push(`miso.mappings: native type "${mapping.native}" is mapped twice`);
+      warnings.push(`miso.editors.text.mappings: native type "${mapping.native}" is mapped twice`);
     } else {
       mappedNativeTypes.add(mapping.native);
     }

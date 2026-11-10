@@ -61,7 +61,7 @@ function buildTestConfig(): ParsedMisoConfig {
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "testConfig",
     model: edition.export(),
-    miso: { templates: [], mappings },
+    miso: { templates: [], editors: { text: { mappings } } },
   });
 }
 

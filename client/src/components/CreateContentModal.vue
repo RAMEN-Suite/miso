@@ -101,7 +101,7 @@ async function handleSubmit() {
 <template>
   <div class="modal-container flex flex-col gap-4">
     <div class="modal-body">
-      <!-- eslint-disable-next-line vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
       <Textarea
         id="text-input"
         v-model="newContentNode.data.text"
@@ -110,6 +110,7 @@ async function handleSubmit() {
         placeholder="Add some text"
         autofocus
       />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
     </div>
     <div class="modal-footer flex justify-center gap-2">
       <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />

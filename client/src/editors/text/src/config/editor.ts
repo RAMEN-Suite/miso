@@ -17,7 +17,7 @@ export const VALID_BLOCK_CLASSIFICATION_TARGETS: string[] = ["paragraph", "headi
 
 /**
  * Default mapping between builtin structural annotations and their project-specific names.
- * Overridden per type by the `miso.mappings` of the Miso config.
+ * Overridden per type by the `miso.editors.text.mappings` of the Miso config.
  */
 export const DEFAULT_ANNOTATION_MAPPING: AnnotationMapping = {
   typeByRole: {

@@ -185,7 +185,10 @@ export function checkNativeAttributes(
   }
 }
 
-/** The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in `miso.mappings`. */
+/**
+ * The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in
+ * `miso.editors.text.mappings`.
+ */
 export const annotationShapeConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */
   group: z.string().optional(),
@@ -244,7 +247,7 @@ export type AnnotationAppearance = z.infer<typeof annotationAppearanceSchema>;
 
 /**
  * Configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not part of the
- * data model. The native mapping lives in `miso.mappings`.
+ * data model. The native mapping lives in `miso.editors.text.mappings`.
  */
 export type AnnotationShapeConfig = z.infer<typeof annotationShapeConfigSchema>;
 

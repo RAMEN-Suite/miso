@@ -43,6 +43,12 @@ const baseEntrySchema = z.strictObject({
   attributes: z.array(z.strictObject({ id: z.string(), name: z.string(), ext: extSchema(attributeConfigSchema) })).optional(),
 });
 
+/** Settings only the text editor reads */
+const textEditorConfigSchema = z.strictObject({
+  /** The editor's native types and the annotation shapes that implement them */
+  mappings: z.array(mappingSchema),
+});
+
 /** URL of the config format, with its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
 const CONFIG_SCHEMA_URL_PATTERN: RegExp = /^https:\/\/ramen-schema\.org\/miso\/\d+\.\d+\.\d+\/config\.schema\.json$/;
 
@@ -63,13 +69,15 @@ const misoConfigSchema = z.strictObject({
   miso: z.strictObject({
     /** Subgraph templates. Not migrated yet, always empty for now. */
     templates: z.array(z.unknown()),
-    /** The editor's native types and the annotation shapes that implement them */
-    mappings: z.array(mappingSchema),
     /**
      * Settings of RAMEN base level elements (e.g. the Collection node and its `label`). RAMEN core accepts the
      * embedded base model only unchanged, so they can't be set in `ext` of the model elements.
      */
     base: z.array(baseEntrySchema).optional(),
+    /** Settings of the Content editors, one section per editor */
+    editors: z.strictObject({
+      text: textEditorConfigSchema,
+    }),
   }),
 });
 
@@ -79,7 +87,7 @@ export type MisoConfig = z.infer<typeof misoConfigSchema>;
 /** An entry of `miso.base` */
 export type ConfigBaseEntry = z.infer<typeof baseEntrySchema>;
 
-/** An entry of `miso.mappings`: a native editor type and the annotation shape that implements it */
+/** An entry of `miso.editors.text.mappings`: a native editor type and the annotation shape that implements it */
 export type ConfigMapping = z.infer<typeof mappingSchema>;
 
 /** A validated Miso config together with its imported model */
@@ -145,7 +153,7 @@ function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): string[] {
 }
 
 /**
- * Checks that the annotation shapes in `miso.mappings` don't override the editor's built-in attributes: each one must be
+ * Checks that the annotation shapes in `miso.editors.text.mappings` don't override the editor's built-in attributes: each one must be
  * a property of the shape (under its mapped name) with the built-in type, cardinality and constraints. Shapes may add
  * properties of their own.
  *
@@ -227,7 +235,7 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
 
   const problems: string[] = [
     ...checkExtBlocks(result.data.model, result.data.miso.base ?? []),
-    ...checkBuiltinAttributes(result.data.model, result.data.miso.mappings),
+    ...checkBuiltinAttributes(result.data.model, result.data.miso.editors.text.mappings),
   ];
 
   if (problems.length > 0) {

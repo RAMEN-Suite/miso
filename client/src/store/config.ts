@@ -115,7 +115,7 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 /**
  * Store for making the Miso config available to all components. When the app is mounted, the store is
  * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), the
- * config of model elements comes from `ext.miso` and `miso.mappings`. The store is static, meaning that no properties are changed after
+ * config of model elements comes from `ext.miso` and `miso.editors.text.mappings`. The store is static, meaning that no properties are changed after
  * the initialization. Other stores (filter.ts) are derived from this store.
  *
  * Nodes are looked up by their classifier (`classifierRef`, see `getClassifierRef` in `modelHelper.ts`), annotations
@@ -166,7 +166,7 @@ export function useConfigStore() {
   /**
    * Builds the mapping between the editor's native structural types/attributes and the project's annotation
    * types/properties. Starts from the default mapping in {@linkcode DEFAULT_ANNOTATION_MAPPING} and overrides it with
-   * the `miso.mappings` of the config.
+   * the `miso.editors.text.mappings` of the config.
    *
    * @param {ModelContext} context - The model context to read the mappings from.
    * @returns {AnnotationMapping} The annotation mapping.
@@ -177,7 +177,7 @@ export function useConfigStore() {
       ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
     };
 
-    for (const mapping of context.config.miso.mappings) {
+    for (const mapping of context.config.miso.editors.text.mappings) {
       const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
 
       if (!shape) {
@@ -762,7 +762,7 @@ export function useConfigStore() {
   /**
    * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
    * rebuilds the structural types and the toolbar groups so the renames take effect. On load, the mapping is built
-   * from the `miso.mappings` of the config; this function replaces it afterwards.
+   * from the `miso.editors.text.mappings` of the config; this function replaces it afterwards.
    *
    * @param {AnnotationMapping} mapping - The annotation mapping to apply.
    * @return {void} This function does not return anything.
@@ -808,7 +808,9 @@ export function useConfigStore() {
       }
 
       // The mapping is not built yet, so the extent of a native type is read from its built-in config directly
-      const native: string | undefined = context.config.miso.mappings.find((m) => m.annotation === shapeRefOf(shape))?.native;
+      const native: string | undefined = context.config.miso.editors.text.mappings.find(
+        (m) => m.annotation === shapeRefOf(shape),
+      )?.native;
       const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
       const extent: AnnotationExtent = nativeExtent ?? shapeConfig.editing?.extent ?? "range";
       const appearances: [string, AppearanceOverride][] = [["ext.miso.appearance", shapeConfig.appearance ?? {}]];

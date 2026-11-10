@@ -10,7 +10,7 @@ export interface ConfigBaseEntry {
   attributes?: { id: string; name: string; ext?: { miso?: Record<string, unknown> } }[];
 }
 
-/** An entry of `miso.mappings`: a native editor type and the annotation shape (qualified ref) that implements it */
+/** An entry of `miso.editors.text.mappings`: a native editor type and the annotation shape (qualified ref) that implements it */
 export interface ConfigMapping {
   native: string;
   annotation: string;
@@ -36,8 +36,13 @@ export interface IMisoConfig {
   model: RamenFile;
   miso: {
     templates: unknown[];
-    /** The editor's native types and the annotation shapes that implement them */
-    mappings: ConfigMapping[];
     base?: ConfigBaseEntry[];
+    /** Settings of the Content editors, one section per editor */
+    editors: {
+      text: {
+        /** The text editor's native types and the annotation shapes that implement them */
+        mappings: ConfigMapping[];
+      };
+    };
   };
 }

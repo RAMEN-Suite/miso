@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Attribute, Constraint, RamenFile } from "@ramen-suite/core";
 import type { ConfigBaseEntry, ConfigMapping } from "../models/IMisoConfig.js";
 
-// Schemas of the Miso settings in the config (`ext.miso` blocks, `miso.mappings`) and their checks. Mirrors
+// Schemas of the Miso settings in the config (`ext.miso` blocks, `miso.editors.text.mappings`) and their checks. Mirrors
 // `client/src/schemas/configBlocks.schema.ts`, `checkExtBlocks`/`checkBuiltinAttributes` in
 // `client/src/schemas/misoConfig.schema.ts` and the built-in attributes of `BUILTIN_STRUCTURAL_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
@@ -209,7 +209,7 @@ export function checkExtBlocks(model: RamenFile, base: ConfigBaseEntry[]): strin
 }
 
 /**
- * Checks the entries of `miso.mappings` (known native type, its attributes) and that the mapped annotation shapes don't
+ * Checks the entries of `miso.editors.text.mappings` (known native type, its attributes) and that the mapped annotation shapes don't
  * override the editor's built-in attributes: each one must be a property of the shape (under its mapped name) with the
  * built-in type, cardinality and constraints. Shapes may add properties of their own.
  *
@@ -229,7 +229,7 @@ export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): stri
     const result = mappingSchema.safeParse(mapping);
 
     if (!result.success) {
-      problems.push(`miso.mappings[${index}]:\n${z.prettifyError(result.error)}`);
+      problems.push(`miso.editors.text.mappings[${index}]:\n${z.prettifyError(result.error)}`);
       return;
     }
 

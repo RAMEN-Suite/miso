@@ -54,7 +54,7 @@ function buildResolutionTestModel() {
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "resolutionTest",
     model: edition.export(),
-    miso: { templates: [], mappings: [] },
+    miso: { templates: [], editors: { text: { mappings: [] } } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -182,7 +182,7 @@ function buildReferenceTestModel(personBounds = { lowerBound: 0, upperBound: 1 }
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "referenceTest",
     model: edition.export(),
-    miso: { templates: [], mappings: [] },
+    miso: { templates: [], editors: { text: { mappings: [] } } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;

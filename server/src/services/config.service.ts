@@ -118,7 +118,7 @@ export default class ConfigService {
 
     const problems: string[] = [
       ...checkExtBlocks(config.model, config.miso.base ?? []),
-      ...checkMappings(config.model, config.miso.mappings),
+      ...checkMappings(config.model, config.miso.editors.text.mappings),
     ];
 
     if (problems.length > 0) {

@@ -6607,58 +6607,62 @@
   },
   "miso": {
     "templates": [],
-    "mappings": [
-      {
-        "native": "paragraph",
-        "annotation": "G9KOxV7rRteA6D3A:myE1nR2K0yKG85Zu",
-        "type": "p"
-      },
-      {
-        "native": "heading",
-        "annotation": "G9KOxV7rRteA6D3A:L8nzAA35IZEjCg2M",
-        "type": "head"
-      },
-      {
-        "native": "tableRow",
-        "annotation": "G9KOxV7rRteA6D3A:WrViPRVeCrXjgPAS",
-        "type": "row",
-        "attributes": {
-          "colspan": "cols",
-          "rowspan": "rows",
-          "role": "role"
-        }
-      },
-      {
-        "native": "hardBreak",
-        "annotation": "G9KOxV7rRteA6D3A:x98tPp1AZqA8Ao0K",
-        "type": "lb"
-      },
-      {
-        "native": "tableCell",
-        "annotation": "G9KOxV7rRteA6D3A:5TyrQ9wOGWcLXSH0",
-        "type": "cell",
-        "attributes": {
-          "colspan": "cols",
-          "rowspan": "rows",
-          "role": "role"
-        }
-      },
-      {
-        "native": "bulletList",
-        "annotation": "G9KOxV7rRteA6D3A:c0ga8EzET2mDK5m4",
-        "type": "list"
-      },
-      {
-        "native": "listItem",
-        "annotation": "G9KOxV7rRteA6D3A:DxGRlLQIVKc55DXH",
-        "type": "item"
-      },
-      {
-        "native": "table",
-        "annotation": "G9KOxV7rRteA6D3A:dMwEkMtQZ7HFlq67",
-        "type": "table"
+    "editors": {
+      "text": {
+        "mappings": [
+          {
+            "native": "paragraph",
+            "annotation": "G9KOxV7rRteA6D3A:myE1nR2K0yKG85Zu",
+            "type": "p"
+          },
+          {
+            "native": "heading",
+            "annotation": "G9KOxV7rRteA6D3A:L8nzAA35IZEjCg2M",
+            "type": "head"
+          },
+          {
+            "native": "tableRow",
+            "annotation": "G9KOxV7rRteA6D3A:WrViPRVeCrXjgPAS",
+            "type": "row",
+            "attributes": {
+              "colspan": "cols",
+              "rowspan": "rows",
+              "role": "role"
+            }
+          },
+          {
+            "native": "hardBreak",
+            "annotation": "G9KOxV7rRteA6D3A:x98tPp1AZqA8Ao0K",
+            "type": "lb"
+          },
+          {
+            "native": "tableCell",
+            "annotation": "G9KOxV7rRteA6D3A:5TyrQ9wOGWcLXSH0",
+            "type": "cell",
+            "attributes": {
+              "colspan": "cols",
+              "rowspan": "rows",
+              "role": "role"
+            }
+          },
+          {
+            "native": "bulletList",
+            "annotation": "G9KOxV7rRteA6D3A:c0ga8EzET2mDK5m4",
+            "type": "list"
+          },
+          {
+            "native": "listItem",
+            "annotation": "G9KOxV7rRteA6D3A:DxGRlLQIVKc55DXH",
+            "type": "item"
+          },
+          {
+            "native": "table",
+            "annotation": "G9KOxV7rRteA6D3A:dMwEkMtQZ7HFlq67",
+            "type": "table"
+          }
+        ]
       }
-    ],
+    },
     "base": [
       {
         "kind": "Node",

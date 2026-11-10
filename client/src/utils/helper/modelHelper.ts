@@ -35,7 +35,7 @@ import type { ConfigBaseEntry, ConfigMapping, MisoConfig } from "../../schemas/m
  * - Model questions (lineage, attributes, data types, annotation shapes of a node, value validation) are answered by
  *   RAMEN core.
  * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.base`, since
- *   RAMEN core allows no `ext` there. The editor's native types are mapped in `miso.mappings`.
+ *   RAMEN core allows no `ext` there. The editor's native types are mapped in `miso.editors.text.mappings`.
  *
  * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
  * to an attribute (both in `models/types.ts`). The model constants are in `config/ramen.ts`. Elements are referenced by
@@ -950,23 +950,23 @@ function findRelationRef(context: ModelContext, fromRef: string, type: string, t
 // ----- Native mappings -----
 
 /**
- * The mapping of a native editor type, from `miso.mappings`.
+ * The mapping of a native editor type, from `miso.editors.text.mappings`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} native - The native type (e.g. `paragraph`).
  * @returns {ConfigMapping | undefined} The first mapping of that native type.
  */
 export function getNativeMapping(context: ModelContext, native: string): ConfigMapping | undefined {
-  return context.config.miso.mappings.find((mapping) => mapping.native === native);
+  return context.config.miso.editors.text.mappings.find((mapping) => mapping.native === native);
 }
 
 /**
- * The mapping of an annotation shape to a native editor type, from `miso.mappings`.
+ * The mapping of an annotation shape to a native editor type, from `miso.editors.text.mappings`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} shapeRef - Qualified ref of the annotation shape.
  * @returns {ConfigMapping | undefined} The mapping, `undefined` if the shape is not mapped.
  */
 export function getMappingForShape(context: ModelContext, shapeRef: string): ConfigMapping | undefined {
-  return context.config.miso.mappings.find((mapping) => mapping.annotation === shapeRef);
+  return context.config.miso.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef);
 }

@@ -42,6 +42,38 @@ const required: boolean = !props.item && isRequired(props.attribute);
 
 const isPrimitive: boolean = isString(valueType) || isNumeric(valueType);
 
+/** An entry of the dropdown. `null` is the empty entry. */
+interface SelectOption {
+  label: string;
+  value: string | number | null;
+}
+
+/** An optional single value can be removed again: its dropdown starts with an empty entry, like a native select */
+const isClearable: boolean = !required && !props.item;
+
+/**
+ * The dropdown entries. The empty entry is a non-breaking space, so it keeps the line height. List items have none,
+ * they are removed with their delete button.
+ */
+const selectOptions: SelectOption[] = [
+  ...(isClearable ? [{ label: "\xa0", value: null }] : []),
+  ...(options ?? []).map((option: string | number) => ({ label: String(option), value: option })),
+];
+
+/**
+ * The tooltip of a dropdown entry.
+ *
+ * @param {SelectOption} option - The entry.
+ * @returns {string} Its label, or a description for the empty entry.
+ */
+function optionTitle(option: SelectOption): string {
+  if (option.value === null) {
+    return "Select no value";
+  } else {
+    return option.label;
+  }
+}
+
 const isInvalid: ComputedRef<boolean> = computed(
   () => !props.item && validateValue(context, props.attribute, modelValue.value).length > 0,
 );
@@ -72,14 +104,18 @@ const objectValue = computed<string>(() => {
 
 <template>
   <!-- eslint-disable vuejs-accessibility/form-control-has-label -- The label is inside the parent component -->
+  <!-- Optional dropdowns have no placeholder, so an empty value shows as empty, like the empty entry -->
   <Select
     v-if="options && isPrimitive"
     v-model="modelValue"
     :disabled="isDisabled"
     :required="required"
     :invalid="isInvalid"
-    :options="options"
-    :placeholder="`Select ${name}`"
+    :options="selectOptions"
+    option-label="label"
+    option-value="value"
+    :placeholder="isClearable ? undefined : `Select ${name}`"
+    :pt="{ option: ({ context }) => ({ title: optionTitle(context.option) }) }"
     size="small"
     class="w-full"
   />

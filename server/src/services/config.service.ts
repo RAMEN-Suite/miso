@@ -12,58 +12,33 @@ import { ModelContext } from "../models/types.js";
 import logger from "../logger.js";
 import { checkExtBlocks, checkMappings } from "../schemas/configBlocks.schema.js";
 
+/**
+ * The version of the config: `mtime:<ms>:size:<bytes>` of a local file, `etag:<ETag>` of a remote one, or
+ * `sha256:<hash>` of its content if the remote server sends no `ETag`.
+ */
+type Version = `mtime:${number}:size:${number}` | `etag:${string}` | `sha256:${string}`;
+
 /** A built config, by the version of the config it was built from */
 interface ConfigCacheEntry {
-  /**
-   * The version of the config: `mtime:<ms>:size:<bytes>` of a local file, `etag:<ETag>` of a remote one, or
-   * `sha256:<hash>` of its content if the remote server sends no `ETag`.
-   */
-  version: string;
+  version: Version;
   /** The model context, or the error of an invalid config */
   result: { context: ModelContext } | { error: Error };
 }
 
 /** The current version of the config, and how to get its content if it has to be built */
 interface ConfigSnapshot {
-  version: string;
+  version: Version;
   /** Reads the content (a remote config already fetched to find its version is returned as is) */
   read: () => Promise<string>;
 }
 
 /**
- * Loads the Miso config and caches its model context.
- *
- * @remarks
- * Building the model context is expensive (`RamenModel.import` validates the whole model, complex models take a long time),
- * and while it runs no other request can continue. So the context is built once per version of the config and
- * shared by all requests. Every request still checks whether the config changed, so a change takes effect with the next
- * request, without a restart:
- *
- * - Local file (`GUIDELINES_URL` is a file name): `fs.stat`, the version is the modification time and size. Saving or
- *   replacing the file changes it.
- *
- * - Remote URL: a conditional request with the `ETag` of the cached version (`If-None-Match`). The remote server answers
- *   `304 Not Modified` without a body while the config is unchanged. Without an `ETag`, the config is downloaded on
- *   every request and its SHA-256 hash is the version; only the import is skipped then.
- *
- * An invalid config is cached as well: its error is thrown on every request until the config changes, without importing
- * it again. Failures to read or fetch the config are not cached, the next request tries again. Requests that arrive
- * while a version is being built wait for that build instead of starting their own.
- *
- * To force a rebuild of a local config, change its modification time (`touch config/<file>.json`); for a remote one,
- * change the file there. A restart clears the cache as well.
- *
- * The cached context is shared, so code must never change it (or the model and config objects in it).
- *
- * There is one config per process, so the class is used statically (`ConfigService.getModelContext()`), never
- * instantiated.
+ * Loads the Miso config from `GUIDELINES_URL` and caches its model context until the config changes. Used statically,
+ * since there is one config per process. The cached context is shared, so code must never change it.
  */
 export default class ConfigService {
   /** The last built config */
   private static cache: ConfigCacheEntry | null = null;
-
-  /** The build in progress, shared by the requests that arrive meanwhile */
-  private static pendingBuild: { version: string; promise: Promise<ConfigCacheEntry> } | null = null;
 
   /**
    * Retrieves the Miso config as stored. Used to serve it to the client.
@@ -99,43 +74,15 @@ export default class ConfigService {
     const snapshot: ConfigSnapshot = isValidHttpUrl(url)
       ? await ConfigService.snapshotRemote(url)
       : await ConfigService.snapshotLocal(path.join(CONFIG_DIR, url));
-    const { cache, pendingBuild } = ConfigService;
-    let entry: ConfigCacheEntry;
+    const { cache } = ConfigService;
 
-    if (cache?.version === snapshot.version) {
-      entry = cache;
-    } else if (pendingBuild?.version === snapshot.version) {
-      entry = await pendingBuild.promise;
-    } else {
-      entry = await ConfigService.buildOnce(snapshot);
-    }
+    const entry: ConfigCacheEntry = cache?.version === snapshot.version ? cache : await ConfigService.build(snapshot);
 
     if ("error" in entry.result) {
       throw entry.result.error;
     }
 
     return entry.result.context;
-  }
-
-  /**
-   * Builds a version of the config and registers the build, so requests that arrive meanwhile wait for it.
-   *
-   * @param {ConfigSnapshot} snapshot - The version to build.
-   * @throws {ExternalServiceError} If the config can not be read.
-   * @returns {Promise<ConfigCacheEntry>} The cache entry of that version.
-   */
-  private static async buildOnce(snapshot: ConfigSnapshot): Promise<ConfigCacheEntry> {
-    const promise: Promise<ConfigCacheEntry> = ConfigService.build(snapshot);
-
-    ConfigService.pendingBuild = { version: snapshot.version, promise };
-
-    try {
-      return await promise;
-    } finally {
-      if (ConfigService.pendingBuild?.promise === promise) {
-        ConfigService.pendingBuild = null;
-      }
-    }
   }
 
   /**
@@ -204,7 +151,7 @@ export default class ConfigService {
       response = await fetch(url, { headers: cachedEtag ? { "If-None-Match": cachedEtag } : {} });
 
       if (response.status === 304 && cache) {
-        const version: string = cache.version;
+        const version: Version = cache.version;
 
         return {
           version,
@@ -222,7 +169,7 @@ export default class ConfigService {
     }
 
     const etag: string | null = response.headers.get("ETag");
-    const version: string = etag ? `etag:${etag}` : `sha256:${createHash("sha256").update(content).digest("hex")}`;
+    const version: Version = etag ? `etag:${etag}` : `sha256:${createHash("sha256").update(content).digest("hex")}`;
 
     return { version, read: () => Promise.resolve(content) };
   }

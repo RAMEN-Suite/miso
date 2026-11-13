@@ -3,8 +3,6 @@ import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
-import { env } from "../env.js";
-import type { Env } from "../schemas/env.schema.js";
 import type { BaseNodeData, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
 import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
@@ -24,6 +22,12 @@ import {
 /** The longest chain of annotations on annotations that is followed to find the carrier of an annotation */
 const MAX_CARRIER_CHAIN = 5;
 
+/**
+ * How writes that don't match the model are handled: `report` logs and returns the findings and saves anyway,
+ * `enforce` rejects them with 400 and rolls back.
+ */
+const VALIDATION_MODE: "report" | "enforce" = "report";
+
 /** The result of a validated write */
 export interface ValidatedWrite {
   /** The root node after the write */
@@ -40,7 +44,7 @@ export interface ValidatedWrite {
  */
 export default class WriteValidationService {
   /**
-   * Writes the changes of a subgraph and validates the result. `report` mode (env `VALIDATION_MODE`) logs and returns
+   * Writes the changes of a subgraph and validates the result. `report` mode (`VALIDATION_MODE`) logs and returns
    * the findings and commits anyway, `enforce` rolls back writes with errors.
    *
    * @param {ModelContext} context - The model context.
@@ -86,7 +90,7 @@ export default class WriteValidationService {
    * @throws {ValidationError} In `enforce` mode, if there are errors.
    */
   private async validate(tx: ManagedTransaction, context: ModelContext, touched: Set<string>): Promise<ElementDiagnostic[]> {
-    const mode: Env["VALIDATION_MODE"] = env.VALIDATION_MODE;
+    const mode: "report" | "enforce" = VALIDATION_MODE;
     let diagnostics: ElementDiagnostic[];
 
     try {

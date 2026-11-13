@@ -34,9 +34,7 @@ export const envSchema = z.object({
   NODE_ENV: optional(z.enum(["development", "production"])),
   PROTOCOL: optional(z.enum(["http", "https"])).default("http"),
   SHOYU_URL: optional(httpUrl),
-  TORI_URL: optional(httpUrl),
-  VALIDATION_MODE: optional(z.enum(["report", "enforce"])).default("report"),
-});
+  TORI_URL: optional(httpUrl),});
 
 /** The parsed environment variables */
 export type Env = z.infer<typeof envSchema>;

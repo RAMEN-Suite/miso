@@ -47,7 +47,6 @@ services:
       - STYLESHEET_URL=${STYLESHEET_URL}
       - TORI_URL=${TORI_URL}
       - SHOYU_URL=${SHOYU_URL}
-      - VALIDATION_MODE=${VALIDATION_MODE:-report}
     depends_on:
       neo4j:
         condition: service_healthy

@@ -7,7 +7,8 @@ import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import TagAssignment from "./TagAssignment.vue";
 import { useHierarchyStore } from "../store/hierarchy.ts";
 import { useDeleteHierarchySelection } from "../composables/useDeleteHierarchySelection.ts";
-import { getContentLabelText } from "../utils/helper/helper.ts";
+import { getTypeLabelText } from "../utils/helper/modelHelper.ts";
+import { useConfigStore } from "../store/config.ts";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 import TextPreview from "./TextPreview.vue";
 
@@ -16,12 +17,13 @@ const props = defineProps<{
 }>();
 
 const { hasPendingUpdates } = useHierarchyStore();
+const { getModelContext } = useConfigStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
 const contentNode = computed(() => props.focus.content.node);
 const icon = computed<IconSpec>(() => resolveNodeIcon(contentNode.value));
 /** The Content's type label (e.g. "Text"), empty if it has none. Shown as the heading. */
-const labelText = computed<string>(() => getContentLabelText(contentNode.value.nodeLabels));
+const labelText = computed<string>(() => getTypeLabelText(getModelContext(), contentNode.value));
 
 /** The type label shown in UI texts like button titles, "text" if the Content has none. */
 const displayLabel = computed<string>(() => labelText.value || "text");

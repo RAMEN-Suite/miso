@@ -11,7 +11,7 @@ import {
   ModelContext,
   NodeTypeOption,
 } from "../../models/types";
-import { createEntityNode, createTextNode, filterBaseNodeLabels } from "../../config/ramen";
+import { createEntityNode, createTextNode } from "../../config/ramen";
 import { isList, validateValue } from "./modelHelper";
 
 /**
@@ -292,17 +292,4 @@ export function formatPropertyValue(value: unknown, entry?: ModelAttribute): str
 export function removeFormatting(text: string): string {
   const plainText: string = text.replace(/\r\n?|\n/g, "");
   return plainText;
-}
-
-/**
- * Returns a display string for a Content node.
- *
- * This is currently a hack since multi-level RAMEN refinements are not yet supported.
- * TODO: Will be fixed as soon as Nori export is implemented.
- *
- * @param {string[]} nodeLabels - All node labels of the Content node.
- * @returns {string} The labels joined with " › " (empty string if none).
- */
-export function getContentLabelText(nodeLabels: string[]): string {
-  return filterBaseNodeLabels(nodeLabels).join(" › ");
 }

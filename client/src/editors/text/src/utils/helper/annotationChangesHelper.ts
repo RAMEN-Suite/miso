@@ -5,7 +5,6 @@ import {
   Annotation,
   BuiltinStructuralType,
   IAnnotation,
-  INTRINSIC_ANNOTATION_PROPERTIES,
   NodeStatus,
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
@@ -41,6 +40,7 @@ interface InitialAnnotations {
 export function createAnnotationChangeCollector(state: EditorState, initial: InitialAnnotations) {
   const {
     getAnnotationExtent,
+    getAnnotationNodeProperties,
     getAnnotationType,
     getEditorOwnedProperties,
     getTextAnnotationProperties,
@@ -338,7 +338,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     pruneUnconfiguredProperties(
       annotation.node.data,
       getTextAnnotationProperties(type).map((field) => field.attribute.name),
-      INTRINSIC_ANNOTATION_PROPERTIES,
+      getAnnotationNodeProperties(annotation.node),
     );
   }
 

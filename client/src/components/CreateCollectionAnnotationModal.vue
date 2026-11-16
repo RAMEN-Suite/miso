@@ -7,7 +7,7 @@ import { Annotation, CollectionNode, ModelAttribute } from "../models/types";
 import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
-import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
+import { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -24,7 +24,8 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getAnnotationShape, getAnnotationProperties, getMissingAnnotationReferences, getModelContext } = useConfigStore();
+const { getAnnotationShape, getAnnotationNodeProperties, getAnnotationProperties, getMissingAnnotationReferences, getModelContext } =
+  useConfigStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
 const mode: "create" | "edit" = dialogRef.value.data.mode;
@@ -76,7 +77,7 @@ function prepareAnnotation(): Annotation {
     pruneUnconfiguredProperties(
       prepared.node.data,
       getAnnotationProperties(prepared.node).map((field) => field.attribute.name),
-      INTRINSIC_ANNOTATION_PROPERTIES,
+      getAnnotationNodeProperties(prepared.node),
     );
   }
 

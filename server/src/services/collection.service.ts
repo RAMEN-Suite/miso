@@ -138,23 +138,66 @@ export default class CollectionService {
 
   /**
    * Updates only the given properties of a Collection node (JSON Merge Patch semantics: `null` removes a property).
-   * The properties are validated with RAMEN core against the attributes of the given node labels.
+   * The properties are validated with RAMEN core against the attributes of the Collection's stored type, read in the
+   * same transaction as the write.
    *
    * @param {string} uuid - UUID of the Collection node.
-   * @param {string[]} nodeLabels - The node labels of the Collection, to derive its attributes.
    * @param {Record<string, unknown>} properties - The changed properties.
    * @throws {NotFoundError} If no Collection with the given UUID exists.
-   * @throws {ValidationError} If a property is no attribute of the node labels, not editable or its value is invalid.
+   * @throws {ValidationError} If a property is no attribute of the Collection, not editable or its value is invalid.
    * @returns {Promise<ElementResponse>} The updated Collection as the only node.
    */
-  public async patchCollectionProperties(
-    uuid: string,
-    nodeLabels: string[],
-    properties: Record<string, unknown>,
-  ): Promise<ElementResponse> {
+  public async patchCollectionProperties(uuid: string, properties: Record<string, unknown>): Promise<ElementResponse> {
     const context: ModelContext = await ConfigService.getModelContext();
-    const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
 
+    const labelsQuery: string = `
+    MATCH (c:Collection {uuid: $uuid})
+    RETURN labels(c) AS nodeLabels
+    `;
+
+    const updateQuery: string = `
+    MATCH (c:Collection {uuid: $uuid})
+    SET c += $properties
+
+    RETURN {
+      nodeLabels: labels(c),
+      data: c {.*}
+    } AS node
+    `;
+
+    // Returning from the callback commits the transaction, throwing rolls it back
+    const updatedNode: StoredNodeRecord = await Neo4jDriver.commitOrRollback(async (tx) => {
+      const labelsResult: QueryResult = await tx.run(labelsQuery, { uuid });
+      const nodeLabels: string[] | undefined = labelsResult.records[0]?.get("nodeLabels");
+
+      if (!nodeLabels) {
+        throw new NotFoundError(`Collection with UUID ${uuid} not found`);
+      }
+
+      const fields: ModelAttribute[] = getCollectionAttributes(context, nodeLabels);
+
+      this.validateProperties(context, properties, fields);
+
+      const result: QueryResult = await tx.run(updateQuery, {
+        uuid,
+        properties: toNeo4jTypes(context, properties, fields),
+      });
+
+      return result.records[0]?.get("node");
+    });
+
+    return toElementResponse(context, [updatedNode]);
+  }
+
+  /**
+   * Checks changed properties against the attributes of a Collection.
+   *
+   * @param {ModelContext} context - The model context.
+   * @param {Record<string, unknown>} properties - The changed properties.
+   * @param {ModelAttribute[]} fields - The attributes of the Collection.
+   * @throws {ValidationError} If a property is no attribute of the Collection, not editable or its value is invalid.
+   */
+  private validateProperties(context: ModelContext, properties: Record<string, unknown>, fields: ModelAttribute[]): void {
     Object.entries(properties).forEach(([name, value]: [string, unknown]) => {
       const entry: ModelAttribute | undefined = fields.find((field) => field.attribute.name === name);
 
@@ -176,28 +219,5 @@ export default class CollectionService {
         throw new ValidationError('The "label" property must not consist of only whitespace characters.');
       }
     });
-
-    const query: string = `
-    MATCH (c:Collection {uuid: $uuid})
-    SET c += $properties
-
-    RETURN {
-      nodeLabels: labels(c),
-      data: c {.*}
-    } AS node
-    `;
-
-    const result: QueryResult = await Neo4jDriver.runQuery(query, {
-      uuid,
-      properties: toNeo4jTypes(context, properties, fields),
-    });
-
-    const updatedNode: StoredNodeRecord | undefined = result.records[0]?.get("node");
-
-    if (!updatedNode) {
-      throw new NotFoundError(`Collection with UUID ${uuid} not found`);
-    }
-
-    return toElementResponse(context, [updatedNode]);
   }
 }

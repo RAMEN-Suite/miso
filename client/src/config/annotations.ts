@@ -1,12 +1,4 @@
 /**
- * Annotation properties the model and editor needs, whatever the config lists. They will never removed automatically
- * when the data of an annotation are pruned to the configured properties before saving.
- *
- * TODO: Should come from the Nori export in the future.
- */
-export const INTRINSIC_ANNOTATION_PROPERTIES: readonly string[] = ["uuid", "type", "selector", "text", "isZeroPoint"];
-
-/**
  * Whether the data of annotations with a type that is not in the config are pruned before saving.
  *
  * - `false`: Saved with all the properties they carry. Data beat config.

@@ -50,6 +50,7 @@ import {
   resolveShapeRef,
   shapeRefOf,
 } from "../utils/helper/modelHelper";
+import { TEXT_ANNOTATION_EDITOR_FIELDS } from "../utils/helper/instanceMapper";
 
 /** Group for annotation types without a configured `miso.group`.*/
 const DEFAULT_ANNOTATION_GROUP = "other" as const;
@@ -563,6 +564,24 @@ export function useConfigStore() {
   }
 
   /**
+   * Returns the properties an annotation always keeps when its data are pruned to its shape's properties: the attributes
+   * of its annotation node from the model (`uuid`, `type`, `selector` ...) and the text editor's fields (`text`,
+   * `isZeroPoint`), which are not part of the model.
+   *
+   * @param {AnnotationNode} annotation - The annotation.
+   * @returns {string[]} The property names.
+   */
+  function getAnnotationNodeProperties(annotation: AnnotationNode): string[] {
+    const context: ModelContext = getModelContext();
+    const classifierRef: string = getClassifierRef(context, annotation) ?? BASE_NODE_REF.Annotation;
+
+    return [
+      ...context.model.getAttributes(classifierRef).map((info) => info.name),
+      ...Object.keys(TEXT_ANNOTATION_EDITOR_FIELDS),
+    ];
+  }
+
+  /**
    * Returns the annotation shape of the text annotations with the given type, i.e. one a Content node may carry. The
    * type is the text editor's key for annotation types; with an annotation at hand, use {@linkcode getAnnotationShape}.
    *
@@ -891,6 +910,7 @@ export function useConfigStore() {
     getAvailableEntityLabels,
     getAvailableNodeLabels,
     findCollectionAnnotationShape,
+    getAnnotationNodeProperties,
     getAnnotationProperties,
     getAnnotationShape,
     getCollectionAnnotationShapes,

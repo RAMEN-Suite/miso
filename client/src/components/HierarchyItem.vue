@@ -6,7 +6,8 @@ import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
-import { getContentLabelText } from "../utils/helper/helper";
+import { getTypeLabelText } from "../utils/helper/modelHelper";
+import { useConfigStore } from "../store/config";
 
 const emit = defineEmits<{
   itemSelected: [uuid: string, modifiers: SelectionModifiers];
@@ -24,6 +25,7 @@ const props = defineProps<{
 const isMac: boolean = detectPlatform() === "mac";
 
 const { entryIndex, tags } = useTagsStore();
+const { getModelContext } = useConfigStore();
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
 const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node));
@@ -38,7 +40,7 @@ const displayText = computed<string>(() => {
     return (props.entry.data.node as CollectionNode).data.label;
   }
 
-  return getContentLabelText(props.entry.data.node.nodeLabels);
+  return getTypeLabelText(getModelContext(), props.entry.data.node);
 });
 
 // A Content's display text is its type label (e.g. "Letter"), the project's name for it

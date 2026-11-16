@@ -477,7 +477,7 @@ export default class ApiService {
   /**
    * Updates only the given properties of a Collection. `null` removes a property, all others stay untouched.
    *
-   * @param {CollectionNode} collection - The Collection. Its node labels decide which properties are valid.
+   * @param {CollectionNode} collection - The Collection. The server checks the properties against its stored type.
    * @param {Record<string, unknown>} properties - The changed properties.
    * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
    * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
@@ -493,7 +493,7 @@ export default class ApiService {
     try {
       const response: Response = await fetch(
         url,
-        this.jsonBodyRequest({ nodeLabels: collection.nodeLabels, properties }, { signal, method: "PATCH" }),
+        this.jsonBodyRequest({ properties }, { signal, method: "PATCH" }),
       );
 
       await this.assertResponseOk(response);

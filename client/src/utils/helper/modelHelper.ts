@@ -4,6 +4,7 @@ import {
   BASE_NODE_REFS,
   BUILTIN_TYPES,
   VALUE_TYPE_BY_FORMAT,
+  filterBaseNodeLabels,
   AttributeValueType,
   FormatValueType,
 } from "../../config/ramen";
@@ -161,6 +162,29 @@ export function getBaseNodeLabel(context: ModelContext, node: DataNode<BaseNodeD
   } else {
     return BASE_NODE_LABEL_PRIORITY.find((label) => node.nodeLabels.includes(label));
   }
+}
+
+/**
+ * The type names of a node along its lineage below the RAMEN base node, joined with " › " (e.g. "Text › Translation").
+ * For nodes whose labels can't be resolved, their labels without the base label.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {DataNode<BaseNodeData>} node - The node.
+ * @returns {string} The type names, empty for a plain base node.
+ */
+export function getTypeLabelText(context: ModelContext, node: DataNode<BaseNodeData>): string {
+  const classifierRef: string | null = getClassifierRef(context, node);
+
+  if (!classifierRef) {
+    return filterBaseNodeLabels(node.nodeLabels).join(" › ");
+  }
+
+  // The lineage is base-first, so the first item is the RAMEN base node
+  return context.model
+    .getNodeLineage(classifierRef)
+    .slice(1)
+    .map((item) => item.name)
+    .join(" › ");
 }
 
 /** Whether a node is an Annotation, see {@linkcode getBaseNodeLabel} */
@@ -562,7 +586,8 @@ export function shapeRefOf(shape: ModelAnnotationShape): string {
 }
 
 /**
- * The qualified ref of the Annotation node (family) an annotation shape belongs to, e.g. a TextAnnotation refinement.
+ * The qualified ref of the Annotation node (family) an annotation shape is declared on: RAMEN's Annotation node or a
+ * refinement of it.
  * Annotations of the shape are stored as nodes of that family, with the shape's name in their `type` property.
  *
  * @param {ModelAnnotationShape} shape - The annotation shape.
@@ -867,8 +892,8 @@ function findShapeRef(context: ModelContext, carrierRef: string, type: string): 
 
 /**
  * Resolves a stored relationship to its relation definition: among the definitions between the classifiers of its ends
- * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → TextAnnotation rather than
- * RAMEN's Content → Annotation, which it refines). Cached per context.
+ * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → Annotation rather than RAMEN's
+ * Content → Annotation, which it refines). Cached per context.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} fromRef - Classifier ref of the start node.

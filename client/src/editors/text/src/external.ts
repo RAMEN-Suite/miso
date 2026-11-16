@@ -12,7 +12,7 @@ export {
   pruneUnconfiguredProperties,
   setNodeTreeStatus,
 } from "../../../utils/helper/helper";
-export { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
+export { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
 export { createTextPositionSelector } from "../../../utils/helper/selector";
 
 export type { IAnnotation } from "../../../models/IAnnotation";

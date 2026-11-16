@@ -451,7 +451,8 @@ export function shapeRefOf(shape: ModelAnnotationShape): string {
 }
 
 /**
- * The qualified ref of the Annotation node (family) an annotation shape belongs to, e.g. a TextAnnotation refinement.
+ * The qualified ref of the Annotation node (family) an annotation shape is declared on: RAMEN's Annotation node or a
+ * refinement of it.
  * Annotations of the shape are stored as nodes of that family, with the shape's name in their `type` property.
  *
  * @param {ModelAnnotationShape} shape - The annotation shape.
@@ -632,8 +633,8 @@ function findShapeRef(context: ModelContext, carrierRef: string, type: string): 
 
 /**
  * Resolves a stored relationship to its relation definition: among the definitions between the classifiers of its ends
- * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → TextAnnotation rather than
- * RAMEN's Content → Annotation, which it refines). Cached per context.
+ * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → Annotation rather than RAMEN's
+ * Content → Annotation, which it refines). Cached per context.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} fromRef - Classifier ref of the start node.
@@ -748,30 +749,15 @@ export function getTextShapesByType(context: ModelContext): Map<string, ModelAnn
 }
 
 /**
- * The attributes of a Collection with the given node labels: those of the RAMEN Collection node, followed by those of
- * the matching refinements. Attributes inherited by several of them are listed once.
+ * The attributes of a Collection, own and inherited, from the classifier its stored labels resolve to. A Collection
+ * whose labels can't be resolved gets the attributes of the RAMEN Collection node.
  *
  * @param {ModelContext} context - The model context.
- * @param {string[]} nodeLabels - The node labels of the Collection.
- * @returns {ModelAttribute[]} The attributes.
+ * @param {string[]} nodeLabels - The labels of the Collection in the database.
+ * @returns {ModelAttribute[]} The attributes, most general first, without identity attributes like `uuid`.
  */
 export function getCollectionAttributes(context: ModelContext, nodeLabels: string[]): ModelAttribute[] {
-  const refined: ModelAttribute[] = getRefinements(context, BASE_NODE_REF.Collection)
-    .filter(({ node }) => nodeLabels.includes(node.name))
-    .flatMap(({ ref }) => getNodeAttributes(context, ref, true));
-
-  const seen = new Set<string>();
-
-  return [...getNodeAttributes(context, BASE_NODE_REF.Collection), ...refined].filter((entry) => {
-    const key: string = `${entry.ownerRef}:${entry.attribute.id}`;
-
-    if (seen.has(key)) {
-      return false;
-    } else {
-      seen.add(key);
-      return true;
-    }
-  });
+  return getNodeAttributes(context, resolveClassifierRef(context, nodeLabels).ref ?? BASE_NODE_REF.Collection);
 }
 
 /**

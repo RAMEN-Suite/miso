@@ -149,8 +149,6 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
       // This is done in the hook since it has more context than just the raw JSON from the converter.
       // TODO: Might be worth to refactor later, keep in mind
       initialDoc = editor.getJSON();
-
-      // console.log('initial tiptap json: ', initialDoc);
       initialPlainText = editor.state.doc.textContent;
 
       initializeEventListeners(editor);

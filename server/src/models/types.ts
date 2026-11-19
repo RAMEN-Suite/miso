@@ -5,7 +5,7 @@ import { IText } from "./IText.js";
 import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
 import type { IMisoConfig } from "./IMisoConfig.js";
 
-/** The model and the config the accessors in `utils/modelHelper.ts` work on */
+/** The model and the config every model lookup works on */
 export interface ModelContext {
   /** The model, imported by RAMEN core */
   model: RamenModel;
@@ -60,7 +60,7 @@ export interface ElementRelation {
   to: string;
 }
 
-/** Nodes and relations in the element format, as validated by `validateElements` in `utils/instanceMapper.ts` */
+/** Nodes and relations in the element format, as validated by `validateElements` */
 export interface ElementGraph {
   nodes: ElementNode[];
   relations: ElementRelation[];
@@ -163,7 +163,7 @@ export interface FilterConditionGroup {
 
 /**
  * What a rule or a sort points at. Shared by both, so anything filterable is sortable and both
- * resolve through one expression builder (`targetExpression` in `utils/filter.ts`).
+ * resolve through one expression builder (`targetExpression`).
  */
 export type FilterTarget =
   /** A node property: `n.<field>`. The only variant whose name is interpolated into Cypher. */
@@ -172,7 +172,7 @@ export type FilterTarget =
   | { kind: "distinct" }
   /**
    * The node's type: an `in` condition over classifier refs matches nodes of these types and their refinements (resolved
-   * to labels on the server, see `utils/filter.ts`). Filter only — not a valid sort target.
+   * to labels on the server). Filter only — not a valid sort target.
    */
   | { kind: "classifier" };
 
@@ -215,8 +215,8 @@ export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNod
   nodeLabels: string[];
   /**
    * Qualified ref of the node's classifier, resolved from the labels on reads (for annotations: the family of its
-   * shape), see `toElementGraph` in `utils/storedGraph.ts`. `null` if the stored data can't be resolved. On writes, taken from the payload
-   * (see `toNodeChanges` in `utils/nodeUpdate.ts`).
+   * shape), see `toElementGraph`. `null` if the stored data can't be resolved. On writes, taken from the payload
+   * (see `toNodeChanges`).
    */
   classifierRef?: string | null;
   /** Annotations only: qualified ref of the annotation shape, resolved from the carrier and `type` on reads */
@@ -265,7 +265,7 @@ export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
-/** The changes of a write, grouped by operation, as the write query takes them (see `utils/nodeUpdate.ts`) */
+/** The changes of a write, grouped by operation, as the write query takes them (see `buildSubgraphUpdateQuery`) */
 export interface NodeUpdateObject {
   create: Node<object>[];
   update: Node<object>[];

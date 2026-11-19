@@ -41,7 +41,7 @@ export interface ValidatedWrite {
 /**
  * Writes changes and validates them with the model in one transaction: the write runs first, then the part of the
  * database it touches is read back (with the uncommitted changes) and validated with RAMEN core and the app's own
- * checks (`utils/instanceMapper.ts`). Only findings of the touched nodes count, since the edges of the loaded part
+ * checks ({@link validateElements}). Only findings of the touched nodes count, since the edges of the loaded part
  * produce findings that don't belong to the write.
  */
 export default class WriteValidationService {

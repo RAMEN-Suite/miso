@@ -32,6 +32,6 @@ export type FormatValueType = (typeof VALUE_TYPE_BY_FORMAT)[keyof typeof VALUE_T
 
 /**
  * The value type of an attribute: RAMEN core's built-in types, plus the types of strings with a format (see
- * `getValueType` in `utils/modelHelper.ts`). Lists are told apart by `isList`.
+ * `getValueType`). Lists are told apart by `isList`.
  */
 export type AttributeValueType = BuiltinType | FormatValueType;

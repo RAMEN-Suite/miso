@@ -141,8 +141,7 @@ export function parseUuidListFrom(source: Record<string, unknown>, key: string, 
 }
 
 /**
- * Parses a write payload: nodes and relations in the element format. Their content is checked by `toNodeChanges` in
- * `utils/nodeUpdate.ts`.
+ * Parses a write payload: nodes and relations in the element format. Their content is checked by `toNodeChanges`.
  *
  * @param {unknown} raw - The payload.
  * @returns {ElementGraph} The payload.
@@ -309,7 +308,7 @@ function parsePaginationLimit(rawLimit: unknown): number {
  *
  * The tool name is looked up in the `TOOL_URL_MAPPING` whitelist to find the
  * environment variable holding its base URL. Only known tool names resolve, so arbitrary environment
- * variables cannot be probed via the request path. The URL itself is checked at startup (`env.ts`).
+ * variables cannot be probed via the request path. The URL itself is checked at startup.
  *
  * @param {string} toolName - The name of the tool as provided in the request path.
  * @throws {NotFoundError} If the tool name is unknown or no URL is configured for it.

@@ -26,8 +26,6 @@ const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
  * The structural types the editor implements natively, with the attributes it sets itself. A project names them via
  * `editors.text.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
  * properties. The built-in attributes can be renamed, but not redefined.
- *
- * The attributes are mirrored in `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
  */
 export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
   {

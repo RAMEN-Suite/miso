@@ -80,7 +80,7 @@ function toEdge(context: ModelContext, relation: ElementRelation): NodeUpdateObj
  *
  * @param {ModelContext} context - The model context.
  * @param {ElementGraph} payload - The nodes (`created`, `modified`, `deleted`) and relations (`added`, `removed`), as
- *   parsed by `parseWritePayload` in `utils/helper.ts`.
+ *   parsed by `parseWritePayload`.
  * @returns {NodeUpdateObject} The changes, grouped by operation.
  * @throws {ValidationError} If a node or relation is malformed or references unknown model elements.
  */

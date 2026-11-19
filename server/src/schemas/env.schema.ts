@@ -17,7 +17,7 @@ const nonEmptyString = z.string().min(1);
 /** An HTTP(S) URL */
 const httpUrl = z.string().refine(isValidHttpUrl, "Must be an http(s) URL.");
 
-/** The environment variables of the server, documented in `.env.example`. Parsed at startup by `env.ts`. */
+/** The environment variables of the server */
 export const envSchema = z.object({
   APP_HOST: optional(z.string()).default("localhost"),
   APP_PORT: z.coerce.number().int().positive(),

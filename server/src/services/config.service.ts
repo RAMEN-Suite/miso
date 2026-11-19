@@ -51,7 +51,7 @@ export default class ConfigService {
   }
 
   /**
-   * Retrieves the model of the Miso config and its settings, for the accessors in `utils/modelHelper.ts`.
+   * Retrieves the model of the Miso config and its settings, for the model lookups.
    * Fetched once per request and passed on, since a batch of nodes is checked against it before saving.
    *
    * @throws {ExternalServiceError} If the config can not be loaded or is invalid.

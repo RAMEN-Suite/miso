@@ -59,7 +59,7 @@ export type {
   UrlIconSpec,
 } from "../schemas/configBlocks.schema";
 
-/** The model and the config the accessors in `modelHelper.ts` work on */
+/** The model and the config every model lookup works on */
 export interface ModelContext {
   /** The model, imported by RAMEN core */
   model: RamenModel;
@@ -130,7 +130,7 @@ export interface ElementRelation {
   to: string;
 }
 
-/** Nodes and relations in the element format, as validated by `validateElements` in `instanceMapper.ts` */
+/** Nodes and relations in the element format, as validated by `validateElements` */
 export interface ElementGraph {
   nodes: ElementNode[];
   relations: ElementRelation[];
@@ -165,7 +165,7 @@ export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 /** The base node labels that can be searched for and referenced from an Annotation */
 export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
 
-/** Name of a layout component wrapping a route's view, resolved in `src/config/layouts.ts` */
+/** Name of a layout component wrapping a route's view, resolved by `resolveLayout` */
 export type LayoutName = "default" | "blank";
 
 export type CollectionNode = Node<ICollection>;
@@ -192,7 +192,7 @@ export interface HierarchyEntry {
   data: NodeDto<HierarchyNode>;
   meta: {
     /**
-     * Derived from the node type via `getBaseNodeLabel()` in `modelHelper.ts`. Cached here because it is read
+     * Derived from the node type via `getBaseNodeLabel`. Cached here because it is read
      * on every render (icon, click behaviour).
      */
     baseLabel: "Collection" | "Content";

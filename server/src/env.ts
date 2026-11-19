@@ -2,7 +2,7 @@ import { z } from "zod";
 import { envSchema, type Env } from "./schemas/env.schema.js";
 
 /**
- * The server's environment variables (schema: `schemas/env.schema.ts`), parsed on first import at startup. If one is
+ * The server's environment variables, parsed on first import at startup. If one is
  * missing or invalid, the server prints all problems and exits. All `process.env` reads go through here.
  *
  * @packageDocumentation

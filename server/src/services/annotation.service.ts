@@ -11,7 +11,7 @@ export default class AnnotationService {
    * relations from the annotated node (which is only part of `nodes` if an annotation refers to it). Referenced nodes appear once, however many
    * annotations refer to them; their own annotations are not included.
    *
-   * The refs are resolved like on writes (`utils/storedGraph.ts`): an annotation's shape from its carrier and `type`.
+   * The refs are resolved like on writes (`toElementGraph`): an annotation's shape from its carrier and `type`.
    * Unresolvable data never fails the read: it gets `null` refs and a diagnostic.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.

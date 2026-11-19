@@ -9,7 +9,7 @@ import type { ContentMedium } from "../models/types.js";
  * {@linkcode SELECTOR_BY_MEDIUM} (the compiler asks for it).
  *
  * Mirrored on the client (`client/src/utils/helper/selector.ts`), keep both in sync. Stored as JSON string, see
- * `toStoredSelector`/`fromStoredSelector` in `helper.ts`.
+ * `toStoredSelector`/`fromStoredSelector`.
  *
  * @packageDocumentation
  */

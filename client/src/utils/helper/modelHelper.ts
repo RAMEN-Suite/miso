@@ -41,7 +41,7 @@ import type { ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema"
  *   keyed by attribute ref. The editor's native types are mapped in `editors.text.mappings`.
  *
  * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
- * to an attribute (both in `models/types.ts`). The model constants are in `config/ramen.ts`. Elements are referenced by
+ * to an attribute. Elements are referenced by
  * qualified refs (`<modelId>:<id>`, see {@linkcode qualify}).
  *
  * Mirrored on the server (`server/src/utils/modelHelper.ts`), keep both in sync.

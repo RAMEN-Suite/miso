@@ -66,7 +66,7 @@ const PART_OF = "PART_OF";
 const { initializeFilter } = useFilterStore();
 const { parseShortcut } = useShortcutsStore();
 /**
- * The model of the Miso config and its settings, read by the accessors in `modelHelper.ts`. Not deeply reactive: it
+ * The model of the Miso config and its settings, read by the model lookups. Not deeply reactive: it
  * doesn't change after the initialization, and the RAMEN core model is a class instance.
  */
 const modelContext = shallowRef<ModelContext>();
@@ -126,11 +126,10 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 
 /**
  * Store for making the Miso config available to all components. When the app is mounted, the store is
- * initialized with the fetched Miso config. Model questions are answered by RAMEN core (see `modelHelper.ts`), the
- * config of model elements comes from `elements` and `editors.text.mappings`. The store is static, meaning that no properties are changed after
- * the initialization. Other stores (filter.ts) are derived from this store.
+ * initialized with the fetched Miso config. Model questions are answered by RAMEN core, the config of model elements
+ * comes from `elements` and `editors.text.mappings`. Nothing is changed after the initialization.
  *
- * Nodes are looked up by their classifier (`classifierRef`, see `getClassifierRef` in `modelHelper.ts`), annotations
+ * Nodes are looked up by their classifier (`classifierRef`, see {@link getClassifierRef}), annotations
  * by their `shapeRef`. Text annotation types are still matched by `type`, which is the editor's key.
  */
 export function useConfigStore() {
@@ -479,7 +478,7 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the model context for the accessors in `modelHelper.ts`. Only call this from code that runs after
+   * Returns the model context for the model lookups. Only call this from code that runs after
    * {@linkcode initializeConfig}.
    *
    * @returns {ModelContext} The model of the Miso config and its settings.

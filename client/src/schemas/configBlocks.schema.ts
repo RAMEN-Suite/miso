@@ -4,7 +4,7 @@ import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants
 // Schemas and types of the settings of model elements (the entries of `elements.classifiers`/`elements.annotations`).
 // The types are inferred from the schemas, so the format is defined only once. Objects are strict, so unknown or
 // misplaced keys (e.g. a typo, a key on the wrong level or an option of another element kind) are reported instead of
-// being ignored silently. The config file itself is described in `misoConfig.schema.ts`. The schemas are mirrored in
+// being ignored silently. The config file itself is described by `misoConfigSchema`. The schemas are mirrored in
 // `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
 
 // ----- Icons -----
@@ -96,7 +96,7 @@ export type IconStyle = z.infer<typeof iconStyleSchema>;
  * A formula rendered at the position of an annotation with KaTeX, from the LaTeX notation stored in the annotation
  * property `property`. The other keys are predefined CSS properties applied to the marker, keyed by their camelCase
  * names (like {@linkcode PropertiesTextStyle}). In the config, `property` is an attribute ref; the text editor gets the
- * property name (see `toEditorAppearance` in `store/config.ts`).
+ * property name (see `toEditorAppearance`).
  *
  * @example
  * { "kind": "math", "property": "<modelId>:<attributeId of latex>", "display": "block" }

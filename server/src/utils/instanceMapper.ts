@@ -13,7 +13,7 @@ import { getBaseNodeRef, getContentMedium, isEmptyValue } from "./modelHelper.js
 import { checkSelector } from "./selector.js";
 
 /**
- * Validation of data in the element format (see `ElementGraph` in `models/types.ts`) with RAMEN core: the elements are
+ * Validation of data in the element format (see `ElementGraph`) with RAMEN core: the elements are
  * mapped to RAMEN core's instance graph, validated with `validateInstances`, and the findings are mapped back to the
  * elements (uuid, property name, relation).
  *
@@ -22,7 +22,7 @@ import { checkSelector } from "./selector.js";
  * - The editor fields of text annotations ({@linkcode TEXT_ANNOTATION_EDITOR_FIELDS}) are not part of the model. They
  *   are left out of RAMEN core's validation and checked here instead.
  * - RAMEN core only checks that a `selector` has a `type`; whether annotations on a Content have one that fits the
- *   Content's medium is checked here (see `selector.ts`).
+ *   Content's medium is checked here (see {@link checkSelector}).
  * - Relations have no id of their own. RAMEN core needs one, so it is derived (`<from>_<relationId>_<to>`) and never
  *   stored.
  *
@@ -239,7 +239,7 @@ function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping
 
 /**
  * Checks the selector of an annotation on a Content: it is required and must be valid for the Content's medium (see
- * `checkSelector` in `selector.ts`).
+ * {@link checkSelector}).
  *
  * @param {ElementNode} node - The annotation.
  * @param {ContentMedium} medium - The medium of the annotated Content.

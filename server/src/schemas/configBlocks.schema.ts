@@ -1,12 +1,20 @@
 import { z } from "zod";
 import type { Attribute, Constraint, RamenFile } from "@ramen-suite/core";
-import type { ConfigBaseClassifier, ConfigMapping } from "../models/IMisoConfig.js";
+import type { ConfigMapping, IMisoConfig } from "../models/IMisoConfig.js";
+import type { AttributeOwner } from "../models/types.js";
+import { findAttribute } from "../utils/modelHelper.js";
 
-// Schemas of the Miso settings in the config (`ext.miso` blocks, `miso.editors.text.mappings`) and their checks. Mirrors
-// `client/src/schemas/configBlocks.schema.ts`, `checkExtBlocks`/`checkBuiltinAttributes` in
+// Schemas of the settings in the config (`elements`, `editors.text.mappings`) and their checks against the model.
+// Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkLeftoverExtBlocks`/`checkElements`/`checkMappings` in
 // `client/src/schemas/misoConfig.schema.ts` and the built-in attributes of `BUILTIN_STRUCTURAL_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
 // reads a few keys.
+
+/** What the checks against the model found: `problems` make the config unusable, `warnings` don't */
+export interface ConfigFindings {
+  problems: string[];
+  warnings: string[];
+}
 
 // ----- Built-in structural types of the text editor -----
 
@@ -102,6 +110,7 @@ const iconStyleSchema = z.strictObject({ kind: z.literal("icon"), icon: iconSpec
 
 const mathTextStyleSchema = z.strictObject({
   kind: z.literal("math"),
+  /** Attribute ref of the annotation property that holds the LaTeX notation */
   property: z.string(),
   display: z.string().optional(),
 });
@@ -121,10 +130,11 @@ const annotationAppearanceSchema = z.strictObject({
   icon: iconSpecInputSchema.optional(),
   highlight: highlightTextStyleSchema.optional(),
   marker: markerStyleSchema.optional(),
+  /** `property` is the attribute ref of an annotation property */
   variants: z.array(z.strictObject({ property: z.string(), values: z.record(z.string(), appearanceOverrideSchema) })).optional(),
 });
 
-/** The `ext.miso` block of an annotation shape */
+/** The settings of an annotation shape */
 const annotationShapeConfigSchema = z.strictObject({
   group: z.string().optional(),
   controls: z.strictObject({ shortcut: z.string().optional() }).optional(),
@@ -139,84 +149,167 @@ const annotationShapeConfigSchema = z.strictObject({
 
 // ----- Node types and attributes -----
 
-/** The `ext.miso` block of a classifier. `medium` only applies to Content refinements. */
+/** The settings of a node classifier. `medium` only applies to Content refinements. */
 const classifierConfigSchema = z.strictObject({
   appearance: z.strictObject({ icon: iconSpecInputSchema.optional() }).optional(),
   medium: z.enum(["text", "image"]).optional(),
 });
 
-/** The `ext.miso` block of an attribute (or annotation shape property) */
+/** The settings of an attribute (or annotation shape property) */
 const attributeConfigSchema = z.strictObject({
   visible: z.boolean().optional(),
   editable: z.boolean().optional(),
 });
 
+// ----- Entries of `elements` -----
+
+/** Attribute settings keyed by attribute ref, each with the `name` hint */
+const attributeEntriesSchema = z.record(z.string(), attributeConfigSchema.extend({ name: z.string() })).optional();
+
+/** `elements`: settings by section of element kind, keyed by qualified ref, each with the `name` hint */
+const elementsSchema = z.strictObject({
+  classifiers: z.record(z.string(), classifierConfigSchema.extend({ name: z.string(), attributes: attributeEntriesSchema })),
+  annotations: z.record(z.string(), annotationShapeConfigSchema.extend({ name: z.string(), attributes: attributeEntriesSchema })),
+});
+
 /**
- * Checks the `ext.miso` blocks of all model elements and `miso.general.baseClassifiers` against their schemas. Keys of other tools
- * next to `miso` are allowed, but Miso's own keys there (e.g. `ext.appearance` instead of `ext.miso.appearance`) are
- * reported, since they would be silently ignored.
+ * Warns about `ext.miso` blocks left in the model. Settings are read from `elements` only, so such a block (e.g. of a
+ * config in the old format) would be ignored silently.
  *
- * @param {RamenFile} model - The ingested model.
- * @param {ConfigBaseClassifier[]} baseClassifiers - The `miso.general.baseClassifiers` entries.
- * @returns {string[]} The problems found, each with the element it belongs to.
+ * @param {RamenFile} model - The raw model.
+ * @returns {string[]} The warnings, one per block.
  */
-export function checkExtBlocks(model: RamenFile, baseClassifiers: ConfigBaseClassifier[]): string[] {
-  const problems: string[] = [];
-
-  function check(schema: z.ZodObject, ext: Record<string, unknown> | undefined, label: string): void {
-    const misplaced: string[] = Object.keys(ext ?? {}).filter((key) => key !== "miso" && key in schema.shape);
-
-    misplaced.forEach((key) => problems.push(`${label}: "ext.${key}" is ignored, it belongs in "ext.miso.${key}"`));
-
-    if (ext?.miso === undefined) {
-      return;
+export function checkLeftoverExtBlocks(model: RamenFile): string[] {
+  const warnings: string[] = [];
+  const check = (ext: Record<string, unknown> | undefined, label: string): void => {
+    if (ext?.miso !== undefined) {
+      warnings.push(`${label}: "ext.miso" in the model is ignored, settings belong in "elements" (old config format?)`);
     }
-
-    const result = schema.safeParse(ext.miso);
-
-    if (!result.success) {
-      problems.push(`${label} ext.miso:\n${z.prettifyError(result.error)}`);
-    }
-  }
+  };
 
   for (const classifier of model.classifiers) {
     const label: string = `${classifier.kind} "${classifier.name}" (${classifier.modelId}:${classifier.id})`;
 
-    check(classifierConfigSchema, classifier.ext, label);
+    check(classifier.ext, label);
 
     if (classifier.kind === "Node") {
-      classifier.attributes.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));
+      classifier.attributes.forEach((attribute) => check(attribute.ext, `${label}.${attribute.name}`));
     }
   }
 
   for (const shape of model.annotations) {
     const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
 
-    check(annotationShapeConfigSchema, shape.ext, label);
-    shape.properties.forEach((property) => check(attributeConfigSchema, property.ext, `${label}.${property.name}`));
+    check(shape.ext, label);
+    shape.properties.forEach((property) => check(property.ext, `${label}.${property.name}`));
   }
 
-  for (const entry of baseClassifiers) {
-    const label: string = `miso.general.baseClassifiers "${entry.name}" (${entry.modelId}:${entry.id})`;
-
-    check(classifierConfigSchema, entry.ext, label);
-    entry.attributes?.forEach((attribute) => check(attributeConfigSchema, attribute.ext, `${label}.${attribute.name}`));
-  }
-
-  return problems;
+  return warnings;
 }
 
 /**
- * Checks the entries of `miso.editors.text.mappings` (known native type, its attributes) and that the mapped annotation shapes don't
- * override the editor's built-in attributes: each one must be a property of the shape (under its mapped name) with the
- * built-in type, cardinality and constraints. Shapes may add properties of their own.
+ * Checks `elements` against its schema (the kind-specific options by section) and its refs against the model.
+ * - A ref of an element of another kind than its section is a problem, a ref that the model doesn't have (any longer)
+ *   is a warning, and the entry is ignored.
+ * - Attribute refs must be declared on the entry's element; any other attribute ref (removed from the model, or of
+ *   another element) is a warning, and the entry is ignored.
+ * - `name` hints that differ from the model are warnings, the model wins.
  *
- * @param {RamenFile} model - The ingested model.
- * @param {ConfigMapping[]} mappings - The native mappings.
- * @returns {string[]} The problems found, each with the mapping, shape or attribute it belongs to.
+ * @param {RamenFile} model - The raw model.
+ * @param {unknown} elements - The `elements` of the config.
+ * @returns {ConfigFindings} The problems and warnings, each with the entry it belongs to.
  */
-export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): string[] {
-  const problems: string[] = [];
+export function checkElements(model: RamenFile, elements: unknown): ConfigFindings {
+  const findings: ConfigFindings = { problems: [], warnings: [] };
+  const result = elementsSchema.safeParse(elements);
+
+  if (!result.success) {
+    findings.problems.push(`elements:\n${z.prettifyError(result.error)}`);
+    return findings;
+  }
+
+  const kindByRef = new Map<string, string>([
+    ...model.classifiers.map((classifier): [string, string] => [`${classifier.modelId}:${classifier.id}`, classifier.kind]),
+    ...model.annotations.map((shape): [string, string] => [`${shape.modelId}:${shape.id}`, "annotation shape"]),
+    ...model.relations.map((relation): [string, string] => [`${relation.modelId}:${relation.id}`, "Relation"]),
+  ]);
+  const nodesByRef = new Map<string, { name: string; owner: AttributeOwner }>(
+    model.classifiers.flatMap((classifier) =>
+      classifier.kind === "Node"
+        ? [[`${classifier.modelId}:${classifier.id}`, { name: classifier.name, owner: classifier }]]
+        : [],
+    ),
+  );
+  const shapesByRef = new Map<string, { name: string; owner: AttributeOwner }>(
+    model.annotations.map((shape) => [`${shape.modelId}:${shape.id}`, { name: shape.type, owner: shape }]),
+  );
+
+  function checkEntry(
+    section: string,
+    ref: string,
+    entry: { name: string; attributes?: Record<string, { name: string }> },
+    modelElements: Map<string, { name: string; owner: AttributeOwner }>,
+    expectedKind: string,
+  ): void {
+    const path: string = `elements.${section}["${ref}"] ("${entry.name}")`;
+    const modelElement: { name: string; owner: AttributeOwner } | undefined = modelElements.get(ref);
+
+    if (!modelElement) {
+      const kind: string | undefined = kindByRef.get(ref);
+
+      if (kind) {
+        findings.problems.push(`${path}: is a ${kind}, not a ${expectedKind}`);
+      } else {
+        findings.warnings.push(`${path}: no such element in the model, the entry is ignored`);
+      }
+
+      return;
+    }
+
+    if (entry.name !== modelElement.name) {
+      findings.warnings.push(
+        `${path}: name hint "${entry.name}" differs from the model's "${modelElement.name}", the model wins`,
+      );
+    }
+
+    for (const [attributeRef, attributeEntry] of Object.entries(entry.attributes ?? {})) {
+      const attributePath: string = `${path}.attributes["${attributeRef}"] ("${attributeEntry.name}")`;
+      const attribute: Attribute | undefined = findAttribute(modelElement.owner, attributeRef);
+
+      if (!attribute) {
+        findings.warnings.push(`${attributePath}: the element declares no such attribute, the entry is ignored`);
+      } else if (attributeEntry.name !== attribute.name) {
+        findings.warnings.push(
+          `${attributePath}: name hint "${attributeEntry.name}" differs from the model's "${attribute.name}", the model wins`,
+        );
+      }
+    }
+  }
+
+  for (const [ref, entry] of Object.entries(result.data.classifiers)) {
+    checkEntry("classifiers", ref, entry, nodesByRef, "node classifier");
+  }
+
+  for (const [ref, entry] of Object.entries(result.data.annotations)) {
+    checkEntry("annotations", ref, entry, shapesByRef, "annotation shape");
+  }
+
+  return findings;
+}
+
+/**
+ * Checks the entries of `editors.text.mappings` (known native type, its attributes) against the model: the annotation
+ * shape must exist (its `type` hint only warns), the mapped attribute refs must be properties of that shape, and the
+ * shape must not override the editor's built-in attributes: each one must be a property of the shape (the mapped one,
+ * otherwise the one with the built-in name) with the built-in type, cardinality and constraints. Shapes may add
+ * properties of their own.
+ *
+ * @param {RamenFile} model - The raw model.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {ConfigFindings} The problems and warnings, each with the mapping, shape or attribute it belongs to.
+ */
+export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindings {
+  const findings: ConfigFindings = { problems: [], warnings: [] };
   const constraintsKey = (constraints: Pick<Constraint, "language" | "expression">[] | undefined): string =>
     (constraints ?? [])
       .map((constraint) => `${constraint.language}:${JSON.stringify(constraint.expression)}`)
@@ -224,46 +317,83 @@ export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): stri
       .join("|");
 
   mappings.forEach((mapping, index) => {
+    const path: string = `editors.text.mappings[${index}] (${mapping.native})`;
     const result = mappingSchema.safeParse(mapping);
 
     if (!result.success) {
-      problems.push(`miso.editors.text.mappings[${index}]:\n${z.prettifyError(result.error)}`);
+      findings.problems.push(`${path}:\n${z.prettifyError(result.error)}`);
       return;
     }
 
     const shape = model.annotations.find((candidate) => `${candidate.modelId}:${candidate.id}` === mapping.annotation);
 
     if (!shape) {
+      findings.problems.push(`${path}: the annotation shape "${mapping.annotation}" doesn't exist in the model`);
       return;
     }
 
+    if (mapping.type !== shape.type) {
+      findings.warnings.push(`${path}: type hint "${mapping.type}" differs from the model's "${shape.type}", the model wins`);
+    }
+
+    const mappedNames: Record<string, string> = {};
+
+    for (const [nativeAttribute, attributeRef] of Object.entries(mapping.attributes ?? {})) {
+      const property: Attribute | undefined = findAttribute(shape, attributeRef);
+
+      if (property) {
+        mappedNames[nativeAttribute] = property.name;
+      } else {
+        findings.problems.push(
+          `${path}.attributes.${nativeAttribute}: "${attributeRef}" is no property of the annotation shape "${shape.type}"`,
+        );
+      }
+    }
+
     for (const builtinAttribute of BUILTIN_ATTRIBUTES[mapping.native] ?? []) {
-      const name: string = mapping.attributes?.[builtinAttribute.name] ?? builtinAttribute.name;
+      const name: string = mappedNames[builtinAttribute.name] ?? builtinAttribute.name;
       const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
       const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;
 
       if (!property) {
-        problems.push(`${label}: missing, the editor sets it`);
+        findings.problems.push(`${label}: missing, the editor sets it`);
       } else {
         if (property.typeId !== builtinAttribute.typeId) {
-          problems.push(`${label}: type "${property.typeId}" overrides the built-in "${builtinAttribute.typeId}"`);
+          findings.problems.push(`${label}: type "${property.typeId}" overrides the built-in "${builtinAttribute.typeId}"`);
         }
 
         if (
           property.bounds.lowerBound !== builtinAttribute.bounds.lowerBound ||
           property.bounds.upperBound !== builtinAttribute.bounds.upperBound
         ) {
-          problems.push(
+          findings.problems.push(
             `${label}: bounds ${property.bounds.lowerBound}..${property.bounds.upperBound} override the built-in ${builtinAttribute.bounds.lowerBound}..${builtinAttribute.bounds.upperBound}`,
           );
         }
 
         if (constraintsKey(property.constraints) !== constraintsKey(builtinAttribute.constraints)) {
-          problems.push(`${label}: constraints differ from the built-in ones`);
+          findings.problems.push(`${label}: constraints differ from the built-in ones`);
         }
       }
     }
   });
 
-  return problems;
+  return findings;
+}
+
+/**
+ * Runs all checks of the settings against the model: {@linkcode checkElements}, {@linkcode checkMappings} and
+ * {@linkcode checkLeftoverExtBlocks}.
+ *
+ * @param {IMisoConfig} config - The config, with a model RAMEN core accepted.
+ * @returns {ConfigFindings} The problems and warnings of all checks.
+ */
+export function checkConfigSettings(config: IMisoConfig): ConfigFindings {
+  const elementFindings: ConfigFindings = checkElements(config.model, config.elements);
+  const mappingFindings: ConfigFindings = checkMappings(config.model, config.editors.text.mappings);
+
+  return {
+    problems: [...elementFindings.problems, ...mappingFindings.problems],
+    warnings: [...checkLeftoverExtBlocks(config.model), ...elementFindings.warnings, ...mappingFindings.warnings],
+  };
 }

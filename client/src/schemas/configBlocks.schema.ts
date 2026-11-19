@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
 
-// Schemas and types of the configuration blocks of model elements (`ext.miso`). The types are inferred from the
-// schemas, so the format is defined only once. Objects are strict, so unknown or misplaced keys (e.g. a typo or a key
-// on the wrong level) are reported instead of being ignored silently. The Miso config file itself is described in
-// `misoConfig.schema.ts`. The schemas are mirrored in `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
+// Schemas and types of the settings of model elements (the entries of `elements.classifiers`/`elements.annotations`).
+// The types are inferred from the schemas, so the format is defined only once. Objects are strict, so unknown or
+// misplaced keys (e.g. a typo, a key on the wrong level or an option of another element kind) are reported instead of
+// being ignored silently. The config file itself is described in `misoConfig.schema.ts`. The schemas are mirrored in
+// `server/src/schemas/configBlocks.schema.ts`, keep them in sync.
 
 // ----- Icons -----
 
@@ -75,7 +76,7 @@ const iconStyleSchema = z.strictObject({ kind: z.literal("icon"), icon: iconSpec
 
 const mathTextStyleSchema = z.strictObject({
   kind: z.literal("math"),
-  /** Name of the annotation property that holds the LaTeX notation */
+  /** Attribute ref (`<modelId>:<attributeId>`) of the annotation property that holds the LaTeX notation */
   property: z.string(),
   /** CSS `display` of the formula. `block` also renders it in display mode (own line, larger operators). */
   display: z.string().optional(),
@@ -94,10 +95,11 @@ export type IconStyle = z.infer<typeof iconStyleSchema>;
 /**
  * A formula rendered at the position of an annotation with KaTeX, from the LaTeX notation stored in the annotation
  * property `property`. The other keys are predefined CSS properties applied to the marker, keyed by their camelCase
- * names (like {@linkcode PropertiesTextStyle}).
+ * names (like {@linkcode PropertiesTextStyle}). In the config, `property` is an attribute ref; the text editor gets the
+ * property name (see `toEditorAppearance` in `store/config.ts`).
  *
  * @example
- * { "kind": "math", "property": "latex", "display": "block" }
+ * { "kind": "math", "property": "<modelId>:<attributeId of latex>", "display": "block" }
  */
 export type MathTextStyle = z.infer<typeof mathTextStyleSchema>;
 
@@ -134,7 +136,7 @@ const appearanceOverrideSchema = z.strictObject({
 });
 
 const appearanceVariantSchema = z.strictObject({
-  /** Name of the annotation property whose value is matched */
+  /** Attribute ref (`<modelId>:<attributeId>`) of the annotation property whose value is matched */
   property: z.string(),
   /** Appearance overrides keyed by property value */
   values: z.record(z.string(), appearanceOverrideSchema),
@@ -151,9 +153,10 @@ const annotationAppearanceSchema = z.strictObject({
    * Overrides for annotations with certain property values. They override the type's appearance and are applied in
    * order, so later matches win. Highlights are merged field by field, a marker replaces the previous one. The icon
    * can't be overridden, since it identifies the annotation type in places without annotation data (e.g. the toolbar).
+   * In the config, `property` is an attribute ref; the text editor gets the property name.
    *
    * @example
-   * [{ "property": "hand", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
+   * [{ "property": "<modelId>:<attributeId of hand>", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
    */
   variants: z.array(appearanceVariantSchema).optional(),
 });
@@ -162,7 +165,7 @@ const annotationAppearanceSchema = z.strictObject({
  * Reports every attribute of a native mapping that the native type doesn't have.
  *
  * @param {string} nativeType - The native type.
- * @param {Record<string, string> | undefined} attributes - Native attribute -> project property.
+ * @param {Record<string, string> | undefined} attributes - Native attribute -> attribute ref of the project property.
  * @param {z.RefinementCtx} ctx - The refinement context to add the issues to.
  * @returns {void} This function does not return anything.
  */
@@ -186,10 +189,10 @@ export function checkNativeAttributes(
 }
 
 /**
- * The `ext.miso` block of an annotation shape in the Miso config. The native mapping lives in
- * `miso.editors.text.mappings`.
+ * The settings of an annotation shape (without the `name` hint and the attribute settings of its entry, see
+ * {@linkcode annotationEntrySchema}). The native mapping lives in `editors.text.mappings`.
  */
-export const annotationShapeConfigSchema = z.strictObject({
+const annotationShapeConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */
   group: z.string().optional(),
   /** How the user creates and interacts with annotations of this type */
@@ -213,7 +216,7 @@ export const annotationShapeConfigSchema = z.strictObject({
 });
 
 /**
- * How far an annotation extends in its content, configured in `ext.miso.editing.extent`. Both are stored as a
+ * How far an annotation extends in its content, configured in `editing.extent` of its entry. Both are stored as a
  * `TextPositionSelector` (a zero point has the same start and end).
  * - `range`: covers a range in the text, marked with the selector's `start` and `end` (both inclusive).
  *    Required for annotations with representation `blockClassification`.
@@ -222,7 +225,7 @@ export const annotationShapeConfigSchema = z.strictObject({
 export type AnnotationExtent = z.infer<typeof annotationExtentSchema>;
 
 /**
- * How an annotation is represented in the text editor, configured in `ext.miso.editing.representation`. Only applies to
+ * How an annotation is represented in the text editor, configured in `editing.representation` of its entry. Only applies to
  * annotations on text content. Options are:
  * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
  *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
@@ -246,8 +249,8 @@ export type AppearanceVariant = z.infer<typeof appearanceVariantSchema>;
 export type AnnotationAppearance = z.infer<typeof annotationAppearanceSchema>;
 
 /**
- * Configuration of an annotation shape (its `ext.miso` block). Everything in here is frontend-only and not part of the
- * data model. The native mapping lives in `miso.editors.text.mappings`.
+ * Configuration of an annotation shape (the settings of its `elements.annotations` entry). Everything in here is
+ * frontend-only and not part of the data model. The native mapping lives in `editors.text.mappings`.
  */
 export type AnnotationShapeConfig = z.infer<typeof annotationShapeConfigSchema>;
 
@@ -275,11 +278,11 @@ export type ContentMedium = z.infer<typeof contentMediumSchema>;
 /** Configuration of a Content type */
 export type ContentTypeConfig = z.infer<typeof contentTypeConfigSchema>;
 
-/** The `ext.miso` block of a classifier in the Miso config. `medium` only applies to Content refinements. */
-export const classifierConfigSchema = contentTypeConfigSchema;
+/** The settings of a node classifier. `medium` only applies to Content refinements. */
+const classifierConfigSchema = contentTypeConfigSchema;
 
-/** The `ext.miso` block of an attribute (or annotation shape property) in the Miso config */
-export const attributeConfigSchema = z.strictObject({
+/** The settings of an attribute (or annotation shape property) */
+const attributeConfigSchema = z.strictObject({
   /** Visible by user. Defaults to `true`. */
   visible: z.boolean().optional(),
   /** Editable by user. Defaults to `true`; always `false` for attributes that are read-only in the model. */
@@ -288,3 +291,26 @@ export const attributeConfigSchema = z.strictObject({
 
 /** Configuration of an attribute */
 export type AttributeConfig = z.infer<typeof attributeConfigSchema>;
+
+// ----- Entries of `elements` -----
+
+/** Name of the element in the model. A hint for readers, the ref decides; a different name only warns. */
+const nameHintSchema = z.string();
+
+/** An entry of an element's `attributes`, keyed by attribute ref (`<modelId>:<attributeId>`) */
+const attributeEntrySchema = attributeConfigSchema.extend({ name: nameHintSchema });
+
+/** Attribute settings keyed by attribute ref. The attributes must be declared on the entry's element. */
+const attributeEntriesSchema = z.record(z.string(), attributeEntrySchema).optional();
+
+/** An entry of `elements.classifiers`, keyed by the qualified ref of a node classifier */
+export const classifierEntrySchema = classifierConfigSchema.extend({
+  name: nameHintSchema,
+  attributes: attributeEntriesSchema,
+});
+
+/** An entry of `elements.annotations`, keyed by the qualified ref of an annotation shape */
+export const annotationEntrySchema = annotationShapeConfigSchema.extend({
+  name: nameHintSchema,
+  attributes: attributeEntriesSchema,
+});

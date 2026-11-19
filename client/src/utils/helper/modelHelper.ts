@@ -1,4 +1,4 @@
-import { RAMEN_MODEL, Attribute, BuiltinType, Constraint, DataType, Node, RamenModel, Relation } from "@ramen-suite/core";
+import { Attribute, BuiltinType, Constraint, DataType, Node, RamenModel, Relation } from "@ramen-suite/core";
 import {
   BASE_NODE_REF,
   BASE_NODE_REFS,
@@ -12,6 +12,7 @@ import type {
   AnnotationNode,
   AnnotationShapeConfig,
   AttributeConfig,
+  AttributeOwner,
   BaseNodeData,
   BaseNodeLabel,
   CollectionNode,
@@ -27,7 +28,7 @@ import type {
   RefResolution,
   TextNode,
 } from "../../models/types";
-import type { ConfigBaseClassifier, ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
+import type { ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
 
 /**
  * Accessors on the model and the config. Everything model-related and the app's settings of model elements are read
@@ -35,8 +36,9 @@ import type { ConfigBaseClassifier, ConfigMapping, MisoConfig } from "../../sche
  *
  * - Model questions (lineage, attributes, data types, annotation shapes of a node, value validation) are answered by
  *   RAMEN core.
- * - The settings of an element come from its `ext.miso` block. For the RAMEN base level they are in `miso.general.baseClassifiers`, since
- *   RAMEN core allows no `ext` there. The editor's native types are mapped in `miso.editors.text.mappings`.
+ * - The settings of an element come from its entry in `elements.classifiers`/`elements.annotations` (RAMEN base
+ *   elements included), keyed by its qualified ref; attribute settings from the `attributes` of their owner's entry,
+ *   keyed by attribute ref. The editor's native types are mapped in `editors.text.mappings`.
  *
  * All functions take a `ModelContext` and work with RAMEN core's types; `ModelAttribute` only adds the declaring element
  * to an attribute (both in `models/types.ts`). The model constants are in `config/ramen.ts`. Elements are referenced by
@@ -73,17 +75,6 @@ function modelIdOf(qualifiedRef: string): string {
 }
 
 /**
- * Whether a ref points into the RAMEN base level. RAMEN core doesn't allow `ext` there, so the config of these
- * elements lives in `miso.general.baseClassifiers`.
- *
- * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
- * @returns {boolean} `true` if the ref belongs to the RAMEN base model.
- */
-function isBaseLevel(qualifiedRef: string): boolean {
-  return modelIdOf(qualifiedRef) === RAMEN_MODEL.id;
-}
-
-/**
  * Creates the context the accessors work on.
  *
  * @param {MisoConfig} config - The validated Miso config.
@@ -100,23 +91,37 @@ export function createModelContext(config: MisoConfig, model: RamenModel): Model
  *
  * @param {ModelContext} context - The model context.
  * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the shape. Local refs don't match, see {@linkcode qualify}.
- * @returns {ModelAnnotationShape | undefined} The shape as it is in the config (`ext.miso` included), `undefined` if
- *   there is none with that ref.
+ * @returns {ModelAnnotationShape | undefined} The shape as it is in the config's model, `undefined` if there is none
+ *   with that ref.
  */
 export function findShape(context: ModelContext, ref: string): ModelAnnotationShape | undefined {
   return context.config.model.annotations.find((shape) => `${shape.modelId}:${shape.id}` === ref);
 }
 
 /**
- * Looks up the `miso.general.baseClassifiers` entry of a RAMEN base level classifier (e.g. the Collection node), by
- * comparing `<modelId>:<id>` of each entry with the given ref.
+ * Looks up an attribute the given element declares itself (inherited ones not included) by its attribute ref
+ * (`<modelId>:<attributeId>`). The config always names attribute refs under their element, so no model-wide lookup
+ * is needed.
  *
- * @param {ModelContext} context - The model context.
- * @param {string} ref - Qualified ref (`<modelId>:<id>`) of the base level classifier.
- * @returns {ConfigBaseClassifier | undefined} The entry, `undefined` if the classifier has no config.
+ * @param {AttributeOwner} owner - The node classifier or annotation shape.
+ * @param {string} attributeRef - The attribute ref.
+ * @returns {Attribute | undefined} The attribute (a property for shapes), `undefined` if the element doesn't declare it.
  */
-export function findBaseClassifier(context: ModelContext, ref: string): ConfigBaseClassifier | undefined {
-  return (context.config.miso.general.baseClassifiers ?? []).find((entry) => `${entry.modelId}:${entry.id}` === ref);
+export function findAttribute(owner: AttributeOwner, attributeRef: string): Attribute | undefined {
+  const attributes: readonly Attribute[] = "properties" in owner ? owner.properties : owner.attributes;
+
+  return attributes.find((attribute) => `${owner.modelId}:${attribute.id}` === attributeRef);
+}
+
+/**
+ * The attribute ref of an attribute (`<modelId>:<attributeId>`), as the config refers to it. The counterpart of
+ * {@linkcode findAttribute}.
+ *
+ * @param {ModelAttribute} entry - The attribute.
+ * @returns {string} The attribute ref, in the model of its declaring element.
+ */
+export function attributeRefOf(entry: ModelAttribute): string {
+  return `${modelIdOf(entry.ownerRef)}:${entry.attribute.id}`;
 }
 
 // ----- Nodes -----
@@ -246,18 +251,15 @@ export function getNodeTypeOption(context: ModelContext, classifierRef: string):
 }
 
 /**
- * The config of a node. Base level nodes have theirs in `miso.general.baseClassifiers`.
+ * The config of a node: its entry in `elements.classifiers` (RAMEN base nodes included). No lineage fallback, see
+ * e.g. {@linkcode getContentMedium} for that.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} nodeRef - Qualified ref of the node.
- * @returns {ContentTypeConfig | undefined} The `ext.miso` block.
+ * @returns {ContentTypeConfig | undefined} The entry, `undefined` if the node has none.
  */
 export function getNodeConfig(context: ModelContext, nodeRef: string): ContentTypeConfig | undefined {
-  if (isBaseLevel(nodeRef)) {
-    return findBaseClassifier(context, nodeRef)?.ext?.miso;
-  } else {
-    return context.model.getNode(nodeRef)?.ext?.miso as ContentTypeConfig | undefined;
-  }
+  return context.config.elements.classifiers[nodeRef];
 }
 
 /**
@@ -452,18 +454,18 @@ export function isRequired(entry: ModelAttribute): boolean {
 }
 
 /**
- * The config of an attribute. Attributes of the RAMEN base level have theirs in `miso.general.baseClassifiers`.
+ * The config of an attribute: its entry in the `attributes` of its declaring element's entry (in
+ * `elements.classifiers` or `elements.annotations`), so it applies to all subtypes.
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
- * @returns {AttributeConfig | undefined} The `ext.miso` block.
+ * @returns {AttributeConfig | undefined} The entry, `undefined` if the attribute has none.
  */
 export function getAttributeConfig(context: ModelContext, entry: ModelAttribute): AttributeConfig | undefined {
-  if (isBaseLevel(entry.ownerRef)) {
-    return findBaseClassifier(context, entry.ownerRef)?.attributes?.find((a) => a.id === entry.attribute.id)?.ext?.miso;
-  } else {
-    return entry.attribute.ext?.miso as AttributeConfig | undefined;
-  }
+  const { classifiers, annotations } = context.config.elements;
+  const ownerEntry = classifiers[entry.ownerRef] ?? annotations[entry.ownerRef];
+
+  return ownerEntry?.attributes?.[attributeRefOf(entry)];
 }
 
 /**
@@ -542,7 +544,7 @@ export function getDefaultValue(context: ModelContext, entry: ModelAttribute, as
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
- * @returns {boolean} `false` if it is read-only in the model or `ext.miso.editable` is `false`, otherwise `true`.
+ * @returns {boolean} `false` if it is read-only in the model or configured with `editable: false`, otherwise `true`.
  */
 export function isEditable(context: ModelContext, entry: ModelAttribute): boolean {
   return entry.attribute.isReadOnly !== true && getAttributeConfig(context, entry)?.editable !== false;
@@ -553,7 +555,7 @@ export function isEditable(context: ModelContext, entry: ModelAttribute): boolea
  *
  * @param {ModelContext} context - The model context.
  * @param {ModelAttribute} entry - The attribute.
- * @returns {boolean} `false` if `ext.miso.visible` is `false`, otherwise `true`.
+ * @returns {boolean} `false` if it is configured with `visible: false`, otherwise `true`.
  */
 export function isVisible(context: ModelContext, entry: ModelAttribute): boolean {
   return getAttributeConfig(context, entry)?.visible !== false;
@@ -608,14 +610,15 @@ export function getShapeProperties(shape: ModelAnnotationShape): ModelAttribute[
 }
 
 /**
- * The config of an annotation shape (group, controls, appearance, editing). The native mapping is not part of
- * it, see {@linkcode getMappingForShape}.
+ * The config of an annotation shape (group, controls, appearance, editing): its entry in `elements.annotations`. The
+ * native mapping is not part of it, see {@linkcode getMappingForShape}.
  *
+ * @param {ModelContext} context - The model context.
  * @param {ModelAnnotationShape} shape - The annotation shape.
- * @returns {AnnotationShapeConfig | undefined} The `ext.miso` block.
+ * @returns {AnnotationShapeConfig | undefined} The entry, `undefined` if the shape has none.
  */
-export function getShapeConfig(shape: ModelAnnotationShape): AnnotationShapeConfig | undefined {
-  return shape.ext?.miso as AnnotationShapeConfig | undefined;
+export function getShapeConfig(context: ModelContext, shape: ModelAnnotationShape): AnnotationShapeConfig | undefined {
+  return context.config.elements.annotations[shapeRefOf(shape)];
 }
 
 /**
@@ -749,37 +752,6 @@ export function isAllowedTarget(context: ModelContext, nodeRef: string, targetRe
 
 // ----- Resolution of stored names -----
 
-/**
- * The resolutions of {@linkcode resolveClassifierRef}, {@linkcode resolveShapeRef} and {@linkcode resolveRelationRef},
- * per context
- */
-interface ResolutionCache {
-  /** By the sorted node labels */
-  classifiers: Map<string, RefResolution>;
-  /** By carrier ref and annotation type */
-  shapes: Map<string, RefResolution>;
-  /** By start node ref, relationship type and end node ref */
-  relations: Map<string, RefResolution>;
-}
-
-/**
- * Resolutions per context. The database stores names, and the same label sets and types occur on many nodes, so each
- * is resolved once.
- */
-const resolutionCache = new WeakMap<ModelContext, ResolutionCache>();
-
-/** The resolution cache of a context, created on first use */
-function getResolutionCache(context: ModelContext): ResolutionCache {
-  let cache: ResolutionCache | undefined = resolutionCache.get(context);
-
-  if (!cache) {
-    cache = { classifiers: new Map(), shapes: new Map(), relations: new Map() };
-    resolutionCache.set(context, cache);
-  }
-
-  return cache;
-}
-
 /** The name of a node for problem messages, the ref if it is unknown */
 function nodeNameOf(context: ModelContext, nodeRef: string): string {
   return context.model.getNode(nodeRef)?.name ?? nodeRef;
@@ -787,7 +759,7 @@ function nodeNameOf(context: ModelContext, nodeRef: string): string {
 
 /**
  * Resolves the stored labels of a node to its classifier: the most specific of the node types the labels name. Labels
- * that name no node type (e.g. leftovers of an import) are ignored. Cached per context.
+ * that name no node type (e.g. leftovers of an import) are ignored.
  *
  * @param {ModelContext} context - The model context.
  * @param {string[]} nodeLabels - The labels of the node in the database.
@@ -795,36 +767,6 @@ function nodeNameOf(context: ModelContext, nodeRef: string): string {
  *   name node types on separate branches.
  */
 export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]): RefResolution {
-  const cache: Map<string, RefResolution> = getResolutionCache(context).classifiers;
-  const key: string = [...nodeLabels].sort().join(",");
-  let resolution: RefResolution | undefined = cache.get(key);
-
-  if (!resolution) {
-    resolution = findClassifierRef(context, nodeLabels);
-    cache.set(key, resolution);
-  }
-
-  return resolution;
-}
-
-/**
- * The classifier of a node: the `classifierRef` the server resolved, otherwise resolved here from the labels. Client
- * only: nodes the client creates itself have no `classifierRef` until node creation works with refs.
- *
- * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeData>} node - The node.
- * @returns {string | null} The qualified ref of the classifier, `null` if the labels can't be resolved.
- */
-export function getClassifierRef(context: ModelContext, node: DataNode<BaseNodeData>): string | null {
-  if (node.classifierRef !== undefined) {
-    return node.classifierRef;
-  } else {
-    return resolveClassifierRef(context, node.nodeLabels).ref;
-  }
-}
-
-/** Uncached {@linkcode resolveClassifierRef} */
-function findClassifierRef(context: ModelContext, nodeLabels: string[]): RefResolution {
   const candidateRefs: string[] = context.config.model.classifiers
     .filter((classifier): classifier is Node & { modelId: string } => classifier.kind === "Node")
     .filter((node) => nodeLabels.includes(node.name))
@@ -844,9 +786,25 @@ function findClassifierRef(context: ModelContext, nodeLabels: string[]): RefReso
 }
 
 /**
+ * The classifier of a node: the `classifierRef` the server resolved, otherwise resolved here from the labels. Client
+ * only: nodes the client creates itself have no `classifierRef` until node creation works with refs.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {DataNode<BaseNodeData>} node - The node.
+ * @returns {string | null} The qualified ref of the classifier, `null` if the labels can't be resolved.
+ */
+export function getClassifierRef(context: ModelContext, node: DataNode<BaseNodeData>): string | null {
+  if (node.classifierRef !== undefined) {
+    return node.classifierRef;
+  } else {
+    return resolveClassifierRef(context, node.nodeLabels).ref;
+  }
+}
+
+/**
  * Resolves the stored `type` of an annotation to its annotation shape, among the shapes its carrier may have. The
  * carrier decides the family, since stored annotations only have the `Annotation` label: a `commentary` on a text and
- * a `commentary` on an annotation are different shapes. Cached per context.
+ * a `commentary` on an annotation are different shapes.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} carrierRef - Classifier ref of the node that has the annotation: a Content or Collection, or for
@@ -856,20 +814,6 @@ function findClassifierRef(context: ModelContext, nodeLabels: string[]): RefReso
  *   of that type. The annotation's own classifier is the shape's family, see {@linkcode familyRefOf}.
  */
 export function resolveShapeRef(context: ModelContext, carrierRef: string, type: string): RefResolution {
-  const cache: Map<string, RefResolution> = getResolutionCache(context).shapes;
-  const key: string = `${carrierRef}|${type}`;
-  let resolution: RefResolution | undefined = cache.get(key);
-
-  if (!resolution) {
-    resolution = findShapeRef(context, carrierRef, type);
-    cache.set(key, resolution);
-  }
-
-  return resolution;
-}
-
-/** Uncached {@linkcode resolveShapeRef} */
-function findShapeRef(context: ModelContext, carrierRef: string, type: string): RefResolution {
   const matchingRefs: string[] = [
     ...new Set(
       getShapesForNode(context, carrierRef)
@@ -888,31 +832,6 @@ function findShapeRef(context: ModelContext, carrierRef: string, type: string): 
       problem: `Several annotation types "${type}" are allowed on ${nodeNameOf(context, carrierRef)}: ${matchingRefs.join(", ")}`,
     };
   }
-}
-
-/**
- * Resolves a stored relationship to its relation definition: among the definitions between the classifiers of its ends
- * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → Annotation rather than RAMEN's
- * Content → Annotation, which it refines). Cached per context.
- *
- * @param {ModelContext} context - The model context.
- * @param {string} fromRef - Classifier ref of the start node.
- * @param {string} type - The relationship type in the database (`HAS_ANNOTATION`, `REFERS_TO`, `PART_OF`).
- * @param {string} toRef - Classifier ref of the end node.
- * @returns {RefResolution} The qualified ref of the relation definition, or `null` if none or several unrelated ones
- *   match.
- */
-export function resolveRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
-  const cache: Map<string, RefResolution> = getResolutionCache(context).relations;
-  const key: string = `${fromRef}|${type}|${toRef}`;
-  let resolution: RefResolution | undefined = cache.get(key);
-
-  if (!resolution) {
-    resolution = findRelationRef(context, fromRef, type, toRef);
-    cache.set(key, resolution);
-  }
-
-  return resolution;
 }
 
 /**
@@ -944,8 +863,19 @@ function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<
   return seen;
 }
 
-/** Uncached {@linkcode resolveRelationRef} */
-function findRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
+/**
+ * Resolves a stored relationship to its relation definition: among the definitions between the classifiers of its ends
+ * with the relationship's type as name, the most specific one (e.g. `HAS_ANNOTATION` Text → Annotation rather than RAMEN's
+ * Content → Annotation, which it refines).
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} fromRef - Classifier ref of the start node.
+ * @param {string} type - The relationship type in the database (`HAS_ANNOTATION`, `REFERS_TO`, `PART_OF`).
+ * @param {string} toRef - Classifier ref of the end node.
+ * @returns {RefResolution} The qualified ref of the relation definition, or `null` if none or several unrelated ones
+ *   match.
+ */
+export function resolveRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
   const modelId: string = context.model.getModel().id;
   const candidateRefs: string[] = [
     ...new Set(
@@ -975,23 +905,50 @@ function findRelationRef(context: ModelContext, fromRef: string, type: string, t
 // ----- Native mappings -----
 
 /**
- * The mapping of a native editor type, from `miso.editors.text.mappings`.
+ * The mapping of a native editor type, from `editors.text.mappings`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} native - The native type (e.g. `paragraph`).
  * @returns {ConfigMapping | undefined} The first mapping of that native type.
  */
 export function getNativeMapping(context: ModelContext, native: string): ConfigMapping | undefined {
-  return context.config.miso.editors.text.mappings.find((mapping) => mapping.native === native);
+  return context.config.editors.text.mappings.find((mapping) => mapping.native === native);
 }
 
 /**
- * The mapping of an annotation shape to a native editor type, from `miso.editors.text.mappings`.
+ * The mapping of an annotation shape to a native editor type, from `editors.text.mappings`.
  *
  * @param {ModelContext} context - The model context.
  * @param {string} shapeRef - Qualified ref of the annotation shape.
  * @returns {ConfigMapping | undefined} The mapping, `undefined` if the shape is not mapped.
  */
 export function getMappingForShape(context: ModelContext, shapeRef: string): ConfigMapping | undefined {
-  return context.config.miso.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef);
+  return context.config.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef);
+}
+
+/**
+ * The attribute names of a mapping: native attribute -> name of the shape property its attribute ref points to.
+ * Unresolvable refs are left out (the loader rejects them).
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ConfigMapping} mapping - The mapping.
+ * @returns {Record<string, string>} The property names by native attribute.
+ */
+export function getMappedAttributeNames(context: ModelContext, mapping: ConfigMapping): Record<string, string> {
+  const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
+  const names: Record<string, string> = {};
+
+  if (!shape) {
+    return names;
+  }
+
+  for (const [nativeAttribute, attributeRef] of Object.entries(mapping.attributes ?? {})) {
+    const property: Attribute | undefined = findAttribute(shape, attributeRef);
+
+    if (property) {
+      names[nativeAttribute] = property.name;
+    }
+  }
+
+  return names;
 }

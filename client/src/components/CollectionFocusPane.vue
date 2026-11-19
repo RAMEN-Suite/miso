@@ -536,9 +536,7 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
     return;
   }
 
-  // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
-  // eslint-disable-next-line no-constant-condition -- Safe to delete
-  if (annotationHasConstraints(shape) || true) {
+  if (annotationHasConstraints(shape)) {
     openAnnotationModal(newAnnotation, "create", `Add new ${data.subType ?? data.type} annotation`);
   } else {
     void saveAnnotation(newAnnotation);

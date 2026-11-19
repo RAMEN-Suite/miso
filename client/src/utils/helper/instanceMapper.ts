@@ -143,7 +143,7 @@ function toInstanceProperties(context: ModelContext, node: ElementNode): Record<
  * and so are the relations of left out nodes and relations without a relation definition (`relationRef: null`).
  *
  * @param {ModelContext} context - The model context.
- * @param {ElementGraph} elements - The elements, e.g. the scope of a write with the written elements applied.
+ * @param {ElementGraph} elements - The elements, e.g. the neighbourhood of a write as stored after it.
  * @returns {InstanceMapping} The instance graph and the element of each instance.
  */
 export function toInstanceGraph(context: ModelContext, elements: ElementGraph): InstanceMapping {

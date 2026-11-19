@@ -1,4 +1,4 @@
-import type { AnnotationShape, Attribute, Diagnostic, Owned, RamenModel } from "@ramen-suite/core";
+import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
@@ -32,7 +32,7 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
   connectedNodes: NodeDto[];
 }
 
-// Types of the config blocks of model elements (`ext.miso`), inferred from their schemas. Re-exported here so
+// Types of the settings of model elements (entries of `elements`), inferred from their schemas. Re-exported here so
 // existing importers keep working.
 export type {
   AnnotationAppearance,
@@ -63,7 +63,7 @@ export type {
 export interface ModelContext {
   /** The model, imported by RAMEN core */
   model: RamenModel;
-  /** The validated Miso config */
+  /** The validated config: the raw model and the settings of its elements */
   config: MisoConfig;
 }
 
@@ -80,6 +80,9 @@ export interface ModelAttribute {
  * flattens all levels into one `annotations` list.
  */
 export type ModelAnnotationShape = Owned<AnnotationShape>;
+
+/** An element that declares attributes, as listed in a RamenFile: a node classifier or an annotation shape */
+export type AttributeOwner = Owned<RamenNode> | ModelAnnotationShape;
 
 /** A node type new nodes can be created with, e.g. in the "add" menus */
 export interface NodeTypeOption {

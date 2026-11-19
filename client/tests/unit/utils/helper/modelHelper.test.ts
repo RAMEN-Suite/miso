@@ -1,13 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/core";
+import { DataTypes, RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/core";
 import { BASE_NODE_REF } from "../../../../src/config/ramen";
-import type { ModelAnnotationShape, ModelContext } from "../../../../src/models/types";
+import type { ModelAnnotationShape, ModelAttribute, ModelContext } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import {
   createModelContext,
   familyRefOf,
   findShape,
   getMissingReferences,
+  getNodeAttributes,
+  getNodeConfig,
+  isVisible,
   getReferenceTargetRefs,
   requiresReferences,
   resolveClassifierRef,
@@ -54,7 +57,9 @@ function buildResolutionTestModel() {
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "resolutionTest",
     model: edition.export(),
-    miso: { general: { templates: [] }, editors: { text: { mappings: [] } } },
+    general: { templates: [] },
+    elements: { classifiers: {}, annotations: {} },
+    editors: { text: { mappings: [] } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -110,12 +115,6 @@ describe("resolveClassifierRef", () => {
 
     expect(resolution.ref).toBeNull();
     expect(resolution.problem).toContain("Character");
-  });
-
-  test("returns the cached resolution for the same labels in another order", () => {
-    expect(resolveClassifierRef(context, ["Letter", "Collection"])).toBe(
-      resolveClassifierRef(context, ["Collection", "Letter"]),
-    );
   });
 });
 
@@ -182,7 +181,9 @@ function buildReferenceTestModel(personBounds = { lowerBound: 0, upperBound: 1 }
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "referenceTest",
     model: edition.export(),
-    miso: { general: { templates: [] }, editors: { text: { mappings: [] } } },
+    general: { templates: [] },
+    elements: { classifiers: {}, annotations: {} },
+    editors: { text: { mappings: [] } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -238,5 +239,115 @@ describe("getReferenceTargetRefs, getMissingReferences", () => {
     expect(
       getReferenceTargetRefs(reference.context, shape, [reference.refs.letter, reference.refs.letter]).toSorted(),
     ).toEqual([reference.refs.person, reference.refs.letter].toSorted());
+  });
+});
+
+/**
+ * A model for the settings by ref: Letter (Collection) declares `sentDate`, DraftLetter refines Letter, and the text
+ * annotation family has the shape `persName` with a property `key`.
+ */
+function buildSettingsTestModel() {
+  const edition = RamenModel.create("Settings test");
+  const letter = edition.createNode({ name: "Letter", refines: RAMEN_ELEMENT.COLLECTION }).element;
+  const draftLetter = edition.createNode({ name: "DraftLetter", refines: letter }).element;
+  const text = edition.createNode({ name: "Text", refines: RAMEN_ELEMENT.CONTENT }).element;
+  const family = edition.createNode({ name: "TextAnnotation", refines: RAMEN_ELEMENT.ANNOTATION }).element;
+  const sentDate = edition.createAttribute(letter, {
+    name: "sentDate",
+    typeId: DataTypes.String,
+    bounds: { lowerBound: 0, upperBound: 1 },
+  }).element;
+  const onText: Relation = edition.hasAnnotation(text, family).element;
+  const persName = edition.createAnnotationShape({
+    node: family,
+    type: "persName",
+    properties: [{ name: "key", typeId: DataTypes.String, bounds: { lowerBound: 0, upperBound: 1 } }],
+    relations: [{ relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } }],
+  }).element;
+  const modelId: string = edition.getModel().id;
+  const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
+
+  return {
+    edition,
+    refs: {
+      letter: ref(letter),
+      draftLetter: ref(draftLetter),
+      sentDate: ref(sentDate),
+      persName: ref(persName),
+      key: ref(persName.properties[0]),
+    },
+  };
+}
+
+/** Parses a config of the settings test model with the given `elements` */
+function parseSettingsConfig(edition: RamenModel, elements: unknown) {
+  return parseMisoConfig({
+    $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
+    id: "settingsTest",
+    model: edition.export(),
+    general: { templates: [] },
+    elements,
+    editors: { text: { mappings: [] } },
+  });
+}
+
+describe("settings by ref", () => {
+  const { edition, refs } = buildSettingsTestModel();
+
+  test("an attribute's settings on its declaring node apply to subtypes", () => {
+    const { config, model, warnings } = parseSettingsConfig(edition, {
+      classifiers: {
+        [refs.letter]: {
+          name: "Letter",
+          appearance: { icon: "mail" },
+          attributes: { [refs.sentDate]: { name: "sentDate", visible: false } },
+        },
+      },
+      annotations: {},
+    });
+    const context: ModelContext = createModelContext(config, model);
+    const sentDate: ModelAttribute | undefined = getNodeAttributes(context, refs.draftLetter).find(
+      (entry) => entry.attribute.name === "sentDate",
+    );
+
+    expect(warnings).toEqual([]);
+    expect(getNodeConfig(context, refs.letter)?.appearance?.icon).toBe("mail");
+    expect(sentDate && isVisible(context, sentDate)).toBe(false);
+  });
+
+  test("an entry of a removed element and an outdated name hint only warn", () => {
+    const { warnings } = parseSettingsConfig(edition, {
+      classifiers: { [refs.letter]: { name: "Brief" }, "unknownModel:unknownId": { name: "Gone" } },
+      annotations: {},
+    });
+
+    expect(warnings).toHaveLength(2);
+    expect(warnings.join("\n")).toContain('"Brief"');
+    expect(warnings.join("\n")).toContain("unknownModel:unknownId");
+  });
+
+  test("a ref of another kind than its section is fatal", () => {
+    expect(() =>
+      parseSettingsConfig(edition, { classifiers: { [refs.persName]: { name: "persName" } }, annotations: {} }),
+    ).toThrow("not a node classifier");
+  });
+
+  test("an attribute the element doesn't declare itself only warns", () => {
+    const { warnings } = parseSettingsConfig(edition, {
+      classifiers: {},
+      annotations: { [refs.persName]: { name: "persName", attributes: { [refs.sentDate]: { name: "sentDate" } } } },
+    });
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("declares no such attribute");
+  });
+
+  test("kind-specific options are checked per section", () => {
+    expect(() =>
+      parseSettingsConfig(edition, {
+        classifiers: { [refs.letter]: { name: "Letter", controls: { shortcut: "Mod-l" } } },
+        annotations: {},
+      }),
+    ).toThrow();
   });
 });

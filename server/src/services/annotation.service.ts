@@ -1,18 +1,8 @@
 import { QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import { ElementGraph, ElementResponse, ModelContext } from "../models/types.js";
+import { ElementResponse, ModelContext } from "../models/types.js";
 import ConfigService from "./config.service.js";
-import {
-  addStoredNode,
-  addStoredRelation,
-  ResolutionFinding,
-  StoredGraph,
-  StoredGraphRelation,
-  StoredNodeRecord,
-  toElementGraph,
-} from "../utils/storedGraph.js";
-
-/* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
+import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 
 export default class AnnotationService {
   /**
@@ -70,26 +60,15 @@ export default class AnnotationService {
       return { nodes: [], relations: [], diagnostics: [] };
     }
 
-    const carrier: StoredNodeRecord = record.get("carrier");
-    const graph: StoredGraph = { nodes: new Map(), relations: new Map() };
-
     // The carrier decides the annotation shapes of the top-level annotations, so it is resolved too
-    for (const node of [carrier, ...(record.get("nodes") as StoredNodeRecord[])]) {
-      addStoredNode(graph, node);
-    }
-
-    for (const relation of record.get("relations") as StoredGraphRelation[]) {
-      addStoredRelation(graph, relation);
-    }
-
-    const { elements, findings }: { elements: ElementGraph; findings: ResolutionFinding[] } = toElementGraph(context, graph);
+    const response: ElementResponse = toElementResponse(
+      context,
+      [record.get("carrier") as StoredNodeRecord, ...(record.get("nodes") as StoredNodeRecord[])],
+      record.get("relations") as StoredGraphRelation[],
+    );
     // The annotated node is only listed if an annotation refers back to it
-    const targetUuids = new Set<string>(elements.relations.map((relation) => relation.to));
+    const targetUuids = new Set<string>(response.relations.map((relation) => relation.to));
 
-    return {
-      nodes: elements.nodes.filter((node) => node.data.uuid !== nodeUuid || targetUuids.has(nodeUuid)),
-      relations: elements.relations,
-      diagnostics: findings.map((finding) => finding.diagnostic),
-    };
+    return { ...response, nodes: response.nodes.filter((node) => node.data.uuid !== nodeUuid || targetUuids.has(nodeUuid)) };
   }
 }

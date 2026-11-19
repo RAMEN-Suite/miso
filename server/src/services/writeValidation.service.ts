@@ -9,6 +9,8 @@ import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js
 import {
   addStoredNode,
   addStoredRelation,
+  carriersOf,
+  HAS_ANNOTATION,
   ResolutionFinding,
   StoredGraph,
   StoredGraphRelation,
@@ -77,10 +79,10 @@ export default class WriteValidationService {
   /**
    * Validates the touched nodes as the transaction sees them.
    *
-   * The scope is every touched node with all its relationships and neighbours (so its relation counts are complete),
+   * The neighbourhood is every touched node with all its relationships and neighbours (so its relation counts are complete),
    * plus the carriers of the loaded annotations (to resolve their annotation type).
    *
-   * In `report` mode a failing validation is logged and the write is saved without it. A failing scope query fails the
+   * In `report` mode a failing validation is logged and the write is saved without it. A failing neighbourhood query fails the
    * transaction, and with it the write, in every mode.
    *
    * @param {ManagedTransaction} tx - The transaction of the write.
@@ -94,7 +96,7 @@ export default class WriteValidationService {
     let diagnostics: ElementDiagnostic[];
 
     try {
-      diagnostics = this.validateGraph(context, await this.loadScope(tx, [...touched]), touched);
+      diagnostics = this.validateGraph(context, await this.loadNeighbourhood(tx, [...touched]), touched);
     } catch (error: unknown) {
       if (mode === "enforce") {
         throw error;
@@ -145,17 +147,17 @@ export default class WriteValidationService {
   }
 
   /**
-   * Loads the scope of a write: the touched nodes with all their relationships and neighbours, and the chains of
+   * Loads the neighbourhood of a write: the touched nodes with all their relationships and neighbours, and the chains of
    * carriers of the loaded annotations whose carrier isn't loaded yet.
    *
    * @param {ManagedTransaction} tx - The transaction of the write, so the changes are visible.
    * @param {string[]} uuids - uuids of the touched nodes.
    * @returns {Promise<StoredGraph>} The graph as stored.
    */
-  private async loadScope(tx: ManagedTransaction, uuids: string[]): Promise<StoredGraph> {
+  private async loadNeighbourhood(tx: ManagedTransaction, uuids: string[]): Promise<StoredGraph> {
     const graph: StoredGraph = { nodes: new Map(), relations: new Map() };
 
-    const scopeResult = await tx.run(
+    const neighbourhoodResult = await tx.run(
       `
       UNWIND $uuids AS uuid
       MATCH (n:Annotation|Content|Collection|Entity {uuid: uuid})
@@ -173,7 +175,7 @@ export default class WriteValidationService {
       { uuids },
     );
 
-    for (const record of scopeResult.records) {
+    for (const record of neighbourhoodResult.records) {
       addStoredNode(graph, record.get("node") as StoredNodeRecord);
 
       for (const link of record.get("links") as (StoredGraphRelation & { neighbour: StoredNodeRecord })[]) {
@@ -207,7 +209,7 @@ export default class WriteValidationService {
 
         if (index > 0) {
           addStoredRelation(graph, {
-            type: "HAS_ANNOTATION",
+            type: HAS_ANNOTATION,
             from: (chain[index - 1].data as BaseNodeData).uuid,
             to: (node.data as BaseNodeData).uuid,
           });
@@ -220,14 +222,10 @@ export default class WriteValidationService {
 
   /** uuids of the annotations in the graph without an incoming `HAS_ANNOTATION` from a node in the graph */
   private annotationsWithoutCarrier(graph: StoredGraph): string[] {
-    const carried = new Set<string>(
-      [...graph.relations.values()]
-        .filter((relation) => relation.type === "HAS_ANNOTATION" && graph.nodes.has(relation.from))
-        .map((relation) => relation.to),
-    );
+    const carriers: Map<string, string> = carriersOf(graph);
 
     return [...graph.nodes.entries()]
-      .filter(([uuid, node]) => node.nodeLabels.includes("Annotation") && !carried.has(uuid))
+      .filter(([uuid, node]) => node.nodeLabels.includes("Annotation") && !carriers.has(uuid))
       .map(([uuid]) => uuid);
   }
 }

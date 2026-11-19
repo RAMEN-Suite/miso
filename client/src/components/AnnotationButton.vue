@@ -34,7 +34,7 @@ const dropdownOptions = options.map((option: string | number) => {
 const hasIcon: boolean = resolveAnnotationIcon(props.shape) !== undefined;
 const buttonElm = useTemplateRef<ComponentPublicInstance<typeof Button | typeof SplitButton>>("buttonElm");
 
-const shortcut: string | undefined = getShapeConfig(props.shape)?.controls?.shortcut;
+const shortcut: string | undefined = getShapeConfig(getModelContext(), props.shape)?.controls?.shortcut;
 
 if (shortcut) {
   registerShortcut(shortcut, handleClick);

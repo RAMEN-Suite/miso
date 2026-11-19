@@ -2,7 +2,7 @@ import { IAnnotation } from "./IAnnotation.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
-import type { AnnotationShape, Attribute, Diagnostic, Owned, RamenModel } from "@ramen-suite/core";
+import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
 import type { IMisoConfig } from "./IMisoConfig.js";
 
 /** The model and the config the accessors in `utils/modelHelper.ts` work on */
@@ -25,6 +25,9 @@ export interface ModelAttribute {
  * flattens all levels into one `annotations` list.
  */
 export type ModelAnnotationShape = Owned<AnnotationShape>;
+
+/** An element that declares attributes, as listed in a RamenFile: a node classifier or an annotation shape */
+export type AttributeOwner = Owned<RamenNode> | ModelAnnotationShape;
 
 /**
  * The model element a stored name (node labels, annotation `type`) resolves to: its qualified ref, or `null` and the
@@ -82,10 +85,10 @@ export interface ElementDiagnostic {
   attribute?: string;
 }
 
-/** An `ext.miso` block. The server passes it through, the client validates it. */
+/** The settings of an element or attribute (its entry in `elements`). The server passes them through, the client validates them. */
 export type ConfigBlock = Record<string, unknown> | undefined;
 
-/** The medium of a Content type (`ext.miso.medium`), which decides the selector type of its annotations */
+/** The medium of a Content type (`medium` of its `elements.classifiers` entry), which decides the selector type of its annotations */
 export type ContentMedium = "text" | "image";
 
 export type AnnotationNode = Node<IAnnotation>;

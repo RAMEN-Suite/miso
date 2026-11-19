@@ -183,7 +183,9 @@ export default class CollectionService {
         properties: toNeo4jTypes(context, properties, fields),
       });
 
-      return result.records[0]?.get("node");
+      const node: StoredNodeRecord = result.records[0]?.get("node");
+
+      return node;
     });
 
     return toElementResponse(context, [updatedNode]);

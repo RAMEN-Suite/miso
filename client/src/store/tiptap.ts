@@ -1,5 +1,5 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, AnnotationAppearance } from "../models/types";
+import { NodeDto, Annotation } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node, Schema } from "@tiptap/pm/model";
@@ -27,7 +27,7 @@ import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationConfig } = useConfigStore();
+const { getTextAnnotationAppearance } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -46,23 +46,12 @@ const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
 let editorSchema: Schema | null = null;
 
 /**
- * Returns the configured appearance of an annotation type. Passed to the editor extensions, which render
- * markers and highlights from it.
- *
- * @param {string} type The annotation type
- * @returns {AnnotationAppearance | undefined} The configured appearance, if any
- */
-function getAppearance(type: string): AnnotationAppearance | undefined {
-  return getTextAnnotationConfig(type)?.appearance;
-}
-
-/**
  * Returns the ProseMirror schema of the text editor, e.g. to parse a document without creating an editor.
  *
  * @returns {Schema} The schema, built once and reused.
  */
 function getEditorSchema(): Schema {
-  editorSchema ??= getSchema(createExtensions({ getAppearance }));
+  editorSchema ??= getSchema(createExtensions({ getAppearance: getTextAnnotationAppearance }));
 
   return editorSchema;
 }
@@ -131,7 +120,7 @@ function hasUnsavedChanges(): boolean {
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
-  const extensions: Extensions = createExtensions({ getAppearance });
+  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance });
 
   const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();

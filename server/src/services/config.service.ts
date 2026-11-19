@@ -10,7 +10,7 @@ import { env } from "../env.js";
 import { collectConfigWarnings, createModelContext } from "../utils/modelHelper.js";
 import { ModelContext } from "../models/types.js";
 import logger from "../logger.js";
-import { checkExtBlocks, checkMappings } from "../schemas/configBlocks.schema.js";
+import { checkConfigSettings, type ConfigFindings } from "../schemas/configBlocks.schema.js";
 
 /**
  * The version of the config: `mtime:<ms>:size:<bytes>` of a local file, `etag:<ETag>` of a remote one, or
@@ -190,19 +190,30 @@ export default class ConfigService {
   }
 
   /**
-   * Checks that the data is a Miso config with a valid model and valid Miso settings (`ext.miso` blocks, mappings),
-   * creates its model context and logs the problems the name lookups can't handle. Runs once per version of the config.
+   * Checks that the data is a Miso config with a valid model and valid settings (`elements`, mappings, their refs),
+   * creates its model context and logs the warnings of the checks and the problems the name lookups can't handle.
+   * Runs once per version of the config.
    *
    * @param {unknown} data - The parsed JSON.
-   * @throws {ExternalServiceError} If the data is no Miso config (e.g. a file in the old guidelines format), its model
-   * is invalid, an `ext.miso` block is invalid or misplaced, or a mapping is invalid.
+   * @throws {ExternalServiceError} If the data is no Miso config of the current format (e.g. a file in the old
+   * guidelines format or with a `miso` wrapper), its model is invalid, an `elements` entry is invalid or of the wrong
+   * kind for its section, or a mapping is invalid.
    * @return {ModelContext} The model context of the config.
    */
   private static validate(data: unknown): ModelContext {
     const candidate = data as Partial<IMisoConfig> | null;
 
-    if (!candidate?.$schema || !candidate.id || !candidate.model || !candidate.miso) {
-      throw new ExternalServiceError(`The config file is no Miso config (old guidelines format or missing $schema/id?).`);
+    if (
+      !candidate?.$schema ||
+      !candidate.id ||
+      !candidate.model ||
+      !candidate.general ||
+      !candidate.elements ||
+      !candidate.editors?.text?.mappings
+    ) {
+      throw new ExternalServiceError(
+        `The config file is no Miso config of the current format (old guidelines or config format, or missing $schema/id?).`,
+      );
     }
 
     const config = candidate as IMisoConfig;
@@ -214,18 +225,15 @@ export default class ConfigService {
       throw new ExternalServiceError(`The model in the config is invalid: ${(error as Error).message}`);
     }
 
-    const problems: string[] = [
-      ...checkExtBlocks(config.model, config.miso.general.baseClassifiers ?? []),
-      ...checkMappings(config.model, config.miso.editors.text.mappings),
-    ];
+    const findings: ConfigFindings = checkConfigSettings(config);
 
-    if (problems.length > 0) {
-      throw new ExternalServiceError(`The Miso settings in the config are invalid:\n${problems.join("\n")}`);
+    if (findings.problems.length > 0) {
+      throw new ExternalServiceError(`The Miso settings in the config are invalid:\n${findings.problems.join("\n")}`);
     }
 
     const context: ModelContext = createModelContext(config, model);
 
-    collectConfigWarnings(context).forEach((warning) => logger.warn(`Miso config: ${warning}`));
+    [...findings.warnings, ...collectConfigWarnings(context)].forEach((warning) => logger.warn(`Miso config: ${warning}`));
 
     return context;
   }

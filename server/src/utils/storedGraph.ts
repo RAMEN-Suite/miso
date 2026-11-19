@@ -57,7 +57,7 @@ export interface ResolutionFinding {
 }
 
 /** The relationship type that connects an annotation to the node it annotates (a RAMEN base relation) */
-const HAS_ANNOTATION = "HAS_ANNOTATION";
+export const HAS_ANNOTATION = "HAS_ANNOTATION";
 
 /**
  * The key of a relationship. Relationships have no id: the ends and the type identify them.
@@ -121,6 +121,24 @@ export function addStoredRelation(graph: StoredGraph, relation: StoredGraphRelat
   graph.relations.set(relationKey(relation), relation);
 }
 
+/**
+ * The carrier of each annotation whose carrier is in the graph: the start node of its incoming `HAS_ANNOTATION`.
+ *
+ * @param {StoredGraph} graph - The graph.
+ * @returns {Map<string, string>} The carrier's uuid by the annotation's uuid.
+ */
+export function carriersOf(graph: StoredGraph): Map<string, string> {
+  const carriers = new Map<string, string>();
+
+  for (const relation of graph.relations.values()) {
+    if (relation.type === HAS_ANNOTATION && graph.nodes.has(relation.from)) {
+      carriers.set(relation.to, relation.from);
+    }
+  }
+
+  return carriers;
+}
+
 /** The uuid of a node's data */
 function uuidOf(data: object): string {
   return (data as BaseNodeData).uuid;
@@ -141,14 +159,8 @@ export function toElementGraph(
   graph: StoredGraph,
 ): { elements: ElementGraph; findings: ResolutionFinding[] } {
   const findings: ResolutionFinding[] = [];
-  const carrierOf = new Map<string, string>();
+  const carrierOf: Map<string, string> = carriersOf(graph);
   const resolved = new Map<string, ElementNode>();
-
-  for (const relation of graph.relations.values()) {
-    if (relation.type === HAS_ANNOTATION && graph.nodes.has(relation.from)) {
-      carrierOf.set(relation.to, relation.from);
-    }
-  }
 
   /** Resolves a node, and before an annotation its carrier. `visiting` guards against cycles of annotations. */
   function resolve(uuid: string, visiting: Set<string>): ElementNode {

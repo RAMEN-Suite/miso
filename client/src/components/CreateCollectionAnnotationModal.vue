@@ -24,8 +24,13 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getAnnotationShape, getAnnotationNodeProperties, getAnnotationProperties, getMissingAnnotationReferences, getModelContext } =
-  useConfigStore();
+const {
+  getAnnotationShape,
+  getAnnotationNodeProperties,
+  getAnnotationProperties,
+  getMissingAnnotationReferences,
+  getModelContext,
+} = useConfigStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
 const mode: "create" | "edit" = dialogRef.value.data.mode;

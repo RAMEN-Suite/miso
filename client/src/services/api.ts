@@ -491,10 +491,7 @@ export default class ApiService {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const response: Response = await fetch(
-        url,
-        this.jsonBodyRequest({ properties }, { signal, method: "PATCH" }),
-      );
+      const response: Response = await fetch(url, this.jsonBodyRequest({ properties }, { signal, method: "PATCH" }));
 
       await this.assertResponseOk(response);
 

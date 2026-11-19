@@ -12,8 +12,8 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
 
 /**
  * A structural type the editor implements natively (paragraph, heading, table ...), with the values the editor fixes.
- * Not a RAMEN annotation shape: the project's shape for it (named via `miso.editors.text.mappings`) is a normal shape with its own
- * properties and `ext.miso` (appearance, shortcut ...). Only the values here can't be changed by it.
+ * Not a RAMEN annotation shape: the project's shape for it (named via `editors.text.mappings`) is a normal shape with its own
+ * properties and settings (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
   type: BuiltinStructuralType;
@@ -57,13 +57,14 @@ export interface ApiJson {
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
  * as rowspan/colspan properties in tableRow and tableCell annotations.
  *
- * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.editors.text.mappings` of the Miso config.
+ * Built from `DEFAULT_ANNOTATION_MAPPING` and the `editors.text.mappings` of the Miso config, whose attribute refs are
+ * resolved to the property names.
  *
  * @example
- * // Entry of miso.editors.text.mappings
- * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "cols", "rowspan": "rows" } }
+ * // Entry of editors.text.mappings
+ * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "<modelId>:<cols id>", "rowspan": "<modelId>:<rows id>" } }
  *
- * // Resulting mapping: tiptap defaults as keys, project-specific overrides as values
+ * // Resulting mapping: tiptap defaults as keys, project-specific overrides (property names) as values
  * typeByRole: {
  *    tableCell: 'cell',
  * },

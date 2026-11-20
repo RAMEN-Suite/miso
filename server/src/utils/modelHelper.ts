@@ -32,8 +32,7 @@ import type {
  * to an attribute. Elements are referenced by
  * qualified refs (`<modelId>:<id>`, see {@linkcode qualify}).
  *
- * Mirrored on the client (`client/src/utils/helper/modelHelper.ts`), keep both in sync. The name lookups at the end
- * correspond to getters of the client's config store.
+ * Mirrored on the client (`client/src/utils/helper/modelHelper.ts`), keep both in sync.
  *
  * @packageDocumentation
  */
@@ -508,6 +507,14 @@ export function refersToEntities(context: ModelContext, shape: ModelAnnotationSh
 
 // ----- Resolution of stored names -----
 
+/**
+ * The id of the project model, from the RamenFile. Not `context.model.getModel().id`: `getModel()` deep-copies the
+ * whole model.
+ */
+function projectModelIdOf(context: ModelContext): string {
+  return context.config.model.id;
+}
+
 /** The name of a node for problem messages, the ref if it is unknown */
 function nodeNameOf(context: ModelContext, nodeRef: string): string {
   return context.model.getNode(nodeRef)?.name ?? nodeRef;
@@ -532,7 +539,7 @@ export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]
     return { ref: null, problem: `No node type matches the labels ${nodeLabels.join(", ")}` };
   }
 
-  const mostSpecific = context.model.getAdvisor().getMostSpecificNode(context.model.getModel().id, candidateRefs);
+  const mostSpecific = context.model.getAdvisor().getMostSpecificNode(projectModelIdOf(context), candidateRefs);
 
   if (mostSpecific) {
     return { ref: `${mostSpecific.modelId}:${mostSpecific.nodeId}` };
@@ -616,7 +623,7 @@ function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<
  *   match.
  */
 export function resolveRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
-  const modelId: string = context.model.getModel().id;
+  const modelId: string = projectModelIdOf(context);
   const candidateRefs: string[] = [
     ...new Set(
       context.model
@@ -641,8 +648,6 @@ export function resolveRelationRef(context: ModelContext, fromRef: string, type:
     return { ref: null, problem: `Several relations ${description} are allowed: ${candidateRefs.join(", ")}` };
   }
 }
-
-// ----- Lookups by name -----
 
 /** Qualified refs of the RAMEN Content node and its refinements */
 function getContentCarrierRefs(context: ModelContext): string[] {

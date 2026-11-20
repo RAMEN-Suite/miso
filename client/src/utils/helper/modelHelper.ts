@@ -752,6 +752,14 @@ export function isAllowedTarget(context: ModelContext, nodeRef: string, targetRe
 
 // ----- Resolution of stored names -----
 
+/**
+ * The id of the project model, from the RamenFile. Not `context.model.getModel().id`: `getModel()` deep-copies the
+ * whole model.
+ */
+function projectModelIdOf(context: ModelContext): string {
+  return context.config.model.id;
+}
+
 /** The name of a node for problem messages, the ref if it is unknown */
 function nodeNameOf(context: ModelContext, nodeRef: string): string {
   return context.model.getNode(nodeRef)?.name ?? nodeRef;
@@ -776,7 +784,7 @@ export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]
     return { ref: null, problem: `No node type matches the labels ${nodeLabels.join(", ")}` };
   }
 
-  const mostSpecific = context.model.getAdvisor().getMostSpecificNode(context.model.getModel().id, candidateRefs);
+  const mostSpecific = context.model.getAdvisor().getMostSpecificNode(projectModelIdOf(context), candidateRefs);
 
   if (mostSpecific) {
     return { ref: `${mostSpecific.modelId}:${mostSpecific.nodeId}` };
@@ -876,7 +884,7 @@ function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<
  *   match.
  */
 export function resolveRelationRef(context: ModelContext, fromRef: string, type: string, toRef: string): RefResolution {
-  const modelId: string = context.model.getModel().id;
+  const modelId: string = projectModelIdOf(context);
   const candidateRefs: string[] = [
     ...new Set(
       context.model

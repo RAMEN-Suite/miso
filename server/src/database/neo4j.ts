@@ -1,6 +1,8 @@
-import neo4j, { Driver, Neo4jError, QueryResult, ServerInfo, Session } from "neo4j-driver";
+import neo4j, { Driver, ManagedTransaction, Neo4jError, QueryResult, ServerInfo, Session } from "neo4j-driver";
+import AppError from "../errors/app.error.js";
 import DatabaseConnectionError from "../errors/databaseConnection.error.js";
 import InternalServerError from "../errors/server.error.js";
+import { env } from "../env.js";
 
 export default class Neo4jDriver {
   public static instance: Driver;
@@ -28,12 +30,8 @@ export default class Neo4jDriver {
    * @return {Promise<Driver>} A promise that resolves to the Neo4j driver instance.
    */
   public static async createDatabaseConnection(): Promise<Driver> {
-    const uri: string = `${process.env.NEO4J_URI}`;
-    const user: string = `${process.env.NEO4J_USER}`;
-    const password: string = `${process.env.NEO4J_PW}`;
-
     try {
-      this.instance = neo4j.driver(uri, neo4j.auth.basic(user, password), {
+      this.instance = neo4j.driver(env.NEO4J_URI, neo4j.auth.basic(env.NEO4J_USER, env.NEO4J_PW), {
         disableLosslessIntegers: true,
       });
 
@@ -76,7 +74,7 @@ export default class Neo4jDriver {
   public static async runQuery(query: string, params?: Record<string, unknown>): Promise<QueryResult> {
     try {
       const session: Session = this.instance.session({
-        database: process.env.DATABASE_NAME ?? "neo4j",
+        database: env.DATABASE_NAME,
       });
 
       // TODO: This should ideally be split up in "exectuteWrite" and "executeRead"
@@ -89,6 +87,31 @@ export default class Neo4jDriver {
       return result;
     } catch (err: unknown) {
       return this.handleNeo4jError(err);
+    }
+  }
+
+  /**
+   * Runs work in one write transaction (the driver's `session.executeWrite`): commits if the work returns, rolls back if
+   * it throws. The driver may retry the work on transient errors, so it must have no side effects outside the
+   * transaction.
+   *
+   * @param {(tx: ManagedTransaction) => Promise<T>} work - The queries and checks to run in the transaction.
+   * @return {Promise<T>} The result of the work.
+   * @throws {AppError} The error the work threw (e.g. a `ValidationError`), or a database error.
+   */
+  public static async commitOrRollback<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
+    const session: Session = this.instance.session({ database: env.DATABASE_NAME });
+
+    try {
+      return await session.executeWrite(work);
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        throw err;
+      }
+
+      return this.handleNeo4jError(err);
+    } finally {
+      await session.close();
     }
   }
 }

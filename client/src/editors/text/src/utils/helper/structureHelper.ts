@@ -1,8 +1,8 @@
 import { Node } from "@tiptap/pm/model";
 import { BlockClassificationRange, DocAnnotation, ToCItem } from "../../models/types";
-import { useGuidelinesStore } from "../../external";
+import { useConfigStore } from "../../external";
 
-const { getAnnotationType } = useGuidelinesStore();
+const { getAnnotationType } = useConfigStore();
 
 /**
  * Recursively builds a tree of {@link ToCItem} nodes from a ProseMirror node's block children.
@@ -82,7 +82,7 @@ export function getBlockClassificationRanges(doc: Node): BlockClassificationRang
     const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
     blockClassifications.forEach((block) => {
-      const { type, uuid } = block.node.data;
+      const { type, uuid } = block.node.properties;
 
       const existing: BlockClassificationRange | undefined = uuidMap.get(uuid);
 

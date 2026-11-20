@@ -11,13 +11,13 @@ import {
   HighlightTextStyle,
   IAnnotation,
   cloneDeep,
-  useGuidelinesStore,
+  useConfigStore,
 } from "../external";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../utils/helper/positionHelper";
 
-const { isZeroPoint } = useGuidelinesStore();
+const { isZeroPoint } = useConfigStore();
 
 export const ANNOTATION_DECORATION_KEY = new PluginKey<AnnotationDecorationState>("annotationDecoration");
 
@@ -258,7 +258,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             return false;
           }
 
-          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.properties.uuid);
 
           if (!decos.length) {
             return false;
@@ -284,7 +284,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
 
           // Annotation must be found to be included in the step, since undo and redo need to know
           // what annotation object to (re)create
-          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.properties.uuid);
 
           if (!decos.length) {
             return false;
@@ -382,7 +382,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
     const { getAppearance } = this.options;
 
     function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
-      const { type, uuid, subType } = annotation.node.data;
+      const { type, uuid, subType } = annotation.node.properties;
 
       const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
 
@@ -394,7 +394,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
           "data-annotation-type": type,
           "data-annotation-uuid": uuid,
           "data-annotation-subtype": subType?.toString() ?? "",
-          style: getHighlightStyle(getAppearance(type), annotation.node.data),
+          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
         },
         { inclusiveEnd: true, ...spec },
       );
@@ -403,13 +403,15 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
     function createInitialDecorations(doc: Node, annotations: Map<string, Annotation>): Decoration[] {
       const decos: Decoration[] = [];
 
-      for (const annotation of [...annotations.values()].toSorted((a, b) => a.node.data.startIndex - b.node.data.startIndex)) {
-        const { startIndex, endIndex } = annotation.node.data;
+      for (const annotation of [...annotations.values()].toSorted(
+        (a, b) => a.node.properties.selector.start - b.node.properties.selector.start,
+      )) {
+        const { start, end } = annotation.node.properties.selector;
 
-        const start: number = indexToPosition(doc, startIndex);
-        const end: number = indexToPosition(doc, endIndex + 1);
+        const from: number = indexToPosition(doc, start);
+        const to: number = indexToPosition(doc, end + 1);
 
-        decos.push(createDecoration(start, end, annotation));
+        decos.push(createDecoration(from, to, annotation));
       }
 
       return decos;
@@ -546,13 +548,13 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
               } else if (step instanceof RemoveAnnotationStep) {
                 const { annotation } = step;
 
-                const toRemove: Decoration[] = findDecorationsByUuid(newAll, annotation.node.data.uuid);
+                const toRemove: Decoration[] = findDecorationsByUuid(newAll, annotation.node.properties.uuid);
                 newAll = newAll.remove(toRemove);
                 decorationsChanged = true;
               } else if (step instanceof UpdateAnnotationStep) {
                 const { newAnnotation } = step;
 
-                const toReplace: Decoration[] = findDecorationsByUuid(newAll, newAnnotation.node.data.uuid);
+                const toReplace: Decoration[] = findDecorationsByUuid(newAll, newAnnotation.node.properties.uuid);
 
                 // The decoration can be gone when the step is replayed by undo/redo (e.g. its text was deleted)
                 if (toReplace.length === 0) {
@@ -576,12 +578,8 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             let newFiltered: DecorationSet = oldDecorations.filtered;
 
             if (decorationsChanged || tr.docChanged) {
-              /*
-              TODO: Recreation of the "filtered" set might be an overkill, but it works currently. Before, the "filtered" set did not change since
-              the drawn HTML would not change completely. However, when a lot of text is removed an new text comes into
-              the viewport, it does not have decorations yet - they are only added when a viewportChanged transaction
-              was dispatched during scroll. Keep in mind
-              */
+              // Rebuilt on every change: text moving into the viewport after a large deletion would otherwise lack
+              // decorations until the next scroll
               newFiltered = createFilteredDecorations(
                 newAll,
                 { ...oldDecorations, visibleFrom: newVisibleFrom, visibleTo: newVisibleTo },
@@ -639,7 +637,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             transactions
               .flatMap((tr) => tr.steps)
               .filter((step): step is RemoveAnnotationStep => step instanceof RemoveAnnotationStep)
-              .map((step) => step.annotation.node.data.uuid),
+              .map((step) => step.annotation.node.properties.uuid),
           );
 
           // Create maps (faster/easier to compare)

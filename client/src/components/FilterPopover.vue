@@ -7,6 +7,8 @@ import FilterEditor from "./FilterEditor.vue";
 
 defineProps<{
   filters: FilterSpec;
+  /** Classifier ref of the Collection whose children are filtered, see `FilterEditor` */
+  partOfRef?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -69,7 +71,7 @@ defineExpose({ toggle });
 <template>
   <Popover ref="popover" @show="handleShow">
     <div class="panel flex flex-col gap-1 p-2">
-      <FilterEditor ref="editor" :filters="filters" @change="draft = $event" />
+      <FilterEditor ref="editor" :filters="filters" :part-of-ref="partOfRef" @change="draft = $event" />
 
       <div class="footer flex justify-between">
         <Button

@@ -2,13 +2,13 @@
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject } from "../models/types";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { createCollectionNode } from "../config/ramen";
-import { isRequiredValueMissing } from "../utils/helper/helper";
+import { validateValue } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -25,20 +25,24 @@ const emit = defineEmits<{
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionConfigFields } = useGuidelinesStore();
+const { getCollectionAttributes, getModelContext } = useConfigStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
-const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newCollectionNode = ref<CollectionNode>(createCollectionNode());
-const nodeLabels = computed<string[]>(() => ["Collection", additionalNodeLabel]);
-const collectionFields = computed(() => getCollectionConfigFields(nodeLabels.value).filter((f) => f.name !== "label"));
+const newCollectionNode = ref<CollectionNode>(createCollectionNode(nodeType));
+// The label has its own input above the form
+const collectionFields = computed(() =>
+  getCollectionAttributes(newCollectionNode.value).filter((field) => field.attribute.name !== "label"),
+);
 
 const inputIsValid = computed<boolean>(
   () =>
-    newCollectionNode.value.data.label.trim().length > 0 &&
-    collectionFields.value.every((field) => !isRequiredValueMissing(newCollectionNode.value.data[field.name], field)),
+    newCollectionNode.value.properties.label.trim().length > 0 &&
+    collectionFields.value.every(
+      (field) => validateValue(getModelContext(), field, newCollectionNode.value.properties[field.attribute.name]).length === 0,
+    ),
 );
 
 watch(() => route.path, closeModal);
@@ -78,14 +82,14 @@ async function handleSubmit() {
     return;
   }
 
-  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value, nodeLabels: toValue(nodeLabels.value) };
+  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value };
 
   isLoading.value = true;
 
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.data.uuid, updateObj);
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.properties.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -107,14 +111,14 @@ async function handleSubmit() {
   <div class="modal-container flex flex-col gap-4 py-2">
     <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <CollectionLabelInput
-      v-model:label="newCollectionNode.data.label"
-      :placeholder="`Provide a ${additionalNodeLabel} label`"
+      v-model:label="newCollectionNode.properties.label"
+      :placeholder="`Provide a ${nodeType.name} label`"
       autofocus
     />
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <div class="modal-body flex flex-col gap-1 px-1">
-      <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
+      <FormPropertiesSection v-model="newCollectionNode.properties" :fields="collectionFields" mode="edit" />
     </div>
 
     <div class="modal-footer flex justify-center gap-2">

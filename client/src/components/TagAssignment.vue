@@ -28,7 +28,7 @@ const searchInputRef = useTemplateRef<InstanceType<typeof InputText> & { $el: HT
 
 const searchInput = ref<string>("");
 
-const nodeUuids = computed<string[]>(() => props.nodes.map((node: HierarchyNode) => node.data.uuid));
+const nodeUuids = computed<string[]>(() => props.nodes.map((node: HierarchyNode) => node.properties.uuid));
 
 const tagOptions = computed<TagOption[]>(() =>
   tags.value.map((tag: DeepReadonly<Tag>) => ({ tag, state: getAssignmentState(tag.uuid) })),

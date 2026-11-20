@@ -2,14 +2,96 @@ import { IAnnotation } from "./IAnnotation.js";
 import { ICollection } from "./ICollection.js";
 import { IEntity } from "./IEntity.js";
 import { IText } from "./IText.js";
+import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
+import type { IMisoConfig } from "./IMisoConfig.js";
+
+/** The model and the config every model lookup works on */
+export interface ModelContext {
+  /** The model, imported by RAMEN core */
+  model: RamenModel;
+  config: IMisoConfig;
+}
+
+/** An attribute of a node, or a property of an annotation shape, with the element that declares it */
+export interface ModelAttribute {
+  /** The attribute as declared in the model */
+  attribute: Attribute;
+  /** Qualified ref (`<modelId>:<id>`) of the declaring node or annotation shape */
+  ownerRef: string;
+}
+
+/**
+ * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
+ * flattens all levels into one `annotations` list.
+ */
+export type ModelAnnotationShape = Owned<AnnotationShape>;
+
+/** An element that declares attributes, as listed in a RamenFile: a node classifier or an annotation shape */
+export type AttributeOwner = Owned<RamenNode> | ModelAnnotationShape;
+
+/**
+ * The model element a stored name (node labels, annotation `type`) resolves to: its qualified ref, or `null` and the
+ * problem, so reads can report unresolvable data instead of failing.
+ */
+export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
+
+/** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
+export interface ElementNode {
+  /** What a write does with the node. Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
+  classifierRef: string | null;
+  /** Annotations only: qualified ref of the annotation shape */
+  shapeRef?: string | null;
+  /** Reads only: the labels as stored. Writes derive them from `classifierRef`. */
+  nodeLabels?: string[];
+  properties: BaseNodeProperties & Record<string, unknown>;
+}
+
+/** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
+export interface ElementRelation {
+  /** What a write does with the relation (`added`/`removed`). Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
+  relationRef: string | null;
+  /** uuid of the start node */
+  from: string;
+  /** uuid of the end node */
+  to: string;
+}
+
+/** Nodes and relations in the element format, as validated by `validateElements` */
+export interface ElementGraph {
+  nodes: ElementNode[];
+  relations: ElementRelation[];
+}
+
+/** A read in the element format: the stored nodes and relations, and the problems of resolving them to the model */
+export interface ElementResponse extends ElementGraph {
+  diagnostics: ElementDiagnostic[];
+}
+
+/** A validation finding, mapped back to the element it belongs to */
+export interface ElementDiagnostic {
+  severity: Diagnostic["severity"];
+  /** RAMEN core's code, or a `MISO_` code for the app's own checks */
+  code: string;
+  message: string;
+  /** uuid of the node the finding belongs to */
+  uuid?: string;
+  /** The relation the finding belongs to */
+  relation?: Omit<ElementRelation, "status">;
+  /** Name of the property the finding belongs to */
+  attribute?: string;
+}
+
+/** The settings of an element or attribute (its entry in `elements`). The server passes them through, the client validates them. */
+export type ConfigBlock = Record<string, unknown> | undefined;
+
+/** The medium of a Content type (`medium` of its `elements.classifiers` entry), which decides the selector type of its annotations */
+export type ContentMedium = "text" | "image";
 
 export type AnnotationNode = Node<IAnnotation>;
-
-/** A node object for retrieving data */
-export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeDto[];
-}
 
 /**
  * A status field for nodes in the frontend and for API requests. Is accessed during editing
@@ -17,19 +99,10 @@ export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityN
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
-export interface AnnotationType {
-  isSeparator?: boolean;
-  hasEntities?: boolean;
-  properties?: PropertyConfig[];
-  type: string;
-  /** Miso-only frontend configuration. Not read by the server, passed through as is. */
-  miso?: unknown;
-}
-
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
-export interface BaseNodeData {
+export interface BaseNodeProperties {
   uuid: string;
 }
 
@@ -37,9 +110,6 @@ export interface BaseNodeData {
 export type BaseRelationshipType = "HAS_ANNOTATION" | "PART_OF" | "REFERS_TO";
 
 export type CollectionNode = Node<ICollection>;
-
-/** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
-export type HierarchyNode = CollectionNode | ContentNode;
 
 /** A parsed hierarchy listing request: which nodes to list, and how to filter/sort/paginate them. */
 export interface HierarchyQuery {
@@ -50,8 +120,8 @@ export interface HierarchyQuery {
   order: "asc" | "desc";
   limit: number;
   cursor: string | null;
-  /** The guidelines-derived allowlist for properties used for filtering and sorting */
-  properties: Map<string, PropertyConfig>;
+  /** The allowlist of properties used for filtering and sorting, derived from the model's attributes */
+  properties: Map<string, ModelAttribute>;
 }
 
 /**
@@ -93,15 +163,18 @@ export interface FilterConditionGroup {
 
 /**
  * What a rule or a sort points at. Shared by both, so anything filterable is sortable and both
- * resolve through one expression builder (`targetExpression` in `utils/filter.ts`).
+ * resolve through one expression builder (`targetExpression`).
  */
 export type FilterTarget =
   /** A node property: `n.<field>`. The only variant whose name is interpolated into Cypher. */
   | { kind: "property"; field: string }
   /** The node's default value to fulltext-search — `label`, falling back to a `text` preview. */
   | { kind: "distinct" }
-  /** The node's labels. Filter only — not a valid sort target. */
-  | { kind: "labels" };
+  /**
+   * The node's type: an `in` condition over classifier refs matches nodes of these types and their refinements (resolved
+   * to labels on the server). Filter only — not a valid sort target.
+   */
+  | { kind: "classifier" };
 
 export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
 
@@ -129,15 +202,6 @@ export type HierarchyScope =
   | { kind: "all" }
   | { kind: "uuids"; uuids: string[] };
 
-export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
-
-/** Object for specifying relationship between two nodes. Used during preprocessing data before updating Text nodes */
-export interface EdgeDescriptor {
-  type: BaseRelationshipType;
-  startUuid: string;
-  endUuid: string;
-}
-
 export type EntityNode = Node<IEntity>;
 
 export interface FaviconResponse {
@@ -146,18 +210,18 @@ export interface FaviconResponse {
 }
 
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
-  data: T;
+  properties: T;
+  /** The labels as stored in the database */
   nodeLabels: string[];
+  /**
+   * Qualified ref of the node's classifier, resolved from the labels on reads (for annotations: the family of its
+   * shape), see `toElementGraph`. `null` if the stored data can't be resolved. On writes, taken from the payload
+   * (see `toNodeChanges`).
+   */
+  classifierRef?: string | null;
+  /** Annotations only: qualified ref of the annotation shape, resolved from the carrier and `type` on reads */
+  shapeRef?: string | null;
 }
-
-export interface NetworkPostData {
-  type: CollectionNetworkActionType;
-  nodes: (CollectionNode | TextNode)[];
-  origin: CollectionNode | null;
-  target: CollectionNode | null;
-}
-
-export type NodeAncestry = NodeDto<CollectionNode>[];
 
 export interface NodeSearchParams {
   nodeLabels?: string[];
@@ -168,7 +232,7 @@ export interface NodeSearchParams {
 }
 
 /** A status object for incoming API requests that should update a subgraph */
-export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeStatusObject<T>[];
   meta: {
@@ -197,54 +261,16 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export interface PropertyConfig {
-  name: string /* folioEnd, label, websiteUrl */;
-  type: PropertyConfigDataType /* raw string, dropdown, multiple options */;
-  required: boolean /* required or optional */;
-  editable: boolean /* Editable by user */;
-  visible: boolean /* Visible by user */;
-  /* Only relevant if type is "Array" */
-  items?: Partial<PropertyConfig>;
-  minItems?: number;
-  maxItems?: number;
-  /* Only relevant if type is "Float"/"Integer" */
-  minimum?: number;
-  maximum?: number;
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
-  /* Only relevant if type is "String" */
-  minLength?: number;
-  maxLength?: number;
-  options?: string[] | number[] /* Options if type is dropdown */;
-}
-
-export type PropertyConfigDataType =
-  | "Array"
-  | "Boolean"
-  | "Date"
-  | "DateTime"
-  | "Float"
-  | "Integer"
-  | "Object"
-  | "String"
-  | "Time";
-
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
+/** The changes of a write, grouped by operation, as the write query takes them (see `buildSubgraphUpdateQuery`) */
 export interface NodeUpdateObject {
   create: Node<object>[];
   update: Node<object>[];
   delete: Node<object>[];
+  /** Relationships by the name of their relation definition */
   remove: { type: string; startUuid: string; endUuid: string }[];
   attach: { type: string; startUuid: string; endUuid: string }[];
-}
-
-/**
- * Type for updating text + annotations.
- */
-export interface TextUpdateDto {
-  text: NodeStatusObject<TextNode>;
-  annotations: NodeStatusObject[];
 }

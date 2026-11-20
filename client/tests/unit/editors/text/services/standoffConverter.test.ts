@@ -2,15 +2,15 @@ import { getSchema } from "@tiptap/core";
 import { beforeAll, describe, expect, test } from "vitest";
 import { StandoffConverter, TiptapNode, createExtensions } from "../../../../../src/editors/text/src";
 import { ApiJson } from "../../../../../src/editors/text/src/models/types";
-import { useGuidelinesStore } from "../../../../../src/store/guidelines";
-import { guidelines } from "../../../../fixtures/guidelines";
+import { useConfigStore } from "../../../../../src/store/config";
+import { testConfig } from "../../../../fixtures/config";
 import * as fixtures from "../../../../fixtures/standoff";
 
 // Appearance only affects rendering, the node types don't depend on it
 const schema = getSchema(createExtensions({ getAppearance: () => undefined }));
 
 beforeAll(() => {
-  useGuidelinesStore().initializeGuidelines(guidelines);
+  useConfigStore().initializeConfig(testConfig);
 });
 
 function convert(doc: ApiJson) {
@@ -58,7 +58,13 @@ describe("inline annotations", () => {
 
     expect(tipTapJson.content).toHaveLength(1);
     expect(tipTapJson.content?.[0].content).toEqual([{ type: "text", text: "abcdefghij" }]);
-    expect([...annotations.values()].map((a) => [a.node.data.uuid, a.node.data.startIndex, a.node.data.endIndex])).toEqual([
+    expect(
+      [...annotations.values()].map((a) => [
+        a.node.properties.uuid,
+        a.node.properties.selector.start,
+        a.node.properties.selector.end,
+      ]),
+    ).toEqual([
       ["add-1", 1, 5],
       ["del-2", 3, 7],
       ["add-3", 2, 4],
@@ -81,7 +87,7 @@ describe("gaps", () => {
   test("extends the range of the block a whitespace gap was merged into", () => {
     const merged: TiptapNode = blocks(fixtures.gaps)[1];
 
-    expect(merged.attrs?._annotation?.node.data).toMatchObject({ startIndex: 3, endIndex: 9 });
+    expect(merged.attrs?._annotation?.node.properties.selector).toMatchObject({ start: 3, end: 9 });
   });
 });
 
@@ -107,7 +113,7 @@ describe("block classifications", () => {
     const [first, second] = tipTapJson.content ?? [];
 
     expect(tipTapJson.content?.map((n) => n.type)).toEqual(["paragraph", "paragraph"]);
-    expect(first.attrs?._blockClassifications?.map((a) => a.node.data.uuid)).toEqual(["opener-2"]);
+    expect(first.attrs?._blockClassifications?.map((a) => a.node.properties.uuid)).toEqual(["opener-2"]);
     expect(second.attrs?._blockClassifications ?? []).toEqual([]);
     expect(structuralAnnotations.has("opener-2")).toBe(true);
   });
@@ -116,10 +122,16 @@ describe("block classifications", () => {
 describe("unicode", () => {
   test("counts indices in UTF-16 code units, like JavaScript string length", () => {
     const { annotations } = convert(fixtures.unicode);
-    const { startIndex, endIndex } = annotations.get("add-1")!.node.data;
+    const selector = annotations.get("add-1")?.node.properties.selector;
+
+    if (!selector) {
+      throw new Error("The conversion is missing the annotation add-1");
+    }
+
+    const { start, end } = selector;
 
     expect(fixtures.unicode.text).toHaveLength(9);
-    expect(fixtures.unicode.text.slice(startIndex, endIndex + 1)).toBe("b́");
+    expect(fixtures.unicode.text.slice(start, end + 1)).toBe("b́");
   });
 });
 

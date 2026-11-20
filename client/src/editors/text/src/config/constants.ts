@@ -1,103 +1,89 @@
-import type { AnnotationType } from "../external";
+import type { NativeTypeAttribute, NativeTypeConfig } from "../models/types";
+
+const OPTIONAL = { lowerBound: 0, upperBound: 1 } as const;
+const REQUIRED = { lowerBound: 1, upperBound: 1 } as const;
+
+/** TEI `att.tableDecoration` of rows and cells */
+const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
+  { name: "rowspan", typeId: "Integer", bounds: OPTIONAL },
+  { name: "colspan", typeId: "Integer", bounds: OPTIONAL },
+  {
+    name: "role",
+    typeId: "String",
+    bounds: OPTIONAL,
+    constraints: [
+      {
+        name: "Table role",
+        language: "json-schema",
+        expression: { enum: ["data", "label"] },
+        message: 'Value must be "data" or "label".',
+      },
+    ],
+  },
+];
 
 /**
- * Configurations of built-in structural annotation types. Is combined with the project-specific configuration
- * on load: these types can be renamed (type and attributes) via `miso.editing.native` and extended with new
- * properties, but their properties can't be redefined.
+ * The structural types the editor implements natively, with the attributes it sets itself. A project names them via
+ * `editors.text.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
+ * properties. The built-in attributes can be renamed, but not redefined.
  */
-export const BUILTIN_STRUCTURAL_CONFIGS: AnnotationType[] = [
+export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
   {
     type: "paragraph",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "heading",
-    properties: [
+    extent: "range",
+    attributes: [
       {
         name: "level",
-        type: "Integer",
-        minimum: 1,
-        maximum: 6,
-        required: true,
-        editable: true,
-        visible: true,
+        typeId: "Integer",
+        bounds: REQUIRED,
+        constraints: [
+          {
+            name: "Heading level",
+            language: "json-schema",
+            expression: { minimum: 1, maximum: 6 },
+            message: "Value must be between 1 and 6.",
+          },
+        ],
       },
     ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
   },
   {
     type: "hardBreak",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "zeroPoint", representation: "structure" },
-    },
+    extent: "zeroPoint",
+    attributes: [],
   },
   {
     type: "table",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "tableRow",
-    // TEI `att.tableDecoration`. Optional on rows: only kept from stored data, the editor doesn't set them.
-    properties: [
-      { name: "rowspan", type: "Integer", required: false, editable: false, visible: true },
-      { name: "colspan", type: "Integer", required: false, editable: false, visible: true },
-      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
-    ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    // Only kept from stored data on rows, the editor doesn't set them
+    attributes: TABLE_DECORATION_ATTRIBUTES,
   },
   {
     type: "tableCell",
-    // TEI `att.tableDecoration`. Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the
-    // header toggles (`data` is accepted, but not set).
-    properties: [
-      { name: "rowspan", type: "Integer", required: false, editable: true, visible: true },
-      { name: "colspan", type: "Integer", required: false, editable: true, visible: true },
-      { name: "role", type: "String", required: false, editable: false, visible: true, options: ["data", "label"] },
-    ],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    // Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the header toggles (`data` is
+    // accepted, but not set)
+    attributes: TABLE_DECORATION_ATTRIBUTES,
   },
   {
     type: "bulletList",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
   {
     type: "listItem",
-    properties: [],
-    miso: {
-      group: "structure",
-      controls: {},
-      editing: { extent: "range", representation: "structure" },
-    },
+    extent: "range",
+    attributes: [],
   },
 ];
 

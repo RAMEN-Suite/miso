@@ -107,7 +107,7 @@ export function findBlockClassificationBoundariesByUuid(doc: Node, uuid: string)
   doc.descendants((node, pos) => {
     const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-    const found: DocAnnotation | undefined = blockClassifications.find((block) => block.node.data.uuid === uuid);
+    const found: DocAnnotation | undefined = blockClassifications.find((block) => block.node.properties.uuid === uuid);
 
     if (found) {
       if (result) {

@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import logger from "../logger.js";
 import AppError from "../errors/app.error.js";
+import ValidationError from "../errors/validation.error.js";
 
 /**
  * Generic error handler.  Output error details as JSON.
@@ -22,6 +23,7 @@ export default function errorMiddleware(error: unknown, req: Request, res: Respo
     status: "error",
     code,
     message,
+    ...(error instanceof ValidationError && error.diagnostics ? { diagnostics: error.diagnostics } : {}),
     // This would not be ideal for production environment, but since it's commented out, no problem
     // trace: error.trace,
     // details: error.details,

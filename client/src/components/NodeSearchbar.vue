@@ -46,7 +46,7 @@ const labelMenuItems = computed<MenuItem[]>(() => [
     label: props.baseNodeLabel,
     items: (props.additionalNodeLabelOptions ?? []).map((label: string) => ({
       label,
-      nodeIcon: resolveNodeIcon([props.baseNodeLabel, label]),
+      nodeIcon: resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, label] }),
       command: () => emit("update:additionalNodeLabel", label),
     })),
   },
@@ -144,9 +144,9 @@ function getInputElement(): HTMLInputElement | null {
  * @returns {void} This function does not return any value.
  */
 function appendData(data: (CollectionNode | EntityNode | TextNode)[]): void {
-  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.data.uuid));
+  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.properties.uuid));
 
-  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.data.uuid)));
+  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.properties.uuid)));
 }
 
 /**
@@ -223,7 +223,7 @@ async function fetchNextPage(): Promise<void> {
  * performance issues. Visual clipping is handled via CSS `text-overflow: ellipsis`.
  *
  * @param text - The text to truncate.
- * @returns {void} - This function does not return any value.
+ * @returns {string} The truncated text, empty if there is none.
  */
 function getPreviewText(text: string | undefined): string {
   return text?.slice(0, PREVIEW_CHARACTER_SIZE) ?? "";
@@ -321,7 +321,7 @@ defineExpose({ focus });
         :title="`Searching ${props.additionalNodeLabel} nodes. Click to search another type`"
         @click="labelMenu?.toggle($event)"
       >
-        <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
+        <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
         <i class="icon-chevron-down" />
       </Button>
       <FilterableMenu ref="label-menu" :model="labelMenuItems">
@@ -331,7 +331,7 @@ defineExpose({ focus });
       </FilterableMenu>
     </template>
     <InputGroupAddon v-else class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
-      <RAMENNodeIcon :spec="resolveNodeIcon([props.baseNodeLabel, props.additionalNodeLabel])" />
+      <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
     </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
@@ -376,10 +376,10 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
-              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
             </span>
           </div>
         </template>
@@ -387,10 +387,10 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
-              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
             </span>
           </div>
         </template>
@@ -398,9 +398,9 @@ defineExpose({ focus });
           <div class="result-item">
             <RAMENNodeIcon
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
-              :spec="resolveNodeIcon(option.nodeLabels)"
+              :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
+            <span :title="getPreviewText(option.properties?.text)">{{ getPreviewText(option.properties?.text) }}</span>
           </div>
         </template>
       </template>

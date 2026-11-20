@@ -1,6 +1,6 @@
 import ValidationError from "../errors/validation.error.js";
+import logger from "../logger.js";
 import UnknownFilterFieldError from "../errors/unknownFilterField.error.js";
-import { IGuidelines } from "../models/IGuidelines.js";
 import {
   FilterComparator,
   FilterCondition,
@@ -8,16 +8,24 @@ import {
   FilterRule,
   FilterSpec,
   FilterTarget,
-  PropertyConfig,
-  PropertyConfigDataType,
+  ModelAttribute,
+  ModelContext,
 } from "../models/types.js";
-import { isArray, isBoolean, isDate, isNumeric, isString, isTime } from "./propertyType.js";
+import { BASE_NODE_REF, AttributeValueType } from "./ramen.js";
+import { getNodeAttributes, getOptions, getRefinements, getValueType, isList } from "./modelHelper.js";
+import { isBoolean, isDate, isNumeric, isString } from "./propertyType.js";
+
+/** What a filter compares against: the value type of a single value, or a list */
+type FilterValueType = AttributeValueType | "Array";
 
 /**
- * A property config whose datatype is known. `distinct` has no entry in the guidelines, so the type is
- * the only key guaranteed to be there.
+ * How a target is compared: its value type and, for enums, the allowed values. `distinct` has no attribute in the
+ * model, so it compares as a plain `String`.
  */
-type TypedPropertyConfig = Partial<PropertyConfig> & Pick<PropertyConfig, "type">;
+interface Comparison {
+  valueType: FilterValueType;
+  options?: string[] | number[];
+}
 
 /**
  * Max characters of a Content's text used as its `distinct` value. Bounds the sort key (and
@@ -29,14 +37,13 @@ export const SORT_KEY_MAX_LENGTH: number = 500;
  * Which comparators make sense for which datatype. Not cosmetic: `dateBefore` on a number would make
  * Neo4j throw, so an impossible combination has to be a 400 here rather than a 500 later.
  */
-const COMPARATORS_BY_DATATYPE: Record<PropertyConfigDataType, FilterComparator[]> = {
+const COMPARATORS_BY_DATATYPE: Record<FilterValueType, FilterComparator[]> = {
   String: ["contains", "notContains", "startsWith", "endsWith", "equals", "notEquals", "in", "isEmpty", "isNotEmpty"],
   Integer: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
   Float: ["equals", "notEquals", "lt", "lte", "gt", "gte", "between", "in", "isEmpty", "isNotEmpty"],
   Boolean: ["equals", "notEquals", "isEmpty", "isNotEmpty"],
   Date: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   DateTime: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
-  Time: ["dateIs", "dateBefore", "dateAfter", "between", "isEmpty", "isNotEmpty"],
   Array: ["in", "isEmpty", "isNotEmpty"],
   Object: ["isEmpty", "isNotEmpty"],
 };
@@ -55,27 +62,27 @@ const LIST_COMPARATORS: FilterComparator[] = ["in", "between"];
 const VALUELESS_COMPARATORS: FilterComparator[] = ["isEmpty", "isNotEmpty"];
 
 /**
- * Extracts a set of node properties that can be used as filter or sort fields from the guidelines.
+ * Extracts the node properties that can be used as filter or sort fields: the attributes of the Collection node and
+ * of all its refinements. Of several attributes with the same name, the first one decides how it is compared.
  *
  * Acts as an injection allowlist: Since Cypher cannot parameterize a property name, the name must be
  * injected directly into the query. Nothing outside this map ever reaches {@link targetExpression},
  * so unwanted cypher errors are impossible.
  *
- * @param {IGuidelines} guidelines - The guidelines.
- * @returns {Map<string, PropertyConfig>} Property name -> its complete configuration, not just the field name.
+ * @param {ModelContext} context - The model context.
+ * @returns {Map<string, ModelAttribute>} Property name -> its attribute, not just the field name.
  */
-export function filterableProperties(guidelines: IGuidelines): Map<string, PropertyConfig> {
-  const configs: PropertyConfig[] = [
-    ...(guidelines.collections.properties.system ?? []),
-    ...(guidelines.collections.properties.base ?? []),
-    ...guidelines.collections.types.flatMap((type) => type.properties ?? []),
+export function filterableProperties(context: ModelContext): Map<string, ModelAttribute> {
+  const attributes: ModelAttribute[] = [
+    ...getNodeAttributes(context, BASE_NODE_REF.Collection),
+    ...getRefinements(context, BASE_NODE_REF.Collection).flatMap(({ ref }) => getNodeAttributes(context, ref, true)),
   ];
 
-  const properties = new Map<string, PropertyConfig>();
+  const properties = new Map<string, ModelAttribute>();
 
-  configs.forEach((config: PropertyConfig) => {
-    if (config?.name && !properties.has(config.name)) {
-      properties.set(config.name, config);
+  attributes.forEach((entry: ModelAttribute) => {
+    if (!properties.has(entry.attribute.name)) {
+      properties.set(entry.attribute.name, entry);
     }
   });
 
@@ -89,13 +96,13 @@ export function filterableProperties(guidelines: IGuidelines): Map<string, Prope
  * {@link FilterTarget}. A target that skips this function is an injection hole.
  *
  * @param {unknown} raw - The target as it arrived in the body.
- * @param {Map<string, PropertyConfig>} properties - The allowlist from {@link filterableProperties}.
+ * @param {Map<string, ModelAttribute>} properties - The allowlist from {@link filterableProperties}.
  * @param {boolean} forSort - Whether the target is being used as a sort key.
  * @returns {FilterTarget} The validated target.
- * @throws {UnknownFilterFieldError} If a property is not defined in the guidelines.
+ * @throws {UnknownFilterFieldError} If a property is not defined in the model.
  * @throws {ValidationError} If the target is malformed or not usable in this position.
  */
-export function parseFilterTarget(raw: unknown, properties: Map<string, PropertyConfig>, forSort: boolean = false): FilterTarget {
+export function parseFilterTarget(raw: unknown, properties: Map<string, ModelAttribute>, forSort: boolean = false): FilterTarget {
   if (!raw || typeof raw !== "object") {
     throw new ValidationError("A filter target is required.");
   }
@@ -106,12 +113,12 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, Property
     return { kind: "distinct" };
   }
 
-  if (target.kind === "labels") {
+  if (target.kind === "classifier") {
     if (forSort) {
-      throw new ValidationError("Cannot sort by node labels.");
+      throw new ValidationError("Cannot sort by node type.");
     }
 
-    return { kind: "labels" };
+    return { kind: "classifier" };
   }
 
   if (target.kind === "property") {
@@ -130,25 +137,29 @@ export function parseFilterTarget(raw: unknown, properties: Map<string, Property
 }
 
 /**
- * The property config a scalar target compares as. `labels` never gets here — it is a set, handled on its
- * own path in {@link parseFilterSpec} and {@link buildFilterCypher}.
+ * How a scalar target compares. `classifier` never gets here — it is a set, handled on its own path in
+ * {@link parseFilterSpec} and {@link buildFilterCypher}.
  *
+ * @param {ModelContext} context - The model context.
  * @param {FilterTarget} target - A validated target.
- * @param {Map<string, PropertyConfig>} properties - The allowlist.
- * @returns {TypedPropertyConfig} The config of the target's property, or a bare string config if it has none.
+ * @param {Map<string, ModelAttribute>} properties - The allowlist.
+ * @returns {Comparison} The comparison of the target's attribute, or a plain string comparison if it has none.
  */
-function configOf(target: FilterTarget, properties: Map<string, PropertyConfig>): TypedPropertyConfig {
-  if (target.kind === "labels") {
-    throw new ValidationError("Node labels have no datatype.");
+function comparisonOf(context: ModelContext, target: FilterTarget, properties: Map<string, ModelAttribute>): Comparison {
+  if (target.kind === "classifier") {
+    throw new ValidationError("Node types have no datatype.");
   }
 
   // `distinct` is `label` or a slice of `text` -> always a string
-  const fallback: TypedPropertyConfig = { type: "String" };
+  const entry: ModelAttribute | undefined = target.kind === "property" ? properties.get(target.field) : undefined;
 
-  if (target.kind === "distinct") {
-    return fallback;
+  if (!entry) {
+    return { valueType: "String" };
   } else {
-    return properties.get(target.field) ?? fallback;
+    return {
+      valueType: isList(entry) ? "Array" : getValueType(context, entry),
+      options: getOptions(context, entry),
+    };
   }
 }
 
@@ -157,16 +168,16 @@ function configOf(target: FilterTarget, properties: Map<string, PropertyConfig>)
  * the datatype.
  *
  * Numbers stay JS numbers — Cypher compares INTEGER and FLOAT without complaint. Temporals are
- * normalized to the string form they are stored in (`YYYY-MM-DD`, ISO 8601, `HH:mm:ss`). These forms
- * are fixed-width, so comparing them as strings orders them chronologically.
+ * normalized to the string form they are stored in (`YYYY-MM-DD`, ISO 8601). These forms are
+ * fixed-width, so comparing them as strings orders them chronologically.
  *
  * @param {unknown} value - The raw value.
- * @param {TypedPropertyConfig} config - The config of the property to coerce to.
+ * @param {FilterValueType} valueType - The value type to coerce to. List items are compared as strings.
  * @returns {string | number | boolean} The coerced value.
  * @throws {ValidationError} If the value cannot represent the datatype.
  */
-function coerceValue(value: unknown, config: TypedPropertyConfig): string | number | boolean {
-  if (isString(config) || isArray(config)) {
+function coerceValue(value: unknown, valueType: FilterValueType): string | number | boolean {
+  if (valueType === "Array" || isString(valueType)) {
     if (typeof value !== "string") {
       throw new ValidationError(`Expected a string value, got ${typeof value}.`);
     }
@@ -174,7 +185,7 @@ function coerceValue(value: unknown, config: TypedPropertyConfig): string | numb
     return value;
   }
 
-  if (isBoolean(config)) {
+  if (isBoolean(valueType)) {
     if (typeof value !== "boolean") {
       throw new ValidationError(`Expected a boolean value, got ${typeof value}.`);
     }
@@ -182,7 +193,7 @@ function coerceValue(value: unknown, config: TypedPropertyConfig): string | numb
     return value;
   }
 
-  if (isNumeric(config)) {
+  if (isNumeric(valueType)) {
     const parsed: number = Number(value);
 
     if (Number.isNaN(parsed)) {
@@ -190,15 +201,6 @@ function coerceValue(value: unknown, config: TypedPropertyConfig): string | numb
     }
 
     return parsed;
-  }
-
-  // A bare time is no valid input for `Date`, so it is checked by its shape instead
-  if (isTime(config)) {
-    if (typeof value !== "string" || !/^\d{2}:\d{2}:\d{2}$/.test(value)) {
-      throw new ValidationError(`Expected a time value (HH:mm:ss), got "${String(value)}".`);
-    }
-
-    return value;
   }
 
   const parsed: Date = new Date(value as string | number);
@@ -209,7 +211,7 @@ function coerceValue(value: unknown, config: TypedPropertyConfig): string | numb
 
   const iso: string = parsed.toISOString();
 
-  if (isDate(config)) {
+  if (isDate(valueType)) {
     return iso.slice(0, 10);
   } else {
     return iso;
@@ -227,14 +229,14 @@ function coerceValue(value: unknown, config: TypedPropertyConfig): string | numb
  * value has to be one of the declared members — otherwise a filter can silently match nothing.
  *
  * @param {unknown[]} raw - The rule's `conditions` array.
- * @param {TypedPropertyConfig} config - The config of the property the target compares as.
+ * @param {Comparison} comparison - How the target compares.
  * @returns {FilterCondition[]} The validated, pruned conditions.
  * @throws {ValidationError} If a condition is malformed, its comparator does not fit the datatype,
  *   or its value is not a declared option.
  */
-function parsePropertyConditions(raw: unknown[], config: TypedPropertyConfig): FilterCondition[] {
-  const options: string[] | number[] | undefined = config.options;
-  const supported: FilterComparator[] = COMPARATORS_BY_DATATYPE[config.type];
+function parsePropertyConditions(raw: unknown[], comparison: Comparison): FilterCondition[] {
+  const { valueType, options } = comparison;
+  const supported: FilterComparator[] = COMPARATORS_BY_DATATYPE[valueType];
 
   const allowed: FilterComparator[] = options?.length
     ? supported.filter((comparator) => ENUM_COMPARATORS.includes(comparator))
@@ -250,7 +252,7 @@ function parsePropertyConditions(raw: unknown[], config: TypedPropertyConfig): F
     const { comparator, value } = rawCondition as { comparator?: unknown; value?: unknown };
 
     if (typeof comparator !== "string" || !allowed.includes(comparator as FilterComparator)) {
-      throw new ValidationError(`Comparator "${String(comparator)}" cannot be used on a ${config.type} value.`);
+      throw new ValidationError(`Comparator "${String(comparator)}" cannot be used on a ${valueType} value.`);
     }
 
     if (VALUELESS_COMPARATORS.includes(comparator as FilterComparator)) {
@@ -274,7 +276,7 @@ function parsePropertyConditions(raw: unknown[], config: TypedPropertyConfig): F
 
       conditions.push({
         comparator: comparator as FilterComparator,
-        value: value.map((entry: unknown) => assertOption(coerceValue(entry, config), options)),
+        value: value.map((entry: unknown) => assertOption(coerceValue(entry, valueType), options)),
       });
 
       return;
@@ -282,7 +284,7 @@ function parsePropertyConditions(raw: unknown[], config: TypedPropertyConfig): F
 
     conditions.push({
       comparator: comparator as FilterComparator,
-      value: assertOption(coerceValue(value, config), options),
+      value: assertOption(coerceValue(value, valueType), options),
     });
   });
 
@@ -337,13 +339,14 @@ function parseConcatenationOperator(operator: unknown): FilterOperator {
  * Reads and validates the filter rules of a request. Rules left without conditions disappear, so
  * the default query (empty search box) is a genuine no-op rather than a predicate.
  *
+ * @param {ModelContext} context - The model context, for the value types of the properties.
  * @param {unknown} raw - The `filters` value from the body.
- * @param {Map<string, PropertyConfig>} properties - The allowlist from {@link filterableProperties}.
+ * @param {Map<string, ModelAttribute>} properties - The allowlist from {@link filterableProperties}.
  * @returns {FilterSpec} The validated, pruned rules.
  * @throws {ValidationError} If a rule is malformed or a comparator does not fit its datatype.
- * @throws {UnknownFilterFieldError} If a rule names a property the guidelines do not define.
+ * @throws {UnknownFilterFieldError} If a rule names a property the model does not define.
  */
-export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyConfig>): FilterSpec {
+export function parseFilterSpec(context: ModelContext, raw: unknown, properties: Map<string, ModelAttribute>): FilterSpec {
   if (raw === undefined || raw === null) {
     return [];
   }
@@ -368,14 +371,14 @@ export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyCo
     const target: FilterTarget = parseFilterTarget(rule.target, properties);
     const operator: FilterOperator = parseConcatenationOperator(rule.operator);
 
-    // A label set is matched as a set, not compared as a scalar, so it never enters the datatype
+    // A set of node types is matched as a set, not compared as a scalar, so it never enters the datatype
     // machinery: one comparator, one Cypher fragment
     let conditions: FilterCondition[];
 
-    if (target.kind === "labels") {
-      conditions = parseLabelConditions(rule.conditions);
+    if (target.kind === "classifier") {
+      conditions = parseClassifierConditions(context, rule.conditions);
     } else {
-      conditions = parsePropertyConditions(rule.conditions, configOf(target, properties));
+      conditions = parsePropertyConditions(rule.conditions, comparisonOf(context, target, properties));
     }
 
     if (conditions.length > 0) {
@@ -387,24 +390,58 @@ export function parseFilterSpec(raw: unknown, properties: Map<string, PropertyCo
 }
 
 /**
- * Reads the conditions of a `labels` rule, which only ever means "carries one of these labels".
+ * Reads the conditions of a `classifier` rule, which only ever means "is of one of these node types". Refs the model
+ * doesn't know (e.g. a smart view saved against an older model) are dropped and logged, so a stale view still lists
+ * the types that exist. An empty list matches nothing, like deselecting every type.
  *
- * Tailored very specific on checking the labels of neo4j nodes instead of their properties
- *
+ * @param {ModelContext} context - The model context.
  * @param {unknown[]} raw - The rule's `conditions` array.
- * @returns {FilterCondition[]} The validated conditions.
+ * @returns {FilterCondition[]} The validated conditions, with the known classifier refs.
  * @throws {ValidationError} If a condition is not an `in` over an array of strings.
  */
-function parseLabelConditions(raw: unknown[]): FilterCondition[] {
+function parseClassifierConditions(context: ModelContext, raw: unknown[]): FilterCondition[] {
   return raw.map((rawCondition: unknown) => {
     const { comparator, value } = (rawCondition ?? {}) as { comparator?: unknown; value?: unknown };
 
-    if (comparator !== "in" || !Array.isArray(value) || value.some((label) => typeof label !== "string")) {
-      throw new ValidationError("A `labels` rule needs an `in` comparator over an array of label strings.");
+    if (comparator !== "in" || !Array.isArray(value) || value.some((ref) => typeof ref !== "string")) {
+      throw new ValidationError("A `classifier` rule needs an `in` comparator over an array of classifier refs.");
     }
 
-    return { comparator: "in", value };
+    const unknownRefs: string[] = (value as string[]).filter((ref) => !context.model.getNode(ref));
+
+    if (unknownRefs.length > 0) {
+      logger.warn(`Filter on node types the model doesn't know, ignored: ${unknownRefs.join(", ")}`);
+    }
+
+    return { comparator: "in", value: (value as string[]).filter((ref) => !unknownRefs.includes(ref)) };
   });
+}
+
+/**
+ * The labels that identify nodes of the given types: the names of the types and of all their refinements. Refinements
+ * are included, since a node is stored with the name of its own type (older data only with that one besides the base
+ * label), and a filter on a type should also find its refinements.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string[]} classifierRefs - Qualified refs of the node types.
+ * @returns {string[]} The labels.
+ */
+function labelsOfClassifiers(context: ModelContext, classifierRefs: string[]): string[] {
+  const labels = new Set<string>();
+
+  for (const classifier of context.config.model.classifiers) {
+    if (classifier.kind !== "Node") {
+      continue;
+    }
+
+    const lineage = context.model.getNodeLineage(`${classifier.modelId}:${classifier.id}`);
+
+    if (lineage.some((item) => classifierRefs.includes(`${item.modelId}:${item.nodeId}`))) {
+      labels.add(classifier.name);
+    }
+  }
+
+  return [...labels];
 }
 
 /**
@@ -412,7 +449,7 @@ function parseLabelConditions(raw: unknown[]): FilterCondition[] {
  *
  * @param {FilterTarget} target - A validated target that has been through {@link parseFilterTarget}.
  * @returns {string} - A Cypher expression.
- * @throws {ValidationError} If the target is invalid (e.g. sorting by node labels with `labels` is not allowed currently).
+ * @throws {ValidationError} If the target has no scalar value (`classifier`).
  * @example
  * // Passing a node's "status" property as sort value or filtering rule:
  * {
@@ -432,7 +469,7 @@ export function targetExpression(target: FilterTarget): string {
     return `n.\`${target.field}\``;
   }
 
-  throw new ValidationError("Node labels have no scalar value.");
+  throw new ValidationError("Node types have no scalar value.");
 }
 
 /**
@@ -446,13 +483,19 @@ export function targetExpression(target: FilterTarget): string {
  * `isEmpty` comparator when the nodes *without* a value should be displayed.
  *
  * @param {string} expression - The left-hand side from {@link targetExpression}.
- * @param {TypedPropertyConfig} config - The config of the property being compared.
+ * @param {FilterValueType} valueType - The value type of the property being compared.
  * @param {FilterCondition} condition - The condition.
  * @param {string} name - The parameter name the value is bound under.
  * @returns {string} A Cypher boolean expression.
  */
-function conditionCypher(expression: string, config: TypedPropertyConfig, condition: FilterCondition, name: string): string {
-  const predicate: string = buildPredicate({ comparator: condition.comparator, lhs: expression, rhs: `$${name}`, name, config });
+function conditionCypher(expression: string, valueType: FilterValueType, condition: FilterCondition, name: string): string {
+  const predicate: string = buildPredicate({
+    comparator: condition.comparator,
+    lhs: expression,
+    rhs: `$${name}`,
+    name,
+    valueType,
+  });
 
   return `(${predicate})`;
 }
@@ -473,7 +516,7 @@ function conditionCypher(expression: string, config: TypedPropertyConfig, condit
  * @param {string} params.lhs - The left-hand side (= the node value).
  * @param {string} params.rhs - The parameter reference.
  * @param {string} params.name - The bare parameter name, for the list comparators.
- * @param {TypedPropertyConfig} params.config - The config of the property being compared.
+ * @param {FilterValueType} params.valueType - The value type of the property being compared.
  * @returns {string} A Cypher boolean expression.
  * @throws {ValidationError} If the comparator is not one this function can render.
  */
@@ -482,9 +525,9 @@ function buildPredicate(params: {
   lhs: string;
   rhs: string;
   name: string;
-  config: TypedPropertyConfig;
+  valueType: FilterValueType;
 }): string {
-  const { comparator, lhs, rhs, name, config } = params;
+  const { comparator, lhs, rhs, name, valueType } = params;
 
   switch (comparator) {
     case "contains":
@@ -515,9 +558,9 @@ function buildPredicate(params: {
     case "in":
       return `${lhs} IN $${name}`;
     case "isEmpty":
-      return isString(config) ? `${lhs} IS NULL OR ${lhs} = ''` : `${lhs} IS NULL`;
+      return valueType === "String" ? `${lhs} IS NULL OR ${lhs} = ''` : `${lhs} IS NULL`;
     case "isNotEmpty":
-      return isString(config) ? `${lhs} IS NOT NULL AND ${lhs} <> ''` : `${lhs} IS NOT NULL`;
+      return valueType === "String" ? `${lhs} IS NOT NULL AND ${lhs} <> ''` : `${lhs} IS NOT NULL`;
     default:
       throw new ValidationError(`Unsupported comparator "${String(comparator)}".`);
   }
@@ -530,14 +573,16 @@ function buildPredicate(params: {
  * Values are always parameters — only the property name is interpolated, and only after
  * {@link parseFilterTarget} has checked it against the allowlist.
  *
+ * @param {ModelContext} context - The model context, for the value types of the properties.
  * @param {FilterSpec} spec - The validated filter rules.
- * @param {Map<string, PropertyConfig>} properties - The allowlist, for datatype lookup.
+ * @param {Map<string, ModelAttribute>} properties - The allowlist, for datatype lookup.
  * @returns {{ clause: string; params: Record<string, unknown> }} A full Cypher predicate (or `"true"` when
  *   there is nothing to filter) and the parameters it refers to.
  */
 export function buildFilterCypher(
+  context: ModelContext,
   spec: FilterSpec,
-  properties: Map<string, PropertyConfig>,
+  properties: Map<string, ModelAttribute>,
 ): { clause: string; params: Record<string, unknown> } {
   const params: Record<string, unknown> = {};
   const clauses: string[] = [];
@@ -548,14 +593,21 @@ export function buildFilterCypher(
     const predicates: string[] = rule.conditions.map((condition: FilterCondition) => {
       const name: string = `f${paramIndex++}`;
 
-      params[name] = condition.value;
+      // Filtering by node type is a special case: the types are matched by the labels of their nodes, not by a property
+      if (rule.target.kind === "classifier") {
+        params[name] = labelsOfClassifiers(context, condition.value as string[]);
 
-      // Filtering by node labels is a special case since comparison doesn't happen on property level
-      if (rule.target.kind === "labels") {
         return `(size(apoc.coll.intersection($${name}, labels(n))) > 0)`;
       }
 
-      return conditionCypher(targetExpression(rule.target), configOf(rule.target, properties), condition, name);
+      params[name] = condition.value;
+
+      return conditionCypher(
+        targetExpression(rule.target),
+        comparisonOf(context, rule.target, properties).valueType,
+        condition,
+        name,
+      );
     });
 
     if (predicates.length > 0) {

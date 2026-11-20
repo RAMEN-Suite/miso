@@ -4,14 +4,14 @@ import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import InputGroup from "primevue/inputgroup";
 import InputGroupAddon from "primevue/inputgroupaddon";
-import { EntityNode, NodeStatusObject } from "../models/types.ts";
+import { EntityNode, NodeStatusObject, NodeTypeOption } from "../models/types.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { resolveNodeIcon } from "../config/icons.ts";
 import { createEntityNodeStatusObject } from "../utils/helper/helper.ts";
-import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = defineProps<{
-  nodeLabels: string[];
+  /** The type of the new Entity */
+  nodeType: NodeTypeOption;
 }>();
 
 const emit = defineEmits<{
@@ -21,11 +21,9 @@ const emit = defineEmits<{
 
 const labelInput = useTemplateRef<ComponentPublicInstance>("label-input");
 
-const additionalNodeLabels: string[] = filterBaseNodeLabels(props.nodeLabels);
+const draft = ref<NodeStatusObject<EntityNode>>(createEntityNodeStatusObject(props.nodeType));
 
-const draft = ref<NodeStatusObject<EntityNode>>(createEntityNodeStatusObject({ additionalNodeLabels }));
-
-const isEmptyDraft = computed<boolean>(() => draft.value.node.data.label.trim().length === 0);
+const isEmptyDraft = computed<boolean>(() => draft.value.node.properties.label.trim().length === 0);
 
 onMounted(() => {
   labelInput.value?.$el?.focus();
@@ -36,7 +34,7 @@ function handleSubmit(): void {
     return;
   }
 
-  draft.value.node.data.label = draft.value.node.data.label.trim();
+  draft.value.node.properties.label = draft.value.node.properties.label.trim();
 
   emit("entityAdded", draft.value);
 }
@@ -53,13 +51,13 @@ function handleDiscardClick(): void {
       <label for="entity-label" class="sr-only">Label</label>
       <InputGroup>
         <InputGroupAddon class="w-12">
-          <RAMENNodeIcon :spec="resolveNodeIcon(draft.node.nodeLabels)" />
+          <RAMENNodeIcon :spec="resolveNodeIcon(draft.node)" />
         </InputGroupAddon>
         <InputText
           id="entity-label"
           ref="label-input"
-          v-model="draft.node.data.label"
-          :placeholder="`Add ${additionalNodeLabels.join(', ')} label`"
+          v-model="draft.node.properties.label"
+          :placeholder="`Add ${props.nodeType.name} label`"
           autocomplete="off"
           spellcheck="false"
         />

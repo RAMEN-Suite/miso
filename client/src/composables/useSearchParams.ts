@@ -1,6 +1,6 @@
 import { DeepReadonly, readonly, Ref, ref, toValue } from "vue";
 import { NodeSearchParams, ReferenceNodeLabel } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { useTimeoutFn } from "@vueuse/core";
 import { FETCH_DELAY } from "../config/constants";
 
@@ -37,7 +37,7 @@ export function useSearchParams(options: {
   rowCount?: number;
   nodeLabels?: string[];
 }): UseSearchParamsReturn {
-  const { getAvailableNodeLabels } = useGuidelinesStore();
+  const { getAvailableNodeLabels } = useConfigStore();
 
   const DEFAULT_ROW_COUNT: number | undefined = options?.rowCount;
 

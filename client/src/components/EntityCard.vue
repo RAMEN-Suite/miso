@@ -38,12 +38,12 @@ function togglePopover(event: MouseEvent): void {
     v-model:node="node"
     :mode="props.mode"
     :show-badge="props.showBadge"
-    :href="`/api/tools/tori/entity/${node.node.data.uuid}`"
+    :href="`/api/tools/tori/entity/${node.node.properties.uuid}`"
     :title="htmlTitle"
     @remove-node="emit('remove-node')"
   >
     <span class="wrap-break-word min-w-0">
-      {{ node.node.data.label }}
+      {{ node.node.properties.label }}
     </span>
     <Button
       icon="icon-info"
@@ -55,7 +55,7 @@ function togglePopover(event: MouseEvent): void {
     ></Button>
 
     <NodePreviewPopover ref="info-icon">
-      <NodePropertiesTable :data="node.node.data" />
+      <NodePropertiesTable :properties="node.node.properties" />
     </NodePreviewPopover>
   </NodeCard>
 </template>

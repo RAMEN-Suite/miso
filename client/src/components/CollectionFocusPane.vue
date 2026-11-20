@@ -2,25 +2,29 @@
 import { computed, ComputedRef, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import {
   Annotation,
-  AnnotationType,
   CollectionNode,
   CollectionFocus,
   HierarchyEntry,
-  PropertyConfig,
   NodeDto,
+  ModelAnnotationShape,
+  ModelAttribute,
 } from "../models/types";
+import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
 import {
-  camelCaseToTitleCase,
-  cloneDeep,
-  getDefaultValueForProperty,
-  isRequiredValueMissing,
-  setNodeTreeStatus,
-  pruneDeletedNodes,
-} from "../utils/helper/helper";
-import { isArray, isBoolean } from "../utils/helper/propertyTypeHelper";
+  getDefaultValue,
+  getOptions,
+  getShapeProperties,
+  getValueType,
+  isEditable,
+  isEmptyValue,
+  isList,
+  isRequired,
+  isVisible,
+  validateValue,
+} from "../utils/helper/modelHelper";
 import { filterBaseNodeLabels } from "../config/ramen";
 import DataInputComponent from "./DataInputComponent.vue";
 import DataInputGroup from "./DataInputGroup.vue";
@@ -65,14 +69,14 @@ const confirm: ReturnType<typeof useConfirm> = useConfirm();
 const pane = useTemplateRef<HTMLDivElement>("pane");
 
 const {
-  guidelines,
+  isInitialized: isConfigInitialized,
   annotationHasConstraints,
-  getCollectionAnnotationFields,
-  getCollectionAnnotationConfig,
-  getCollectionConfigFields,
-  getAllCollectionConfigFields,
-  getAvailableCollectionAnnotationConfigs,
-} = useGuidelinesStore();
+  getAllCollectionAttributes,
+  getAnnotationShape,
+  getCollectionAnnotationShapes,
+  getCollectionAttributes,
+  getModelContext,
+} = useConfigStore();
 const { hasPendingUpdates, path, pendingUpdates, findEntryInHierarchy } = useHierarchyStore();
 const { deleteSelection } = useDeleteHierarchySelection();
 
@@ -92,9 +96,9 @@ const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
 const annotationPendingRemoval = ref<string | null>(null);
 const removalRunning = ref<boolean>(false);
 
-const collectionFields: ComputedRef<PropertyConfig[]> = computed(() => {
-  return guidelines.value
-    ? getCollectionConfigFields(temporaryWorkData.value.collection.node.nodeLabels).filter((field) => field.visible)
+const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
+  return isConfigInitialized.value
+    ? getCollectionAttributes(temporaryWorkData.value.collection.node).filter((field) => isVisible(getModelContext(), field))
     : [];
 });
 
@@ -103,8 +107,8 @@ const displayLabel = computed<string>(
   () => filterBaseNodeLabels(temporaryWorkData.value.collection.node.nodeLabels).join(", ") || "entry",
 );
 
-const availabeAnnotationTypes: ComputedRef<AnnotationType[]> = computed(() =>
-  getAvailableCollectionAnnotationConfigs(temporaryWorkData.value.collection.node.nodeLabels),
+const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
+  getCollectionAnnotationShapes(temporaryWorkData.value.collection.node),
 );
 
 const SHOW_ANNOTATION_SUBTYPES: boolean = true;
@@ -114,27 +118,26 @@ const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotati
 const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
   return availabeAnnotationTypes.value
     .toSorted((a, b) => a.type.localeCompare(b.type))
-    .map((type: AnnotationType) => {
-      const subTypeOptions: (string | number)[] = SHOW_ANNOTATION_SUBTYPES
-        ? getCollectionAnnotationFields(temporaryWorkData.value.collection.node.nodeLabels, type.type).find(
-            (field) => field.name === "subType",
-          )?.options ?? []
-        : [];
+    .map((type: ModelAnnotationShape) => {
+      const subTypeField: ModelAttribute | undefined = SHOW_ANNOTATION_SUBTYPES
+        ? getShapeProperties(type).find((field) => field.attribute.name === "subType")
+        : undefined;
+      const subTypeOptions: (string | number)[] = subTypeField ? getOptions(getModelContext(), subTypeField) ?? [] : [];
 
       if (subTypeOptions.length === 0) {
         return {
           label: type.type,
-          annotationConfig: type,
+          annotationShape: type,
           command: () => handleAnnotationButtonClick({ type: type.type }),
         };
       }
 
       return {
         label: type.type,
-        annotationConfig: type,
+        annotationShape: type,
         items: subTypeOptions.map((option: string | number) => ({
           label: option.toString(),
-          annotationConfig: type,
+          annotationShape: type,
           command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
         })),
       };
@@ -160,7 +163,7 @@ function handleAddAnnotationClick(event: Event): void {
 enrichCollectionData();
 
 watch(
-  () => props.focus.collection.node.data.uuid,
+  () => props.focus.collection.node.properties.uuid,
   () => {
     // Runs before the DOM switches, so a field that is still being edited is saved to the previous Collection
     commitActiveField();
@@ -247,9 +250,9 @@ function getErrorMessage(error: unknown): string {
  */
 async function commitProperty(name: string, validate: (value: unknown) => string | null): Promise<void> {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
-  const collectionUuid: string = saved.collection.node.data.uuid;
-  const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.data[name]);
-  const previous: unknown = saved.collection.node.data[name];
+  const collectionUuid: string = saved.collection.node.properties.uuid;
+  const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.properties[name]);
+  const previous: unknown = saved.collection.node.properties[name];
 
   if (isSameValue(value, previous)) {
     setFieldState(saved, name, null);
@@ -266,7 +269,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
   }
 
   const pathIndex: number = path.value.length - 1;
-  saved.collection.node.data[name] = value;
+  saved.collection.node.properties[name] = value;
   setFieldState(saved, name, { state: "saving" });
   pendingUpdates.value++;
 
@@ -280,14 +283,14 @@ async function commitProperty(name: string, validate: (value: unknown) => string
     transferDataToListItem(collectionUuid, pathIndex, result);
 
     // A newer value of the same property might be on its way already
-    if (saved.collection.node.data[name] === value) {
+    if (saved.collection.node.properties[name] === value) {
       setFieldState(saved, name, null);
     }
   } catch (error: unknown) {
     const message: string = getErrorMessage(error);
 
-    if (saved.collection.node.data[name] === value) {
-      saved.collection.node.data[name] = previous;
+    if (saved.collection.node.properties[name] === value) {
+      saved.collection.node.properties[name] = previous;
     }
 
     setFieldState(saved, name, { state: "error", message });
@@ -298,16 +301,18 @@ async function commitProperty(name: string, validate: (value: unknown) => string
 }
 
 /**
- * Validates a value against its config and the native constraints of its inputs.
+ * Validates a value against the model (with RAMEN core) and the native constraints of its inputs.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {unknown} value - The value to check.
  * @param {HTMLElement | null} row - The table row with the inputs of the property.
  * @returns {string | null} The validation message, or `null` if the value is valid.
  */
-function validateField(field: PropertyConfig, value: unknown, row: HTMLElement | null): string | null {
-  if (isRequiredValueMissing(value, field)) {
-    return "A value is required.";
+function validateField(field: ModelAttribute, value: unknown, row: HTMLElement | null): string | null {
+  const [modelError] = validateValue(getModelContext(), field, value);
+
+  if (modelError) {
+    return isRequired(field) && isEmptyValue(value) ? "A value is required." : modelError;
   }
 
   const invalidInput: HTMLInputElement | null | undefined = row?.querySelector<HTMLInputElement>("input:invalid");
@@ -328,37 +333,39 @@ function validateLabel(value: unknown): string | null {
 /**
  * Whether a property saves on change instead of on leaving the field, since its value is picked, not typed.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @returns {boolean} Whether the property saves on change.
  */
-function savesOnChange(field: PropertyConfig): boolean {
-  return isBoolean(field) || (Boolean(field.options) && !isArray(field));
+function savesOnChange(field: ModelAttribute): boolean {
+  return (
+    getValueType(getModelContext(), field) === "Boolean" || (getOptions(getModelContext(), field) !== undefined && !isList(field))
+  );
 }
 
 /**
- * Saves an editable property, validated against its config and the inputs in its row.
+ * Saves an editable property, validated against the model and the inputs in its row.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {HTMLElement | null} row - The table row of the property, for the native input constraints.
  * @returns {void} This function does not return any value.
  */
-function commitField(field: PropertyConfig, row: HTMLElement | null): void {
-  if (!field.editable) {
+function commitField(field: ModelAttribute, row: HTMLElement | null): void {
+  if (!isEditable(getModelContext(), field)) {
     return;
   }
 
-  void commitProperty(field.name, (value) => validateField(field, value, row));
+  void commitProperty(field.attribute.name, (value) => validateField(field, value, row));
 }
 
 /**
  * Writes an input value to the draft and saves it right away if the property saves on change.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {unknown} value - The new value.
  * @returns {void} This function does not return any value.
  */
-function handleFieldInput(field: PropertyConfig, value: unknown): void {
-  temporaryWorkData.value.collection.node.data[field.name] = value;
+function handleFieldInput(field: ModelAttribute, value: unknown): void {
+  temporaryWorkData.value.collection.node.properties[field.attribute.name] = value;
 
   // Picked values have no native constraints to check, so no row is needed for validation
   if (savesOnChange(field)) {
@@ -385,11 +392,11 @@ function getFieldStatusIcon(state: FieldSaveState | undefined): string {
 /**
  * Saves the property once the focus leaves its row (not when moving between the inputs of a multi-value property).
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {FocusEvent} event - The focusout event of the row.
  * @returns {void} This function does not return any value.
  */
-function handleFieldFocusOut(field: PropertyConfig, event: FocusEvent): void {
+function handleFieldFocusOut(field: ModelAttribute, event: FocusEvent): void {
   const row: HTMLElement = event.currentTarget as HTMLElement;
 
   if (event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) {
@@ -420,24 +427,24 @@ function handleFieldEnter(event: KeyboardEvent): void {
 function revertProperty(name: string): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
 
-  temporaryWorkData.value.collection.node.data[name] = cloneDeep(saved.collection.node.data[name] ?? null);
+  temporaryWorkData.value.collection.node.properties[name] = cloneDeep(saved.collection.node.properties[name] ?? null);
   setFieldState(saved, name, null);
 }
 
 /**
  * Restores the saved value on Escape and leaves the field.
  *
- * @param {PropertyConfig} field - The property config.
+ * @param {ModelAttribute} field - The attribute.
  * @param {KeyboardEvent} event - The keydown event of the row.
  * @returns {void} This function does not return any value.
  */
-function handleFieldEscape(field: PropertyConfig, event: KeyboardEvent): void {
-  revertProperty(field.name);
+function handleFieldEscape(field: ModelAttribute, event: KeyboardEvent): void {
+  revertProperty(field.attribute.name);
   (event.target as HTMLElement).blur();
 }
 
 function findAnnotationByUuid(uuid: string): Annotation | undefined {
-  const found: Annotation | undefined = annotations.value.find((a) => a.node.data.uuid === uuid);
+  const found: Annotation | undefined = annotations.value.find((a) => a.node.properties.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
@@ -480,10 +487,10 @@ async function saveAnnotation(annotation: Annotation): Promise<boolean> {
  * @returns {void} This function does not return any value.
  */
 function applyPersistedAnnotation(annotation: Annotation): void {
-  const uuid: string = annotation.node.data.uuid;
+  const uuid: string = annotation.node.properties.uuid;
 
   if (annotation.meta.status === "deleted") {
-    annotations.value = annotations.value.filter((a) => a.node.data.uuid !== uuid);
+    annotations.value = annotations.value.filter((a) => a.node.properties.uuid !== uuid);
 
     return;
   }
@@ -491,7 +498,7 @@ function applyPersistedAnnotation(annotation: Annotation): void {
   pruneDeletedNodes(annotation);
   setNodeTreeStatus(annotation, "unchanged");
 
-  const index: number = annotations.value.findIndex((a) => a.node.data.uuid === uuid);
+  const index: number = annotations.value.findIndex((a) => a.node.properties.uuid === uuid);
 
   if (index === -1) {
     annotations.value.push(annotation);
@@ -506,29 +513,33 @@ function applyPersistedAnnotation(annotation: Annotation): void {
  * @returns {void} This function does not return any value.
  */
 function enrichCollectionData(): void {
-  const allPossibleFields: PropertyConfig[] = getAllCollectionConfigFields();
+  const allPossibleFields: ModelAttribute[] = getAllCollectionAttributes();
 
   allPossibleFields.forEach((field) => {
-    if (!(field.name in temporaryWorkData.value.collection.node.data)) {
-      temporaryWorkData.value.collection.node.data[field.name] = field?.required ? getDefaultValueForProperty(field) : null;
+    const name: string = field.attribute.name;
+
+    if (!(name in temporaryWorkData.value.collection.node.properties)) {
+      temporaryWorkData.value.collection.node.properties[name] = isRequired(field)
+        ? getDefaultValue(getModelContext(), field)
+        : null;
     }
   });
 }
 
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
-  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
-  const newAnnotation: Annotation = createAnnotation({ ...data, nodeLabels });
-  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, data.type);
+  const collection: CollectionNode = temporaryWorkData.value.collection.node;
+  const newAnnotation: Annotation = createAnnotation({ ...data, collection });
+  const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation.node);
 
-  if (!config) {
-    console.error(`No annotation config found for type "${data.type}" on Collection with labels ${nodeLabels.join(", ")}`);
+  if (!shape) {
+    console.error(
+      `No annotation shape found for type "${data.type}" on Collection with labels ${collection.nodeLabels.join(", ")}`,
+    );
     return;
   }
 
-  // TODO: Remove "|| true" once annotationHasConstraints() covers Collection annotations
-  // eslint-disable-next-line no-constant-condition -- Safe to delete
-  if (annotationHasConstraints(config) || true) {
-    openAnnotationModal(newAnnotation, config, "create", `Add new ${data.subType ?? data.type} annotation`);
+  if (annotationHasConstraints(shape)) {
+    openAnnotationModal(newAnnotation, "create", `Add new ${data.subType ?? data.type} annotation`);
   } else {
     void saveAnnotation(newAnnotation);
   }
@@ -538,16 +549,15 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
  * Opens the {@linkcode CreateCollectionAnnotationModal}, which saves the annotation itself.
  *
  * @param {Annotation} annotation - The annotation to edit, or the template of a new one.
- * @param {AnnotationType} config - The Collection-scoped annotation config.
  * @param {"create" | "edit"} mode - Whether the annotation is new.
  * @param {string} header - The modal header.
  * @returns {void} This function does not return any value.
  */
-function openAnnotationModal(annotation: Annotation, config: AnnotationType, mode: "create" | "edit", header: string): void {
+function openAnnotationModal(annotation: Annotation, mode: "create" | "edit", header: string): void {
   createModalInstance(
     dialog.open(CreateCollectionAnnotationModal, {
       props: { ...ANNOTATION_MODAL_PROPS, header },
-      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, config, mode },
+      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, mode },
       emits: { onSaved: applyPersistedAnnotation },
       onClose: destroyModalInstance,
     }),
@@ -574,7 +584,7 @@ function handleRemoveAnnotation(uuid: string, event: Event): void {
   confirm.require({
     group: "annotation-remove",
     target: event.currentTarget as HTMLElement,
-    message: `Remove this “${annotation.node.data.subType ?? annotation.node.data.type}” annotation?`,
+    message: `Remove this “${annotation.node.properties.subType ?? annotation.node.properties.type}” annotation?`,
   });
 }
 
@@ -620,28 +630,25 @@ function handleEditAnnotation(uuid: string): void {
     return;
   }
 
-  const nodeLabels: string[] = temporaryWorkData.value.collection.node.nodeLabels;
-
-  const config: AnnotationType | undefined = getCollectionAnnotationConfig(nodeLabels, annotation.node.data.type);
-
-  if (!config) {
+  if (!getAnnotationShape(annotation.node)) {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
-      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
+      detail: `"${annotation.node.properties.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
     });
     return;
   }
 
-  openAnnotationModal(annotation, config, "edit", `Edit ${annotation.node.data.type} annotation`);
+  openAnnotationModal(annotation, "edit", `Edit ${annotation.node.properties.type} annotation`);
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
   const entry: HierarchyEntry | null = findEntryInHierarchy(uuid, index);
 
   if (entry) {
-    entry.data.node.data = data.node.data;
+    entry.data.node.properties = data.node.properties;
     entry.data.node.nodeLabels = data.node.nodeLabels;
+    entry.data.node.classifierRef = data.node.classifierRef;
   }
 }
 </script>
@@ -656,7 +663,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
         <div class="buttons-end flex justify-end gap-1">
           <Button
             as="a"
-            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
+            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.properties.uuid}`"
             target="_blank"
             rel="noopener"
             severity="secondary"
@@ -669,18 +676,18 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 
       <div class="label-section">
         <h3 class="label-heading">
-          <span class="sr-only">{{ temporaryWorkData.collection.node.data.label }}</span>
+          <span class="sr-only">{{ temporaryWorkData.collection.node.properties.label }}</span>
           <RAMENNodeIcon
             v-tooltip.hover.top="{
               value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
               showDelay: 50,
             }"
-            :spec="resolveNodeIcon(temporaryWorkData.collection.node.nodeLabels)"
+            :spec="resolveNodeIcon(temporaryWorkData.collection.node)"
             :size="30"
           />
           <span class="label-input-wrapper">
             <CollectionLabelInput
-              v-model:label="temporaryWorkData.collection.node.data.label"
+              v-model:label="temporaryWorkData.collection.node.properties.label"
               subtle
               @commit="commitProperty('label', validateLabel)"
               @revert="revertProperty('label')"
@@ -698,12 +705,11 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
         <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
           <CollectionAnnotationNote
             v-for="(annotation, index) in annotations"
-            :key="annotation.node.data.uuid"
+            :key="annotation.node.properties.uuid"
             v-model="annotations[index]"
-            :collection-node-labels="temporaryWorkData.collection.node.nodeLabels"
-            :disabled="removalRunning && annotationPendingRemoval === annotation.node.data.uuid"
-            @edit="handleEditAnnotation(annotation.node.data.uuid)"
-            @remove="handleRemoveAnnotation(annotation.node.data.uuid, $event)"
+            :disabled="removalRunning && annotationPendingRemoval === annotation.node.properties.uuid"
+            @edit="handleEditAnnotation(annotation.node.properties.uuid)"
+            @remove="handleRemoveAnnotation(annotation.node.properties.uuid, $event)"
           />
           <div v-if="availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button
@@ -720,7 +726,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
               <template #item="{ item, props: itemProps, hasSubmenu }">
                 <a class="annotation-menu-item flex items-center gap-2" v-bind="itemProps.action">
                   <span class="annotation-menu-icon">
-                    <AnnotationTypeIcon :config="item.annotationConfig" />
+                    <AnnotationTypeIcon :shape="item.annotationShape" />
                   </span>
                   <span>{{ item.label }}</span>
                   <i v-if="hasSubmenu" class="icon-chevron-right ml-auto"></i>
@@ -749,35 +755,38 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
           <table v-if="collectionFields.length > 0" class="properties-table">
             <tr
               v-for="field in collectionFields"
-              :key="field.name"
+              :key="field.attribute.name"
               class="properties-row"
-              :class="{ 'is-multiline': isArray(field) }"
+              :class="{ 'is-multiline': isList(field) }"
               @focusout="handleFieldFocusOut(field, $event)"
               @keydown.enter="handleFieldEnter"
               @keydown.escape="handleFieldEscape(field, $event)"
             >
               <td class="properties-label">
                 <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
-                <label :for="field.name">{{ camelCaseToTitleCase(field.name) }}</label>
+                <label :for="field.attribute.name">{{ camelCaseToTitleCase(field.attribute.name) }}</label>
               </td>
               <td class="properties-value value-with-status">
                 <span
-                  v-if="fieldStates[field.name]"
-                  v-tooltip.top="fieldStates[field.name].message"
+                  v-if="fieldStates[field.attribute.name]"
+                  v-tooltip.top="fieldStates[field.attribute.name].message"
                   class="field-status input-status"
-                  :class="[`is-${fieldStates[field.name].state}`, getFieldStatusIcon(fieldStates[field.name])]"
+                  :class="[
+                    `is-${fieldStates[field.attribute.name].state}`,
+                    getFieldStatusIcon(fieldStates[field.attribute.name]),
+                  ]"
                 ></span>
                 <DataInputGroup
-                  v-if="isArray(field)"
-                  :model-value="temporaryWorkData.collection.node.data[field.name] as ArrayPropertyValue"
-                  :config="field"
+                  v-if="isList(field)"
+                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name] as ArrayPropertyValue"
+                  :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />
                 <DataInputComponent
                   v-else
-                  :model-value="temporaryWorkData.collection.node.data[field.name]"
-                  :config="field"
+                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name]"
+                  :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />

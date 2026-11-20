@@ -33,12 +33,16 @@ if (!Array.isArray(storedSmartViews.value)) {
   storedSmartViews.value = [];
 }
 
-// Views stored without a scope, or with the no longer offered `top` scope, search everywhere
+// Migrates stored views: scopes other than `all`/`descendants` become `all`, `labels` filter rules are dropped
 storedSmartViews.value.forEach((view: SmartView) => {
   const storedKind: string | undefined = (view.config.scope as { kind?: string } | undefined)?.kind;
 
   if (storedKind !== "all" && storedKind !== "descendants") {
     view.config.scope = { kind: "all" };
+  }
+
+  if (Array.isArray(view.config.filters)) {
+    view.config.filters = view.config.filters.filter((rule) => (rule.target as { kind: string }).kind !== "labels");
   }
 });
 

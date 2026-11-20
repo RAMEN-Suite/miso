@@ -21,7 +21,9 @@ const node = defineModel<NodeStatusObject<TextNode>>({ required: true });
 const PREVIEW_LENGTH = 100 as const;
 
 const displayedText = computed<string>(
-  () => node.value.node.data.text.slice(0, PREVIEW_LENGTH) + (node.value.node.data.text.length > PREVIEW_LENGTH ? "..." : ""),
+  () =>
+    node.value.node.properties.text.slice(0, PREVIEW_LENGTH) +
+    (node.value.node.properties.text.length > PREVIEW_LENGTH ? "..." : ""),
 );
 
 const htmlTitle = computed<string>(() => {
@@ -31,7 +33,7 @@ const htmlTitle = computed<string>(() => {
 // A created node does not exist in the database yet, so there is nothing to open in the Editor
 const isCreated = computed<boolean>(() => node.value.meta.status === "created");
 
-const href = computed<string | null>(() => (isCreated.value ? null : `/contents/${node.value.node.data.uuid}`));
+const href = computed<string | null>(() => (isCreated.value ? null : `/contents/${node.value.node.properties.uuid}`));
 </script>
 
 <template>

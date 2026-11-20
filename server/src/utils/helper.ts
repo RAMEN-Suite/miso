@@ -6,14 +6,19 @@ import {
   FilterTarget,
   HierarchyQuery,
   HierarchyScope,
-  NodeStatusObject,
-  PropertyConfig,
+  ElementGraph,
+  ModelAttribute,
+  ModelContext,
 } from "../models/types.js";
 import { parseFilterSpec, parseFilterTarget } from "./filter.js";
-import { isArray, isInteger, isObject } from "./propertyType.js";
+import { getValueType, isList, isRequired } from "./modelHelper.js";
+import { isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
+import { env } from "../env.js";
+import { AttributeValueType } from "./ramen.js";
+import { isPlainObject } from "./selector.js";
 
 /**
  * Capitalizes the first letter of a given string.
@@ -136,32 +141,33 @@ export function parseUuidListFrom(source: Record<string, unknown>, key: string, 
 }
 
 /**
- * Parses a node status object from a request body.
+ * Parses a write payload: nodes and relations in the element format. Their content is checked by `toNodeChanges`.
  *
- * @param {Request} req - The express request object.
- * @returns {string} The parsed node status object.
- * @throws {ValidationError} If the `data` field is missing or malformed.
+ * @param {unknown} raw - The payload.
+ * @returns {ElementGraph} The payload.
+ * @throws {ValidationError} If `nodes` or `relations` is missing.
  */
-export function parseNodeStatusObject(req: Request): NodeStatusObject {
-  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+export function parseWritePayload(raw: unknown): ElementGraph {
+  const payload = (raw ?? {}) as Partial<ElementGraph>;
 
-  if (!body.data || typeof body.data !== "object") {
-    throw new ValidationError("`data` is required.");
+  if (!Array.isArray(payload.nodes) || !Array.isArray(payload.relations)) {
+    throw new ValidationError("The payload needs `nodes` and `relations` lists.");
   }
 
-  return body.data as NodeStatusObject;
+  return payload as ElementGraph;
 }
 
 /**
- *  Parses the `POST /nodes` request body into a valid combination of uuid and `NodeStatusObject`.
+ *  Parses the `POST /nodes` request body into the uuid of the created/added node and the write payload.
  *
  * @param {Request} req - The express request object.
- * @returns The parsed uuid and node status object.
+ * @returns The parsed uuid and write payload.
  * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
  */
-export function parseCreateNodePayload(req: Request): { uuid: string; data: NodeStatusObject } {
-  const uuid: string = parseUuidFrom((req.body ?? {}) as Record<string, unknown>, ["uuid"]);
-  const data: NodeStatusObject = parseNodeStatusObject(req);
+export function parseCreateNodePayload(req: Request): { uuid: string; data: ElementGraph } {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+  const uuid: string = parseUuidFrom(body, ["uuid"]);
+  const data: ElementGraph = parseWritePayload(body.data);
 
   return { uuid, data };
 }
@@ -248,21 +254,26 @@ export function parseSortDirection(order: unknown): "asc" | "desc" {
  * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
  * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
  *
- * The property allowlist is passed in rather than read here: it comes from the guidelines, and
- * reading it in this module would make the low-level helpers depend on a service that depends on
+ * The model context and the property allowlist are passed in rather than read here: they come from the config
+ * service, and reading them in this module would make the low-level helpers depend on a service that depends on
  * them.
  *
  * @param {Request} req - The express request object.
- * @param {Map<string, PropertyConfig>} properties - Filterable properties, from `filterableProperties`.
+ * @param {ModelContext} context - The model context, for the value types of the properties.
+ * @param {Map<string, ModelAttribute>} properties - Filterable properties, from `filterableProperties`.
  * @returns {HierarchyQuery} The parsed hierarchy query.
  * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
- * @throws {UnknownFilterFieldError} If a filter or the sort names a property the guidelines do not define.
+ * @throws {UnknownFilterFieldError} If a filter or the sort names a property the model does not define.
  */
-export function parseHierarchyQuery(req: Request, properties: Map<string, PropertyConfig>): HierarchyQuery {
+export function parseHierarchyQuery(
+  req: Request,
+  context: ModelContext,
+  properties: Map<string, ModelAttribute>,
+): HierarchyQuery {
   const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
 
   const scope: HierarchyScope = parseHierarchyScope(body.scope);
-  const filters: FilterSpec = parseFilterSpec(body.filters, properties);
+  const filters: FilterSpec = parseFilterSpec(context, body.filters, properties);
   const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
   const order: "asc" | "desc" = parseSortDirection(body.order);
   const limit: number = parsePaginationLimit(body.limit);
@@ -293,69 +304,24 @@ function parsePaginationLimit(rawLimit: unknown): number {
 }
 
 /**
- * Checks if a given file name is a valid configuration file.
- *
- * Currently used to validate the provided file name for guidelines when the provided URL
- * is not a valid HTTP URL, to prevent path traversal and only allow JSON files in the config directory.
- *
- * @param {string} fileName The file name (maybe including a path) to check.
- * @return {boolean} True if the file name is a valid configuration file, false otherwise.
- */
-export function isValidConfigFile(fileName: string): boolean {
-  // No path traversal should be allowed, only the file name
-  if (fileName.includes("/") || fileName.includes("..")) {
-    return false;
-  }
-
-  // Files in the directry is JSON (guidelines), so only these should be allowed
-  if (!fileName.endsWith(".json")) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Checks if a given string is a valid HTTP URL.
- *
- * Currently only used to determine whether the provided URLs for
- * guidelines are a remote URL that needs to be fetched
- * or a local file path that can be read from the file system directly.
- *
- * @param {string} string The string to check.
- * @return {boolean} True if the string is a valid HTTP URL, false otherwise.
- */
-export function isValidHttpUrl(string: string): boolean {
-  try {
-    const newUrl: URL = new URL(string);
-
-    return newUrl.protocol === "http:" || newUrl.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Resolves the base URL of a per-project external tool from the environment.
  *
  * The tool name is looked up in the `TOOL_URL_MAPPING` whitelist to find the
  * environment variable holding its base URL. Only known tool names resolve, so arbitrary environment
- * variables cannot be probed via the request path.
+ * variables cannot be probed via the request path. The URL itself is checked at startup.
  *
  * @param {string} toolName - The name of the tool as provided in the request path.
- * @throws {NotFoundError} If the tool name is unknown or no valid URL is configured for it.
+ * @throws {NotFoundError} If the tool name is unknown or no URL is configured for it.
  * @return {string} The configured base URL of the tool.
  */
 export function getToolUrl(toolName: string): string {
-  const envKey: string | undefined = TOOL_URL_MAPPING[toolName];
-
-  if (!envKey) {
+  if (!Object.prototype.hasOwnProperty.call(TOOL_URL_MAPPING, toolName)) {
     throw new NotFoundError(`Unknown tool: "${toolName}"`);
   }
 
-  const url: string | undefined = process.env[envKey];
+  const url: string | undefined = env[TOOL_URL_MAPPING[toolName]];
 
-  if (!url || !isValidHttpUrl(url)) {
+  if (!url) {
     throw new NotFoundError(`No URL is configured for tool "${toolName}"`);
   }
 
@@ -405,58 +371,104 @@ export function valueToNativeType(value: unknown): unknown {
 }
 
 /**
- * Convert JavaScript types back into Neo4j Properties, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
+ * Convert JavaScript types back into Neo4j Properties, using the attributes of the model. This conversion direction
+ * uses the attributes since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. integers and floats are both numbers in JavaScript).
  *
- * @param {object} properties
- * @param {PropertyConfig[]} fields
+ * @param {ModelContext} context - The model context.
+ * @param {object} properties - The properties to convert.
+ * @param {ModelAttribute[]} fields - The attributes of the node, matched by name.
  * @return {Record<string, unknown>}
  */
-export function toNeo4jTypes(properties: object, fields: PropertyConfig[]): Record<string, unknown> {
+export function toNeo4jTypes(context: ModelContext, properties: object, fields: ModelAttribute[]): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
-      const config: PropertyConfig | undefined = fields.find((field) => field.name === key);
-      const value: unknown = valueToNeo4jType(rawValue, config);
+      const entry: ModelAttribute | undefined = fields.find((field) => field.attribute.name === key);
+      const value: unknown = valueToNeo4jType(context, rawValue, entry);
 
       return [key, value];
     }),
   );
 }
 
+/** The annotation property that holds the selector */
+const SELECTOR_PROPERTY = "selector";
+
 /**
- * Convert an individual value to its Neo4j equivalent, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
+ * Neo4j can't store objects as properties, so a selector is stored as JSON string.
+ *
+ * @param {Record<string, unknown>} properties - The node's properties with native values.
+ * @returns {Record<string, unknown>} The properties with the selector as JSON string.
+ */
+export function toStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const selector: unknown = properties[SELECTOR_PROPERTY];
+
+  return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: JSON.stringify(selector) } : properties;
+}
+
+/**
+ * Parses a selector stored as JSON string. A string that isn't a JSON object is kept, so the selector check reports it.
+ *
+ * @param {Record<string, unknown>} properties - The node's properties as stored.
+ * @returns {Record<string, unknown>} The properties with the selector as object.
+ */
+export function fromStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const stored: unknown = properties[SELECTOR_PROPERTY];
+
+  if (typeof stored !== "string") {
+    return properties;
+  }
+
+  try {
+    const selector: unknown = JSON.parse(stored);
+
+    return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: selector } : properties;
+  } catch {
+    return properties;
+  }
+}
+
+/**
+ * Convert an individual value to its Neo4j equivalent, using its model attribute. This conversion direction
+ * uses the attribute since the desired neo4j data type can not always be inferred from the JavaScript type
  * (e.g. integers and floats are both numbers in JavaScript).
  *
  * Objects can not be stored as Neo4j properties, so a property of type `Object` only accepts an empty value for now.
  *
- * @param {unknown} value
- * @param {Partial<PropertyConfig> | undefined} config
+ * @param {ModelContext} context - The model context.
+ * @param {unknown} value - The value to convert.
+ * @param {ModelAttribute | undefined} entry - The attribute of the value. Values without one are kept as they are.
+ * @param {boolean} [asItem] - The value is one item of a list attribute, not the whole list.
  * @returns {unknown}
  * @throws {ValidationError} If a value is given for a property of type `Object`.
  */
-function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | undefined): unknown {
+function valueToNeo4jType(
+  context: ModelContext,
+  value: unknown,
+  entry: ModelAttribute | undefined,
+  asItem: boolean = false,
+): unknown {
   // TODO: How handle empty string?
-  // TODO: This is the case for non-customizable properties (uuid, start/endIndex etc.). Keep or handle better?
-  if (!config) {
+  // TODO: This is the case for non-customizable properties (uuid, selector, editor fields etc.). Keep or handle better?
+  if (!entry) {
     return value;
   }
 
-  const isRequired: boolean = config?.required ?? true;
+  // Items of a list are dropped below when they are empty, so they count as required here
+  const required: boolean = asItem || isRequired(entry);
   const valueIsNull: boolean = value === null || value === undefined;
 
   // This can be applied to all data types - if the value does not exist and is not needed, it doesnt need to be set
-  if (valueIsNull && !isRequired) {
+  if (valueIsNull && !required) {
     return null;
   }
 
   // Call function recursively when needed if data type is array
-  if (isArray(config)) {
+  if (isList(entry) && !asItem) {
     const items: unknown[] = Array.isArray(value) ? value : [];
 
     if (items.length === 0) {
-      if (isRequired) {
+      if (required) {
         return [];
       } else {
         return null;
@@ -464,14 +476,16 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     } else {
       return (
         items
-          .map((innerValue: unknown) => valueToNeo4jType(innerValue, config.items))
+          .map((innerValue: unknown) => valueToNeo4jType(context, innerValue, entry, true))
           // This is needed since arrays with null values (e.g. [1, 2, null, 4]) are not allowed as node properties)
           .filter((v: unknown) => v !== null && v !== undefined)
       );
     }
   }
 
-  if (isInteger(config)) {
+  const valueType: AttributeValueType = getValueType(context, entry);
+
+  if (isInteger(valueType)) {
     if (valueIsNull) {
       if (!isRequired) {
         return null;
@@ -481,15 +495,15 @@ function valueToNeo4jType(value: unknown, config: Partial<PropertyConfig> | unde
     } else {
       return types.Integer.fromValue(value as number | string);
     }
-  } else if (isObject(config)) {
+  } else if (isObject(valueType)) {
     if (valueIsNull) {
       return null;
     } else {
-      throw new ValidationError(`Property "${config.name}" is of type Object, which can not be stored yet.`);
+      throw new ValidationError(`Property "${entry.attribute.name}" is of type Object, which can not be stored yet.`);
     }
   } else {
-    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates, date times
-    // and times are kept as raw strings (`YYYY-MM-DD`, ISO 8601, `HH:mm:ss`) instead of Neo4j temporals
+    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates and date times
+    // are kept as raw strings (`YYYY-MM-DD`, ISO 8601) instead of Neo4j temporals
     return value;
   }
 }

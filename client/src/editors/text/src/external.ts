@@ -4,7 +4,7 @@
  * editor is its own package.
  */
 
-export { useGuidelinesStore } from "../../../store/guidelines";
+export { useConfigStore } from "../../../store/config";
 export {
   cloneDeep,
   createNodeStatusObjectFromRawData,
@@ -12,15 +12,16 @@ export {
   pruneUnconfiguredProperties,
   setNodeTreeStatus,
 } from "../../../utils/helper/helper";
-export { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
+export { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
+export { createTextPositionSelector } from "../../../utils/helper/selector";
 
 export type { IAnnotation } from "../../../models/IAnnotation";
+export type { TextPositionSelector } from "../../../utils/helper/selector";
 export type {
   Annotation,
   AnnotationAppearance,
   AnnotationExtent,
   AnnotationNode,
-  AnnotationType,
   AppearanceOverride,
   BuiltinStructuralType,
   HighlightTextStyle,
@@ -30,6 +31,5 @@ export type {
   NodeDto,
   NodeStatus,
   NodeStatusObject,
-  PropertyConfig,
   TextAnnotationRepresentation,
 } from "../../../models/types";

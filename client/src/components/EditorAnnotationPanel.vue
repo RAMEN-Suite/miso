@@ -37,7 +37,7 @@ const annotationsInSelection = computed<Annotation[]>(() => {
 
 /** Whether at least one annotation in the selection passes the type filter and is rendered as a card. */
 const hasVisibleAnnotations = computed<boolean>(() =>
-  annotationsInSelection.value.some((annotation) => isTypeSelected(annotation.node.data.type)),
+  annotationsInSelection.value.some((annotation) => isTypeSelected(annotation.node.properties.type)),
 );
 
 /**
@@ -92,14 +92,14 @@ function setCardCollapsed(uuid: string, value: boolean): void {
         <small v-if="annotationsInSelection.length === 0">No annotations in the current selection</small>
         <small v-else>All annotations in the current selection are hidden by the filter</small>
       </div>
-      <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">
+      <template v-for="annotation in annotationsInSelection" :key="annotation.node.properties.uuid">
         <EditorAnnotationPreviewCard
-          v-if="isTypeSelected(annotation.node.data.type)"
+          v-if="isTypeSelected(annotation.node.properties.type)"
           :annotation="annotation"
-          :collapsed="isCardCollapsed(annotation.node.data.uuid)"
-          @update:collapsed="setCardCollapsed(annotation.node.data.uuid, $event)"
+          :collapsed="isCardCollapsed(annotation.node.properties.uuid)"
+          @update:collapsed="setCardCollapsed(annotation.node.properties.uuid, $event)"
         />
-        <div v-if="annotation.node.data.type === 'paragraph'">Paragraph</div>
+        <div v-if="annotation.node.properties.type === 'paragraph'">Paragraph</div>
       </template>
     </div>
   </div>

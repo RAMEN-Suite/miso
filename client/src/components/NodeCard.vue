@@ -23,7 +23,7 @@ const props = withDefaults(
 const node = defineModel<NodeStatusObject>("node", { required: true });
 const emit = defineEmits<(e: "remove-node") => void>();
 
-const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node));
 const iconTooltip = computed<string>(() => filterBaseNodeLabels(node.value.node.nodeLabels).join(", "));
 
 const hasVisibleBadge = computed<boolean>(() => props.showBadge && node.value.meta.status !== "unchanged");

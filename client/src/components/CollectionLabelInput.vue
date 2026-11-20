@@ -72,6 +72,7 @@ function handleInput(event: Event): void {
 </script>
 
 <template>
+  <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- Eslint only recognizes literal tabindex values, the dynamic one is 0 when enabled -->
   <span
     v-contenteditable="label"
     class="label-text"

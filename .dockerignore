@@ -1,0 +1,14 @@
+# Patterns are relative to the build context (the repository root): ** also excludes client/ and server/ copies.
+**/node_modules
+**/dist
+**/*.log
+.git
+**/.env
+**/.env.*
+**/build
+**/.angular
+**/coverage
+**/logs
+# Local dev data of compose.yml (neo4j volumes, mounted config)
+/neo4j
+/config

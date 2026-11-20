@@ -20,7 +20,7 @@
     "url": ""
   },
   "author": "Maximilian Michel",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@ramen-suite/core": "^0.1.0",
     "cors": "^2.8.5",

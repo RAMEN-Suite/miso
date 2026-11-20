@@ -1,10 +1,15 @@
 neo4j/data
 neo4j/backups
+neo4j/plugins
+neo4j/import
 nginx/.htpasswd
 .claude
 scripts
 backups
 /config
+
+# Scan results when running trivy, gitleaks or semgrep locally
+*.sarif
 
 # Vitest reports and artifacts
 .vitest/
@@ -269,3 +274,4 @@ fabric.properties
 # End of https://www.toptal.com/developers/gitignore/api/node,webstorm+all,visualstudiocode
 
 !eslint.config.js
+!commitlint.config.js

@@ -31,6 +31,7 @@ export default class Neo4jDriver {
    */
   public static async createDatabaseConnection(): Promise<Driver> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment -- neo4j-driver declares `Config` as a class, but its API takes a plain object
       this.instance = neo4j.driver(env.NEO4J_URI, neo4j.auth.basic(env.NEO4J_USER, env.NEO4J_PW), {
         disableLosslessIntegers: true,
       });
@@ -73,6 +74,7 @@ export default class Neo4jDriver {
    */
   public static async runQuery(query: string, params?: Record<string, unknown>): Promise<QueryResult> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment -- neo4j-driver declares `SessionConfig` as a class, but its API takes a plain object
       const session: Session = this.instance.session({
         database: env.DATABASE_NAME,
       });
@@ -100,6 +102,7 @@ export default class Neo4jDriver {
    * @throws {AppError} The error the work threw (e.g. a `ValidationError`), or a database error.
    */
   public static async commitOrRollback<T>(work: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment -- neo4j-driver declares `SessionConfig` as a class, but its API takes a plain object
     const session: Session = this.instance.session({ database: env.DATABASE_NAME });
 
     try {

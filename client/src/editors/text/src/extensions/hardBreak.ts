@@ -223,7 +223,6 @@ export const AnnotatedHardBreak = HardBreak.extend<AnnotatedHardBreakOptions>({
           },
           handleDOMEvents: {
             mousedown(_view: EditorView, event: MouseEvent) {
-              console.log(event.button);
               // Only the primary (left) button opens the modal, so the context menu still works on the marker
               if (event.button !== 0) {
                 return false;

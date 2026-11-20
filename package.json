@@ -1,0 +1,16 @@
+{
+  "name": "miso-workspace",
+  "description": "Repo-level tooling for the Miso repository.",
+  "private": true,
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
+    "commit-and-tag-version": "^12.7.3",
+    "generate-license-file": "^4.2.5"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "release": "commit-and-tag-version"
+  }
+}

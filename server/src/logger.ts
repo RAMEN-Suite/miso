@@ -85,12 +85,16 @@ const allTransports = [
  * @returns {winston.transport[]} The transports to use.
  */
 function getTransports(mode: Env["NODE_ENV"]): winston.transport[] {
+  // The rule can't match winston's transport typings to the `TransportStream` class, although all are real instances
   if (mode === "development") {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
     return allTransports.filter((t) => t instanceof winston.transports.Console);
   } else if (mode === "production") {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
     return allTransports.filter((t) => t instanceof winston.transports.DailyRotateFile);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
   return allTransports;
 }
 

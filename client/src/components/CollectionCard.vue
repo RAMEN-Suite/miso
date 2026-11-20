@@ -11,9 +11,12 @@ const props = withDefaults(
   defineProps<{
     mode: "edit" | "view";
     showBadge?: boolean;
+    /** Locks the remove button temporarily, e.g. while a request is pending */
+    disabled?: boolean;
   }>(),
   {
     showBadge: true,
+    disabled: false,
   },
 );
 
@@ -37,6 +40,7 @@ function togglePopover(event: MouseEvent): void {
     v-model:node="node"
     :mode="props.mode"
     :show-badge="props.showBadge"
+    :disabled="props.disabled"
     :href="`/collections/${node.node.properties.uuid}`"
     :title="htmlTitle"
     @remove-node="emit('remove-node')"

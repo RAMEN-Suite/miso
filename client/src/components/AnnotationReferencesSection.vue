@@ -40,6 +40,8 @@ const props = defineProps<{
   /** The annotation whose references these are. Its annotation type decides which node types can be added. */
   annotation: AnnotationNode;
   mode: "edit" | "view";
+  /** Locks adding and removing references temporarily, e.g. while a request is pending */
+  disabled?: boolean;
 }>();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
@@ -199,18 +201,21 @@ function handleAddNodeClick(event: PointerEvent): void {
         v-if="isEntity(node)"
         v-model="nodes![index] as NodeStatusObject<EntityNode>"
         :mode="props.mode"
+        :disabled="props.disabled"
         @remove-node="handleRemoveNode(node)"
       />
       <TextCard
         v-else-if="isContent(node)"
         v-model="nodes![index] as NodeStatusObject<TextNode>"
         :mode="props.mode"
+        :disabled="props.disabled"
         @remove-node="handleRemoveNode(node)"
       />
       <CollectionCard
         v-else-if="isCollection(node)"
         v-model="nodes![index] as NodeStatusObject<CollectionNode>"
         :mode="props.mode"
+        :disabled="props.disabled"
         @remove-node="handleRemoveNode(node)"
       />
     </template>
@@ -226,7 +231,7 @@ function handleAddNodeClick(event: PointerEvent): void {
     severity="secondary"
     aria-haspopup="true"
     aria-controls="references_overlay_menu"
-    :disabled="addMenuItems.length === 0"
+    :disabled="props.disabled || addMenuItems.length === 0"
     :title="addMenuItems.length > 0 ? 'Add new reference' : 'No more references allowed for this annotation type'"
     @click="handleAddNodeClick"
   />

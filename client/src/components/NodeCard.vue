@@ -14,9 +14,12 @@ const props = withDefaults(
     href: string | null;
     title: string;
     showBadge?: boolean;
+    /** Locks the remove button temporarily, e.g. while a request is pending */
+    disabled?: boolean;
   }>(),
   {
     showBadge: true,
+    disabled: false,
   },
 );
 
@@ -86,6 +89,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
         severity="danger"
         class="ml-auto"
         title="Remove reference"
+        :disabled="props.disabled"
         @click="handleRemoveNode"
       ></Button>
     </div>

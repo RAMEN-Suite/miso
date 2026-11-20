@@ -8,9 +8,12 @@ const props = withDefaults(
   defineProps<{
     mode: "edit" | "view";
     showBadge?: boolean;
+    /** Locks the remove button temporarily, e.g. while a request is pending */
+    disabled?: boolean;
   }>(),
   {
     showBadge: true,
+    disabled: false,
   },
 );
 
@@ -41,6 +44,7 @@ const href = computed<string | null>(() => (isCreated.value ? null : `/contents/
     v-model:node="node"
     :mode="props.mode"
     :show-badge="props.showBadge"
+    :disabled="props.disabled"
     :href="href"
     :title="isCreated ? 'Text is created once the changes are saved' : htmlTitle"
     @remove-node="emit('remove-node')"

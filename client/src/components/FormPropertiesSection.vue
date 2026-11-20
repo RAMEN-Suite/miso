@@ -14,6 +14,8 @@ const props = defineProps<{
   /** The model attributes to show, in order */
   fields: ModelAttribute[];
   mode?: "edit" | "view";
+  /** Locks all inputs temporarily, e.g. while a request is pending */
+  disabled?: boolean;
 }>();
 
 const context: ModelContext = useConfigStore().getModelContext();
@@ -54,8 +56,15 @@ function displayValue(field: ModelAttribute): string {
             v-model="properties[field.attribute.name]"
             :attribute="field"
             :mode="props.mode"
+            :disabled="props.disabled"
           />
-          <DataInputComponent v-else v-model="properties[field.attribute.name]" :attribute="field" :mode="props.mode" />
+          <DataInputComponent
+            v-else
+            v-model="properties[field.attribute.name]"
+            :attribute="field"
+            :mode="props.mode"
+            :disabled="props.disabled"
+          />
         </td>
       </tr>
     </table>

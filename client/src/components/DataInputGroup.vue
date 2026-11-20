@@ -11,6 +11,8 @@ const props = defineProps<{
   /** The model attribute (a list attribute) the values belong to */
   attribute: ModelAttribute;
   mode?: "edit" | "view";
+  /** Locks the inputs and item buttons temporarily, e.g. while a request is pending */
+  disabled?: boolean;
 }>();
 
 const context: ModelContext = useConfigStore().getModelContext();
@@ -72,7 +74,13 @@ function handleDeleteItem(itemIndex: number): void {
   <div class="w-full">
     <template v-if="modelValue">
       <div v-for="(_, index) in modelValue" :key="index" class="flex gap-1 items-center">
-        <DataInputComponent v-model="modelValue[index]" :attribute="props.attribute" item :mode="props.mode" />
+        <DataInputComponent
+          v-model="modelValue[index]"
+          :attribute="props.attribute"
+          item
+          :mode="props.mode"
+          :disabled="props.disabled"
+        />
         <Button
           v-if="isEditable"
           title="Delete item"
@@ -81,7 +89,7 @@ function handleDeleteItem(itemIndex: number): void {
           outlined
           icon="icon-x"
           size="small"
-          :disabled="itemCount <= minItems"
+          :disabled="props.disabled || itemCount <= minItems"
           @click="handleDeleteItem(index)"
         />
       </div>
@@ -93,7 +101,7 @@ function handleDeleteItem(itemIndex: number): void {
       size="small"
       severity="secondary"
       label="Add item"
-      :disabled="maxItems !== undefined && itemCount >= maxItems"
+      :disabled="props.disabled || (maxItems !== undefined && itemCount >= maxItems)"
       :title="`Add new ${getValueType(context, props.attribute)} item`"
       @click="handleAddItem"
     />

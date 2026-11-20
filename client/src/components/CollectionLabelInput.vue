@@ -6,10 +6,13 @@ withDefaults(
     placeholder?: string;
     /** Shows the dashed border only on hover or focus. */
     subtle?: boolean;
+    /** Makes the label read-only and unfocusable temporarily, e.g. while a request is pending */
+    disabled?: boolean;
   }>(),
   {
     placeholder: "No label provided",
     subtle: false,
+    disabled: false,
   },
 );
 
@@ -72,11 +75,12 @@ function handleInput(event: Event): void {
   <span
     v-contenteditable="label"
     class="label-text"
-    :class="{ 'is-subtle': subtle }"
-    contenteditable="true"
+    :class="{ 'is-subtle': subtle, 'is-disabled': disabled }"
+    :contenteditable="disabled ? 'false' : 'true'"
     role="textbox"
-    tabindex="0"
+    :tabindex="disabled ? -1 : 0"
     aria-multiline="false"
+    :aria-disabled="disabled"
     :data-placeholder="placeholder"
     @input="handleInput"
     @blur="emit('commit')"
@@ -113,6 +117,13 @@ function handleInput(event: Event): void {
 
 .label-text[contenteditable="true"]:hover {
   border-color: var(--middle-green);
+}
+
+.label-text.is-disabled {
+  border-style: dashed;
+  border-color: var(--dark-green);
+  opacity: var(--p-disabled-opacity, 0.6);
+  cursor: default;
 }
 
 .label-text.is-subtle:not(:hover, :focus) {

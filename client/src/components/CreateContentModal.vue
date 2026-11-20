@@ -108,6 +108,7 @@ async function handleSubmit() {
         class="w-full"
         rows="6"
         placeholder="Add some text"
+        :disabled="isLoading"
         autofocus
       />
       <!-- eslint-enable vuejs-accessibility/no-autofocus -->

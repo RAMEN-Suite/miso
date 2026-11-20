@@ -119,12 +119,19 @@ async function handleSubmit(): Promise<void> {
 <template>
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content px-1">
-      <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.properties" :fields="propertyFields" mode="edit" />
+      <FormPropertiesSection
+        ref="propertiesSection"
+        v-model="annotation.node.properties"
+        :fields="propertyFields"
+        mode="edit"
+        :disabled="isLoading"
+      />
       <AnnotationReferencesSection
         ref="referencesSection"
         v-model="annotation.connectedNodes"
         :annotation="annotation.node"
         mode="edit"
+        :disabled="isLoading"
       />
     </div>
 

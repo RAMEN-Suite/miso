@@ -689,6 +689,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
             <CollectionLabelInput
               v-model:label="temporaryWorkData.collection.node.properties.label"
               subtle
+              :disabled="fieldStates.label?.state === 'saving'"
               @commit="commitProperty('label', validateLabel)"
               @revert="revertProperty('label')"
             />

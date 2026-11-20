@@ -247,11 +247,12 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
 
 // A changed first-column listing (e.g. tag removed under a tag root) clears the selection like a filter change.
 // Not on the initial run (remount keeps the selection), not for deeper columns (their scope changes by navigation).
+// The root is watched too: two smart views can share a scope but differ in their filter preset.
 watch(
-  scope,
-  (newScope: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> | undefined => {
+  [scope, root],
+  ([newScope, newRoot], [oldScope, oldRoot]): Promise<void> | undefined => {
     // Recomputed without an actual change (e.g. another tag was edited)
-    if (oldScope && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
+    if (oldScope && newRoot === oldRoot && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
       return;
     }
 

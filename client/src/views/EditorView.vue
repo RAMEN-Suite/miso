@@ -28,6 +28,8 @@ import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
 import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
+import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
+import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -51,6 +53,8 @@ const {
 } = useTiptapStore();
 
 const { getAnnotationType } = useConfigStore();
+const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
+const { insertLineBreak } = useInsertLineBreak();
 
 onUnmounted(() => destroyTiptap());
 
@@ -436,7 +440,10 @@ watch(
 
     const standoffObject = { text: text.value.properties.text, annotations: fetchedAnnotations };
 
-    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject);
+    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
+      onHardBreakMarkerClick: openStructuralAnnotationEditor,
+      onHardBreakShortcut: insertLineBreak,
+    });
 
     isLoading.value = false;
 

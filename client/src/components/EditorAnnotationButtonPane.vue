@@ -5,6 +5,7 @@ import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
 import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";
 import { useAppStore } from "../store/app";
@@ -43,6 +44,7 @@ const { addToastMessage, createModalInstance, destroyModalInstance } = useAppSto
 const { selectedOptions } = useFilterStore();
 const { tiptap } = useTiptapStore();
 const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
+const { insertLineBreak } = useInsertLineBreak();
 
 const selectedTab = ref<"annotations" | "structure">("structure");
 
@@ -482,7 +484,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
             v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
             v-bind="structureButtonProps"
             icon="icon-text-wrap"
-            @click="tiptap?.chain().focus().setHardBreak().run()"
+            @click="insertLineBreak()"
           >
           </Button>
           <template v-if="blockClassificationTypes.length > 0">

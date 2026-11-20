@@ -4,19 +4,12 @@ import { useTiptapStore } from "../store/tiptap";
 import Panel from "primevue/panel";
 import Menu from "primevue/menu";
 import { MenuItem } from "primevue/menuitem";
-import { useDialog } from "primevue";
-import { Annotation, NodeStatus, ModelAttribute } from "../models/types.ts";
-import { type ToCItem, findNodePosByUuid, toAnnotation } from "../editors/text/src";
-import { useConfigStore } from "../store/config.ts";
-import { useAppStore } from "../store/app.ts";
-import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
+import { type ToCItem, findNodePosByUuid } from "../editors/text/src";
+import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import EditorToCItem from "./EditorToCItem.vue";
-import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 
-const { tiptap, tableOfContent, initialStructuralAnnotations } = useTiptapStore();
-const { getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useConfigStore();
-const { createModalInstance, destroyModalInstance } = useAppStore();
-const dialog: ReturnType<typeof useDialog> = useDialog();
+const { tiptap, tableOfContent } = useTiptapStore();
+const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 
 const expandedKeys = ref<Set<string>>(new Set());
 
@@ -62,62 +55,15 @@ function handleNodeClick(node: ToCItem) {
  */
 function handleOpenMenu(event: Event, item: ToCItem): void {
   menuItems.value = [
-    { label: "Edit", icon: "icon-pencil", title: "Show and edit details", command: () => handleEditClick(item) },
+    {
+      label: "Edit",
+      icon: "icon-pencil",
+      title: "Show and edit details",
+      command: () => openStructuralAnnotationEditor(item.key),
+    },
   ];
 
   menu.value?.toggle(event);
-}
-
-/**
- * Opens the {@linkcode AnnotationDetailsModal} for the annotation of the given item's node. On submit, the edited
- * annotation is stored in the node's `_annotation` attribute, so the change is part of the document (and undoable).
- *
- * Editor-owned properties (e.g. heading level, cell spans) are left out of the form, since they are edited in the
- * editor itself and taken from the node on save.
- *
- * @param {ToCItem} item - The item whose annotation should be shown and edited
- * @returns {void} This function does not return any value.
- */
-function handleEditClick(item: ToCItem): void {
-  const type: string = item.data.type;
-  if (!isStructuralType(type)) {
-    console.error(`"${type}" is no structural annotation type.`);
-    return;
-  }
-
-  // The key is the node's position for nodes without uuid (see ToCItem type). Such a node can't be matched when the
-  // edited annotation is written back, so the edit would be lost. Unlikely though
-  if (!tiptap.value || findNodePosByUuid(tiptap.value.state.doc, item.key) === null) {
-    console.warn(`The annotation of "${type}" can't be edited, since its node has no uuid yet`);
-    return;
-  }
-
-  const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
-  const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
-
-  const status: NodeStatus = initialStructuralAnnotations.value?.has(item.key) ? "unchanged" : "created";
-  const annotation: Annotation = toAnnotation(item.data._annotation, status);
-
-  createModalInstance(
-    dialog.open(AnnotationDetailsModal, {
-      props: {
-        ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${type} annotation`,
-      },
-      data: {
-        annotation,
-        propertyFields: getTextAnnotationProperties(type).filter(isEditableInForm),
-        mode: "edit",
-      },
-      emits: {
-        onSubmit: (updated: Annotation) => {
-          tiptap.value?.commands.updateStructuralAnnotation(item.key, updated);
-          destroyModalInstance();
-        },
-      },
-      onClose: destroyModalInstance,
-    }),
-  );
 }
 </script>
 

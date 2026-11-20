@@ -13,6 +13,7 @@ import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
 import {
   type BlockClassificationRange,
+  type ExtensionOptions,
   type StandoffParseIssue,
   type ToCItem,
   StandoffConverter,
@@ -117,10 +118,16 @@ function hasUnsavedChanges(): boolean {
  * Parses the given standoff document and creates the tiptap editor from it.
  *
  * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
+ * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut">} lineBreakHandlers - What happens on
+ *   a click on a line break's `¬` and on the line break shortcuts. Passed in since they open modals, which needs a
+ *   component's setup.
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
-function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
-  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance });
+function initializeTiptap(
+  standoffObject: { text: string; annotations: NodeDto[] },
+  lineBreakHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut"> = {},
+): StandoffParseIssue[] {
+  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance, ...lineBreakHandlers });
 
   const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();

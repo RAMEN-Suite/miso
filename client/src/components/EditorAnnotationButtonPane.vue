@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
-import { AnnotationType, NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
+import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";
 import { useAppStore } from "../store/app";
@@ -27,6 +28,7 @@ import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
+import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
@@ -34,14 +36,15 @@ type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 const {
   groupedAndSortedAnnotationTypes,
   annotationHasConstraints,
-  getAnnotationConfig,
+  getTextAnnotationShape,
   getAnnotationRepresentation,
   isZeroPoint,
-} = useGuidelinesStore();
+} = useConfigStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
 const { tiptap } = useTiptapStore();
 const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
+const { insertLineBreak } = useInsertLineBreak();
 
 const selectedTab = ref<"annotations" | "structure">("structure");
 
@@ -58,13 +61,13 @@ const structureButtonProps = {
 } as const;
 
 const annotationCategories = computed(() =>
-  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
+  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
 );
 
 const selectedCategory = ref<string>("");
 
-const blockClassificationTypes = computed<AnnotationType[]>(() =>
-  (groupedAndSortedAnnotationTypes.value?.structure ?? []).filter(
+const blockClassificationTypes = computed<ModelAnnotationShape[]>(() =>
+  (groupedAndSortedAnnotationTypes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
     (t) => getAnnotationRepresentation(t.type) === "blockClassification",
   ),
 );
@@ -267,15 +270,15 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
   }
 
   try {
-    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
 
-    if (!config) {
-      console.error(`No annotation config found for type "${data.type}"`);
+    if (!shape) {
+      console.error(`No annotation shape found for type "${data.type}"`);
       return;
     }
 
     isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -287,16 +290,15 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
       selectedText: textInSelection,
     });
 
-    if (annotationHasConstraints(config)) {
+    if (annotationHasConstraints(shape)) {
       createModalInstance(
         dialog.open(AnnotationDetailsModal, {
           props: {
             ...ANNOTATION_MODAL_PROPS,
-            header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,
-            config,
             mode: "create",
           },
           emits: {
@@ -366,15 +368,15 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   }
 
   try {
-    const config: AnnotationType | undefined = getAnnotationConfig(data.type);
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
 
-    if (!config) {
-      console.error(`No annotation config found for type "${data.type}"`);
+    if (!shape) {
+      console.error(`No annotation shape found for type "${data.type}"`);
       return;
     }
 
     isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -386,7 +388,30 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       selectedText: textInSelection,
     });
 
-    tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    // Like inline annotations: with required properties or references, the modal only lets a complete one through
+    if (annotationHasConstraints(shape)) {
+      createModalInstance(
+        dialog.open(AnnotationDetailsModal, {
+          props: {
+            ...ANNOTATION_MODAL_PROPS,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
+          },
+          data: {
+            annotation: newAnnotationTemplate,
+            mode: "create",
+          },
+          emits: {
+            onSubmit: (editedAnnotationData: Annotation) => {
+              tiptap.value?.commands.addBlockClassification(editedAnnotationData, capturedSelection.from, capturedSelection.to);
+              destroyModalInstance();
+            },
+          },
+          onClose: destroyModalInstance,
+        }),
+      );
+    } else {
+      tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    }
   } catch (error: unknown) {
     if (error instanceof AnnotationRangeError) {
       addToastMessage({
@@ -459,7 +484,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
             v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
             v-bind="structureButtonProps"
             icon="icon-text-wrap"
-            @click="tiptap?.chain().focus().setHardBreak().run()"
+            @click="insertLineBreak()"
           >
           </Button>
           <template v-if="blockClassificationTypes.length > 0">
@@ -472,7 +497,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
               :type="blockType.type"
               :disabled="!selectedOptions.includes(blockType.type)"
               :class="{ 'is-active': true }"
-              :config="getAnnotationConfig(blockType.type)!"
+              :shape="blockType"
               @click="handleBlockAnnotationClick({ type: blockType.type })"
             >
               {{ blockType.type }}
@@ -495,7 +520,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
                   :key="type.type"
                   :type="type.type"
                   :disabled="!selectedOptions.includes(type.type)"
-                  :config="getAnnotationConfig(type.type)!"
+                  :shape="type"
                   @clicked="handleInlineAnnotationButtonClick($event)"
                 />
               </div>

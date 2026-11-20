@@ -14,13 +14,14 @@ import {
   Level,
   LevelState,
   NodeDto,
-  PropertyConfig,
+  NodeTypeOption,
   SelectionModifiers,
 } from "../models/types";
 import { targetKey } from "../config/filters";
+import { BASE_NODE_REF } from "../config/ramen";
 import { useTagsStore } from "../store/tags";
 import { useSmartViewsStore } from "../store/smartViews";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import FilterableMenu from "./FilterableMenu.vue";
 import FilterPopover from "./FilterPopover.vue";
 import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
@@ -34,6 +35,7 @@ import { resolveNodeIcon } from "../config/icons.ts";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { FIXED_FOOTER_MODAL_PROPS } from "../config/modals.ts";
 import LoadingSpinner from "./LoadingSpinner.vue";
+import { getClassifierRef } from "../utils/helper/modelHelper";
 
 /**
  * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
@@ -54,7 +56,7 @@ const props = defineProps<{
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
-const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+const { getAllCollectionAttributes, getHierarchyClassifierRefs, getNodeTypeOptions, getModelContext } = useConfigStore();
 const {
   levels,
   focus,
@@ -108,40 +110,51 @@ const addMenu = useTemplateRef<InstanceType<typeof FilterableMenu>>("add-menu");
 const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
 const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
 
-const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
-const contentLabels: string[] = getAvailableContentLabels().toSorted();
+/** The parent of new nodes: the active item of the previous column, always a Collection (Contents have no columns) */
+const parentCollection = computed<HierarchyNode | null>(() =>
+  props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null,
+);
 
-const addMenuItems: NodeMenuItem[] = [
-  {
-    label: "Collection",
-    icon: resolveNodeIcon(["Collection"]),
-    items: collectionLabels.map((l) => ({
-      label: l,
-      icon: resolveNodeIcon(["Collection", l]),
-      command: () => openCreateModal("Collection", { additionalNodeLabel: l }),
-    })),
-  },
-  {
-    label: "Content",
-    icon: resolveNodeIcon(["Content"]),
-    items: contentLabels.map((l) => ({
-      label: l,
-      icon: resolveNodeIcon(["Content", l]),
-      command: () => openCreateModal("Content", { additionalNodeLabel: l }),
-    })),
-  },
-];
+/** Classifier ref of the parent Collection; `null` at the top level or if it can't be resolved */
+const parentClassifierRef = computed<string | null>(() =>
+  parentCollection.value ? getClassifierRef(getModelContext(), parentCollection.value) : null,
+);
 
-const allLabelValues: string[] = [...collectionLabels, ...contentLabels];
+/**
+ * The "+" menu: the Collection and Content types the model allows in the parent Collection, all types at the top
+ * level. Groups without allowed types are left out.
+ */
+const addMenuItems = computed<NodeMenuItem[]>(() => {
+  const partOfRef: string | null = parentClassifierRef.value;
+  const groups: { kind: "Collection" | "Content"; baseNodeRef: string }[] = [
+    { kind: "Collection", baseNodeRef: BASE_NODE_REF.Collection },
+    { kind: "Content", baseNodeRef: BASE_NODE_REF.Content },
+  ];
+
+  return groups
+    .map(({ kind, baseNodeRef }) => ({
+      label: kind,
+      icon: resolveNodeIcon({ classifierRef: baseNodeRef, nodeLabels: [] }),
+      items: getNodeTypeOptions(baseNodeRef, partOfRef).map((nodeType) => ({
+        label: nodeType.name,
+        icon: resolveNodeIcon(nodeType),
+        command: () => openCreateModal(kind, nodeType),
+      })),
+    }))
+    .filter((group) => group.items.length > 0);
+});
+
+/** Classifier refs of all node types the hierarchy lists */
+const allClassifierRefs: string[] = getHierarchyClassifierRefs();
 
 /**
  * Whether anything in the filter popover currently narrows the listing.
  */
 const hasActiveFilters = computed<boolean>(() => {
-  const selectedLabels: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "labels")?.conditions[0]
+  const selectedTypes: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]
     ?.value ?? []) as string[];
 
-  if (selectedLabels.length !== allLabelValues.length) {
+  if (allClassifierRefs.some((ref) => !selectedTypes.includes(ref))) {
     return true;
   }
 
@@ -211,7 +224,9 @@ const focusedUuid = computed<string | null>(() => {
     return null;
   }
 
-  return focus.value.kind === "collection" ? focus.value.collection.node.data.uuid : focus.value.content.node.data.uuid;
+  return focus.value.kind === "collection"
+    ? focus.value.collection.node.properties.uuid
+    : focus.value.content.node.properties.uuid;
 });
 
 // Getters, not the objects themselves: `updateLevels` replaces the whole level on navigation, and a
@@ -232,11 +247,12 @@ useInfiniteScroll(scrollPane, fetchNextPage, {
 
 // A changed first-column listing (e.g. tag removed under a tag root) clears the selection like a filter change.
 // Not on the initial run (remount keeps the selection), not for deeper columns (their scope changes by navigation).
+// The root is watched too: two smart views can share a scope but differ in their filter preset.
 watch(
-  scope,
-  (newScope: HierarchyScope, oldScope: HierarchyScope | undefined): Promise<void> | undefined => {
+  [scope, root],
+  ([newScope, newRoot], [oldScope, oldRoot]): Promise<void> | undefined => {
     // Recomputed without an actual change (e.g. another tag was edited)
-    if (oldScope && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
+    if (oldScope && newRoot === oldRoot && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
       return;
     }
 
@@ -283,20 +299,24 @@ onMounted(() => {
   }
 });
 
-function openCreateModal(kind: "Collection" | "Content", params: { additionalNodeLabel: string }): void {
-  // The parent is the active item of the previous column, always a Collection (Contents have no columns)
-  const parentCollection = props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null;
-
+/**
+ * Opens the modal for creating a Collection or Content of the given type in this column.
+ *
+ * @param {"Collection" | "Content"} kind - Which modal to open.
+ * @param {NodeTypeOption} nodeType - The type of the new node.
+ * @returns {void} This function does not return any value.
+ */
+function openCreateModal(kind: "Collection" | "Content", nodeType: NodeTypeOption): void {
   const modalComponent = kind === "Collection" ? CreateCollectionModal : CreateContentModal;
 
   createModalInstance(
     dialog.open(modalComponent, {
       props: {
         ...FIXED_FOOTER_MODAL_PROPS,
-        header: `Create new ${params.additionalNodeLabel}`,
+        header: `Create new ${nodeType.name}`,
         style: { width: "420px" },
       },
-      data: { parentCollection, additionalNodeLabel: params.additionalNodeLabel },
+      data: { parentCollection: parentCollection.value, nodeType },
       emits: {
         onSuccess: async (created: NodeDto<HierarchyNode>) => {
           if (!created) {
@@ -311,7 +331,7 @@ function openCreateModal(kind: "Collection" | "Content", params: { additionalNod
 
           destroyModalInstance();
 
-          await scrollElementIntoView(created.node.data.uuid);
+          await scrollElementIntoView(created.node.properties.uuid);
         },
       },
       onClose: destroyModalInstance,
@@ -381,12 +401,11 @@ async function handleChangeSortOrderClick(): Promise<void> {
 
 const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
   { label: "Alphabetically", value: "distinct" },
-  ...getAllCollectionConfigFields()
-    .filter((config: PropertyConfig, index: number, all: PropertyConfig[]) => {
-      return config?.name && all.findIndex((other: PropertyConfig) => other.name === config.name) === index;
-    })
-    .toSorted((a: PropertyConfig, b: PropertyConfig) => a.name.localeCompare(b.name))
-    .map((property: PropertyConfig) => ({ label: property.name, value: property.name })),
+  // Each name once, only of the types allowed under the parent, see getAllCollectionAttributes
+  ...getAllCollectionAttributes(parentClassifierRef.value)
+    .map((property) => property.attribute.name)
+    .toSorted((a: string, b: string) => a.localeCompare(b))
+    .map((name: string) => ({ label: name, value: name })),
 ]);
 
 const sortTargetKey = computed<string>(() => targetKey(levels.value[props.index]?.query.sort.target ?? { kind: "distinct" }));
@@ -430,7 +449,7 @@ async function handleSortTargetChange(key: string): Promise<void> {
  * @returns {void} This function does not return a value.
  */
 function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
-  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.properties.uuid === uuid);
 
   if (!entry) {
     return;
@@ -455,13 +474,13 @@ function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
  * @returns {"emphasized" | "unemphasized" | null} The highlight, or null if the entry is not selected.
  */
 function getEntrySelection(entry: HierarchyEntry): "emphasized" | "unemphasized" | null {
-  const uuid: string = entry.data.node.data.uuid;
+  const uuid: string = entry.data.node.properties.uuid;
 
   if (hasMultiSelection.value) {
     return selectedUuids.value.has(uuid) ? "emphasized" : null;
   }
 
-  if (levels.value[props.index]?.activeItem?.node.data.uuid !== uuid) {
+  if (levels.value[props.index]?.activeItem?.node.properties.uuid !== uuid) {
     return null;
   }
 
@@ -515,11 +534,17 @@ function endResize(): void {
         @click="handleChangeSortOrderClick"
       />
     </div>
-    <FilterPopover ref="filter-popover" :filters="filters" @apply="handleApplyFilters" @clear="handleClearFilters" />
+    <FilterPopover
+      ref="filter-popover"
+      :filters="filters"
+      :part-of-ref="parentClassifierRef"
+      @apply="handleApplyFilters"
+      @clear="handleClearFilters"
+    />
     <div class="content-wrapper">
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
       <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
-        <template v-for="entry in entries" :key="entry.data.node.data.uuid">
+        <template v-for="entry in entries" :key="entry.data.node.properties.uuid">
           <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
         </template>
         <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
@@ -527,7 +552,7 @@ function endResize(): void {
         </div>
       </div>
       <Button
-        v-if="canCreateNodes"
+        v-if="canCreateNodes && addMenuItems.length > 0"
         class="add-button"
         severity="secondary"
         icon="icon-plus"

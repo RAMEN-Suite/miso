@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
-import { PropertyConfig } from "../models/types";
-import { isRequiredValueMissing } from "../utils/helper/helper";
+import { useConfigStore } from "../store/config";
+import { getOptions, getValueType, isEditable, isRequired, validateValue } from "../utils/helper/modelHelper";
+import type { ModelAttribute, ModelContext } from "../models/types";
+import type { AttributeValueType } from "../config/ramen";
 import {
   getTemporalInputType,
   isBoolean,
@@ -22,34 +24,75 @@ import { Checkbox } from "primevue";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
 const modelValue = defineModel<any>();
 const props = defineProps<{
-  config: Partial<PropertyConfig>;
+  /** The model attribute the value belongs to */
+  attribute: ModelAttribute;
+  /** The value is one item of a list attribute (edited in a `DataInputGroup`), not the whole value */
+  item?: boolean;
   mode?: "edit" | "view";
+  /** Locks the input temporarily, e.g. while a request is pending */
+  disabled?: boolean;
 }>();
 
-const isPrimitive: boolean = isString(props.config) || isNumeric(props.config);
+const context: ModelContext = useConfigStore().getModelContext();
 
-const minValue: number | null | undefined =
-  props.config.exclusiveMinimum != null ? props.config.exclusiveMinimum + 1 : props.config.minimum;
+const name: string = props.attribute.attribute.name;
+const valueType: AttributeValueType = getValueType(context, props.attribute);
+const options: string[] | number[] | undefined = getOptions(context, props.attribute);
+const isDisabled = computed<boolean>(
+  () => props.disabled || !isEditable(context, props.attribute) || props.mode === "view",
+);
+// A single item is checked as part of the whole list by the group
+const required: boolean = !props.item && isRequired(props.attribute);
 
-const maxValue: number | null | undefined =
-  props.config.exclusiveMaximum != null ? props.config.exclusiveMaximum - 1 : props.config.maximum;
+const isPrimitive: boolean = isString(valueType) || isNumeric(valueType);
 
-const minLength: number | null | undefined = props.config.minLength;
-const maxLength: number | null | undefined = props.config.maxLength;
+/** An entry of the dropdown. `null` is the empty entry. */
+interface SelectOption {
+  label: string;
+  value: string | number | null;
+}
 
-const isInvalid: ComputedRef<boolean> = computed(() => isRequiredValueMissing(modelValue.value, props.config));
+/** An optional single value can be removed again: its dropdown starts with an empty entry, like a native select */
+const isClearable: boolean = !required && !props.item;
+
+/**
+ * The dropdown entries. The empty entry is a non-breaking space, so it keeps the line height. List items have none,
+ * they are removed with their delete button.
+ */
+const selectOptions: SelectOption[] = [
+  ...(isClearable ? [{ label: "\xa0", value: null }] : []),
+  ...(options ?? []).map((option: string | number) => ({ label: String(option), value: option })),
+];
+
+/**
+ * The tooltip of a dropdown entry.
+ *
+ * @param {SelectOption} option - The entry.
+ * @returns {string} Its label, or a description for the empty entry.
+ */
+function optionTitle(option: SelectOption): string {
+  if (option.value === null) {
+    return "Select no value";
+  } else {
+    return option.label;
+  }
+}
+
+const isInvalid: ComputedRef<boolean> = computed(
+  () => !props.item && validateValue(context, props.attribute, modelValue.value).length > 0,
+);
 
 /** The `type` attribute the native html `input` element expects */
-const temporalInputType: "date" | "time" | "datetime-local" = getTemporalInputType(props.config);
+const temporalInputType: "date" | "datetime-local" = getTemporalInputType(valueType);
 
 /**
  * The value of the native input of a temporal property. Mediates between the stored string and what
  * the browser reads and writes.
  */
 const temporalValue = computed<string>({
-  get: () => toTemporalInputValue(modelValue.value, props.config),
+  get: () => toTemporalInputValue(modelValue.value, valueType),
   set: (value: string) => {
-    modelValue.value = toStoredTemporal(value, props.config);
+    modelValue.value = toStoredTemporal(value, valueType);
   },
 });
 
@@ -65,72 +108,66 @@ const objectValue = computed<string>(() => {
 
 <template>
   <!-- eslint-disable vuejs-accessibility/form-control-has-label -- The label is inside the parent component -->
+  <!-- Optional dropdowns have no placeholder, so an empty value shows as empty, like the empty entry -->
   <Select
-    v-if="config.options && isPrimitive"
+    v-if="options && isPrimitive"
     v-model="modelValue"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
+    :disabled="isDisabled"
+    :required="required"
     :invalid="isInvalid"
-    :options="config.options"
-    :placeholder="`Select ${config.name}`"
+    :options="selectOptions"
+    option-label="label"
+    option-value="value"
+    :placeholder="isClearable ? undefined : `Select ${name}`"
+    :pt="{ option: ({ context }) => ({ title: optionTitle(context.option) }) }"
     size="small"
     class="w-full"
   />
   <InputText
-    v-else-if="isString(config)"
+    v-else-if="isString(valueType)"
     v-model="modelValue"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
+    :disabled="isDisabled"
+    :required="required"
     :invalid="isInvalid"
     size="small"
     class="w-full"
     spellcheck="false"
-    :pt="{ root: { minLength: minLength, maxLength: maxLength } }"
   />
   <InputNumber
-    v-else-if="isInteger(config)"
+    v-else-if="isInteger(valueType)"
     v-model="modelValue"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
+    :disabled="isDisabled"
+    :required="required"
     :invalid="isInvalid"
-    :min="minValue"
-    :max="maxValue"
     size="small"
     show-buttons
   />
   <InputNumber
-    v-else-if="isFloat(config)"
+    v-else-if="isFloat(valueType)"
     v-model="modelValue"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
+    :disabled="isDisabled"
+    :required="required"
     :invalid="isInvalid"
-    :min="minValue"
-    :max="maxValue"
     :min-fraction-digits="0"
     :max-fraction-digits="20"
     size="small"
     show-buttons
   />
   <InputText
-    v-else-if="isTemporal(config)"
+    v-else-if="isTemporal(valueType)"
     v-model="temporalValue"
     :type="temporalInputType"
-    :disabled="!config.editable || mode === 'view'"
-    :required="config.required"
+    :disabled="isDisabled"
+    :required="required"
     :invalid="isInvalid"
     step="1"
     size="small"
     class="w-full"
   />
-  <div v-else-if="isBoolean(config)" class="checkbox-field">
-    <Checkbox
-      v-model="modelValue"
-      :name="config.name ?? 'Booelan value without name :/'"
-      :disabled="!config.editable || mode === 'view'"
-      binary
-    />
+  <div v-else-if="isBoolean(valueType)" class="checkbox-field">
+    <Checkbox v-model="modelValue" :name="name" :disabled="isDisabled" binary />
   </div>
-  <pre v-else-if="isObject(config)" class="object-field">{{ objectValue }}</pre>
+  <pre v-else-if="isObject(valueType)" class="object-field">{{ objectValue }}</pre>
   <div v-else class="default-field" :style="{ backgroundColor: '#ffb1c0', borderRadius: '5px' }">
     {{ modelValue }}
   </div>

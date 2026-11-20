@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { useInfiniteScroll } from "@vueuse/core";
 import SelectButton from "primevue/selectbutton";
 import EditorAnnotationPreviewCard from "./EditorAnnotationPreviewCard.vue";
 import EditorFilter from "./EditorFilter.vue";
@@ -24,7 +25,15 @@ const collapseMode = ref<CardCollapseMode>("collapsed");
 /** Manual per-card toggles, keyed by annotation uuid. Cards without an entry fall back to {@linkcode collapseMode}. */
 const collapseOverrides = ref<Map<string, boolean>>(new Map());
 
-// TODO: A max number of annotations should be shown to keep UI from freezing
+/** Number of cards rendered initially and added whenever the list is scrolled near its end. Keeps large selections (e.g. Ctrl+A) from freezing the UI. */
+const CARD_BATCH_SIZE = 25;
+
+/** How many of the filtered annotations are currently rendered as cards. */
+const cardLimit = ref<number>(CARD_BATCH_SIZE);
+
+/** Scroll container of the card list. */
+const annotationListRef = ref<HTMLElement | null>(null);
+
 const annotationsInSelection = computed<Annotation[]>(() => {
   if (!tiptap.value?.state.selection) {
     return [];
@@ -35,9 +44,30 @@ const annotationsInSelection = computed<Annotation[]>(() => {
   return [...collectInlineAnnotations(tiptap.value.state, { from, to }).values()];
 });
 
-/** Whether at least one annotation in the selection passes the type filter and is rendered as a card. */
-const hasVisibleAnnotations = computed<boolean>(() =>
-  annotationsInSelection.value.some((annotation) => isTypeSelected(annotation.node.data.type)),
+/** Annotations in the selection that pass the type filter. */
+const filteredAnnotations = computed<Annotation[]>(() =>
+  annotationsInSelection.value.filter((annotation) => isTypeSelected(annotation.node.properties.type)),
+);
+
+/** The filtered annotations that are rendered as cards, capped at {@linkcode cardLimit}. */
+const renderedAnnotations = computed<Annotation[]>(() => filteredAnnotations.value.slice(0, cardLimit.value));
+
+useInfiniteScroll(
+  annotationListRef,
+  () => {
+    cardLimit.value += CARD_BATCH_SIZE;
+  },
+  {
+    distance: 200,
+    canLoadMore: () => cardLimit.value < filteredAnnotations.value.length,
+  },
+);
+
+watch(
+  () => [tiptap.value?.state.selection.from, tiptap.value?.state.selection.to],
+  () => {
+    cardLimit.value = CARD_BATCH_SIZE;
+  },
 );
 
 /**
@@ -83,23 +113,22 @@ function setCardCollapsed(uuid: string, value: boolean): void {
         </template>
       </SelectButton>
     </div>
-    <div class="annotation-list grow min-h-0 overflow-y-auto p-1">
+    <div ref="annotationListRef" class="annotation-list grow min-h-0 overflow-y-auto p-1">
       <div
-        v-if="!hasVisibleAnnotations"
+        v-if="filteredAnnotations.length === 0"
         class="empty-state h-full flex flex-col items-center justify-center gap-2 text-center text-sm"
       >
         <i :class="annotationsInSelection.length === 0 ? 'icon-square-dashed-mouse-pointer' : 'icon-filter-x'" class="text-2xl" />
         <small v-if="annotationsInSelection.length === 0">No annotations in the current selection</small>
         <small v-else>All annotations in the current selection are hidden by the filter</small>
       </div>
-      <template v-for="annotation in annotationsInSelection" :key="annotation.node.data.uuid">
+      <template v-for="annotation in renderedAnnotations" :key="annotation.node.properties.uuid">
         <EditorAnnotationPreviewCard
-          v-if="isTypeSelected(annotation.node.data.type)"
           :annotation="annotation"
-          :collapsed="isCardCollapsed(annotation.node.data.uuid)"
-          @update:collapsed="setCardCollapsed(annotation.node.data.uuid, $event)"
+          :collapsed="isCardCollapsed(annotation.node.properties.uuid)"
+          @update:collapsed="setCardCollapsed(annotation.node.properties.uuid, $event)"
         />
-        <div v-if="annotation.node.data.type === 'paragraph'">Paragraph</div>
+        <div v-if="annotation.node.properties.type === 'paragraph'">Paragraph</div>
       </template>
     </div>
   </div>

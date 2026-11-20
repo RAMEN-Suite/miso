@@ -1,117 +1,164 @@
-import { IAnnotation } from "../models/IAnnotation.js";
-import { IGuidelines } from "../models/IGuidelines.js";
+import ValidationError from "../errors/validation.error.js";
 import {
-  AnnotationNode,
-  CollectionNode,
-  EntityNode,
+  ElementGraph,
+  ElementNode,
+  ElementRelation,
+  ModelAnnotationShape,
+  ModelAttribute,
+  ModelContext,
   Node,
-  NodeStatusObject,
   NodeUpdateObject,
-  PropertyConfig,
-  ContentNode,
 } from "../models/types.js";
-import GuidelinesService from "../services/guidelines.service.js";
-import { toNeo4jTypes } from "./helper.js";
-import { inferRelationship } from "./ramen.js";
-
-function convertNodeToNeo4jFormat(
-  node: EntityNode | AnnotationNode | CollectionNode | ContentNode,
-  guidelines: IGuidelines,
-): Node<object> {
-  const guidelineService = new GuidelinesService();
-  const fields: PropertyConfig[] = [];
-
-  if (node.nodeLabels.includes("Content") || node.nodeLabels.includes("Entity")) {
-    return node;
-  } else if (node.nodeLabels.includes("Collection")) {
-    fields.push(...guidelineService.getCollectionConfigFieldsFromGuidelines(guidelines, node.nodeLabels));
-  } else if (node.nodeLabels.includes("Annotation")) {
-    fields.push(...guidelineService.getAnnotationConfigFieldsFromGuidelines(guidelines, (node.data as IAnnotation).type));
-  } else {
-    return node;
-  }
-
-  return {
-    nodeLabels: node.nodeLabels,
-    data: toNeo4jTypes(node.data, fields),
-  };
-}
-
-function insertNodeIntoObject(
-  parent: NodeStatusObject | null,
-  node: NodeStatusObject,
-  obj: NodeUpdateObject,
-  guidelines: IGuidelines,
-): NodeUpdateObject {
-  node.connectedNodes.forEach((child) => insertNodeIntoObject(node, child, obj, guidelines));
-
-  if (node.meta.status === "deleted") {
-    obj.delete.push(node.node);
-  }
-
-  if (node.meta.status === "created") {
-    obj.create.push(convertNodeToNeo4jFormat(node.node, guidelines));
-  }
-
-  if (node.meta.status === "modified") {
-    obj.update.push(convertNodeToNeo4jFormat(node.node, guidelines));
-  }
-
-  if (parent && (node.meta.status === "created" || node.meta.status === "added")) {
-    obj.attach.push(inferRelationship(parent.node, node.node));
-  }
-
-  if (parent && node.meta.status === "removed" && parent.meta.status !== "deleted") {
-    obj.remove.push(inferRelationship(parent.node, node.node));
-  }
-
-  return obj;
-}
+import { toNeo4jTypes, toStoredSelector } from "./helper.js";
+import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
+import { BASE_NODE_REF } from "./ramen.js";
 
 /**
- * Flattens a {@link NodeStatusObject} tree into a {@link NodeUpdateObject} ready for database execution.
- *
- * Traverses the tree depth-first, classifying each node into the appropriate CRUD bucket
- * (`create`, `update`, `delete`) and deriving the relationship changes (`attach`, `remove`)
- * from the parent–child status pairs. Type conversion to Neo4j-compatible values is applied
- * using the provided guidelines.
- *
- * @param root - Root of the ownership tree (e.g. a Content or Collection node with its children already set as `connectedNodes`).
- * @param guidelines - Project guidelines used to resolve property type configurations for Annotation and Collection nodes.
- * @returns A flat {@link NodeUpdateObject} with separate lists for each operation category.
+ * Converts a node for the write query: only labels and properties (the refs are not stored), with the values converted to
+ * Neo4j types by the attributes of its classifier (Collections) or its annotation shape (annotations), and the selector
+ * of an annotation as JSON string (see `toStoredSelector`). The values of Contents and Entities are stored as sent.
  */
-export function flattenNodeTree(root: NodeStatusObject, guidelines: IGuidelines): NodeUpdateObject {
-  const obj: NodeUpdateObject = {
-    create: [],
-    delete: [],
-    update: [],
-    remove: [],
-    attach: [],
-  };
+function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): Node<object> {
+  const baseNodeRef: string | undefined = node.classifierRef ? getBaseNodeRef(context, node.classifierRef) : undefined;
 
-  insertNodeIntoObject(null, root, obj, guidelines);
+  if (baseNodeRef === BASE_NODE_REF.Collection && node.classifierRef) {
+    return {
+      nodeLabels: node.nodeLabels,
+      properties: toNeo4jTypes(context, node.properties, getNodeAttributes(context, node.classifierRef)),
+    };
+  } else if (baseNodeRef === BASE_NODE_REF.Annotation) {
+    const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
+    const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-  return obj;
+    return { nodeLabels: node.nodeLabels, properties: toStoredSelector(toNeo4jTypes(context, node.properties, fields)) };
+  } else {
+    return { nodeLabels: node.nodeLabels, properties: node.properties };
+  }
 }
 
 /**
- * Returns a Cypher query string that executes a full CRUD update cycle for a node subgraph
- * and returns the root node after all changes are applied.
+ * The labels a node is stored with: the names of its classifier's lineage, RAMEN base node first.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ElementNode} node - The node of the payload.
+ * @returns {string[]} The labels.
+ * @throws {ValidationError} If the classifier is missing or not in the model.
+ */
+function nodeLabelsOf(context: ModelContext, node: ElementNode): string[] {
+  if (!node.classifierRef || !context.model.getNode(node.classifierRef)) {
+    throw new ValidationError(`Node ${node.properties.uuid} has an unknown node type: ${String(node.classifierRef)}.`);
+  }
+
+  if (node.shapeRef && !findShape(context, node.shapeRef)) {
+    throw new ValidationError(`Node ${node.properties.uuid} has an unknown annotation type: ${node.shapeRef}.`);
+  }
+
+  return context.model.getNodeLineage(node.classifierRef).map((item) => item.name);
+}
+
+/**
+ * The relationship of a payload relation as the write query takes it: its type is the name of its relation definition.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ElementRelation} relation - The relation of the payload.
+ * @returns {NodeUpdateObject["attach"][number]} The relationship.
+ * @throws {ValidationError} If the relation definition is missing (`null` is only allowed on reads) or not in the model.
+ */
+function toEdge(context: ModelContext, relation: ElementRelation): NodeUpdateObject["attach"][number] {
+  const type: string | undefined = relation.relationRef ? findRelation(context, relation.relationRef)?.name : undefined;
+
+  if (!type) {
+    throw new ValidationError(`Unknown relation ${String(relation.relationRef)} from ${relation.from} to ${relation.to}.`);
+  }
+
+  return { type, startUuid: relation.from, endUuid: relation.to };
+}
+
+/**
+ * Converts a write payload into the changes of the write, with the values as sent. The labels of created and updated
+ * nodes come from their `classifierRef`, the relationship types from the `relationRef`s; the client sends no labels.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ElementGraph} payload - The nodes (`created`, `modified`, `deleted`) and relations (`added`, `removed`), as
+ *   parsed by `parseWritePayload`.
+ * @returns {NodeUpdateObject} The changes, grouped by operation.
+ * @throws {ValidationError} If a node or relation is malformed or references unknown model elements.
+ */
+export function toNodeChanges(context: ModelContext, payload: ElementGraph): NodeUpdateObject {
+  const changes: NodeUpdateObject = { create: [], update: [], delete: [], remove: [], attach: [] };
+
+  for (const node of payload.nodes) {
+    if (typeof node?.properties?.uuid !== "string") {
+      throw new ValidationError("Every node needs `properties.uuid`.");
+    }
+
+    if (node.status === "deleted") {
+      changes.delete.push({ nodeLabels: [], properties: { uuid: node.properties.uuid } });
+    } else if (node.status === "created" || node.status === "modified") {
+      const stored: Node<object> = {
+        nodeLabels: nodeLabelsOf(context, node),
+        classifierRef: node.classifierRef,
+        shapeRef: node.shapeRef,
+        properties: node.properties,
+      };
+
+      (node.status === "created" ? changes.create : changes.update).push(stored);
+    } else {
+      throw new ValidationError(
+        `Node ${node.properties.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`,
+      );
+    }
+  }
+
+  for (const relation of payload.relations) {
+    if (relation.status === "added") {
+      changes.attach.push(toEdge(context, relation));
+    } else if (relation.status === "removed") {
+      changes.remove.push(toEdge(context, relation));
+    } else {
+      throw new ValidationError(`A relation has the status "${String(relation.status)}", expected added or removed.`);
+    }
+  }
+
+  return changes;
+}
+
+/**
+ * Converts the values of created and updated nodes to Neo4j types, using the attributes of the model, for
+ * {@link buildSubgraphUpdateQuery}.
+ *
+ * @param changes - The changes, as returned by {@link toNodeChanges}.
+ * @param context - The model context, used to resolve the attributes of Annotation and Collection nodes.
+ * @returns The changes with converted values.
+ */
+export function toNeo4jChanges(changes: NodeUpdateObject, context: ModelContext): NodeUpdateObject {
+  return {
+    ...changes,
+    create: changes.create.map((node) => convertNodeToNeo4jFormat(node, context)),
+    update: changes.update.map((node) => convertNodeToNeo4jFormat(node, context)),
+  };
+}
+
+/**
+ * Returns a Cypher query string that executes a full CRUD update cycle for a node subgraph. Returns the root node after
+ * all changes are applied (`node`) and the uuids of the neighbours the deleted nodes had (`neighboursOfDeleted`).
  *
  * Expected parameters: `$uuid`, `$delete`, `$create`, `$update`, `$remove`, `$attach` —
- * as produced by {@link flattenNodeTree}.
- *
- * @param rootLabel - `'Content'` or `'Collection'` — the label of the root node that is matched and returned.
+ * as produced by {@link toNodeChanges} and {@link toNeo4jChanges}. The root is a Content or a Collection.
  */
-export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): string {
+export function buildSubgraphUpdateQuery(): string {
   return `
-  // Delete nodes and their relationships
+  // Delete nodes and their relationships; the aggregation keeps one row when nothing is deleted
   CALL () {
       UNWIND $delete AS nodeToDelete
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.data.uuid})
+      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.properties.uuid})
+      OPTIONAL MATCH (n)--(m:Annotation|Content|Collection|Entity)
 
-      DETACH DELETE n
+      WITH collect(DISTINCT n) AS deleted, collect(DISTINCT m.uuid) AS neighbours
+      FOREACH (d IN deleted | DETACH DELETE d)
+
+      RETURN neighbours AS neighboursOfDeleted
   }
 
   // Create new nodes with dynamic labels
@@ -119,7 +166,7 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
       UNWIND $create AS nodeToCreate
 
       CREATE (n)
-      SET n = nodeToCreate.data
+      SET n = nodeToCreate.properties
       WITH n, nodeToCreate
       CALL apoc.create.addLabels(n, nodeToCreate.nodeLabels) YIELD node
 
@@ -130,8 +177,8 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
   CALL () {
       UNWIND $update AS nodeToUpdate
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.data.uuid})
-      SET n = nodeToUpdate.data
+      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.properties.uuid})
+      SET n = nodeToUpdate.properties
       WITH n, nodeToUpdate, labels(n) AS currentLabels
       CALL apoc.create.removeLabels(n, currentLabels) YIELD node
       CALL apoc.create.addLabels(node, nodeToUpdate.nodeLabels) YIELD node AS updatedNode
@@ -160,11 +207,11 @@ export function buildSubgraphUpdateQuery(rootLabel: "Content" | "Collection"): s
   }
 
   // Return the root node
-  MATCH (root:${rootLabel} {uuid: $uuid})
+  MATCH (root:Content|Collection {uuid: $uuid})
 
   RETURN {
       nodeLabels: labels(root),
-      data: root {.*}
-  } AS node
+      properties: root {.*}
+  } AS node, neighboursOfDeleted
   `;
 }

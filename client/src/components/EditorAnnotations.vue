@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
-import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
+import { NodeStatusObject, AnnotationNode, ModelAnnotationShape } from "../models/types";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -14,14 +14,14 @@ export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
   data?: NodeStatusObject;
-  /** Configuration of the annotation type, only set on nodes of type `type` */
-  config?: AnnotationType;
+  /** Annotation shape of the annotation type, only set on nodes of type `type` */
+  shape?: ModelAnnotationShape;
   key: string;
   label: string;
   type: "category" | "type" | "annotation";
 }
 
-const { groupedAndSortedAnnotationTypes, isZeroPoint } = useGuidelinesStore();
+const { groupedAndSortedAnnotationTypes, isZeroPoint } = useConfigStore();
 const { tiptap } = useTiptapStore();
 
 /** Delay in ms before the list is rebuilt after a change in the editor. */
@@ -66,23 +66,23 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
       annotationCount: 0,
     } satisfies TreeNode;
 
-    annotationType.forEach((annoType: AnnotationType, j: number) => {
+    annotationType.forEach((annoType: ModelAnnotationShape, j: number) => {
       const newAnnotationType = {
         key: i.toString() + "-" + j.toString(),
         label: annoType.type,
         type: "type",
-        config: annoType,
+        shape: annoType,
         children: [] as TreeNode[],
       } satisfies TreeNode;
 
       const annos: NodeStatusObject<AnnotationNode>[] = displayedAnnotations.value.filter(
-        (a) => a.node.data.type === annoType.type,
+        (a) => a.node.properties.type === annoType.type,
       );
 
       annos.forEach((anno: NodeStatusObject<AnnotationNode>, k: number) => {
         const newAnnotation: TreeNode = {
           key: i.toString() + "-" + j.toString() + "-" + k.toString(),
-          label: anno.node.data.text,
+          label: anno.node.properties.text,
           type: "annotation",
           data: anno,
         };
@@ -128,7 +128,7 @@ watch(
 function toggleEditorHighlight(annotation: NodeStatusObject<AnnotationNode>, direction: "on" | "off"): void {
   const renderType: "range" | "zeroPoint" = isZeroPoint(annotation.node) ? "zeroPoint" : "range";
 
-  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.data.uuid, { renderType });
+  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.properties.uuid, { renderType });
 }
 
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
@@ -178,7 +178,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
             </div>
             <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
               <div class="annotation-type-icon-container">
-                <AnnotationTypeIcon :config="slotProps.node.config" />
+                <AnnotationTypeIcon :shape="slotProps.node.shape" />
               </div>
               <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children?.length ?? 0 }}]</div>
             </div>
@@ -195,8 +195,8 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
               @keydown.enter="handleAnnotationSelect"
               @keydown.space.prevent="handleAnnotationSelect"
             >
-              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.data.uuid">
-                {{ slotProps.node.data.node.data.text }}
+              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.properties.uuid">
+                {{ slotProps.node.data.node.properties.text }}
               </div>
             </div>
           </template>

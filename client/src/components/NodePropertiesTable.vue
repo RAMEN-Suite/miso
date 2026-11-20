@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { computed, ComputedRef } from "vue";
 import { camelCaseToTitleCase, formatPropertyValue } from "../utils/helper/helper";
-import { PropertyConfig } from "../models/types";
+import { useConfigStore } from "../store/config";
+import { isVisible } from "../utils/helper/modelHelper";
+import type { ModelAttribute } from "../models/types";
 
 const props = defineProps<{
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
-  data: any;
-  fields?: PropertyConfig[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Properties can be of very different shape. Maybe fix in the future
+  properties: any;
+  /**
+   * The model attributes to show; an empty list shows nothing (e.g. an annotation type without properties). Without
+   * it, all properties are shown as they are.
+   */
+  fields?: ModelAttribute[];
 }>();
+
+const { getModelContext } = useConfigStore();
 
 interface PropertyRow {
   name: string;
@@ -15,16 +23,16 @@ interface PropertyRow {
 }
 
 const rows: ComputedRef<PropertyRow[]> = computed(() => {
-  if (props.fields && props.fields.length > 0) {
+  if (props.fields) {
     return props.fields
-      .filter((field: PropertyConfig) => field.visible)
-      .map((field: PropertyConfig) => ({
-        name: camelCaseToTitleCase(field.name),
-        value: formatPropertyValue(props.data?.[field.name], field),
+      .filter((field: ModelAttribute) => isVisible(getModelContext(), field))
+      .map((field: ModelAttribute) => ({
+        name: camelCaseToTitleCase(field.attribute.name),
+        value: formatPropertyValue(props.properties?.[field.attribute.name], field),
       }));
   }
 
-  return Object.entries(props.data ?? {}).map(([name, value]) => ({
+  return Object.entries(props.properties ?? {}).map(([name, value]) => ({
     name: camelCaseToTitleCase(name),
     value: formatPropertyValue(value),
   }));

@@ -3,10 +3,11 @@ import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vu
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { Annotation, AnnotationType, CollectionNode, PropertyConfig } from "../models/types";
+import { Annotation, CollectionNode, ModelAttribute } from "../models/types";
+import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
-import { INTRINSIC_ANNOTATION_PROPERTIES, PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
+import { useConfigStore } from "../store/config";
+import { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -23,24 +24,33 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const { getCollectionAnnotationConfig, getCollectionAnnotationFields } = useGuidelinesStore();
+const {
+  getAnnotationShape,
+  getAnnotationNodeProperties,
+  getAnnotationProperties,
+  getMissingAnnotationReferences,
+  getModelContext,
+} = useConfigStore();
 
 const collection: CollectionNode = dialogRef.value.data.collection;
-const config: AnnotationType = dialogRef.value.data.config;
 const mode: "create" | "edit" = dialogRef.value.data.mode;
 
 const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
 
-const propertyFields: PropertyConfig[] = getCollectionAnnotationFields(collection.nodeLabels, annotation.value.node.data.type).filter(
-  (f) => f.visible,
-);
+const allProperties: ModelAttribute[] = getAnnotationProperties(annotation.value.node);
+const propertyFields: ModelAttribute[] = allProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
 const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
 
 const isLoading = ref<boolean>(false);
 
-const inputIsValid = computed<boolean>(() => checkAnnotationValidity(annotation.value, config));
+/** Valid properties and no missing required references; the save button stays disabled until then */
+const inputIsValid = computed<boolean>(
+  () =>
+    checkAnnotationValidity(annotation.value, allProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+);
 
 watch(() => route.path, closeModal);
 
@@ -65,12 +75,15 @@ function focusFirstInput(): void {
  */
 function prepareAnnotation(): Annotation {
   const prepared: Annotation = cloneDeep(annotation.value);
-  const type: string = prepared.node.data.type;
 
   prepared.meta.status = mode === "create" ? "created" : "modified";
 
-  if (getCollectionAnnotationConfig(collection.nodeLabels, type) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
-    pruneUnconfiguredProperties(prepared.node.data, getCollectionAnnotationFields(collection.nodeLabels, type), INTRINSIC_ANNOTATION_PROPERTIES);
+  if (getAnnotationShape(prepared.node) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+    pruneUnconfiguredProperties(
+      prepared.node.properties,
+      getAnnotationProperties(prepared.node).map((field) => field.attribute.name),
+      getAnnotationNodeProperties(prepared.node),
+    );
   }
 
   return prepared;
@@ -106,8 +119,20 @@ async function handleSubmit(): Promise<void> {
 <template>
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content px-1">
-      <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.data" :fields="propertyFields" mode="edit" />
-      <AnnotationReferencesSection ref="referencesSection" v-model="annotation.connectedNodes" mode="edit" />
+      <FormPropertiesSection
+        ref="propertiesSection"
+        v-model="annotation.node.properties"
+        :fields="propertyFields"
+        mode="edit"
+        :disabled="isLoading"
+      />
+      <AnnotationReferencesSection
+        ref="referencesSection"
+        v-model="annotation.connectedNodes"
+        :annotation="annotation.node"
+        mode="edit"
+        :disabled="isLoading"
+      />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full">

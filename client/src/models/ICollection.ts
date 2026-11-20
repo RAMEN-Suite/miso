@@ -1,6 +1,6 @@
-import { BaseNodeData } from "./types";
+import { BaseNodeProperties } from "./types";
 
-export type ICollection = BaseNodeData & {
+export type ICollection = BaseNodeProperties & {
   [keyof: string]: unknown;
   label: string;
 };

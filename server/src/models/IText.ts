@@ -1,5 +1,5 @@
-import { BaseNodeData } from "./types.js";
+import { BaseNodeProperties } from "./types.js";
 
-export type IText = BaseNodeData & {
+export type IText = BaseNodeProperties & {
   text: string;
 };

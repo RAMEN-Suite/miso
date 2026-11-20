@@ -1,4 +1,35 @@
-import type { Annotation, BuiltinStructuralType, NodeDto } from "../external";
+import type { Attribute, Constraint } from "@ramen-suite/core";
+import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto, TextPositionSelector } from "../external";
+
+/**
+ * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
+ * the type name, the cardinality (`lowerBound` 1 = required) and value rules as constraints. The constraints get their
+ * IDs when they are declared in a model.
+ */
+export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> & {
+  constraints?: Omit<Constraint, "id">[];
+};
+
+/**
+ * A structural type the editor implements natively (paragraph, heading, table ...), with the values the editor fixes.
+ * Not a RAMEN annotation shape: the project's shape for it (named via `editors.text.mappings`) is a normal shape with its own
+ * properties and settings (appearance, shortcut ...). Only the values here can't be changed by it.
+ */
+export interface NativeTypeConfig {
+  type: BuiltinStructuralType;
+  /** How annotations of the type extend in the text */
+  extent: AnnotationExtent;
+  /** The attributes the editor sets itself, in RAMEN terms */
+  attributes: NativeTypeAttribute[];
+}
+
+/** A structural annotation type of the project and the editor node type that represents it */
+export interface StructuralType {
+  /** The project's annotation type, e.g. `p` */
+  type: string;
+  /** The editor node type, e.g. `paragraph`. The type itself for custom structural types. */
+  editorRole: string;
+}
 
 /** Makes all properties of `T` readonly, recursively. */
 type DeepReadonly<T> = { readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K] };
@@ -26,13 +57,14 @@ export interface ApiJson {
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
  * as rowspan/colspan properties in tableRow and tableCell annotations.
  *
- * Built from `DEFAULT_ANNOTATION_MAPPING` and the `miso.editing.native` keys of the guidelines.
+ * Built from `DEFAULT_ANNOTATION_MAPPING` and the `editors.text.mappings` of the Miso config, whose attribute refs are
+ * resolved to the property names.
  *
  * @example
- * // Guidelines entry
- * { "type": "cell", "miso": { "editing": { "native": { "type": "tableCell", "attributes": { "colspan": "cols", "rowspan": "rows" } } } } }
+ * // Entry of editors.text.mappings
+ * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "<modelId>:<cols id>", "rowspan": "<modelId>:<rows id>" } }
  *
- * // Resulting mapping: tiptap defaults as keys, project-specific overrides as values
+ * // Resulting mapping: tiptap defaults as keys, project-specific overrides (property names) as values
  * typeByRole: {
  *    tableCell: 'cell',
  * },
@@ -50,7 +82,7 @@ export type AnnotationMapping = DeepReadonly<{
    */
   typeByRole: Partial<Record<BuiltinStructuralType, string>>;
   /** Mapping from built-in structural types to project-specific attributes. The keys are the editor-owned
-   * attributes of the type, i.e. the property names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
+   * attributes of the type, i.e. the attribute names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
    * @example
    * attrByRole: {
    *    tableCell: {
@@ -96,7 +128,11 @@ export interface EditorSettings {
   documentStructures: boolean;
 }
 
-export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
+/** The live char positions of annotations by uuid, as in their `TextPositionSelector` (see `start`/`end` there) */
+export type IndexMap = Map<string, TextRange>;
+
+/** A char range of the plain text: `start` and `end` of a `TextPositionSelector`, without its `type` */
+export type TextRange = Pick<TextPositionSelector, "start" | "end">;
 
 export interface Range {
   from: number;
@@ -115,7 +151,7 @@ export interface BlockClassificationRange {
  * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
  *    are lost, the repaired state is written to the database on the next save.
  * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
- *    configured in the guidelines. Saving it can corrupt the stored data, so the user should be asked before continuing.
+ *    in the config. Saving it can corrupt the stored data, so the user should be asked before continuing.
  */
 export interface StandoffParseIssue {
   severity: "warning" | "error";

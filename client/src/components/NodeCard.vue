@@ -14,16 +14,19 @@ const props = withDefaults(
     href: string | null;
     title: string;
     showBadge?: boolean;
+    /** Locks the remove button temporarily, e.g. while a request is pending */
+    disabled?: boolean;
   }>(),
   {
     showBadge: true,
+    disabled: false,
   },
 );
 
 const node = defineModel<NodeStatusObject>("node", { required: true });
 const emit = defineEmits<(e: "remove-node") => void>();
 
-const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node));
 const iconTooltip = computed<string>(() => filterBaseNodeLabels(node.value.node.nodeLabels).join(", "));
 
 const hasVisibleBadge = computed<boolean>(() => props.showBadge && node.value.meta.status !== "unchanged");
@@ -86,6 +89,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
         severity="danger"
         class="ml-auto"
         title="Remove reference"
+        :disabled="props.disabled"
         @click="handleRemoveNode"
       ></Button>
     </div>

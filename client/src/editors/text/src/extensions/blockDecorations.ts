@@ -3,9 +3,9 @@ import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DocAnnotation, EditorSettings } from "../models/types";
-import { useGuidelinesStore } from "../external";
+import { useConfigStore } from "../external";
 
-const { getAnnotationType } = useGuidelinesStore();
+const { getAnnotationType } = useConfigStore();
 
 interface BlockDecorationState {
   decoSet: DecorationSet;
@@ -111,7 +111,7 @@ function buildTags(node: Node, showBase: boolean, showSemantic: boolean): TagDat
     const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
     for (const block of blockClassifications) {
-      const { type, uuid } = block.node.data;
+      const { type, uuid } = block.node.properties;
 
       tags.push({
         kind: "semantic",

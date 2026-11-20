@@ -1,17 +1,16 @@
 import { Node as DocNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
-import { DocAnnotation, IndexMap } from "../../models/types";
+import { DocAnnotation, IndexMap, TextRange } from "../../models/types";
 import {
   Annotation,
   BuiltinStructuralType,
   IAnnotation,
-  INTRINSIC_ANNOTATION_PROPERTIES,
   NodeStatus,
-  PropertyConfig,
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
+  createTextPositionSelector,
   pruneUnconfiguredProperties,
-  useGuidelinesStore,
+  useConfigStore,
 } from "../../external";
 import { collectInlineAnnotations, collectBlockClassifications, toAnnotation } from "./annotationHelper";
 import { createIndexMapBuilder } from "./indexMapHelper";
@@ -32,8 +31,8 @@ interface InitialAnnotations {
  * - block classifications in the `_blockClassifications` attribute of the block nodes they wrap.
  *
  * Every collector works the same way: each annotation that is currently in the editor gets its live
- * indices, text and status and is reduced to the properties configured in the guidelines, and every annotation that was part of the last saved state but is gone
- * from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
+ * indices, text and status and is reduced to the properties in the config, and every annotation that was part of the
+ * last saved state but is gone from the editor is added as "deleted". Only clones are returned, so a failed save leaves the editor untouched.
  *
  * @param {EditorState} state - The current editor state.
  * @param {InitialAnnotations} initial - The inline and structural annotations of the last saved state.
@@ -41,20 +40,20 @@ interface InitialAnnotations {
 export function createAnnotationChangeCollector(state: EditorState, initial: InitialAnnotations) {
   const {
     getAnnotationExtent,
-    getAnnotationFields,
+    getAnnotationNodeProperties,
     getAnnotationType,
     getEditorOwnedProperties,
-    getStructuralAnnotationConfig,
+    getTextAnnotationProperties,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,
     isZeroPoint,
-  } = useGuidelinesStore();
+  } = useConfigStore();
 
   /**
    * Collects and returns all properties for the neo4j payload of a structural annotation node.
    *
    * Single assembly point for a structural node's data which merges the different sources of truth:
-   * - Domain props from the tiptap node's `_annotation` attribute (as configured in the guidelines),
+   * - Domain props from the tiptap node's `_annotation` attribute (as declared in the config),
    * - Editor-owned props from the live tiptap-native attrs (e.g. `level` for headings),
    * - uuid from the UniqueID extension
    * - The annotation type itself from the node's editor role (if a mapping between built-in and custom name was configured)
@@ -67,24 +66,21 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
     const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
     const annotationType: string = getAnnotationType(editorRole);
-    const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.data ?? {};
+    const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.properties ?? {};
 
     const editorOwned = getEditorOwnedProperties(annotationType);
 
-    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only configured properties
-    // are taken: the ones of the structural type itself and the `system` and `base` ones every annotation has.
-    const fields: PropertyConfig[] = [
-      ...(getStructuralAnnotationConfig(annotationType)?.properties ?? []),
-      ...getAnnotationFields(annotationType),
-    ];
+    // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only the properties of the
+    // annotation shape in the model are taken.
+    const names: string[] = getTextAnnotationProperties(annotationType).map((field) => field.attribute.name);
 
-    fields.forEach((field: PropertyConfig) => {
-      if (editorOwned.some((map) => map.property === field.name)) {
+    names.forEach((name: string) => {
+      if (editorOwned.some((map) => map.property === name)) {
         return;
       }
 
-      if (field.name in annotationData) {
-        neo4jProperties[field.name] = annotationData[field.name];
+      if (name in annotationData) {
+        neo4jProperties[name] = annotationData[name];
       }
     });
 
@@ -188,13 +184,12 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
         return;
       }
 
-      const { startIndex, endIndex } = range;
+      const { start, end } = range;
       const isZeroPointAnno: boolean = isZeroPoint(currentEntry.node);
 
       const hasNewRange: boolean =
-        initialEntry?.node.data.startIndex !== startIndex || initialEntry?.node.data.endIndex !== endIndex;
-      const hasChangedText: boolean =
-        !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(startIndex, endIndex + 1);
+        initialEntry?.node.properties.selector?.start !== start || initialEntry?.node.properties.selector?.end !== end;
+      const hasChangedText: boolean = !isZeroPointAnno && initialEntry?.node.properties.text !== plainText.slice(start, end + 1);
       const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
 
       if (!hasNewRange && !hasChangedText && !isEditedOrDeleted) {
@@ -203,12 +198,12 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const cloned: Annotation = cloneDeep(currentEntry);
 
-      stampRange(cloned, range, plainText, isZeroPointAnno);
+      stampSelector(cloned, range, plainText, isZeroPointAnno);
 
       if (isZeroPointAnno) {
-        cloned.node.data.isZeroPoint = true;
+        cloned.node.properties.isZeroPoint = true;
       } else {
-        delete cloned.node.data.isZeroPoint;
+        delete cloned.node.properties.isZeroPoint;
       }
 
       pruneAnnotationData(cloned);
@@ -245,7 +240,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
       const annotation: Annotation = toAnnotation(entry, status);
 
-      stampRange(annotation, range, plainText);
+      stampSelector(annotation, range, plainText);
       pruneAnnotationData(annotation);
 
       affected.push(annotation);
@@ -254,7 +249,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     const deleted: Annotation[] = collectDeleted(
       initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
-      (annotation: Annotation) => !isBuiltinStructuralType(annotation.node.data.type),
+      (annotation: Annotation) => !isBuiltinStructuralType(annotation.node.properties.type),
     );
 
     return [...affected, ...deleted];
@@ -292,7 +287,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const annotation: Annotation = {
         node: {
-          data: assembleStructuralAnnotationData(docNode) as IAnnotation,
+          properties: assembleStructuralAnnotationData(docNode) as IAnnotation,
           nodeLabels: [...(docAnnotation?.node.nodeLabels ?? ["Annotation"])],
         },
         connectedNodes: cloneDeep(docAnnotation?.connectedNodes ?? []),
@@ -300,7 +295,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       };
 
       // Structural zero-points (hardBreaks) are treated like any other zero-point annotation
-      stampRange(annotation, range, plainText, isZeroPoint(annotation.node));
+      stampSelector(annotation, range, plainText, isZeroPoint(annotation.node));
 
       affected.push(annotation);
     });
@@ -308,7 +303,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     const deleted: Annotation[] = collectDeleted(
       initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
-      (annotation: Annotation) => isBuiltinStructuralType(annotation.node.data.type),
+      (annotation: Annotation) => isBuiltinStructuralType(annotation.node.properties.type),
     );
 
     return [...affected, ...deleted];
@@ -325,7 +320,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   }
 
   /**
-   * Removes all properties from the given annotation that are not configured in the guidelines, in place.
+   * Removes all properties from the given annotation that are not in the config, in place.
    * Used for inline annotations and block classifications, whose data are sent as they are stored in the editor.
    *
    * Annotations of an unconfigured type are left untouched unless {@link PRUNE_UNCONFIGURED_ANNOTATION_TYPES} is set.
@@ -334,36 +329,32 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * @returns {void} This function does not return any value.
    */
   function pruneAnnotationData(annotation: Annotation): void {
-    const type: string = annotation.node.data.type;
+    const type: string = annotation.node.properties.type;
 
     if (!isConfiguredAnnotationType(type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
       return;
     }
 
-    pruneUnconfiguredProperties(annotation.node.data, getAnnotationFields(type), INTRINSIC_ANNOTATION_PROPERTIES);
+    pruneUnconfiguredProperties(
+      annotation.node.properties,
+      getTextAnnotationProperties(type).map((field) => field.attribute.name),
+      getAnnotationNodeProperties(annotation.node),
+    );
   }
 
   /**
-   * Writes the live standoff range and the text it covers onto the given annotation.
+   * Writes the live selector and the text it covers onto the annotation.
    *
    * @param {Annotation} annotation - The (cloned) annotation to update.
-   * @param {{ startIndex: number; endIndex: number }} range - The live range from the index map.
+   * @param {TextRange} range - The live range from the index map.
    * @param {string} plainText - The plain text of the whole document.
-   * @param {boolean} hasNoText - Whether the annotation covers no text (zero-point annotations occupy an
-   *   offset between characters, not a range).
-   * @returns {void} This function does not return any value.
+   * @param {boolean} hasNoText - Whether the annotation covers no text (zero points).
    */
-  function stampRange(
-    annotation: Annotation,
-    range: { startIndex: number; endIndex: number },
-    plainText: string,
-    hasNoText: boolean = false,
-  ): void {
-    const { startIndex, endIndex } = range;
+  function stampSelector(annotation: Annotation, range: TextRange, plainText: string, hasNoText: boolean = false): void {
+    const { start, end } = range;
 
-    annotation.node.data.startIndex = startIndex;
-    annotation.node.data.endIndex = endIndex;
-    annotation.node.data.text = hasNoText ? "" : plainText.slice(startIndex, endIndex + 1);
+    annotation.node.properties.selector = createTextPositionSelector(start, end);
+    annotation.node.properties.text = hasNoText ? "" : plainText.slice(start, end + 1);
   }
 
   return {

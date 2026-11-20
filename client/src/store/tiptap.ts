@@ -1,5 +1,5 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, AnnotationAppearance } from "../models/types";
+import { NodeDto, Annotation } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node, Schema } from "@tiptap/pm/model";
@@ -13,6 +13,7 @@ import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
 import {
   type BlockClassificationRange,
+  type ExtensionOptions,
   type StandoffParseIssue,
   type ToCItem,
   StandoffConverter,
@@ -23,11 +24,11 @@ import {
   getVisibleDocRange,
   pastedSliceToRawText,
 } from "../editors/text/src";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getAnnotationConfig } = useGuidelinesStore();
+const { getTextAnnotationAppearance } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -39,22 +40,11 @@ let resizeObserver: ResizeObserver | null = null;
 
 // Shallow: items are frozen and reused across transactions, so only the array reference needs to be reactive
 const tableOfContent = shallowRef<ToCItem[]>([]);
-// Recreated per editor, so a newly loaded text (or changed guidelines) never reuses stale items
+// Recreated per editor, so a newly loaded text (or changed config) never reuses stale items
 let tocItemCache = new WeakMap<Node, ToCItem>();
 const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
-// Built on first use by `getEditorSchema`. The node types don't depend on the guidelines, so it never goes stale.
+// Built on first use by `getEditorSchema`. The node types don't depend on the config, so it never goes stale.
 let editorSchema: Schema | null = null;
-
-/**
- * Returns the configured appearance of an annotation type. Passed to the editor extensions, which render
- * markers and highlights from it.
- *
- * @param {string} type The annotation type
- * @returns {AnnotationAppearance | undefined} The configured appearance, if any
- */
-function getAppearance(type: string): AnnotationAppearance | undefined {
-  return getAnnotationConfig(type)?.miso?.appearance;
-}
 
 /**
  * Returns the ProseMirror schema of the text editor, e.g. to parse a document without creating an editor.
@@ -62,7 +52,7 @@ function getAppearance(type: string): AnnotationAppearance | undefined {
  * @returns {Schema} The schema, built once and reused.
  */
 function getEditorSchema(): Schema {
-  editorSchema ??= getSchema(createExtensions({ getAppearance }));
+  editorSchema ??= getSchema(createExtensions({ getAppearance: getTextAnnotationAppearance }));
 
   return editorSchema;
 }
@@ -128,10 +118,16 @@ function hasUnsavedChanges(): boolean {
  * Parses the given standoff document and creates the tiptap editor from it.
  *
  * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
+ * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut">} lineBreakHandlers - What happens on
+ *   a click on a line break's `¬` and on the line break shortcuts. Passed in since they open modals, which needs a
+ *   component's setup.
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
-function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): StandoffParseIssue[] {
-  const extensions: Extensions = createExtensions({ getAppearance });
+function initializeTiptap(
+  standoffObject: { text: string; annotations: NodeDto[] },
+  lineBreakHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut"> = {},
+): StandoffParseIssue[] {
+  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance, ...lineBreakHandlers });
 
   const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
@@ -160,8 +156,6 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
       // This is done in the hook since it has more context than just the raw JSON from the converter.
       // TODO: Might be worth to refactor later, keep in mind
       initialDoc = editor.getJSON();
-
-      // console.log('initial tiptap json: ', initialDoc);
       initialPlainText = editor.state.doc.textContent;
 
       initializeEventListeners(editor);

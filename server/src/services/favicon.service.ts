@@ -1,5 +1,6 @@
 import NotFoundError from "../errors/notFound.error.js";
 import { FaviconResponse } from "../models/types.js";
+import { env } from "../env.js";
 
 export default class FaviconService {
   /**
@@ -9,7 +10,7 @@ export default class FaviconService {
    * @return {Promise<FaviconResponse>} The retrieved favicon as a raw buffer with its content type.
    */
   public async getFavicon(): Promise<FaviconResponse> {
-    const url: string | undefined = process.env.FAVICON_URL;
+    const url: string | undefined = env.FAVICON_URL;
 
     if (!url) {
       throw new NotFoundError("URL to favicon is not provided");

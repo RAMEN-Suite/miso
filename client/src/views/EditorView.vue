@@ -24,14 +24,12 @@ import PageOverlay from "../components/PageOverlay.vue";
 import { useTiptapStore } from "../store/tiptap.ts";
 import EditorAnnotationButtonPane from "../components/EditorAnnotationButtonPane.vue";
 import { Node as DocNode } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../store/guidelines.ts";
+import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
-import {
-  type StandoffParseIssue,
-  createAnnotationChangeCollector,
-  normalizeAnnotation,
-} from "../editors/text/src";
+import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
+import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
+import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -54,7 +52,9 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getAnnotationType } = useGuidelinesStore();
+const { getAnnotationType } = useConfigStore();
+const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
+const { insertLineBreak } = useInsertLineBreak();
 
 onUnmounted(() => destroyTiptap());
 
@@ -126,9 +126,7 @@ function cleanUpAfterSave(
 
   cleanUpAnnotations(updatedAnnotations.annotations);
 
-  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(
-    updatedAnnotations.structureElements,
-  );
+  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(updatedAnnotations.structureElements);
 
   // Needs to happen before the new initial state is set, since the document is part of it
   tiptap.value?.commands.applySavedDocAnnotations(savedStructuralAnnotations);
@@ -140,7 +138,7 @@ function cleanUpAnnotations(updatedAnnotations: Annotation[]): void {
   const savedAnnotations = new Map<string, Annotation>();
 
   updatedAnnotations.forEach((a: Annotation) => {
-    const uuid: string = a.node.data.uuid;
+    const uuid: string = a.node.properties.uuid;
 
     if (a.meta.status === "deleted") {
       // Can be removed from the map safely
@@ -166,7 +164,7 @@ function cleanUpStructureElements(structureElements: Annotation[]): Map<string, 
   const savedStructuralAnnotations = new Map<string, Annotation>();
 
   structureElements.forEach((elm: Annotation) => {
-    const uuid: string = elm.node.data.uuid;
+    const uuid: string = elm.node.properties.uuid;
 
     if (elm.meta.status === "deleted") {
       // Can be removed from the map safely
@@ -233,8 +231,8 @@ async function handleSaveChanges(): Promise<void> {
   const annotationsToUpdate: Annotation[] = [...structureElements, ...annotations];
   const newTextNode: NodeStatusObject<TextNode> = {
     node: {
-      data: {
-        uuid: text.value.data.uuid,
+      properties: {
+        uuid: text.value.properties.uuid,
         text: tiptap.value.state.doc.textContent,
       },
       nodeLabels: [...text.value.nodeLabels],
@@ -251,7 +249,7 @@ async function handleSaveChanges(): Promise<void> {
 
   asyncOperationRunning.value = true;
   try {
-    await api.updateText(text.value.data.uuid, textToUpdate);
+    await api.updateText(text.value.properties.uuid, textToUpdate);
 
     // Update all initial values: Annotations, structuralAnnotations and text
 
@@ -440,9 +438,12 @@ watch(
 
     const fetchedAnnotations: NodeDto[] = await api.getAnnotations(textUuid.value);
 
-    const standoffObject = { text: text.value.data.text, annotations: fetchedAnnotations };
+    const standoffObject = { text: text.value.properties.text, annotations: fetchedAnnotations };
 
-    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject);
+    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
+      onHardBreakMarkerClick: openStructuralAnnotationEditor,
+      onHardBreakShortcut: insertLineBreak,
+    });
 
     isLoading.value = false;
 

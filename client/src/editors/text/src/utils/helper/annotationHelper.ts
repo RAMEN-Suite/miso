@@ -14,7 +14,7 @@ import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../
  */
 export function createDefaultDocAnnotation(type: string): DocAnnotation {
   return {
-    node: { data: { type }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
+    node: { properties: { type }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
     connectedNodes: [],
   };
 }
@@ -140,7 +140,7 @@ export function collectBlockClassifications(doc: Node): Map<string, DocAnnotatio
     const blockClassifications: DocAnnotation[] = node.attrs?._blockClassifications ?? [];
 
     for (const block of blockClassifications) {
-      const uuid: string = block.node.data.uuid;
+      const uuid: string = block.node.properties.uuid;
 
       if (!map.has(uuid)) {
         map.set(uuid, block);

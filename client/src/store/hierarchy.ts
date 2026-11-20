@@ -17,13 +17,12 @@ import {
   NodeDto,
   NodeStatusObject,
   AnnotationNode,
-  PropertyConfig,
 } from "../models/types";
 import { useAppStore } from "./app";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 import { useSmartViewsStore } from "./smartViews";
 import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
-import { getBaseNodeLabel } from "../config/ramen";
+import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import { useTextPreview } from "../composables/useTextPreview";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
 import type HierarchyColumn from "../components/HierarchyColumn.vue";
@@ -46,7 +45,7 @@ let store: ReturnType<typeof createStore> | undefined = undefined;
 function createStore() {
   return scope.run(() => {
     const { api } = useAppStore();
-    const { getAvailableCollectionLabels, getAvailableContentLabels, getAllCollectionConfigFields } = useGuidelinesStore();
+    const { getAllCollectionAttributes, getHierarchyClassifierRefs, getModelContext } = useConfigStore();
     const { getSmartViewFilters } = useSmartViewsStore();
     const { getTextPreviewAnnotationTypes } = useTextPreview();
 
@@ -74,7 +73,7 @@ function createStore() {
 
     /** UUIDs of the multiselected items, for fast lookups. */
     const selectedUuids = computed<Set<string>>(
-      () => new Set<string>(multiSelection.value?.items.map((item: NodeDto<HierarchyNode>) => item.node.data.uuid) ?? []),
+      () => new Set<string>(multiSelection.value?.items.map((item: NodeDto<HierarchyNode>) => item.node.properties.uuid) ?? []),
     );
 
     /**
@@ -100,8 +99,8 @@ function createStore() {
       baseItems: NodeDto<HierarchyNode>[],
     ): void {
       const parentPath: HierarchyPath = path.value.slice(0, depth);
-      const pathItemUuid: string | undefined = path.value[depth]?.node.data.uuid;
-      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.data.uuid === pathItemUuid);
+      const pathItemUuid: string | undefined = path.value[depth]?.node.properties.uuid;
+      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.properties.uuid === pathItemUuid);
 
       let newPath: HierarchyPath;
 
@@ -182,8 +181,8 @@ function createStore() {
     /**
      * The query a freshly built level starts with: everything, unsorted-by-default, unfiltered.
      *
-     * The labels are read on every call rather than once at store creation, because the guidelines
-     * are fetched asynchronously and this store may be created before they arrive — an early read
+     * The node types are read on every call rather than once at store creation, because the config
+     * is fetched asynchronously and this store may be created before it arrives — an early read
      * would bake in an empty list and leave the first column listing nothing.
      *
      * @returns {LevelQuery} A fresh default query. Never shared between levels.
@@ -193,9 +192,9 @@ function createStore() {
         filters: [
           { target: { kind: "distinct" }, operator: "and", conditions: [{ comparator: "contains", value: "" }] },
           {
-            target: { kind: "labels" },
+            target: { kind: "classifier" },
             operator: "and",
-            conditions: [{ comparator: "in", value: [...getAvailableCollectionLabels(), ...getAvailableContentLabels()] }],
+            conditions: [{ comparator: "in", value: getHierarchyClassifierRefs() }],
           },
         ],
         sort: { target: { kind: "distinct" }, order: "asc" },
@@ -238,13 +237,25 @@ function createStore() {
         return defaults;
       }
 
-      // Important: A preset outlives the guidelines it was written against - If the guidelines change, the preset
-      // might be stale/invalid. This is a safe guard to only apply rules that are still valid.
-      const validProperties = new Set<string>(getAllCollectionConfigFields().map((config: PropertyConfig) => config.name));
+      // Important: A preset outlives the config it was written against - If the config changes, the preset
+      // might be stale/invalid. This is a safe guard to only apply rules that are still valid: properties the model
+      // still has, node types it still knows (the server ignores unknown ones too).
+      const validProperties = new Set<string>(getAllCollectionAttributes().map((entry) => entry.attribute.name));
+      const validClassifiers = new Set<string>(getHierarchyClassifierRefs());
 
-      const filters: FilterSpec = preset.filter(
-        (rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field),
-      );
+      const filters: FilterSpec = preset
+        .filter((rule: FilterRule) => rule.target.kind !== "property" || validProperties.has(rule.target.field))
+        .map((rule: FilterRule) =>
+          rule.target.kind === "classifier"
+            ? {
+                ...rule,
+                conditions: rule.conditions.map((condition) => ({
+                  ...condition,
+                  value: (condition.value as string[]).filter((ref) => validClassifiers.has(ref)),
+                })),
+              }
+            : rule,
+        );
 
       return { ...defaults, filters };
     }
@@ -257,9 +268,9 @@ function createStore() {
      * @returns {Promise<FocusData>} The focus data for the pane.
      */
     async function fetchFocusData(item: NodeDto<HierarchyNode>): Promise<FocusData> {
-      const uuid: string = item.node.data.uuid;
+      const uuid: string = item.node.properties.uuid;
 
-      if (getBaseNodeLabel(item.node.nodeLabels) === "Collection") {
+      if (getBaseNodeLabel(getModelContext(), item.node) === "Collection") {
         isFetchingFocus.value = true;
 
         try {
@@ -303,7 +314,7 @@ function createStore() {
      * @returns {HierarchyEntry | null} The entry if found, or null.
      */
     function findEntryInHierarchy(uuid: string, index: number): HierarchyEntry | null {
-      return levels.value[index]?.entries.find((e) => e.data.node.data.uuid === uuid) ?? null;
+      return levels.value[index]?.entries.find((e) => e.data.node.properties.uuid === uuid) ?? null;
     }
 
     /**
@@ -389,7 +400,9 @@ function createStore() {
       }
 
       const removable = new Set<string>(uuids);
-      const remaining: HierarchyEntry[] = level.entries.filter((e: HierarchyEntry) => !removable.has(e.data.node.data.uuid));
+      const remaining: HierarchyEntry[] = level.entries.filter(
+        (e: HierarchyEntry) => !removable.has(e.data.node.properties.uuid),
+      );
 
       if (level.state.pagination) {
         level.state.pagination.totalRecords = Math.max(
@@ -431,7 +444,9 @@ function createStore() {
       }
 
       const anchor: NodeDto<HierarchyNode> | null = getColumnAnchor(depth);
-      const anchorIsListed: boolean = items.some((i: NodeDto<HierarchyNode>) => i.node.data.uuid === anchor?.node.data.uuid);
+      const anchorIsListed: boolean = items.some(
+        (i: NodeDto<HierarchyNode>) => i.node.properties.uuid === anchor?.node.properties.uuid,
+      );
 
       applySelection(depth, items, anchorIsListed ? anchor : items[0], items);
     }
@@ -466,8 +481,12 @@ function createStore() {
       }
 
       const entries: HierarchyEntry[] = levels.value[depth]?.entries ?? [];
-      const anchorIndex: number = entries.findIndex((e: HierarchyEntry) => e.data.node.data.uuid === anchor.node.data.uuid);
-      const targetIndex: number = entries.findIndex((e: HierarchyEntry) => e.data.node.data.uuid === item.node.data.uuid);
+      const anchorIndex: number = entries.findIndex(
+        (e: HierarchyEntry) => e.data.node.properties.uuid === anchor.node.properties.uuid,
+      );
+      const targetIndex: number = entries.findIndex(
+        (e: HierarchyEntry) => e.data.node.properties.uuid === item.node.properties.uuid,
+      );
 
       if (anchorIndex === -1 || targetIndex === -1) {
         toggleItem(item, depth);
@@ -479,10 +498,10 @@ function createStore() {
         .map((e: HierarchyEntry) => e.data);
 
       const baseItems: NodeDto<HierarchyNode>[] = multiSelection.value?.depth === depth ? multiSelection.value.baseItems : [];
-      const baseUuids = new Set<string>(baseItems.map((base: NodeDto<HierarchyNode>) => base.node.data.uuid));
+      const baseUuids = new Set<string>(baseItems.map((base: NodeDto<HierarchyNode>) => base.node.properties.uuid));
       const items: NodeDto<HierarchyNode>[] = [
         ...baseItems,
-        ...range.filter((rangeItem: NodeDto<HierarchyNode>) => !baseUuids.has(rangeItem.node.data.uuid)),
+        ...range.filter((rangeItem: NodeDto<HierarchyNode>) => !baseUuids.has(rangeItem.node.properties.uuid)),
       ];
 
       applySelection(depth, items, anchor, baseItems);
@@ -513,13 +532,13 @@ function createStore() {
      * @returns {void} This function does not return a value.
      */
     function toggleItem(item: NodeDto<HierarchyNode>, depth: number): void {
-      const uuid: string = item.node.data.uuid;
+      const uuid: string = item.node.properties.uuid;
       const current: NodeDto<HierarchyNode>[] = getColumnSelection(depth);
-      const isSelected: boolean = current.some((selected: NodeDto<HierarchyNode>) => selected.node.data.uuid === uuid);
+      const isSelected: boolean = current.some((selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid === uuid);
 
       if (isSelected) {
         const remaining: NodeDto<HierarchyNode>[] = current.filter(
-          (selected: NodeDto<HierarchyNode>) => selected.node.data.uuid !== uuid,
+          (selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid !== uuid,
         );
 
         applySelection(depth, remaining, remaining[remaining.length - 1] ?? null, remaining);
@@ -550,7 +569,9 @@ function createStore() {
       const lastItem: NodeDto<HierarchyNode> | null = path.value[newPathLength - 1] ?? null;
 
       // Empty path (root) behaves like a collection: it still gets a top-level child column
-      const lastItemCanHaveChildren: boolean = lastItem ? getBaseNodeLabel(lastItem.node.nodeLabels) === "Collection" : true;
+      const lastItemCanHaveChildren: boolean = lastItem
+        ? getBaseNodeLabel(getModelContext(), lastItem.node) === "Collection"
+        : true;
 
       // Column that would show the focused item's children — captured before resizing, for reuse
       const currentChildColumn: Level | undefined = levels.value[newPathLength];
@@ -577,7 +598,7 @@ function createStore() {
       // decided by `root`, not by a parent uuid.
       levels.value.forEach((level: Level, index: number) => {
         level.activeItem = path.value[index];
-        level.parentUuid = levels.value[index - 1]?.activeItem?.node.data.uuid ?? null;
+        level.parentUuid = levels.value[index - 1]?.activeItem?.node.properties.uuid ?? null;
       });
 
       // A focused Content is a leaf — no child column to append
@@ -585,7 +606,7 @@ function createStore() {
         return;
       }
 
-      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.data.uuid ?? null;
+      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.properties.uuid ?? null;
       const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
 
       if (canReuse) {

@@ -1,5 +1,4 @@
 import { computed, ref } from "vue";
-import { IGuidelines } from "../models/IGuidelines";
 
 const allOptions = ref<string[]>([]);
 const selectedOptions = ref<string[]>([]);
@@ -7,17 +6,17 @@ const areAllOptionsSelected = computed<boolean>(() => selectedOptions.value.leng
 
 /**
  * Store for filtering the displayed annotation types in the editor instance. The store's data are derived from
- * the guidelines store and is initialized from there.
+ * the config store and is initialized from there.
  */
 export function useFilterStore() {
   /**
-   * Initializes the store with the provided data. Called from the guidelines store. All options are selected initially.
+   * Initializes the store with the provided data. Called from the config store. All options are selected initially.
    *
-   * @param {IGuidelines} guidelines - The guidelines data to initialize with.
+   * @param {string[]} annotationTypes - The annotation types of the editor, i.e. the options.
    * @return {void} This function does not return anything.
    */
-  function initializeFilter(guidelines: IGuidelines): void {
-    allOptions.value = guidelines.contents.annotations.types.map((type) => type.type);
+  function initializeFilter(annotationTypes: string[]): void {
+    allOptions.value = [...annotationTypes];
     selectedOptions.value = [...allOptions.value];
   }
 

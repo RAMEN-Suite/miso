@@ -6,7 +6,8 @@ import { resolveNodeIcon } from "../config/icons";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import { useTagsStore } from "../store/tags";
 import { normalizeTagColor } from "../config/tags";
-import { getContentLabelText } from "../utils/helper/helper";
+import { getTypeLabelText } from "../utils/helper/modelHelper";
+import { useConfigStore } from "../store/config";
 
 const emit = defineEmits<{
   itemSelected: [uuid: string, modifiers: SelectionModifiers];
@@ -24,21 +25,22 @@ const props = defineProps<{
 const isMac: boolean = detectPlatform() === "mac";
 
 const { entryIndex, tags } = useTagsStore();
+const { getModelContext } = useConfigStore();
 
 const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
-const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node.nodeLabels));
+const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node));
 const tagColors = computed<string[]>(() => {
-  const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.data.uuid) ?? [];
+  const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.properties.uuid) ?? [];
 
   return tagUuids.map((uuid) => normalizeTagColor(tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color));
 });
 
 const displayText = computed<string>(() => {
   if (isCollection.value) {
-    return (props.entry.data.node as CollectionNode).data.label;
+    return (props.entry.data.node as CollectionNode).properties.label;
   }
 
-  return getContentLabelText(props.entry.data.node.nodeLabels);
+  return getTypeLabelText(getModelContext(), props.entry.data.node);
 });
 
 // A Content's display text is its type label (e.g. "Letter"), the project's name for it
@@ -53,7 +55,7 @@ const title = computed<string>(() =>
  * @returns {void} This function does not return a value.
  */
 function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
-  emit("itemSelected", props.entry.data.node.data.uuid, {
+  emit("itemSelected", props.entry.data.node.properties.uuid, {
     toggle: isMac ? event.metaKey : event.ctrlKey,
     range: event.shiftKey,
   });
@@ -72,7 +74,7 @@ function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
       collection: isCollection,
       content: !isCollection,
     }"
-    :data-node-uuid="props.entry.data.node.data.uuid"
+    :data-node-uuid="props.entry.data.node.properties.uuid"
     :title="title"
     :aria-selected="props.selection !== null"
     @click="handleItemSelect"

@@ -1,5 +1,5 @@
-import { BaseNodeData } from "./types";
+import { BaseNodeProperties } from "./types";
 
-export type IEntity = BaseNodeData & {
+export type IEntity = BaseNodeProperties & {
   label: string;
 };

@@ -1,5 +1,7 @@
 import winston from "winston";
 import "winston-daily-rotate-file";
+import { env } from "./env.js";
+import type { Env } from "./schemas/env.schema.js";
 
 const { combine, timestamp, printf, colorize, json, errors } = winston.format;
 
@@ -79,10 +81,10 @@ const allTransports = [
 /**
  * Returns the transports (console or log files) to use based on the given mode.
  *
- * @param {string | undefined} mode The mode to select transports for. Comes from environment variables and can therefore be undefined.
+ * @param {Env["NODE_ENV"]} mode The mode to select transports for (env `NODE_ENV`); without one, both are used.
  * @returns {winston.transport[]} The transports to use.
  */
-function getTransports(mode: string | undefined): winston.transport[] {
+function getTransports(mode: Env["NODE_ENV"]): winston.transport[] {
   if (mode === "development") {
     return allTransports.filter((t) => t instanceof winston.transports.Console);
   } else if (mode === "production") {
@@ -94,9 +96,8 @@ function getTransports(mode: string | undefined): winston.transport[] {
 
 const logger = winston.createLogger({
   levels: logLevels.levels,
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- An empty LOG_LEVEL must fall back to the default too
-  level: process.env.LOG_LEVEL || "debug",
-  transports: getTransports(process.env.NODE_ENV),
+  level: env.LOG_LEVEL,
+  transports: getTransports(env.NODE_ENV),
 }) as winston.Logger & {
   fatal: winston.LeveledLogMethod;
 };

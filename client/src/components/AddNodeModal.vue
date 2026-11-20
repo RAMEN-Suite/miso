@@ -4,7 +4,7 @@ import Button from "primevue/button";
 import Divider from "primevue/divider";
 import { useAddNode } from "../composables/useAddNode";
 import { RouteLocationNormalizedLoaded, useRoute } from "vue-router";
-import { NodeStatusObject, CollectionNode, TextNode, EntityNode, ReferenceNodeLabel } from "../models/types";
+import { NodeStatusObject, CollectionNode, TextNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -24,10 +24,10 @@ const route: RouteLocationNormalizedLoaded = useRoute();
 const { currentStep, node: nodeToAdd, setPipelineStep, setNode, finish: finishProcess } = useAddNode();
 
 const baseNodeLabel: ReferenceNodeLabel = dialogRef.value.data.baseNodeLabel;
-const additionalNodeLabel: string = dialogRef.value.data.additionalNodeLabel;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
-if (!additionalNodeLabel) {
-  throw new Error("additionalNodeLabel not provided - the node label must be chosen before opening the modal");
+if (!nodeType) {
+  throw new Error("nodeType not provided - the node type must be chosen before opening the modal");
 }
 
 const emit = defineEmits<{
@@ -101,7 +101,7 @@ function closeModal(): void {
     <template v-if="currentStep === 'choosing'">
       <NodeSearchbar
         :base-node-label="baseNodeLabel"
-        :additional-node-label="additionalNodeLabel"
+        :additional-node-label="nodeType.name"
         @item-selected="handleSearchItemSelected"
       />
 
@@ -112,23 +112,23 @@ function closeModal(): void {
 
         <TextDraftContainer
           v-if="isDrafting && baseNodeLabel === 'Content'"
-          :node-labels="[baseNodeLabel, additionalNodeLabel]"
+          :node-type="nodeType"
           @text-added="handleDraftConfirmed"
           @text-discarded="handleDiscardDraft"
         />
         <EntityDraftContainer
           v-else-if="isDrafting && baseNodeLabel === 'Entity'"
-          :node-labels="[baseNodeLabel, additionalNodeLabel]"
+          :node-type="nodeType"
           @entity-added="handleDraftConfirmed"
           @entity-discarded="handleDiscardDraft"
         />
         <Button
           v-else
-          :label="`Create new ${additionalNodeLabel}`"
+          :label="`Create new ${nodeType.name}`"
           icon="icon-plus"
           severity="secondary"
           class="w-full"
-          :title="`Create a new ${additionalNodeLabel} node`"
+          :title="`Create a new ${nodeType.name} node`"
           @click="handleStartDraft"
         />
       </template>

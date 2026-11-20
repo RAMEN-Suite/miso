@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGuidelinesStore } from "../store/guidelines.ts";
+import { useConfigStore } from "../store/config.ts";
 import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import { Annotation, AnnotationNode, AnnotationType, NodeStatusObject, PropertyConfig } from "../models/types.ts";
+import { Annotation, AnnotationNode, NodeStatusObject, ModelAnnotationShape, ModelAttribute } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
@@ -32,16 +32,15 @@ const { tiptap, initialAnnotations } = useTiptapStore();
 
 /** Last saved state of the annotation. `undefined` if the annotation was not saved yet. */
 const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
-  initialAnnotations.value?.get(props.annotation.node.data.uuid),
+  initialAnnotations.value?.get(props.annotation.node.properties.uuid),
 );
 
-const { getAnnotationConfig, getAnnotationFields, getAnnotationExtent } = useGuidelinesStore();
+const { getAnnotationShape, getAnnotationProperties, getAnnotationExtent } = useConfigStore();
 
-const config: AnnotationType | undefined = getAnnotationConfig(props.annotation.node.data.type);
+const shape: ModelAnnotationShape | undefined = getAnnotationShape(props.annotation.node);
 
-const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.data.type) === "zeroPoint";
-// TODO: Maybe give whole config instead of only fields...?
-const propertyFields: PropertyConfig[] = getAnnotationFields(props.annotation.node.data.type);
+const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.properties.type) === "zeroPoint";
+const propertyFields: ModelAttribute[] = getAnnotationProperties(props.annotation.node);
 
 /** Whether the card body is hidden. Can be controlled by the parent via `v-model:collapsed`. */
 const isCollapsed = defineModel<boolean>("collapsed", { default: true });
@@ -56,7 +55,7 @@ const previewText = computed<string>(() => {
   const decoration: Decoration | undefined = decorations.find(
     undefined,
     undefined,
-    (spec) => spec._uuid === props.annotation.node.data.uuid,
+    (spec) => spec._uuid === props.annotation.node.properties.uuid,
   )[0];
 
   // Zero-point annotations have no decoration and cover no text
@@ -86,8 +85,8 @@ function handleDeleteAnnotation(): void {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(): void {
-  if (!config) {
-    console.error(`No annotation config found for type "${props.annotation.node.data.type}"`);
+  if (!shape) {
+    console.error(`No annotation shape found for type "${props.annotation.node.properties.type}"`);
     return;
   }
 
@@ -95,10 +94,10 @@ function handleEditAnnotation(): void {
     dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${props.annotation.node.data.subType ?? props.annotation.node.data.type} annotation`,
+        header: `Edit ${props.annotation.node.properties.subType ?? props.annotation.node.properties.type} annotation`,
       },
 
-      data: { annotation: props.annotation, config, mode: "edit" },
+      data: { annotation: props.annotation, mode: "edit" },
       emits: {
         onSubmit: (updated: Annotation) => {
           updateData(updated);
@@ -117,7 +116,7 @@ function handleSpyClick() {
 
   let range: Range | null = null;
 
-  const uuid: string = props.annotation.node.data.uuid;
+  const uuid: string = props.annotation.node.properties.uuid;
   const renderType: "range" | "zeroPoint" = isZeroPointAnnotation ? "zeroPoint" : "range";
 
   if (renderType === "range") {
@@ -133,7 +132,7 @@ function handleSpyClick() {
   }
 
   if (!range) {
-    console.error(`Annotation with uuid ${props.annotation.node.data.uuid} not found`);
+    console.error(`Annotation with uuid ${props.annotation.node.properties.uuid} not found`);
     return;
   }
 
@@ -143,7 +142,7 @@ function handleSpyClick() {
 function handleSpyHover(direction: "on" | "off"): void {
   const renderType: "range" | "zeroPoint" = isZeroPointAnnotation ? "zeroPoint" : "range";
 
-  tiptap.value?.commands.toggleAnnotationHighlight(direction, props.annotation.node.data.uuid, { renderType });
+  tiptap.value?.commands.toggleAnnotationHighlight(direction, props.annotation.node.properties.uuid, { renderType });
 }
 
 function toggleCollapsed(newState?: boolean): void {
@@ -175,14 +174,18 @@ function updateData(updated: Annotation): void {
 </script>
 
 <template>
-  <div :id="props.annotation.node.data.uuid" class="annotation-card mb-4" :data-annotation-uuid="props.annotation.node.data.uuid">
+  <div
+    :id="props.annotation.node.properties.uuid"
+    class="annotation-card mb-4"
+    :data-annotation-uuid="props.annotation.node.properties.uuid"
+  >
     <div class="annotation-card-header">
       <div class="flex items-center gap-1 grow">
         <div class="annotation-type-icon-container">
-          <AnnotationTypeIcon :config="config" />
+          <AnnotationTypeIcon :shape="shape" />
         </div>
-        <span class="font-bold">{{ props.annotation.node.data.subType ?? props.annotation.node.data.type }}</span>
-        <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.data.text">
+        <span class="font-bold">{{ props.annotation.node.properties.subType ?? props.annotation.node.properties.type }}</span>
+        <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.properties.text">
           {{ previewText }}
         </span>
         <div
@@ -211,8 +214,12 @@ function updateData(updated: Annotation): void {
     </div>
 
     <div v-show="!isCollapsed" class="annotation-card-body">
-      <NodePropertiesTable :data="props.annotation.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection :model-value="props.annotation.connectedNodes" mode="view" />
+      <NodePropertiesTable :properties="props.annotation.node.properties" :fields="propertyFields" />
+      <AnnotationReferencesSection
+        :model-value="props.annotation.connectedNodes"
+        :annotation="props.annotation.node"
+        mode="view"
+      />
     </div>
 
     <div class="annotation-card-footer">

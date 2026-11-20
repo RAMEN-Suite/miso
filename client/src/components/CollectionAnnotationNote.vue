@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation, AnnotationType, PropertyConfig } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
+import { Annotation, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import { useConfigStore } from "../store/config";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
@@ -11,7 +11,6 @@ import NodePreviewPopover from "./NodePreviewPopover.vue";
 const annotation = defineModel<Annotation>({ required: true });
 
 const props = defineProps<{
-  collectionNodeLabels: string[];
   /** Blocks all interaction with the note, e.g. while it is being deleted. */
   disabled?: boolean;
 }>();
@@ -22,19 +21,17 @@ const emit = defineEmits<{
   remove: [event: Event];
 }>();
 
-const { getCollectionAnnotationConfig, getCollectionAnnotationFields } = useGuidelinesStore();
+const { getAnnotationShape, getAnnotationProperties } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
-const propertyFields: ComputedRef<PropertyConfig[]> = computed(() =>
-  getCollectionAnnotationFields(props.collectionNodeLabels, annotation.value.node.data.type),
-);
+const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotationProperties(annotation.value.node));
 
-const config: ComputedRef<AnnotationType | undefined> = computed(() =>
-  getCollectionAnnotationConfig(props.collectionNodeLabels, annotation.value.node.data.type),
-);
+const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value.node));
 
-const label: ComputedRef<string> = computed(() => String(annotation.value.node.data.subType ?? annotation.value.node.data.type));
+const label: ComputedRef<string> = computed(() =>
+  String(annotation.value.node.properties.subType ?? annotation.value.node.properties.type),
+);
 
 /**
  * Shows or hides the details popover. Ignores remove clicks (not stopped, the confirmation needs them to position).
@@ -70,13 +67,13 @@ function handleEditFromPopover(event: MouseEvent): void {
     tabindex="0"
     :aria-disabled="props.disabled"
     :title="`Show ${label} details`"
-    :data-annotation-uuid="annotation.node.data.uuid"
+    :data-annotation-uuid="annotation.node.properties.uuid"
     @click="handleTogglePopover"
     @keydown.enter.self.prevent="handleTogglePopover"
     @keydown.space.self.prevent="handleTogglePopover"
   >
     <div class="note-info">
-      <span class="note-icon"><AnnotationTypeIcon :config="config" /></span>
+      <span class="note-icon"><AnnotationTypeIcon :shape="shape" /></span>
       <span class="note-label">{{ label }}</span>
     </div>
     <Button
@@ -92,8 +89,8 @@ function handleEditFromPopover(event: MouseEvent): void {
     />
 
     <NodePreviewPopover ref="popover">
-      <NodePropertiesTable :data="annotation.node.data" :fields="propertyFields" />
-      <AnnotationReferencesSection v-model="annotation.connectedNodes" mode="view" />
+      <NodePropertiesTable :properties="annotation.node.properties" :fields="propertyFields" />
+      <AnnotationReferencesSection v-model="annotation.connectedNodes" :annotation="annotation.node" mode="view" />
       <div class="flex justify-center">
         <Button
           icon="icon-pencil"

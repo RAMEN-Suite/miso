@@ -3,18 +3,12 @@ import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
-import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
-import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { ModelAnnotationShape } from "../models/types";
+import { useAnnotateSelection } from "../composables/useAnnotateSelection";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
-import ShortcutError from "../utils/errors/shortcut.error";
-import { useAppStore } from "../store/app";
-import { useDialog } from "primevue";
-import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap";
-import { AnnotationRangeError, validateSelection } from "../editors/text/src";
 import { HEADING_LEVELS } from "../editors/text/src/config/editor";
-import { Selection } from "@tiptap/pm/state";
 import Button from "primevue/button";
 import Divider from "primevue/divider";
 import Select from "primevue/select";
@@ -27,23 +21,15 @@ import TabList from "primevue/tablist";
 import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
-import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 
-const {
-  groupedAndSortedAnnotationTypes,
-  annotationHasConstraints,
-  getTextAnnotationShape,
-  getAnnotationRepresentation,
-  isZeroPoint,
-} = useConfigStore();
-const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
+const { groupedAndSortedAnnotationTypes, getAnnotationRepresentation } = useConfigStore();
 const { selectedOptions } = useFilterStore();
 const { tiptap } = useTiptapStore();
-const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
+const { annotateBlock, annotateInline } = useAnnotateSelection();
 const { insertLineBreak } = useInsertLineBreak();
 
 const selectedTab = ref<"annotations" | "structure">("structure");
@@ -134,7 +120,6 @@ watchEffect(() => {
 const tablePopover = useTemplateRef<InstanceType<typeof TableInsertPopover>>("table-popover");
 const tableMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("table-menu");
 const tableMenuItems = ref<MenuItem[]>([]);
-const dialog: ReturnType<typeof useDialog> = useDialog();
 
 /**
  * Wrapper for running TipTap table chain commands on the focused editor (e.g., `mergeCells`)
@@ -245,193 +230,6 @@ function openTableMenu(event: Event): void {
   tableMenuItems.value = buildTableMenuItems();
   tableMenu.value?.toggle(event);
 }
-
-/**
- * Checks if the annotation type is enabled by verifying if it is included in the selected options. If not, an `ShortcutError` is thrown.
- *
- * @throws {ShortcutError} If the annotation type is not enabled in the current filter settings.
- * @returns {boolean} True if the annotation type is enabled.
- */
-function isAnnotationTypeEnabled(type: string): boolean {
-  if (!selectedOptions.value.includes(type)) {
-    throw new ShortcutError(
-      `Annotations of type "${type}" are not enabled currently. Use the Filter component to enable the type.`,
-    );
-  }
-
-  return true;
-}
-
-function handleInlineAnnotationButtonClick(data: { type: string; subType?: string | number }) {
-  const selection: Selection | undefined = tiptap.value?.state.selection;
-
-  if (!selection) {
-    return;
-  }
-
-  try {
-    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
-
-    if (!shape) {
-      console.error(`No annotation shape found for type "${data.type}"`);
-      return;
-    }
-
-    isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, data.type);
-
-    // Needs to be captured since modal opening collapses editor selection
-    const capturedSelection = { from: selection.from, to: selection.to };
-
-    const textInSelection: string = tiptap.value?.state.doc.textBetween(selection.from, selection.to) ?? "";
-
-    const newAnnotationTemplate: NodeStatusObject<AnnotationNode> = createAnnotation({
-      ...data,
-      selectedText: textInSelection,
-    });
-
-    if (annotationHasConstraints(shape)) {
-      createModalInstance(
-        dialog.open(AnnotationDetailsModal, {
-          props: {
-            ...ANNOTATION_MODAL_PROPS,
-            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
-          },
-          data: {
-            annotation: newAnnotationTemplate,
-            mode: "create",
-          },
-          emits: {
-            onSubmit: (editedAnnotationData: Annotation) => {
-              addAnnotation(editedAnnotationData, capturedSelection);
-              destroyModalInstance();
-            },
-          },
-          onClose: destroyModalInstance,
-        }),
-      );
-    } else {
-      addAnnotation(newAnnotationTemplate, capturedSelection);
-    }
-  } catch (error: unknown) {
-    if (error instanceof AnnotationRangeError) {
-      addToastMessage({
-        severity: "warn",
-        summary: "Invalid selection",
-        detail: error.message,
-        life: 3000,
-      });
-    } else if (error instanceof ShortcutError) {
-      addToastMessage({
-        severity: "warn",
-        summary: "Annotation type not enabled",
-        detail: error.message,
-        life: 3000,
-      });
-    } else {
-      console.error("Unexpected error:", error);
-    }
-  } finally {
-    tiptap.value
-      ?.chain()
-      .focus()
-      .setTextSelection(selection.to ?? 0)
-      .run();
-  }
-}
-
-/**
- * Adds a new annotation to the editor.
- *
- * @param {Annotation} annotation - The annotation to add.
- * @param {Object} selection - The selection object with `from` and `to` properties.
- * @returns {void} This function does not return any value.
- */
-function addAnnotation(annotation: Annotation, selection: { from: number; to: number }): void {
-  const { from, to } = selection;
-  const isAnnoZeroPoint: boolean = isZeroPoint(annotation.node);
-
-  // Add decoration or inline block, depeding on config
-  if (isAnnoZeroPoint) {
-    // TODO: Cursor is set before the inserted element, not after. Fix later
-    tiptap.value?.commands.addZeroPointAnnotation(annotation, from);
-  } else {
-    tiptap.value?.commands.addAnnotationDecoration(annotation, from, to);
-  }
-}
-
-function handleBlockAnnotationClick(data: { type: string; subType?: string | number }): void {
-  const selection: Selection | undefined = tiptap.value?.state.selection;
-
-  if (!selection) {
-    return;
-  }
-
-  try {
-    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
-
-    if (!shape) {
-      console.error(`No annotation shape found for type "${data.type}"`);
-      return;
-    }
-
-    isAnnotationTypeEnabled(data.type);
-    validateSelection(selection, data.type);
-
-    // Needs to be captured since modal opening collapses editor selection
-    const capturedSelection = { from: selection.from, to: selection.to };
-
-    const textInSelection: string = tiptap.value?.state.doc.textBetween(capturedSelection.from, capturedSelection.to) ?? "";
-
-    const newAnnotationTemplate: NodeStatusObject<AnnotationNode> = createAnnotation({
-      ...data,
-      selectedText: textInSelection,
-    });
-
-    // Like inline annotations: with required properties or references, the modal only lets a complete one through
-    if (annotationHasConstraints(shape)) {
-      createModalInstance(
-        dialog.open(AnnotationDetailsModal, {
-          props: {
-            ...ANNOTATION_MODAL_PROPS,
-            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
-          },
-          data: {
-            annotation: newAnnotationTemplate,
-            mode: "create",
-          },
-          emits: {
-            onSubmit: (editedAnnotationData: Annotation) => {
-              tiptap.value?.commands.addBlockClassification(editedAnnotationData, capturedSelection.from, capturedSelection.to);
-              destroyModalInstance();
-            },
-          },
-          onClose: destroyModalInstance,
-        }),
-      );
-    } else {
-      tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
-    }
-  } catch (error: unknown) {
-    if (error instanceof AnnotationRangeError) {
-      addToastMessage({
-        severity: "warn",
-        summary: "Invalid selection",
-        detail: error.message,
-        life: 3000,
-      });
-    } else if (error instanceof ShortcutError) {
-      addToastMessage({
-        severity: "warn",
-        summary: "Annotation type not enabled",
-        detail: error.message,
-        life: 3000,
-      });
-    } else {
-      console.error("Unexpected error:", error);
-    }
-  }
-}
 </script>
 
 <template>
@@ -498,7 +296,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
               :disabled="!selectedOptions.includes(blockType.type)"
               :class="{ 'is-active': true }"
               :shape="blockType"
-              @click="handleBlockAnnotationClick({ type: blockType.type })"
+              @clicked="annotateBlock($event)"
             >
               {{ blockType.type }}
             </AnnotationButton>
@@ -521,7 +319,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
                   :type="type.type"
                   :disabled="!selectedOptions.includes(type.type)"
                   :shape="type"
-                  @clicked="handleInlineAnnotationButtonClick($event)"
+                  @clicked="annotateInline($event)"
                 />
               </div>
             </TabPanel>

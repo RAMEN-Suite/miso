@@ -1,0 +1,44 @@
+import { Extension } from "@tiptap/core";
+
+interface AnnotationShortcutsOptions {
+  /** Annotation type per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "Person" }`. */
+  shortcuts: Record<string, string>;
+  /** Called with the annotation type of a pressed shortcut, so the host can annotate the selection. */
+  onShortcut?: (type: string) => void;
+}
+
+/**
+ * Binds the configured annotation shortcuts while the editor has focus. Runs before the other keymaps (higher
+ * priority), so a configured shortcut wins over a built-in one like Shift+Enter.
+ */
+export const AnnotationShortcuts = Extension.create<AnnotationShortcutsOptions>({
+  name: "annotationShortcuts",
+
+  priority: 1000,
+
+  addOptions() {
+    return {
+      shortcuts: {},
+      onShortcut: undefined,
+    };
+  },
+
+  addKeyboardShortcuts() {
+    const onShortcut: ((type: string) => void) | undefined = this.options.onShortcut;
+
+    if (!onShortcut) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(this.options.shortcuts).map(([shortcut, type]) => [
+        shortcut,
+        () => {
+          onShortcut(type);
+
+          return true;
+        },
+      ]),
+    );
+  },
+});

@@ -1,7 +1,6 @@
 import { computed, readonly, ref, shallowRef } from "vue";
 import type { Attribute } from "@ramen-suite/core";
 import { useFilterStore } from "./filter";
-import { useShortcutsStore } from "./shortcuts";
 import {
   AnnotationAppearance,
   AnnotationExtent,
@@ -64,7 +63,6 @@ const DEFAULT_ANNOTATION_GROUP = "other" as const;
 const PART_OF = "PART_OF";
 
 const { initializeFilter } = useFilterStore();
-const { parseShortcut } = useShortcutsStore();
 /**
  * The model of the Miso config and its settings, read by the model lookups. Not deeply reactive: it
  * doesn't change after the initialization, and the RAMEN core model is a class instance.
@@ -627,6 +625,27 @@ export function useConfigStore() {
   }
 
   /**
+   * Returns the configured shortcuts of the text annotation types. Passed to the text editor, which binds them.
+   *
+   * @returns {Record<string, string>} The annotation type per shortcut in keymap notation, e.g. `Mod-Shift-e`. If a
+   *   shortcut is configured for several types, the last one wins (the config check warns about it).
+   */
+  function getAnnotationShortcuts(): Record<string, string> {
+    const context: ModelContext = getModelContext();
+    const shortcuts: Record<string, string> = {};
+
+    for (const [type, shape] of textShapesByType.value) {
+      const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
+
+      if (shortcut) {
+        shortcuts[shortcut] = type;
+      }
+    }
+
+    return shortcuts;
+  }
+
+  /**
    * Converts the configured appearance of an annotation shape to the one the text editor reads: the attribute refs of
    * the variants and of a math marker resolved to the property names the annotation data are keyed by. Variants whose
    * ref can't be resolved are left out (the config check warns about them).
@@ -964,8 +983,7 @@ export function useConfigStore() {
       const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
 
       if (shortcut) {
-        const normalized: string = parseShortcut(shortcut);
-        typesByShortcut.set(normalized, [...(typesByShortcut.get(normalized) ?? []), shape.type]);
+        typesByShortcut.set(shortcut, [...(typesByShortcut.get(shortcut) ?? []), shape.type]);
       }
     }
 
@@ -985,6 +1003,7 @@ export function useConfigStore() {
     getAllCollectionAttributes,
     getAnnotationExtent,
     getAnnotationRepresentation,
+    getAnnotationShortcuts,
     getAnnotationType,
     getAvailableCollectionLabels,
     getAvailableContentLabels,

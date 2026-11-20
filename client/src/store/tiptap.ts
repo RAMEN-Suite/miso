@@ -28,7 +28,7 @@ import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationAppearance } = useConfigStore();
+const { getTextAnnotationAppearance, getAnnotationShortcuts } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -118,16 +118,20 @@ function hasUnsavedChanges(): boolean {
  * Parses the given standoff document and creates the tiptap editor from it.
  *
  * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
- * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut">} lineBreakHandlers - What happens on
- *   a click on a line break's `¬` and on the line break shortcuts. Passed in since they open modals, which needs a
- *   component's setup.
+ * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut">} editorHandlers -
+ *   What happens on a click on a line break's `¬`, on the line break shortcuts and on the configured annotation
+ *   shortcuts. Passed in since they open modals, which needs a component's setup.
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(
   standoffObject: { text: string; annotations: NodeDto[] },
-  lineBreakHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut"> = {},
+  editorHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut"> = {},
 ): StandoffParseIssue[] {
-  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance, ...lineBreakHandlers });
+  const extensions: Extensions = createExtensions({
+    getAppearance: getTextAnnotationAppearance,
+    annotationShortcuts: getAnnotationShortcuts(),
+    ...editorHandlers,
+  });
 
   const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
   const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();

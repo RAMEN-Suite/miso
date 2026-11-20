@@ -89,9 +89,9 @@ export function useHierarchyChildren(
       if (replace) {
         entries.value = fetched;
       } else {
-        const existingUuids = new Set<string>(entries.value.map((e) => e.data.node.data.uuid));
+        const existingUuids = new Set<string>(entries.value.map((e) => e.data.node.properties.uuid));
 
-        entries.value.push(...fetched.filter((e) => !existingUuids.has(e.data.node.data.uuid)));
+        entries.value.push(...fetched.filter((e) => !existingUuids.has(e.data.node.properties.uuid)));
       }
 
       state.value.pagination = result.pagination;

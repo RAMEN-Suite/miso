@@ -42,7 +42,7 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
     const isContent: boolean = getBaseNodeLabel(getModelContext(), item.node) === "Content";
     const itemLabel: string = isContent
       ? getTypeLabelText(getModelContext(), item.node)
-      : (item.node.data as { label?: string }).label ?? "";
+      : (item.node.properties as { label?: string }).label ?? "";
     const shortened: string = ellipsize(itemLabel, LABEL_MAX_LENGTH);
 
     return {
@@ -50,7 +50,7 @@ const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
       label: shortened,
       icon: resolveNodeIcon(item.node),
       title: itemLabel,
-      command: () => emit("itemClicked", { index, uuid: item.node.data.uuid }),
+      command: () => emit("itemClicked", { index, uuid: item.node.properties.uuid }),
     };
   }),
 );

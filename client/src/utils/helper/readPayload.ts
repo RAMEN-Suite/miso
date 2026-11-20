@@ -9,7 +9,7 @@ import type { CollectionNode, ElementGraph, ElementNode, NodeAncestry, NodeDto }
  */
 
 /**
- * The tree node of an element. The data is copied, so a node that appears in several places of the tree (e.g. a person
+ * The tree node of an element. The properties are copied, so a node that appears in several places of the tree (e.g. a person
  * referred to by several annotations) can be edited in one place without changing the others, as before.
  *
  * @param {ElementNode} element - The element.
@@ -17,7 +17,7 @@ import type { CollectionNode, ElementGraph, ElementNode, NodeAncestry, NodeDto }
  */
 function toTreeNode(element: ElementNode): NodeDto["node"] {
   const node = {
-    data: structuredClone(element.data),
+    properties: structuredClone(element.properties),
     nodeLabels: [...(element.nodeLabels ?? [])],
     classifierRef: element.classifierRef,
     ...(element.shapeRef !== undefined ? { shapeRef: element.shapeRef } : {}),
@@ -36,7 +36,7 @@ function toTreeNode(element: ElementNode): NodeDto["node"] {
  * @returns {NodeDto[]} One tree per relation from the root, in the order of the relations.
  */
 export function toNodeDtoTrees(elements: ElementGraph, rootUuid: string): NodeDto[] {
-  const elementsByUuid = new Map<string, ElementNode>(elements.nodes.map((element) => [element.data.uuid, element]));
+  const elementsByUuid = new Map<string, ElementNode>(elements.nodes.map((element) => [element.properties.uuid, element]));
   const childUuids = new Map<string, string[]>();
 
   for (const relation of elements.relations) {
@@ -87,7 +87,7 @@ export function toNodes<T extends NodeDto["node"]>(elements: ElementGraph): T[] 
  * @throws {Error} If the read doesn't contain the node.
  */
 export function toNodeDto<T extends NodeDto["node"]>(elements: ElementGraph, uuid: string): NodeDto<T> {
-  const element: ElementNode | undefined = elements.nodes.find((node) => node.data.uuid === uuid);
+  const element: ElementNode | undefined = elements.nodes.find((node) => node.properties.uuid === uuid);
 
   if (!element) {
     throw new Error(`The response doesn't contain the node ${uuid}`);
@@ -106,7 +106,7 @@ export function toNodeDto<T extends NodeDto["node"]>(elements: ElementGraph, uui
  * path for a top-level node, none if the read doesn't contain the node.
  */
 export function toAncestryPaths(elements: ElementGraph, uuid: string): NodeAncestry[] {
-  const elementsByUuid = new Map<string, ElementNode>(elements.nodes.map((element) => [element.data.uuid, element]));
+  const elementsByUuid = new Map<string, ElementNode>(elements.nodes.map((element) => [element.properties.uuid, element]));
   const parentsByUuid = new Map<string, ElementNode[]>();
 
   for (const relation of elements.relations) {
@@ -123,14 +123,14 @@ export function toAncestryPaths(elements: ElementGraph, uuid: string): NodeAnces
 
   /** The paths from a node upwards, each starting with the node's parent */
   function walk(current: string, visited: ReadonlySet<string>): ElementNode[][] {
-    const parents: ElementNode[] = (parentsByUuid.get(current) ?? []).filter((parent) => !visited.has(parent.data.uuid));
+    const parents: ElementNode[] = (parentsByUuid.get(current) ?? []).filter((parent) => !visited.has(parent.properties.uuid));
 
     if (parents.length === 0) {
       return [[]];
     }
 
     return parents.flatMap((parent) =>
-      walk(parent.data.uuid, new Set([...visited, parent.data.uuid])).map((above) => [parent, ...above]),
+      walk(parent.properties.uuid, new Set([...visited, parent.properties.uuid])).map((above) => [parent, ...above]),
     );
   }
 

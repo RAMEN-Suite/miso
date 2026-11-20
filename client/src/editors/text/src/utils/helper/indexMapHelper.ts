@@ -81,7 +81,7 @@ export function createIndexMapBuilder(state: EditorState) {
       const blockClassifications: DocAnnotation[] = node.attrs?._blockClassifications ?? [];
 
       blockClassifications.forEach((block) => {
-        const { uuid } = block.node.data;
+        const { uuid } = block.node.properties;
 
         const existing = map.get(uuid);
 

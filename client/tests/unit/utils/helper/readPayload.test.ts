@@ -4,14 +4,14 @@ import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../../../..
 
 /** An element with the given uuid and labels */
 function element(uuid: string, nodeLabels: string[], extra: Partial<ElementNode> = {}): ElementNode {
-  return { classifierRef: `M:${nodeLabels.at(-1)}`, nodeLabels, data: { uuid }, ...extra };
+  return { classifierRef: `M:${nodeLabels.at(-1)}`, nodeLabels, properties: { uuid }, ...extra };
 }
 
 /** The uuids of a tree, nested like the tree */
 type UuidTree = [string, UuidTree[]];
 
 function uuidsOf(tree: NodeDto): UuidTree {
-  return [tree.node.data.uuid, tree.connectedNodes.map(uuidsOf)];
+  return [tree.node.properties.uuid, tree.connectedNodes.map(uuidsOf)];
 }
 
 describe("toNodeDtoTrees", () => {
@@ -67,9 +67,9 @@ describe("toNodeDtoTrees", () => {
 
     const [first, second] = toNodeDtoTrees(elements, "t1");
 
-    first.connectedNodes[0].node.data.uuid = "changed";
+    first.connectedNodes[0].node.properties.uuid = "changed";
 
-    expect(second.connectedNodes[0].node.data.uuid).toBe("p1");
+    expect(second.connectedNodes[0].node.properties.uuid).toBe("p1");
   });
 
   test("an annotation that refers to its own carrier ends the tree there", () => {
@@ -105,12 +105,12 @@ describe("toNodes, toNodeDto", () => {
   };
 
   test("keeps the order of the response", () => {
-    expect(toNodes(listing).map((node) => node.data.uuid)).toEqual(["c2", "c1", "t1"]);
+    expect(toNodes(listing).map((node) => node.properties.uuid)).toEqual(["c2", "c1", "t1"]);
   });
 
   test("gives one node without connected nodes", () => {
     expect(toNodeDto(listing, "c1")).toEqual({
-      node: expect.objectContaining({ classifierRef: "M:Letter", data: { uuid: "c1" } }),
+      node: expect.objectContaining({ classifierRef: "M:Letter", properties: { uuid: "c1" } }),
       connectedNodes: [],
     });
   });
@@ -123,7 +123,7 @@ describe("toNodes, toNodeDto", () => {
 describe("toAncestryPaths", () => {
   /** The uuids of each path */
   function uuidPaths(elements: ElementGraph, uuid: string): string[][] {
-    return toAncestryPaths(elements, uuid).map((path) => path.map((entry) => entry.node.data.uuid));
+    return toAncestryPaths(elements, uuid).map((path) => path.map((entry) => entry.node.properties.uuid));
   }
 
   test("one path per way up, top-level Collection first, without the node itself", () => {

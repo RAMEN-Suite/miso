@@ -552,12 +552,12 @@ export function useConfigStore() {
       ? findShape(getModelContext(), annotation.shapeRef)
       : undefined;
 
-    if (byRef?.type === annotation.data.type) {
+    if (byRef?.type === annotation.properties.type) {
       return byRef;
     } else if (annotation.shapeRef === null) {
       return undefined;
     } else {
-      return getTextAnnotationShape(annotation.data.type);
+      return getTextAnnotationShape(annotation.properties.type);
     }
   }
 
@@ -855,7 +855,7 @@ export function useConfigStore() {
    * @returns {boolean} `true` if the annotation is a zero-point annotation, `false` otherwise.
    */
   function isZeroPoint(annotation: AnnotationNode): boolean {
-    return getAnnotationExtent(annotation.data.type) === "zeroPoint";
+    return getAnnotationExtent(annotation.properties.type) === "zeroPoint";
   }
 
   /**

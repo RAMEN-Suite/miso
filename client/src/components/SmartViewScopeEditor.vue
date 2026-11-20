@@ -60,7 +60,7 @@ onMounted(loadAncestor);
  */
 function emitChange(): void {
   if (mode.value === "descendants") {
-    emit("change", { kind: "descendants", ancestorUuid: ancestor.value?.data.uuid ?? "" });
+    emit("change", { kind: "descendants", ancestorUuid: ancestor.value?.properties.uuid ?? "" });
   } else {
     emit("change", { kind: "all" });
   }

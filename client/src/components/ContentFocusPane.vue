@@ -28,7 +28,7 @@ const labelText = computed<string>(() => getTypeLabelText(getModelContext(), con
 /** The type label shown in UI texts like button titles, "text" if the Content has none. */
 const displayLabel = computed<string>(() => labelText.value || "text");
 
-const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uuid}`);
+const editorUrl = computed<string>(() => `/contents/${contentNode.value.properties.uuid}`);
 </script>
 
 <template>
@@ -53,7 +53,7 @@ const editorUrl = computed<string>(() => `/contents/${contentNode.value.data.uui
       </div>
 
       <div class="content-preview">
-        <TextPreview :text="contentNode.data.text" :annotations="focus.annotations" />
+        <TextPreview :text="contentNode.properties.text" :annotations="focus.annotations" />
       </div>
     </div>
 

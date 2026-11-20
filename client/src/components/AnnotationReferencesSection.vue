@@ -155,7 +155,7 @@ function addNode(node: NodeStatusObject): void {
 }
 
 function handleRemoveNode(node: NodeStatusObject<CollectionNode | EntityNode | TextNode>): void {
-  nodes.value = nodes.value.filter((n) => n.node.data.uuid !== node.node.data.uuid);
+  nodes.value = nodes.value.filter((n) => n.node.properties.uuid !== node.node.properties.uuid);
 }
 
 /**
@@ -194,7 +194,7 @@ function handleAddNodeClick(event: PointerEvent): void {
 </script>
 
 <template>
-  <template v-for="(node, index) in nodes" :key="node.node.data.uuid">
+  <template v-for="(node, index) in nodes" :key="node.node.properties.uuid">
     <template v-if="isNotDeleted(node) && isReference(node)">
       <EntityCard
         v-if="isEntity(node)"

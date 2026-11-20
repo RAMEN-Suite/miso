@@ -14,7 +14,7 @@ import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapePro
 import { BASE_NODE_REF } from "./ramen.js";
 
 /**
- * Converts a node for the write query: only labels and data (the refs are not stored), with the values converted to
+ * Converts a node for the write query: only labels and properties (the refs are not stored), with the values converted to
  * Neo4j types by the attributes of its classifier (Collections) or its annotation shape (annotations), and the selector
  * of an annotation as JSON string (see `toStoredSelector`). The values of Contents and Entities are stored as sent.
  */
@@ -24,15 +24,15 @@ function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): No
   if (baseNodeRef === BASE_NODE_REF.Collection && node.classifierRef) {
     return {
       nodeLabels: node.nodeLabels,
-      data: toNeo4jTypes(context, node.data, getNodeAttributes(context, node.classifierRef)),
+      properties: toNeo4jTypes(context, node.properties, getNodeAttributes(context, node.classifierRef)),
     };
   } else if (baseNodeRef === BASE_NODE_REF.Annotation) {
     const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
     const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-    return { nodeLabels: node.nodeLabels, data: toStoredSelector(toNeo4jTypes(context, node.data, fields)) };
+    return { nodeLabels: node.nodeLabels, properties: toStoredSelector(toNeo4jTypes(context, node.properties, fields)) };
   } else {
-    return { nodeLabels: node.nodeLabels, data: node.data };
+    return { nodeLabels: node.nodeLabels, properties: node.properties };
   }
 }
 
@@ -46,11 +46,11 @@ function convertNodeToNeo4jFormat(node: Node<object>, context: ModelContext): No
  */
 function nodeLabelsOf(context: ModelContext, node: ElementNode): string[] {
   if (!node.classifierRef || !context.model.getNode(node.classifierRef)) {
-    throw new ValidationError(`Node ${node.data.uuid} has an unknown node type: ${String(node.classifierRef)}.`);
+    throw new ValidationError(`Node ${node.properties.uuid} has an unknown node type: ${String(node.classifierRef)}.`);
   }
 
   if (node.shapeRef && !findShape(context, node.shapeRef)) {
-    throw new ValidationError(`Node ${node.data.uuid} has an unknown annotation type: ${node.shapeRef}.`);
+    throw new ValidationError(`Node ${node.properties.uuid} has an unknown annotation type: ${node.shapeRef}.`);
   }
 
   return context.model.getNodeLineage(node.classifierRef).map((item) => item.name);
@@ -88,24 +88,24 @@ export function toNodeChanges(context: ModelContext, payload: ElementGraph): Nod
   const changes: NodeUpdateObject = { create: [], update: [], delete: [], remove: [], attach: [] };
 
   for (const node of payload.nodes) {
-    if (typeof node?.data?.uuid !== "string") {
-      throw new ValidationError("Every node needs `data.uuid`.");
+    if (typeof node?.properties?.uuid !== "string") {
+      throw new ValidationError("Every node needs `properties.uuid`.");
     }
 
     if (node.status === "deleted") {
-      changes.delete.push({ nodeLabels: [], data: { uuid: node.data.uuid } });
+      changes.delete.push({ nodeLabels: [], properties: { uuid: node.properties.uuid } });
     } else if (node.status === "created" || node.status === "modified") {
       const stored: Node<object> = {
         nodeLabels: nodeLabelsOf(context, node),
         classifierRef: node.classifierRef,
         shapeRef: node.shapeRef,
-        data: node.data,
+        properties: node.properties,
       };
 
       (node.status === "created" ? changes.create : changes.update).push(stored);
     } else {
       throw new ValidationError(
-        `Node ${node.data.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`,
+        `Node ${node.properties.uuid} has the status "${String(node.status)}", expected created, modified or deleted.`,
       );
     }
   }
@@ -152,7 +152,7 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $delete AS nodeToDelete
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.data.uuid})
+      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.properties.uuid})
       OPTIONAL MATCH (n)--(m:Annotation|Content|Collection|Entity)
 
       WITH collect(DISTINCT n) AS deleted, collect(DISTINCT m.uuid) AS neighbours
@@ -166,7 +166,7 @@ export function buildSubgraphUpdateQuery(): string {
       UNWIND $create AS nodeToCreate
 
       CREATE (n)
-      SET n = nodeToCreate.data
+      SET n = nodeToCreate.properties
       WITH n, nodeToCreate
       CALL apoc.create.addLabels(n, nodeToCreate.nodeLabels) YIELD node
 
@@ -177,8 +177,8 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $update AS nodeToUpdate
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.data.uuid})
-      SET n = nodeToUpdate.data
+      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.properties.uuid})
+      SET n = nodeToUpdate.properties
       WITH n, nodeToUpdate, labels(n) AS currentLabels
       CALL apoc.create.removeLabels(n, currentLabels) YIELD node
       CALL apoc.create.addLabels(node, nodeToUpdate.nodeLabels) YIELD node AS updatedNode
@@ -211,7 +211,7 @@ export function buildSubgraphUpdateQuery(): string {
 
   RETURN {
       nodeLabels: labels(root),
-      data: root {.*}
+      properties: root {.*}
   } AS node, neighboursOfDeleted
   `;
 }

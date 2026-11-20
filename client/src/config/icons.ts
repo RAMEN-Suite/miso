@@ -1,4 +1,4 @@
-import { BaseNodeData, IconSpec, IconSpecInput, ModelAnnotationShape, ModelContext, Node } from "../models/types";
+import { BaseNodeProperties, IconSpec, IconSpecInput, ModelAnnotationShape, ModelContext, Node } from "../models/types";
 import { BASE_NODE_REF } from "./ramen";
 import { getNodeConfig, getShapeConfig, resolveClassifierRef } from "../utils/helper/modelHelper";
 
@@ -119,10 +119,10 @@ export function normalizeIconSpec(input: IconSpecInput | undefined): IconSpec | 
  * `classifierRef`, or resolves its labels if it has none, so it also works for label lists like `{ nodeLabels:
  * ["Collection", "Letter"] }`.
  *
- * @param {Pick<Node<BaseNodeData>, "nodeLabels" | "classifierRef">} node - The node, or a node type option.
+ * @param {Pick<Node<BaseNodeProperties>, "nodeLabels" | "classifierRef">} node - The node, or a node type option.
  * @returns {IconSpec} The icon to render, a question mark for nodes whose labels can't be resolved.
  */
-export function resolveNodeIcon(node: Pick<Node<BaseNodeData>, "nodeLabels" | "classifierRef">): IconSpec {
+export function resolveNodeIcon(node: Pick<Node<BaseNodeProperties>, "nodeLabels" | "classifierRef">): IconSpec {
   if (!iconContext) {
     return FALLBACK_NODE_ICON;
   }

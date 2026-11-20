@@ -487,7 +487,7 @@ export default class ApiService {
     properties: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<NodeDto<CollectionNode>> {
-    const uuid: string = collection.data.uuid;
+    const uuid: string = collection.properties.uuid;
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
@@ -512,7 +512,7 @@ export default class ApiService {
    * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
    */
   public async updateCollectionAnnotation(collection: CollectionNode, annotation: Annotation): Promise<NodeDto<CollectionNode>> {
-    return this.updateCollection(collection.data.uuid, {
+    return this.updateCollection(collection.properties.uuid, {
       node: collection,
       meta: { status: "unchanged" },
       connectedNodes: [annotation],

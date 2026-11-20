@@ -55,7 +55,7 @@ export function useNavigationGuard() {
 
     // The api response only contains item's the ancestry, not the item itself
     if (singleAncestry?.length > 0) {
-      pathQuery = [...singleAncestry.map((n) => n.node.data.uuid), uuid].join(",");
+      pathQuery = [...singleAncestry.map((n) => n.node.properties.uuid), uuid].join(",");
     } else {
       pathQuery = uuid;
     }

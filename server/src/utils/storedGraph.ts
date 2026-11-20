@@ -1,5 +1,5 @@
 import type {
-  BaseNodeData,
+  BaseNodeProperties,
   ElementDiagnostic,
   ElementGraph,
   ElementNode,
@@ -32,7 +32,7 @@ import { BASE_NODE_REF } from "./ramen.js";
 /** A node by its stored names, with native values */
 export interface StoredGraphNode {
   nodeLabels: string[];
-  data: BaseNodeData & Record<string, unknown>;
+  properties: BaseNodeProperties & Record<string, unknown>;
 }
 
 /** A relationship by its stored type */
@@ -78,9 +78,9 @@ export function relationKey(relation: StoredGraphRelation): string {
  * @returns {Set<string>} The uuids.
  */
 export function touchedUuids(changes: NodeUpdateObject, neighboursOfDeleted: string[]): Set<string> {
-  const deletedUuids = new Set<string>(changes.delete.map((node) => uuidOf(node.data)));
+  const deletedUuids = new Set<string>(changes.delete.map((node) => uuidOf(node.properties)));
   const uuids = new Set<string>([
-    ...[...changes.create, ...changes.update].map((node) => uuidOf(node.data)),
+    ...[...changes.create, ...changes.update].map((node) => uuidOf(node.properties)),
     ...[...changes.remove, ...changes.attach].flatMap((edge) => [edge.startUuid, edge.endUuid]),
     ...neighboursOfDeleted,
   ]);
@@ -90,7 +90,7 @@ export function touchedUuids(changes: NodeUpdateObject, neighboursOfDeleted: str
 
 /** A node as the queries return it: its properties as stored (with Neo4j types) and its labels */
 export interface StoredNodeRecord {
-  data: object;
+  properties: object;
   nodeLabels: string[];
 }
 
@@ -102,12 +102,14 @@ export interface StoredNodeRecord {
  * @param {StoredNodeRecord} record - The node as the query returned it.
  */
 export function addStoredNode(graph: StoredGraph, record: StoredNodeRecord): void {
-  const uuid: string = uuidOf(record.data);
+  const uuid: string = uuidOf(record.properties);
 
   if (!graph.nodes.has(uuid)) {
-    const data = fromStoredSelector(toNativeTypes(record.data) as Record<string, unknown>) as StoredGraphNode["data"];
+    const properties = fromStoredSelector(
+      toNativeTypes(record.properties) as Record<string, unknown>,
+    ) as StoredGraphNode["properties"];
 
-    graph.nodes.set(uuid, { nodeLabels: record.nodeLabels, data });
+    graph.nodes.set(uuid, { nodeLabels: record.nodeLabels, properties });
   }
 }
 
@@ -139,9 +141,9 @@ export function carriersOf(graph: StoredGraph): Map<string, string> {
   return carriers;
 }
 
-/** The uuid of a node's data */
-function uuidOf(data: object): string {
-  return (data as BaseNodeData).uuid;
+/** The uuid in a node's properties */
+function uuidOf(properties: object): string {
+  return (properties as BaseNodeProperties).uuid;
 }
 
 /**
@@ -184,7 +186,7 @@ export function toElementGraph(
       const carrierUuid: string | undefined = carrierOf.get(uuid);
       const carrierRef: string | null =
         carrierUuid && !visiting.has(carrierUuid) ? resolve(carrierUuid, new Set([...visiting, uuid])).classifierRef : null;
-      const type: unknown = node.data.type;
+      const type: unknown = node.properties.type;
       let shapeResolution: RefResolution;
 
       if (typeof type !== "string") {
@@ -201,11 +203,11 @@ export function toElementGraph(
         classifierRef: shape ? familyRefOf(shape) : null,
         shapeRef: shapeResolution.ref,
         nodeLabels: node.nodeLabels,
-        data: node.data,
+        properties: node.properties,
       };
       problem = shapeResolution.problem;
     } else {
-      element = { classifierRef: labelResolution.ref, nodeLabels: node.nodeLabels, data: node.data };
+      element = { classifierRef: labelResolution.ref, nodeLabels: node.nodeLabels, properties: node.properties };
     }
 
     if (problem) {

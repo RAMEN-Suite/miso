@@ -34,7 +34,7 @@ export default class CollectionService {
 
     RETURN {
         nodeLabels: labels(c),
-        data: c {.*}
+        properties: c {.*}
     } AS collection
     `;
 
@@ -80,7 +80,7 @@ export default class CollectionService {
 
       RETURN collect({
         nodeLabels: labels(n),
-        data: n {.*}
+        properties: n {.*}
       }) as collections
       
     `;
@@ -161,7 +161,7 @@ export default class CollectionService {
 
     RETURN {
       nodeLabels: labels(c),
-      data: c {.*}
+      properties: c {.*}
     } AS node
     `;
 

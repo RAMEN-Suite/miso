@@ -58,16 +58,19 @@ const { context, refs } = buildPayloadTestModel();
 describe("toWritePayload", () => {
   test("a text with a new annotation that refers to an existing person", () => {
     const root: NodeStatusObject = {
-      node: { nodeLabels: ["Content", "Text"], data: { uuid: "t1", text: "Abcd" } },
+      node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
       meta: { status: "modified" },
       connectedNodes: [
         {
           // Structural annotations rebuilt by the editor carry no refs: they are resolved from the carrier and type
-          node: { nodeLabels: ["Annotation"], data: { uuid: "a1", type: "persName", selector: { type: "TextPositionSelector", start: 0, end: 3 }, text: "Abcd" } },
+          node: {
+            nodeLabels: ["Annotation"],
+            properties: { uuid: "a1", type: "persName", selector: { type: "TextPositionSelector", start: 0, end: 3 }, text: "Abcd" },
+          },
           meta: { status: "created" },
           connectedNodes: [
             {
-              node: { nodeLabels: ["Entity", "Person"], data: { uuid: "p1", label: "Someone" } },
+              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "Someone" } },
               meta: { status: "added" },
               connectedNodes: [],
             },
@@ -79,7 +82,7 @@ describe("toWritePayload", () => {
     const payload: ElementGraph = toWritePayload(context, root);
 
     expect(payload.nodes).toEqual([
-      expect.objectContaining({ status: "modified", classifierRef: refs.text, data: expect.objectContaining({ uuid: "t1" }) }),
+      expect.objectContaining({ status: "modified", classifierRef: refs.text, properties: expect.objectContaining({ uuid: "t1" }) }),
       expect.objectContaining({ status: "created", classifierRef: refs.family, shapeRef: refs.persName }),
     ]);
     expect(payload.relations).toEqual([
@@ -90,26 +93,26 @@ describe("toWritePayload", () => {
 
   test("a removed child removes its relation, unless its parent is deleted", () => {
     const root: NodeStatusObject = {
-      node: { nodeLabels: ["Content", "Text"], data: { uuid: "t1", text: "Abcd" } },
+      node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
       meta: { status: "unchanged" },
       connectedNodes: [
         {
-          node: { nodeLabels: ["Annotation"], data: { uuid: "a1", type: "persName" } },
+          node: { nodeLabels: ["Annotation"], properties: { uuid: "a1", type: "persName" } },
           meta: { status: "modified" },
           connectedNodes: [
             {
-              node: { nodeLabels: ["Entity", "Person"], data: { uuid: "p1" } },
+              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p1" } },
               meta: { status: "removed" },
               connectedNodes: [],
             },
           ],
         },
         {
-          node: { nodeLabels: ["Annotation"], data: { uuid: "a2", type: "persName" } },
+          node: { nodeLabels: ["Annotation"], properties: { uuid: "a2", type: "persName" } },
           meta: { status: "deleted" },
           connectedNodes: [
             {
-              node: { nodeLabels: ["Entity", "Person"], data: { uuid: "p2" } },
+              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p2" } },
               meta: { status: "removed" },
               connectedNodes: [],
             },
@@ -120,7 +123,7 @@ describe("toWritePayload", () => {
 
     const payload: ElementGraph = toWritePayload(context, root);
 
-    expect(payload.nodes.map((node) => [node.status, node.data.uuid])).toEqual([
+    expect(payload.nodes.map((node) => [node.status, node.properties.uuid])).toEqual([
       ["modified", "a1"],
       ["deleted", "a2"],
     ]);
@@ -129,11 +132,11 @@ describe("toWritePayload", () => {
 
   test("a part the model doesn't allow gets RAMEN's base relation, PART_OF points from the child to the parent", () => {
     const root: NodeStatusObject = {
-      node: { nodeLabels: ["Collection", "Letter"], data: { uuid: "l1", label: "A letter" } },
+      node: { nodeLabels: ["Collection", "Letter"], properties: { uuid: "l1", label: "A letter" } },
       meta: { status: "unchanged" },
       connectedNodes: [
         {
-          node: { nodeLabels: ["Content", "Text"], data: { uuid: "t1", text: "Abcd" } },
+          node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
           meta: { status: "created" },
           connectedNodes: [],
         },

@@ -6,7 +6,7 @@ import { IEntity } from "./IEntity";
 import { IText } from "./IText";
 
 /** A status object for nodes in the frontend and for API requests */
-export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeStatusObject<T>[];
   meta: {
@@ -27,7 +27,7 @@ export type Annotation = NodeStatusObject<AnnotationNode>;
 export type AnnotationNode = Node<IAnnotation>;
 
 /** A node object for retrieving data */
-export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeDto<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeDto[];
 }
@@ -105,7 +105,7 @@ export interface NodeTypeOption {
  */
 export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
 
-/** A node in the element format: `uuid` inside `data`, attributes by name, the model refs next to them */
+/** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
   /** What a write does with the node. Missing on reads. */
   status?: NodeStatus;
@@ -115,7 +115,7 @@ export interface ElementNode {
   shapeRef?: string | null;
   /** Reads only: the labels as stored. Writes derive them from `classifierRef`. */
   nodeLabels?: string[];
-  data: BaseNodeData & Record<string, unknown>;
+  properties: BaseNodeProperties & Record<string, unknown>;
 }
 
 /** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
@@ -155,7 +155,7 @@ export interface ElementDiagnostic {
   attribute?: string;
 }
 
-export interface BaseNodeData {
+export interface BaseNodeProperties {
   uuid: string;
 }
 
@@ -386,7 +386,7 @@ export interface HierarchySort {
 export type HierarchyFilters = FilterSpec;
 
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
-  data: T;
+  properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
   /**

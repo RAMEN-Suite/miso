@@ -55,10 +55,10 @@ function handleSelect(item: CollectionNode | TextNode | EntityNode): void {
   <span
     v-if="collectionInScope"
     class="collection-chip inline-flex self-start items-center gap-1.5 max-w-full min-w-0 min-h-9 py-1 pl-3 pr-1.5 border rounded-2xl"
-    :title="`Searching everything inside ${collectionInScope.data.label}, at any depth`"
+    :title="`Searching everything inside ${collectionInScope.properties.label}, at any depth`"
   >
     <RAMENNodeIcon :spec="resolveNodeIcon(collectionInScope)" class="shrink-0" />
-    <span class="min-w-0 wrap-break-word">{{ collectionInScope.data.label }}</span>
+    <span class="min-w-0 wrap-break-word">{{ collectionInScope.properties.label }}</span>
     <button
       type="button"
       class="chip-remove inline-flex shrink-0 items-center justify-center size-6 rounded-full bg-transparent cursor-pointer"

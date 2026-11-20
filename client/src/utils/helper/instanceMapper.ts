@@ -122,7 +122,7 @@ function isAnnotation(context: ModelContext, node: ElementNode): boolean {
 }
 
 /**
- * The properties RAMEN core validates: the data without empty values, and for annotations without the editor fields.
+ * The properties RAMEN core validates: the node's properties without empty values, and for annotations without the editor fields.
  *
  * @param {ModelContext} context - The model context.
  * @param {ElementNode} node - The node.
@@ -132,7 +132,7 @@ function toInstanceProperties(context: ModelContext, node: ElementNode): Record<
   const annotation: boolean = isAnnotation(context, node);
 
   return Object.fromEntries(
-    Object.entries(node.data).filter(
+    Object.entries(node.properties).filter(
       ([name, value]) => !isEmptyValue(value) && !(annotation && name in TEXT_ANNOTATION_EDITOR_FIELDS),
     ),
   );
@@ -161,20 +161,20 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
         severity: "error",
         code: ELEMENT_DIAGNOSTIC_CODE.NODE_TYPE_UNRESOLVED,
         message: "The node type couldn't be resolved, so the node can't be validated.",
-        uuid: node.data.uuid,
+        uuid: node.properties.uuid,
       });
       continue;
     }
 
     nodes.push(node);
     instanceNodes.push({
-      id: instanceIdOf(node.data.uuid),
+      id: instanceIdOf(node.properties.uuid),
       typeId: node.classifierRef,
       properties: toInstanceProperties(context, node),
     });
   }
 
-  const mappedUuids = new Set<string>(nodes.map((node) => node.data.uuid));
+  const mappedUuids = new Set<string>(nodes.map((node) => node.properties.uuid));
   const relations: ResolvedRelation[] = elements.relations.filter(
     (relation): relation is ResolvedRelation =>
       relation.relationRef !== null &&
@@ -204,7 +204,7 @@ function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping
   const mediumByContent = new Map<string, ContentMedium>(
     mapping.nodes.flatMap((node): [string, ContentMedium][] =>
       node.classifierRef && getBaseNodeRef(context, node.classifierRef) === BASE_NODE_REF.Content
-        ? [[node.data.uuid, getContentMedium(context, node.classifierRef)]]
+        ? [[node.properties.uuid, getContentMedium(context, node.classifierRef)]]
         : [],
     ),
   );
@@ -221,7 +221,7 @@ function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping
   const diagnostics: ElementDiagnostic[] = [];
 
   for (const node of mapping.nodes) {
-    const medium: ContentMedium | undefined = carrierMediumByUuid.get(node.data.uuid);
+    const medium: ContentMedium | undefined = carrierMediumByUuid.get(node.properties.uuid);
 
     if (!medium || !isAnnotation(context, node)) {
       continue;
@@ -246,7 +246,7 @@ function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping
  * @returns {ElementDiagnostic[]} The findings.
  */
 function checkAnnotationSelector(node: ElementNode, medium: ContentMedium): ElementDiagnostic[] {
-  const selector: unknown = node.data.selector;
+  const selector: unknown = node.properties.selector;
 
   if (selector === undefined || selector === null) {
     return [
@@ -254,7 +254,7 @@ function checkAnnotationSelector(node: ElementNode, medium: ContentMedium): Elem
         severity: "error",
         code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_REQUIRED,
         message: "Annotations on a Content need a selector.",
-        uuid: node.data.uuid,
+        uuid: node.properties.uuid,
         attribute: "selector",
       },
     ];
@@ -264,7 +264,7 @@ function checkAnnotationSelector(node: ElementNode, medium: ContentMedium): Elem
     severity: "error",
     code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID,
     message,
-    uuid: node.data.uuid,
+    uuid: node.properties.uuid,
     attribute: "selector",
   }));
 }
@@ -280,7 +280,7 @@ function checkEditorFields(node: ElementNode): ElementDiagnostic[] {
   const diagnostics: ElementDiagnostic[] = [];
 
   for (const [name, { type: valueType, required }] of Object.entries(TEXT_ANNOTATION_EDITOR_FIELDS)) {
-    const value: unknown = node.data[name];
+    const value: unknown = node.properties[name];
 
     if (value === undefined || value === null) {
       if (!required) {
@@ -291,7 +291,7 @@ function checkEditorFields(node: ElementNode): ElementDiagnostic[] {
         severity: "error",
         code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED,
         message: `Property '${name}' is required on text annotations.`,
-        uuid: node.data.uuid,
+        uuid: node.properties.uuid,
         attribute: name,
       });
     } else if (!hasValueType(value, valueType)) {
@@ -299,7 +299,7 @@ function checkEditorFields(node: ElementNode): ElementDiagnostic[] {
         severity: "error",
         code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID,
         message: `Property '${name}' must be of type ${valueType}.`,
-        uuid: node.data.uuid,
+        uuid: node.properties.uuid,
         attribute: name,
       });
     }
@@ -339,7 +339,7 @@ function toElementDiagnostic(diagnostic: Diagnostic, mapping: InstanceMapping): 
   const relation: ElementRelation | undefined = relationMatch ? mapping.relations[Number(relationMatch[1])] : undefined;
 
   if (node) {
-    result.uuid = node.data.uuid;
+    result.uuid = node.properties.uuid;
 
     if (nodeMatch?.[2]) {
       result.attribute = nodeMatch[2];
@@ -349,11 +349,11 @@ function toElementDiagnostic(diagnostic: Diagnostic, mapping: InstanceMapping): 
   } else {
     const instanceId: string | undefined = diagnostic.instanceId ?? diagnostic.ref;
     const byInstance: ElementNode | undefined = mapping.nodes.find(
-      (candidate) => instanceIdOf(candidate.data.uuid) === instanceId,
+      (candidate) => instanceIdOf(candidate.properties.uuid) === instanceId,
     );
 
     if (byInstance) {
-      result.uuid = byInstance.data.uuid;
+      result.uuid = byInstance.properties.uuid;
     }
   }
 

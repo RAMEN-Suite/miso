@@ -1,4 +1,4 @@
-import { BaseNodeData } from "./types";
+import { BaseNodeProperties } from "./types";
 import type { SelectorByMedium, SelectorMedium } from "../utils/helper/selector";
 
 /**
@@ -6,7 +6,7 @@ import type { SelectorByMedium, SelectorMedium } from "../utils/helper/selector"
  * is the default, used by the text editor and everything built on `AnnotationNode`; annotations on images will be
  * `IAnnotation<"image">`.
  */
-export type IAnnotation<M extends SelectorMedium = "text"> = BaseNodeData & {
+export type IAnnotation<M extends SelectorMedium = "text"> = BaseNodeProperties & {
   [keyof: string]: unknown;
   /** The part of the annotated Content the annotation covers */
   selector: SelectorByMedium[M];

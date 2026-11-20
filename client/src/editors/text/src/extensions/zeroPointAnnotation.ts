@@ -124,7 +124,7 @@ function createMarkerElement(marker: MarkerStyle, annotation: Annotation | null)
  */
 function createMathElement(marker: MathTextStyle, annotation: Annotation | null): HTMLSpanElement {
   const element: HTMLSpanElement = document.createElement("span");
-  const notation: unknown = annotation?.node.data[marker.property];
+  const notation: unknown = annotation?.node.properties[marker.property];
 
   const renderAsBlock: boolean = marker.display === "block";
 
@@ -296,13 +296,16 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
     return (nodeProps: NodeViewRendererProps) => {
       const elm: HTMLElement = document.createElement("span");
       const annotation: Annotation | null = nodeProps.node.attrs._annotation;
-      const annotationType: string = annotation?.node.data.type ?? "";
-      const annotationSubType: string | number | undefined = annotation?.node.data.subType;
+      const annotationType: string = annotation?.node.properties.type ?? "";
+      const annotationSubType: string | number | undefined = annotation?.node.properties.subType;
 
       elm.setAttribute("data-annotation-type", annotationType);
       elm.setAttribute("data-annotation-subtype", annotationSubType?.toString() ?? "");
 
-      const marker: MarkerStyle | undefined = resolveMarker(this.options.getAppearance(annotationType), annotation?.node.data);
+      const marker: MarkerStyle | undefined = resolveMarker(
+        this.options.getAppearance(annotationType),
+        annotation?.node.properties,
+      );
 
       const markerElement: HTMLElement | null = marker ? createMarkerElement(marker, annotation) : null;
 
@@ -334,14 +337,14 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
 
           return commands.insertContentAt(pos, {
             type: this.name,
-            attrs: { _annotation: cloneDeep(annotation), uuid: annotation.node.data.uuid },
+            attrs: { _annotation: cloneDeep(annotation), uuid: annotation.node.properties.uuid },
           });
         },
 
       updateZeroPointAnnotation:
         (annotation: Annotation) =>
         ({ tr, dispatch }) => {
-          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.data.uuid);
+          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.properties.uuid);
 
           if (!range) {
             return false;
@@ -359,7 +362,7 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
       removeZeroPointAnnotation:
         (annotation: Annotation) =>
         ({ tr, dispatch }) => {
-          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.data.uuid);
+          const range: Range | null = findNodeBoundariesByUuid(tr.doc, annotation.node.properties.uuid);
 
           if (!range) {
             return false;

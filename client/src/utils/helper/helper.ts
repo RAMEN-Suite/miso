@@ -114,26 +114,26 @@ export function pruneDeletedNodes(node: NodeStatusObject): void {
 }
 
 /**
- * Removes all properties from the given node data that are not declared in the model, in place.
+ * Removes all properties of a node that are not declared in the model, in place.
  *
  * Is applied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
  *
- * @param {Record<string, unknown>} data - The node data to prune. Is mutated in place.
+ * @param {Record<string, unknown>} properties - The node's properties to prune. Is mutated in place.
  * @param {readonly string[]} names - The names of the properties declared for the node.
  * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are declared or not.
  * @returns {void} This function does not return any value.
  */
 export function pruneUnconfiguredProperties(
-  data: Record<string, unknown>,
+  properties: Record<string, unknown>,
   names: readonly string[],
   intrinsic: readonly string[],
 ): void {
   const allowed = new Set<string>([...names, ...intrinsic]);
 
-  Object.keys(data).forEach((key: string) => {
+  Object.keys(properties).forEach((key: string) => {
     if (!allowed.has(key)) {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
-      delete data[key];
+      delete properties[key];
     }
   });
 }
@@ -199,7 +199,7 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
  */
 export function checkAnnotationValidity(annotation: Annotation, properties: ModelAttribute[], context: ModelContext): boolean {
   return properties.every(
-    (entry: ModelAttribute) => validateValue(context, entry, annotation.node.data[entry.attribute.name]).length === 0,
+    (entry: ModelAttribute) => validateValue(context, entry, annotation.node.properties[entry.attribute.name]).length === 0,
   );
 }
 

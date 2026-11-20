@@ -86,7 +86,9 @@ function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: bo
       default: [],
       renderHTML: (attrs) => {
         return {
-          "data-block-classification-types": attrs._blockClassifications.map((b: DocAnnotation) => b.node.data.type).join(","),
+          "data-block-classification-types": attrs._blockClassifications
+            .map((b: DocAnnotation) => b.node.properties.type)
+            .join(","),
         };
       },
     };
@@ -140,7 +142,7 @@ export const AnnotationAttributes = Extension.create({
         (annotation: Annotation) =>
         ({ tr, dispatch }) => {
           const updatedAnnotation: DocAnnotation = toDocAnnotation(annotation);
-          const { uuid } = updatedAnnotation.node.data;
+          const { uuid } = updatedAnnotation.node.properties;
 
           tr.doc.descendants((node, pos) => {
             if (node.type.isText) {
@@ -149,11 +151,11 @@ export const AnnotationAttributes = Extension.create({
 
             const existing: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-            if (!existing.some((b) => b.node.data.uuid === uuid)) {
+            if (!existing.some((b) => b.node.properties.uuid === uuid)) {
               return;
             }
 
-            const updated: DocAnnotation[] = existing.map((b) => (b.node.data.uuid === uuid ? updatedAnnotation : b));
+            const updated: DocAnnotation[] = existing.map((b) => (b.node.properties.uuid === uuid ? updatedAnnotation : b));
 
             tr.setNodeAttribute(pos, "_blockClassifications", updated);
           });
@@ -172,14 +174,14 @@ export const AnnotationAttributes = Extension.create({
 
             const existing: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
-            if (!existing.some((b) => b.node.data.uuid === uuid)) {
+            if (!existing.some((b) => b.node.properties.uuid === uuid)) {
               return;
             }
 
             tr.setNodeAttribute(
               pos,
               "_blockClassifications",
-              existing.filter((b) => b.node.data.uuid !== uuid),
+              existing.filter((b) => b.node.properties.uuid !== uuid),
             );
           });
 
@@ -247,7 +249,7 @@ export const AnnotationAttributes = Extension.create({
               tr.setNodeAttribute(
                 pos,
                 "_blockClassifications",
-                blockClassifications.map((b) => toSaved(b, b.node.data.uuid)),
+                blockClassifications.map((b) => toSaved(b, b.node.properties.uuid)),
               );
             }
           });

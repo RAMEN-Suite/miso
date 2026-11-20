@@ -13,7 +13,7 @@ import type {
   AnnotationShapeConfig,
   AttributeConfig,
   AttributeOwner,
-  BaseNodeData,
+  BaseNodeProperties,
   BaseNodeLabel,
   CollectionNode,
   ContentMedium,
@@ -155,10 +155,10 @@ const BASE_NODE_LABEL_PRIORITY: readonly BaseNodeLabel[] = ["Entity", "Collectio
  * resolved, the base label among their labels is taken (RAMEN's base labels are fixed, every node is stored with one).
  *
  * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeData>} node - The node.
+ * @param {DataNode<BaseNodeProperties>} node - The node.
  * @returns {BaseNodeLabel | undefined} The base node label, `undefined` if the node has none.
  */
-export function getBaseNodeLabel(context: ModelContext, node: DataNode<BaseNodeData>): BaseNodeLabel | undefined {
+export function getBaseNodeLabel(context: ModelContext, node: DataNode<BaseNodeProperties>): BaseNodeLabel | undefined {
   const classifierRef: string | null = getClassifierRef(context, node);
   const baseNodeRef: string | undefined = classifierRef ? getBaseNodeRef(context, classifierRef) : undefined;
 
@@ -174,10 +174,10 @@ export function getBaseNodeLabel(context: ModelContext, node: DataNode<BaseNodeD
  * For nodes whose labels can't be resolved, their labels without the base label.
  *
  * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeData>} node - The node.
+ * @param {DataNode<BaseNodeProperties>} node - The node.
  * @returns {string} The type names, empty for a plain base node.
  */
-export function getTypeLabelText(context: ModelContext, node: DataNode<BaseNodeData>): string {
+export function getTypeLabelText(context: ModelContext, node: DataNode<BaseNodeProperties>): string {
   const classifierRef: string | null = getClassifierRef(context, node);
 
   if (!classifierRef) {
@@ -790,10 +790,10 @@ export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]
  * only: nodes the client creates itself have no `classifierRef` until node creation works with refs.
  *
  * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeData>} node - The node.
+ * @param {DataNode<BaseNodeProperties>} node - The node.
  * @returns {string | null} The qualified ref of the classifier, `null` if the labels can't be resolved.
  */
-export function getClassifierRef(context: ModelContext, node: DataNode<BaseNodeData>): string | null {
+export function getClassifierRef(context: ModelContext, node: DataNode<BaseNodeProperties>): string | null {
   if (node.classifierRef !== undefined) {
     return node.classifierRef;
   } else {

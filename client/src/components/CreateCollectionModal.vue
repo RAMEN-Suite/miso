@@ -39,9 +39,9 @@ const collectionFields = computed(() =>
 
 const inputIsValid = computed<boolean>(
   () =>
-    newCollectionNode.value.data.label.trim().length > 0 &&
+    newCollectionNode.value.properties.label.trim().length > 0 &&
     collectionFields.value.every(
-      (field) => validateValue(getModelContext(), field, newCollectionNode.value.data[field.attribute.name]).length === 0,
+      (field) => validateValue(getModelContext(), field, newCollectionNode.value.properties[field.attribute.name]).length === 0,
     ),
 );
 
@@ -89,7 +89,7 @@ async function handleSubmit() {
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.data.uuid, updateObj);
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.properties.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -111,14 +111,14 @@ async function handleSubmit() {
   <div class="modal-container flex flex-col gap-4 py-2">
     <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
     <CollectionLabelInput
-      v-model:label="newCollectionNode.data.label"
+      v-model:label="newCollectionNode.properties.label"
       :placeholder="`Provide a ${nodeType.name} label`"
       autofocus
     />
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <div class="modal-body flex flex-col gap-1 px-1">
-      <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
+      <FormPropertiesSection v-model="newCollectionNode.properties" :fields="collectionFields" mode="edit" />
     </div>
 
     <div class="modal-footer flex justify-center gap-2">

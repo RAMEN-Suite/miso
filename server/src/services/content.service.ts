@@ -45,7 +45,7 @@ export default class ContentService {
 
       RETURN collect({
         nodeLabels: labels(n),
-        data: n {.*}
+        properties: n {.*}
       }) as texts
     `;
 
@@ -92,7 +92,7 @@ export default class ContentService {
 
     RETURN {
         nodeLabels: labels(t),
-        data: t {.*}
+        properties: t {.*}
     } AS text
     `;
 

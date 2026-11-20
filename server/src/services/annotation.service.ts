@@ -44,8 +44,8 @@ export default class AnnotationService {
     WITH n, topLevel, annotations, nested, collect(DISTINCT leaf) AS leaves, collect(r) AS references
 
     RETURN
-        {data: n {.*}, nodeLabels: labels(n)} AS carrier,
-        [x IN annotations + leaves | {data: x {.*}, nodeLabels: labels(x)}] AS nodes,
+        {properties: n {.*}, nodeLabels: labels(n)} AS carrier,
+        [x IN annotations + leaves | {properties: x {.*}, nodeLabels: labels(x)}] AS nodes,
         [t IN topLevel | {type: 'HAS_ANNOTATION', from: n.uuid, to: t.uuid}]
             + [rel IN references + nested | {type: type(rel), from: startNode(rel).uuid, to: endNode(rel).uuid}] AS relations
     `;
@@ -69,6 +69,9 @@ export default class AnnotationService {
     // The annotated node is only listed if an annotation refers back to it
     const targetUuids = new Set<string>(response.relations.map((relation) => relation.to));
 
-    return { ...response, nodes: response.nodes.filter((node) => node.data.uuid !== nodeUuid || targetUuids.has(nodeUuid)) };
+    return {
+      ...response,
+      nodes: response.nodes.filter((node) => node.properties.uuid !== nodeUuid || targetUuids.has(nodeUuid)),
+    };
   }
 }

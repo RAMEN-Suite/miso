@@ -82,7 +82,7 @@ export function getBlockClassificationRanges(doc: Node): BlockClassificationRang
     const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
     blockClassifications.forEach((block) => {
-      const { type, uuid } = block.node.data;
+      const { type, uuid } = block.node.properties;
 
       const existing: BlockClassificationRange | undefined = uuidMap.get(uuid);
 

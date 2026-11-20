@@ -397,34 +397,34 @@ const SELECTOR_PROPERTY = "selector";
 /**
  * Neo4j can't store objects as properties, so a selector is stored as JSON string.
  *
- * @param {Record<string, unknown>} data - The data with native values.
- * @returns {Record<string, unknown>} The data with the selector as JSON string.
+ * @param {Record<string, unknown>} properties - The node's properties with native values.
+ * @returns {Record<string, unknown>} The properties with the selector as JSON string.
  */
-export function toStoredSelector(data: Record<string, unknown>): Record<string, unknown> {
-  const selector: unknown = data[SELECTOR_PROPERTY];
+export function toStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const selector: unknown = properties[SELECTOR_PROPERTY];
 
-  return isPlainObject(selector) ? { ...data, [SELECTOR_PROPERTY]: JSON.stringify(selector) } : data;
+  return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: JSON.stringify(selector) } : properties;
 }
 
 /**
  * Parses a selector stored as JSON string. A string that isn't a JSON object is kept, so the selector check reports it.
  *
- * @param {Record<string, unknown>} data - The stored data.
- * @returns {Record<string, unknown>} The data with the selector as object.
+ * @param {Record<string, unknown>} properties - The node's properties as stored.
+ * @returns {Record<string, unknown>} The properties with the selector as object.
  */
-export function fromStoredSelector(data: Record<string, unknown>): Record<string, unknown> {
-  const stored: unknown = data[SELECTOR_PROPERTY];
+export function fromStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const stored: unknown = properties[SELECTOR_PROPERTY];
 
   if (typeof stored !== "string") {
-    return data;
+    return properties;
   }
 
   try {
     const selector: unknown = JSON.parse(stored);
 
-    return isPlainObject(selector) ? { ...data, [SELECTOR_PROPERTY]: selector } : data;
+    return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: selector } : properties;
   } catch {
-    return data;
+    return properties;
   }
 }
 

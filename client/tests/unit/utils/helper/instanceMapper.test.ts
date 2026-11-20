@@ -3,11 +3,7 @@ import { DataTypes, RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/cor
 import type { ElementDiagnostic, ElementGraph, ElementNode, ElementRelation } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
-import {
-  ELEMENT_DIAGNOSTIC_CODE,
-  relationInstanceId,
-  validateElements,
-} from "../../../../src/utils/helper/instanceMapper";
+import { ELEMENT_DIAGNOSTIC_CODE, relationInstanceId, validateElements } from "../../../../src/utils/helper/instanceMapper";
 
 /**
  * A model for validating elements: a Letter (Collection) with a required `status`, a Text (Content), a Person (Entity)
@@ -63,11 +59,11 @@ const X1 = "00000000-0000-4000-8000-000000000004";
 function buildValidGraph(): { nodes: ElementNode[]; relations: ElementRelation[] } {
   return {
     nodes: [
-      { classifierRef: refs.letter, data: { uuid: L1, label: "A letter", status: "40" } },
-      { classifierRef: refs.text, data: { uuid: T1, text: "Abcd efgh" } },
+      { classifierRef: refs.letter, properties: { uuid: L1, label: "A letter", status: "40" } },
+      { classifierRef: refs.text, properties: { uuid: T1, text: "Abcd efgh" } },
       {
         classifierRef: refs.family,
-        data: {
+        properties: {
           uuid: A1,
           type: "persName",
           selector: { type: "TextPositionSelector", start: 0, end: 4 },
@@ -95,7 +91,7 @@ describe("validateElements", () => {
   test("a missing editor field of a text annotation is reported", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    delete graph.nodes[2].data.text;
+    delete graph.nodes[2].properties.text;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_REQUIRED, attribute: "text" }),
@@ -105,7 +101,7 @@ describe("validateElements", () => {
   test("a missing selector of an annotation on a Content is reported", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    delete graph.nodes[2].data.selector;
+    delete graph.nodes[2].properties.selector;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_REQUIRED, attribute: "selector" }),
@@ -120,7 +116,7 @@ describe("validateElements", () => {
   ])("the invalid selector %j of an annotation on a text is reported by the app, not by RAMEN core", (selector) => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[2].data.selector = selector;
+    graph.nodes[2].properties.selector = selector;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID, attribute: "selector" }),
@@ -130,7 +126,7 @@ describe("validateElements", () => {
   test("a missing isZeroPoint is accepted, it is only set on zero-point annotations", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    delete graph.nodes[2].data.isZeroPoint;
+    delete graph.nodes[2].properties.isZeroPoint;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([]);
   });
@@ -138,7 +134,7 @@ describe("validateElements", () => {
   test("an editor field with the wrong type is reported", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[2].data.text = 4;
+    graph.nodes[2].properties.text = 4;
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.EDITOR_FIELD_INVALID, attribute: "text" }),
@@ -148,7 +144,7 @@ describe("validateElements", () => {
   test("an unknown annotation property is mapped back to its node and name", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[2].data.foo = "bar";
+    graph.nodes[2].properties.foo = "bar";
 
     const findings: ElementDiagnostic[] = findingsOf(validateElements(context, graph), A1);
 
@@ -160,7 +156,7 @@ describe("validateElements", () => {
   test.for([undefined, null, "", "   "])("a required property with the value %j is reported", (status) => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[0].data.status = status;
+    graph.nodes[0].properties.status = status;
 
     expect(findingsOf(validateElements(context, graph), L1)).toEqual([
       expect.objectContaining({ severity: "error", attribute: "status" }),
@@ -179,7 +175,7 @@ describe("validateElements", () => {
     const graph: ElementGraph = buildValidGraph();
 
     graph.nodes[2].status = "deleted";
-    graph.nodes[2].data.foo = "bar";
+    graph.nodes[2].properties.foo = "bar";
 
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([]);
   });
@@ -187,38 +183,39 @@ describe("validateElements", () => {
   test("a node whose labels couldn't be resolved is reported and left out", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes.push({ classifierRef: null, data: { uuid: X1 } });
+    graph.nodes.push({ classifierRef: null, properties: { uuid: X1 } });
 
     expect(findingsOf(validateElements(context, graph), X1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.NODE_TYPE_UNRESOLVED }),
     ]);
   });
 
-  test.for(["xcx_qlm_zdb", "legacy.id.with.dots:0001"])("the legacy uuid %s is only reported on its node, not as a schema error of its relations", (shortUuid) => {
-    const graph: ElementGraph = buildValidGraph();
+  test.for(["xcx_qlm_zdb", "legacy.id.with.dots:0001"])(
+    "the legacy uuid %s is only reported on its node, not as a schema error of its relations",
+    (shortUuid) => {
+      const graph: ElementGraph = buildValidGraph();
 
-    graph.nodes[1].data.uuid = shortUuid;
-    graph.relations[0].from = shortUuid;
+      graph.nodes[1].properties.uuid = shortUuid;
+      graph.relations[0].from = shortUuid;
 
-    const diagnostics: ElementDiagnostic[] = validateElements(context, graph);
+      const diagnostics: ElementDiagnostic[] = validateElements(context, graph);
 
-    expect(diagnostics.filter((diagnostic) => diagnostic.code === "INSTANCE_SCHEMA_INVALID")).toEqual([]);
-    // The test model's Text declares no `text`, so RAMEN core reports that too; only the uuid finding matters here
-    expect(findingsOf(diagnostics, shortUuid)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ attribute: "uuid", code: "CONSTRAINT_FORMAT_MISMATCH" })]),
-    );
-    expect(findingsOf(diagnostics, A1)).toEqual([]);
-  });
+      expect(diagnostics.filter((diagnostic) => diagnostic.code === "INSTANCE_SCHEMA_INVALID")).toEqual([]);
+      // The test model's Text declares no `text`, so RAMEN core reports that too; only the uuid finding matters here
+      expect(findingsOf(diagnostics, shortUuid)).toEqual(
+        expect.arrayContaining([expect.objectContaining({ attribute: "uuid", code: "CONSTRAINT_FORMAT_MISMATCH" })]),
+      );
+      expect(findingsOf(diagnostics, A1)).toEqual([]);
+    },
+  );
 
   test("only the findings of touched nodes are returned", () => {
     const graph: ElementGraph = buildValidGraph();
 
-    delete graph.nodes[0].data.status;
+    delete graph.nodes[0].properties.status;
 
     expect(validateElements(context, graph, new Set([A1]))).toEqual([]);
-    expect(validateElements(context, graph, new Set([L1]))).toEqual([
-      expect.objectContaining({ uuid: L1, attribute: "status" }),
-    ]);
+    expect(validateElements(context, graph, new Set([L1]))).toEqual([expect.objectContaining({ uuid: L1, attribute: "status" })]);
   });
 });
 

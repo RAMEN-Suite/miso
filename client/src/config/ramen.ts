@@ -48,7 +48,7 @@ export function createCollectionNode(type: NodeTypeOption): CollectionNode {
   return {
     nodeLabels: [...type.nodeLabels],
     classifierRef: type.classifierRef,
-    data: {
+    properties: {
       ...type.initialData,
       uuid: crypto.randomUUID(),
       label: "",
@@ -67,7 +67,7 @@ export function createTextNode(type: NodeTypeOption): TextNode {
   return {
     nodeLabels: [...type.nodeLabels],
     classifierRef: type.classifierRef,
-    data: {
+    properties: {
       ...type.initialData,
       uuid: crypto.randomUUID(),
       text: "",
@@ -86,7 +86,7 @@ export function createEntityNode(type: NodeTypeOption): EntityNode {
   return {
     nodeLabels: [...type.nodeLabels],
     classifierRef: type.classifierRef,
-    data: {
+    properties: {
       ...type.initialData,
       uuid: crypto.randomUUID(),
       label: "",

@@ -163,7 +163,7 @@ function handleAddAnnotationClick(event: Event): void {
 enrichCollectionData();
 
 watch(
-  () => props.focus.collection.node.data.uuid,
+  () => props.focus.collection.node.properties.uuid,
   () => {
     // Runs before the DOM switches, so a field that is still being edited is saved to the previous Collection
     commitActiveField();
@@ -250,9 +250,9 @@ function getErrorMessage(error: unknown): string {
  */
 async function commitProperty(name: string, validate: (value: unknown) => string | null): Promise<void> {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
-  const collectionUuid: string = saved.collection.node.data.uuid;
-  const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.data[name]);
-  const previous: unknown = saved.collection.node.data[name];
+  const collectionUuid: string = saved.collection.node.properties.uuid;
+  const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.properties[name]);
+  const previous: unknown = saved.collection.node.properties[name];
 
   if (isSameValue(value, previous)) {
     setFieldState(saved, name, null);
@@ -269,7 +269,7 @@ async function commitProperty(name: string, validate: (value: unknown) => string
   }
 
   const pathIndex: number = path.value.length - 1;
-  saved.collection.node.data[name] = value;
+  saved.collection.node.properties[name] = value;
   setFieldState(saved, name, { state: "saving" });
   pendingUpdates.value++;
 
@@ -283,14 +283,14 @@ async function commitProperty(name: string, validate: (value: unknown) => string
     transferDataToListItem(collectionUuid, pathIndex, result);
 
     // A newer value of the same property might be on its way already
-    if (saved.collection.node.data[name] === value) {
+    if (saved.collection.node.properties[name] === value) {
       setFieldState(saved, name, null);
     }
   } catch (error: unknown) {
     const message: string = getErrorMessage(error);
 
-    if (saved.collection.node.data[name] === value) {
-      saved.collection.node.data[name] = previous;
+    if (saved.collection.node.properties[name] === value) {
+      saved.collection.node.properties[name] = previous;
     }
 
     setFieldState(saved, name, { state: "error", message });
@@ -365,7 +365,7 @@ function commitField(field: ModelAttribute, row: HTMLElement | null): void {
  * @returns {void} This function does not return any value.
  */
 function handleFieldInput(field: ModelAttribute, value: unknown): void {
-  temporaryWorkData.value.collection.node.data[field.attribute.name] = value;
+  temporaryWorkData.value.collection.node.properties[field.attribute.name] = value;
 
   // Picked values have no native constraints to check, so no row is needed for validation
   if (savesOnChange(field)) {
@@ -427,7 +427,7 @@ function handleFieldEnter(event: KeyboardEvent): void {
 function revertProperty(name: string): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
 
-  temporaryWorkData.value.collection.node.data[name] = cloneDeep(saved.collection.node.data[name] ?? null);
+  temporaryWorkData.value.collection.node.properties[name] = cloneDeep(saved.collection.node.properties[name] ?? null);
   setFieldState(saved, name, null);
 }
 
@@ -444,7 +444,7 @@ function handleFieldEscape(field: ModelAttribute, event: KeyboardEvent): void {
 }
 
 function findAnnotationByUuid(uuid: string): Annotation | undefined {
-  const found: Annotation | undefined = annotations.value.find((a) => a.node.data.uuid === uuid);
+  const found: Annotation | undefined = annotations.value.find((a) => a.node.properties.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
@@ -487,10 +487,10 @@ async function saveAnnotation(annotation: Annotation): Promise<boolean> {
  * @returns {void} This function does not return any value.
  */
 function applyPersistedAnnotation(annotation: Annotation): void {
-  const uuid: string = annotation.node.data.uuid;
+  const uuid: string = annotation.node.properties.uuid;
 
   if (annotation.meta.status === "deleted") {
-    annotations.value = annotations.value.filter((a) => a.node.data.uuid !== uuid);
+    annotations.value = annotations.value.filter((a) => a.node.properties.uuid !== uuid);
 
     return;
   }
@@ -498,7 +498,7 @@ function applyPersistedAnnotation(annotation: Annotation): void {
   pruneDeletedNodes(annotation);
   setNodeTreeStatus(annotation, "unchanged");
 
-  const index: number = annotations.value.findIndex((a) => a.node.data.uuid === uuid);
+  const index: number = annotations.value.findIndex((a) => a.node.properties.uuid === uuid);
 
   if (index === -1) {
     annotations.value.push(annotation);
@@ -518,8 +518,10 @@ function enrichCollectionData(): void {
   allPossibleFields.forEach((field) => {
     const name: string = field.attribute.name;
 
-    if (!(name in temporaryWorkData.value.collection.node.data)) {
-      temporaryWorkData.value.collection.node.data[name] = isRequired(field) ? getDefaultValue(getModelContext(), field) : null;
+    if (!(name in temporaryWorkData.value.collection.node.properties)) {
+      temporaryWorkData.value.collection.node.properties[name] = isRequired(field)
+        ? getDefaultValue(getModelContext(), field)
+        : null;
     }
   });
 }
@@ -582,7 +584,7 @@ function handleRemoveAnnotation(uuid: string, event: Event): void {
   confirm.require({
     group: "annotation-remove",
     target: event.currentTarget as HTMLElement,
-    message: `Remove this “${annotation.node.data.subType ?? annotation.node.data.type}” annotation?`,
+    message: `Remove this “${annotation.node.properties.subType ?? annotation.node.properties.type}” annotation?`,
   });
 }
 
@@ -632,19 +634,19 @@ function handleEditAnnotation(uuid: string): void {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
-      detail: `"${annotation.node.data.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
+      detail: `"${annotation.node.properties.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
     });
     return;
   }
 
-  openAnnotationModal(annotation, "edit", `Edit ${annotation.node.data.type} annotation`);
+  openAnnotationModal(annotation, "edit", `Edit ${annotation.node.properties.type} annotation`);
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
   const entry: HierarchyEntry | null = findEntryInHierarchy(uuid, index);
 
   if (entry) {
-    entry.data.node.data = data.node.data;
+    entry.data.node.properties = data.node.properties;
     entry.data.node.nodeLabels = data.node.nodeLabels;
     entry.data.node.classifierRef = data.node.classifierRef;
   }
@@ -661,7 +663,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
         <div class="buttons-end flex justify-end gap-1">
           <Button
             as="a"
-            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.data.uuid}`"
+            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.properties.uuid}`"
             target="_blank"
             rel="noopener"
             severity="secondary"
@@ -674,7 +676,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 
       <div class="label-section">
         <h3 class="label-heading">
-          <span class="sr-only">{{ temporaryWorkData.collection.node.data.label }}</span>
+          <span class="sr-only">{{ temporaryWorkData.collection.node.properties.label }}</span>
           <RAMENNodeIcon
             v-tooltip.hover.top="{
               value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
@@ -685,7 +687,7 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
           />
           <span class="label-input-wrapper">
             <CollectionLabelInput
-              v-model:label="temporaryWorkData.collection.node.data.label"
+              v-model:label="temporaryWorkData.collection.node.properties.label"
               subtle
               @commit="commitProperty('label', validateLabel)"
               @revert="revertProperty('label')"
@@ -703,11 +705,11 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
         <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
           <CollectionAnnotationNote
             v-for="(annotation, index) in annotations"
-            :key="annotation.node.data.uuid"
+            :key="annotation.node.properties.uuid"
             v-model="annotations[index]"
-            :disabled="removalRunning && annotationPendingRemoval === annotation.node.data.uuid"
-            @edit="handleEditAnnotation(annotation.node.data.uuid)"
-            @remove="handleRemoveAnnotation(annotation.node.data.uuid, $event)"
+            :disabled="removalRunning && annotationPendingRemoval === annotation.node.properties.uuid"
+            @edit="handleEditAnnotation(annotation.node.properties.uuid)"
+            @remove="handleRemoveAnnotation(annotation.node.properties.uuid, $event)"
           />
           <div v-if="availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button
@@ -776,14 +778,14 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
                 ></span>
                 <DataInputGroup
                   v-if="isList(field)"
-                  :model-value="temporaryWorkData.collection.node.data[field.attribute.name] as ArrayPropertyValue"
+                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name] as ArrayPropertyValue"
                   :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />
                 <DataInputComponent
                   v-else
-                  :model-value="temporaryWorkData.collection.node.data[field.attribute.name]"
+                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name]"
                   :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"

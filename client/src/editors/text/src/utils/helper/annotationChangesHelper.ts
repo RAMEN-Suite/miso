@@ -66,7 +66,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
     const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
     const annotationType: string = getAnnotationType(editorRole);
-    const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.data ?? {};
+    const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.properties ?? {};
 
     const editorOwned = getEditorOwnedProperties(annotationType);
 
@@ -188,8 +188,8 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       const isZeroPointAnno: boolean = isZeroPoint(currentEntry.node);
 
       const hasNewRange: boolean =
-        initialEntry?.node.data.selector?.start !== start || initialEntry?.node.data.selector?.end !== end;
-      const hasChangedText: boolean = !isZeroPointAnno && initialEntry?.node.data.text !== plainText.slice(start, end + 1);
+        initialEntry?.node.properties.selector?.start !== start || initialEntry?.node.properties.selector?.end !== end;
+      const hasChangedText: boolean = !isZeroPointAnno && initialEntry?.node.properties.text !== plainText.slice(start, end + 1);
       const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
 
       if (!hasNewRange && !hasChangedText && !isEditedOrDeleted) {
@@ -201,9 +201,9 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       stampSelector(cloned, range, plainText, isZeroPointAnno);
 
       if (isZeroPointAnno) {
-        cloned.node.data.isZeroPoint = true;
+        cloned.node.properties.isZeroPoint = true;
       } else {
-        delete cloned.node.data.isZeroPoint;
+        delete cloned.node.properties.isZeroPoint;
       }
 
       pruneAnnotationData(cloned);
@@ -249,7 +249,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     const deleted: Annotation[] = collectDeleted(
       initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
-      (annotation: Annotation) => !isBuiltinStructuralType(annotation.node.data.type),
+      (annotation: Annotation) => !isBuiltinStructuralType(annotation.node.properties.type),
     );
 
     return [...affected, ...deleted];
@@ -287,7 +287,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const annotation: Annotation = {
         node: {
-          data: assembleStructuralAnnotationData(docNode) as IAnnotation,
+          properties: assembleStructuralAnnotationData(docNode) as IAnnotation,
           nodeLabels: [...(docAnnotation?.node.nodeLabels ?? ["Annotation"])],
         },
         connectedNodes: cloneDeep(docAnnotation?.connectedNodes ?? []),
@@ -303,7 +303,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     const deleted: Annotation[] = collectDeleted(
       initial.structuralAnnotations,
       new Set<string>(indexMap.keys()),
-      (annotation: Annotation) => isBuiltinStructuralType(annotation.node.data.type),
+      (annotation: Annotation) => isBuiltinStructuralType(annotation.node.properties.type),
     );
 
     return [...affected, ...deleted];
@@ -329,14 +329,14 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * @returns {void} This function does not return any value.
    */
   function pruneAnnotationData(annotation: Annotation): void {
-    const type: string = annotation.node.data.type;
+    const type: string = annotation.node.properties.type;
 
     if (!isConfiguredAnnotationType(type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
       return;
     }
 
     pruneUnconfiguredProperties(
-      annotation.node.data,
+      annotation.node.properties,
       getTextAnnotationProperties(type).map((field) => field.attribute.name),
       getAnnotationNodeProperties(annotation.node),
     );
@@ -353,8 +353,8 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   function stampSelector(annotation: Annotation, range: TextRange, plainText: string, hasNoText: boolean = false): void {
     const { start, end } = range;
 
-    annotation.node.data.selector = createTextPositionSelector(start, end);
-    annotation.node.data.text = hasNoText ? "" : plainText.slice(start, end + 1);
+    annotation.node.properties.selector = createTextPositionSelector(start, end);
+    annotation.node.properties.text = hasNoText ? "" : plainText.slice(start, end + 1);
   }
 
   return {

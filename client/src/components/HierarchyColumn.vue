@@ -224,7 +224,9 @@ const focusedUuid = computed<string | null>(() => {
     return null;
   }
 
-  return focus.value.kind === "collection" ? focus.value.collection.node.data.uuid : focus.value.content.node.data.uuid;
+  return focus.value.kind === "collection"
+    ? focus.value.collection.node.properties.uuid
+    : focus.value.content.node.properties.uuid;
 });
 
 // Getters, not the objects themselves: `updateLevels` replaces the whole level on navigation, and a
@@ -328,7 +330,7 @@ function openCreateModal(kind: "Collection" | "Content", nodeType: NodeTypeOptio
 
           destroyModalInstance();
 
-          await scrollElementIntoView(created.node.data.uuid);
+          await scrollElementIntoView(created.node.properties.uuid);
         },
       },
       onClose: destroyModalInstance,
@@ -446,7 +448,7 @@ async function handleSortTargetChange(key: string): Promise<void> {
  * @returns {void} This function does not return a value.
  */
 function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
-  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.data.uuid === uuid);
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.properties.uuid === uuid);
 
   if (!entry) {
     return;
@@ -471,13 +473,13 @@ function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
  * @returns {"emphasized" | "unemphasized" | null} The highlight, or null if the entry is not selected.
  */
 function getEntrySelection(entry: HierarchyEntry): "emphasized" | "unemphasized" | null {
-  const uuid: string = entry.data.node.data.uuid;
+  const uuid: string = entry.data.node.properties.uuid;
 
   if (hasMultiSelection.value) {
     return selectedUuids.value.has(uuid) ? "emphasized" : null;
   }
 
-  if (levels.value[props.index]?.activeItem?.node.data.uuid !== uuid) {
+  if (levels.value[props.index]?.activeItem?.node.properties.uuid !== uuid) {
     return null;
   }
 
@@ -541,7 +543,7 @@ function endResize(): void {
     <div class="content-wrapper">
       <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
       <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
-        <template v-for="entry in entries" :key="entry.data.node.data.uuid">
+        <template v-for="entry in entries" :key="entry.data.node.properties.uuid">
           <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
         </template>
         <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">

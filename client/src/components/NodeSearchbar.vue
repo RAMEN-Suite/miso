@@ -144,9 +144,9 @@ function getInputElement(): HTMLInputElement | null {
  * @returns {void} This function does not return any value.
  */
 function appendData(data: (CollectionNode | EntityNode | TextNode)[]): void {
-  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.data.uuid));
+  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.properties.uuid));
 
-  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.data.uuid)));
+  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.properties.uuid)));
 }
 
 /**
@@ -378,8 +378,8 @@ defineExpose({ focus });
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
               :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
-              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
             </span>
           </div>
         </template>
@@ -389,8 +389,8 @@ defineExpose({ focus });
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
               :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.label ?? option.data?.text)">
-              {{ getPreviewText(option.data?.label ?? option.data?.text) }}
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
             </span>
           </div>
         </template>
@@ -400,7 +400,7 @@ defineExpose({ focus });
               v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
               :spec="resolveNodeIcon(option)"
             />
-            <span :title="getPreviewText(option.data?.text)">{{ getPreviewText(option.data?.text) }}</span>
+            <span :title="getPreviewText(option.properties?.text)">{{ getPreviewText(option.properties?.text) }}</span>
           </div>
         </template>
       </template>

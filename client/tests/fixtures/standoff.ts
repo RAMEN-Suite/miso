@@ -26,7 +26,7 @@ function standoff(text: string, annotations: AnnotationSpec[]): ApiJson {
 
       return {
         node: {
-          data: {
+          properties: {
             uuid: `${type}-${i}`,
             type,
             selector: { type: "TextPositionSelector" as const, start, end: end ?? start },

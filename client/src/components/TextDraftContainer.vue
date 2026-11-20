@@ -19,7 +19,7 @@ const textInput = useTemplateRef<ComponentPublicInstance>("text-input");
 
 const draft = ref<NodeStatusObject<TextNode>>(createContentNodeStatusObject(props.nodeType));
 
-const isEmptyDraft = computed<boolean>(() => draft.value.node.data.text.trim().length === 0);
+const isEmptyDraft = computed<boolean>(() => draft.value.node.properties.text.trim().length === 0);
 
 onMounted(() => {
   textInput.value?.$el?.focus();
@@ -30,7 +30,7 @@ function handleSubmit(): void {
     return;
   }
 
-  draft.value.node.data.text = draft.value.node.data.text.replace(/(\r\n|\n|\r)/g, " ");
+  draft.value.node.properties.text = draft.value.node.properties.text.replace(/(\r\n|\n|\r)/g, " ");
 
   emit("textAdded", draft.value);
 }
@@ -47,7 +47,7 @@ function handleDiscardClick(): void {
     <Textarea
       id="text-value"
       ref="text-input"
-      v-model="draft.node.data.text"
+      v-model="draft.node.properties.text"
       rows="3"
       auto-resize
       class="w-full"

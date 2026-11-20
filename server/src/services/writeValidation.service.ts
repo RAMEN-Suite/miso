@@ -3,7 +3,7 @@ import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
-import type { BaseNodeData, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
+import type { BaseNodeProperties, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
 import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
 import {
@@ -164,12 +164,12 @@ export default class WriteValidationService {
       OPTIONAL MATCH (n)-[r]-(m:Annotation|Content|Collection|Entity)
 
       RETURN
-        {data: n {.*}, nodeLabels: labels(n)} AS node,
+        {properties: n {.*}, nodeLabels: labels(n)} AS node,
         collect(CASE WHEN r IS NULL THEN null ELSE {
           type: type(r),
           from: startNode(r).uuid,
           to: endNode(r).uuid,
-          neighbour: {data: m {.*}, nodeLabels: labels(m)}
+          neighbour: {properties: m {.*}, nodeLabels: labels(m)}
         } END) AS links
       `,
       { uuids },
@@ -196,7 +196,7 @@ export default class WriteValidationService {
       MATCH path = (carrier)-[:HAS_ANNOTATION*1..${MAX_CARRIER_CHAIN}]->(a:Annotation {uuid: uuid})
       WHERE NOT carrier:Annotation AND (carrier:Content OR carrier:Collection OR carrier:Entity)
 
-      RETURN [x IN nodes(path) | {data: x {.*}, nodeLabels: labels(x)}] AS chain
+      RETURN [x IN nodes(path) | {properties: x {.*}, nodeLabels: labels(x)}] AS chain
       `,
       { uuids: withoutCarrier },
     );
@@ -210,8 +210,8 @@ export default class WriteValidationService {
         if (index > 0) {
           addStoredRelation(graph, {
             type: HAS_ANNOTATION,
-            from: (chain[index - 1].data as BaseNodeData).uuid,
-            to: (node.data as BaseNodeData).uuid,
+            from: (chain[index - 1].properties as BaseNodeProperties).uuid,
+            to: (node.properties as BaseNodeProperties).uuid,
           });
         }
       });

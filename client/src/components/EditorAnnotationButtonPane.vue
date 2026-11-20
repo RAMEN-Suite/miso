@@ -293,7 +293,7 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
         dialog.open(AnnotationDetailsModal, {
           props: {
             ...ANNOTATION_MODAL_PROPS,
-            header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,
@@ -392,7 +392,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
         dialog.open(AnnotationDetailsModal, {
           props: {
             ...ANNOTATION_MODAL_PROPS,
-            header: `Add new ${newAnnotationTemplate.node.data.subType ?? newAnnotationTemplate.node.data.type} annotation`,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,

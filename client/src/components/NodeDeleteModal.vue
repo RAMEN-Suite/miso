@@ -36,7 +36,7 @@ const deleteMessage = computed<string>(() => {
   const node: HierarchyNode | undefined = nodes.value[0];
 
   if (node && getBaseNodeLabel(getModelContext(), node) === "Collection") {
-    const label: string = (node as CollectionNode).data.label ?? "";
+    const label: string = (node as CollectionNode).properties.label ?? "";
 
     return `"${label}" will be deleted, together with everything inside it and all annotations. This can NOT be undone. Are you sure?`;
   } else {
@@ -53,7 +53,7 @@ watch(() => route.path, closeModal);
  * the server skips) plus all descendants deleted together with them.
  */
 async function deleteNodes(): Promise<string[]> {
-  const requestedUuids: string[] = nodes.value.map((node: HierarchyNode) => node.data.uuid);
+  const requestedUuids: string[] = nodes.value.map((node: HierarchyNode) => node.properties.uuid);
   const deletedUuids: string[] = await api.deleteHierarchyNodes(requestedUuids);
 
   return [...new Set<string>([...requestedUuids, ...deletedUuids])];

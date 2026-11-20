@@ -111,7 +111,7 @@ function buildTags(node: Node, showBase: boolean, showSemantic: boolean): TagDat
     const blockClassifications: DocAnnotation[] = node.attrs._blockClassifications ?? [];
 
     for (const block of blockClassifications) {
-      const { type, uuid } = block.node.data;
+      const { type, uuid } = block.node.properties;
 
       tags.push({
         kind: "semantic",

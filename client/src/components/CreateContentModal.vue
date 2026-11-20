@@ -29,7 +29,7 @@ const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 const isLoading = ref<boolean>(false);
 const newContentNode = ref<TextNode>(createTextNode(nodeType));
 
-const inputIsValid = computed<boolean>(() => newContentNode.value.data.text.trim().length > 0);
+const inputIsValid = computed<boolean>(() => newContentNode.value.properties.text.trim().length > 0);
 
 watch(() => route.path, closeModal);
 
@@ -68,11 +68,11 @@ async function handleSubmit() {
     return;
   }
 
-  const text: string = newContentNode.value.data.text.replace(/(\r\n|\n|\r)/g, " ");
+  const text: string = newContentNode.value.properties.text.replace(/(\r\n|\n|\r)/g, " ");
 
   const contentNodeToAdd: TextNode = {
     ...newContentNode.value,
-    data: { ...newContentNode.value.data, text },
+    properties: { ...newContentNode.value.properties, text },
   };
 
   isLoading.value = true;
@@ -80,7 +80,7 @@ async function handleSubmit() {
   try {
     const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.data.uuid, updateObj);
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.properties.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -104,7 +104,7 @@ async function handleSubmit() {
       <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
       <Textarea
         id="text-input"
-        v-model="newContentNode.data.text"
+        v-model="newContentNode.properties.text"
         class="w-full"
         rows="6"
         placeholder="Add some text"

@@ -23,7 +23,7 @@ const labelInput = useTemplateRef<ComponentPublicInstance>("label-input");
 
 const draft = ref<NodeStatusObject<EntityNode>>(createEntityNodeStatusObject(props.nodeType));
 
-const isEmptyDraft = computed<boolean>(() => draft.value.node.data.label.trim().length === 0);
+const isEmptyDraft = computed<boolean>(() => draft.value.node.properties.label.trim().length === 0);
 
 onMounted(() => {
   labelInput.value?.$el?.focus();
@@ -34,7 +34,7 @@ function handleSubmit(): void {
     return;
   }
 
-  draft.value.node.data.label = draft.value.node.data.label.trim();
+  draft.value.node.properties.label = draft.value.node.properties.label.trim();
 
   emit("entityAdded", draft.value);
 }
@@ -56,7 +56,7 @@ function handleDiscardClick(): void {
         <InputText
           id="entity-label"
           ref="label-input"
-          v-model="draft.node.data.label"
+          v-model="draft.node.properties.label"
           :placeholder="`Add ${props.nodeType.name} label`"
           autocomplete="off"
           spellcheck="false"

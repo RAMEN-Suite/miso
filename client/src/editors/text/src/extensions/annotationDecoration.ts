@@ -258,7 +258,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             return false;
           }
 
-          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.properties.uuid);
 
           if (!decos.length) {
             return false;
@@ -284,7 +284,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
 
           // Annotation must be found to be included in the step, since undo and redo need to know
           // what annotation object to (re)create
-          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.data.uuid);
+          const decos: Decoration[] = findDecorationsByUuid(pluginState.all, annotation.node.properties.uuid);
 
           if (!decos.length) {
             return false;
@@ -382,7 +382,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
     const { getAppearance } = this.options;
 
     function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
-      const { type, uuid, subType } = annotation.node.data;
+      const { type, uuid, subType } = annotation.node.properties;
 
       const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
 
@@ -394,7 +394,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
           "data-annotation-type": type,
           "data-annotation-uuid": uuid,
           "data-annotation-subtype": subType?.toString() ?? "",
-          style: getHighlightStyle(getAppearance(type), annotation.node.data),
+          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
         },
         { inclusiveEnd: true, ...spec },
       );
@@ -404,9 +404,9 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
       const decos: Decoration[] = [];
 
       for (const annotation of [...annotations.values()].toSorted(
-        (a, b) => a.node.data.selector.start - b.node.data.selector.start,
+        (a, b) => a.node.properties.selector.start - b.node.properties.selector.start,
       )) {
-        const { start, end } = annotation.node.data.selector;
+        const { start, end } = annotation.node.properties.selector;
 
         const from: number = indexToPosition(doc, start);
         const to: number = indexToPosition(doc, end + 1);
@@ -548,13 +548,13 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
               } else if (step instanceof RemoveAnnotationStep) {
                 const { annotation } = step;
 
-                const toRemove: Decoration[] = findDecorationsByUuid(newAll, annotation.node.data.uuid);
+                const toRemove: Decoration[] = findDecorationsByUuid(newAll, annotation.node.properties.uuid);
                 newAll = newAll.remove(toRemove);
                 decorationsChanged = true;
               } else if (step instanceof UpdateAnnotationStep) {
                 const { newAnnotation } = step;
 
-                const toReplace: Decoration[] = findDecorationsByUuid(newAll, newAnnotation.node.data.uuid);
+                const toReplace: Decoration[] = findDecorationsByUuid(newAll, newAnnotation.node.properties.uuid);
 
                 // The decoration can be gone when the step is replayed by undo/redo (e.g. its text was deleted)
                 if (toReplace.length === 0) {
@@ -641,7 +641,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             transactions
               .flatMap((tr) => tr.steps)
               .filter((step): step is RemoveAnnotationStep => step instanceof RemoveAnnotationStep)
-              .map((step) => step.annotation.node.data.uuid),
+              .map((step) => step.annotation.node.properties.uuid),
           );
 
           // Create maps (faster/easier to compare)

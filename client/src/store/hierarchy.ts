@@ -73,7 +73,7 @@ function createStore() {
 
     /** UUIDs of the multiselected items, for fast lookups. */
     const selectedUuids = computed<Set<string>>(
-      () => new Set<string>(multiSelection.value?.items.map((item: NodeDto<HierarchyNode>) => item.node.data.uuid) ?? []),
+      () => new Set<string>(multiSelection.value?.items.map((item: NodeDto<HierarchyNode>) => item.node.properties.uuid) ?? []),
     );
 
     /**
@@ -99,8 +99,8 @@ function createStore() {
       baseItems: NodeDto<HierarchyNode>[],
     ): void {
       const parentPath: HierarchyPath = path.value.slice(0, depth);
-      const pathItemUuid: string | undefined = path.value[depth]?.node.data.uuid;
-      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.data.uuid === pathItemUuid);
+      const pathItemUuid: string | undefined = path.value[depth]?.node.properties.uuid;
+      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.properties.uuid === pathItemUuid);
 
       let newPath: HierarchyPath;
 
@@ -268,7 +268,7 @@ function createStore() {
      * @returns {Promise<FocusData>} The focus data for the pane.
      */
     async function fetchFocusData(item: NodeDto<HierarchyNode>): Promise<FocusData> {
-      const uuid: string = item.node.data.uuid;
+      const uuid: string = item.node.properties.uuid;
 
       if (getBaseNodeLabel(getModelContext(), item.node) === "Collection") {
         isFetchingFocus.value = true;
@@ -314,7 +314,7 @@ function createStore() {
      * @returns {HierarchyEntry | null} The entry if found, or null.
      */
     function findEntryInHierarchy(uuid: string, index: number): HierarchyEntry | null {
-      return levels.value[index]?.entries.find((e) => e.data.node.data.uuid === uuid) ?? null;
+      return levels.value[index]?.entries.find((e) => e.data.node.properties.uuid === uuid) ?? null;
     }
 
     /**
@@ -400,7 +400,9 @@ function createStore() {
       }
 
       const removable = new Set<string>(uuids);
-      const remaining: HierarchyEntry[] = level.entries.filter((e: HierarchyEntry) => !removable.has(e.data.node.data.uuid));
+      const remaining: HierarchyEntry[] = level.entries.filter(
+        (e: HierarchyEntry) => !removable.has(e.data.node.properties.uuid),
+      );
 
       if (level.state.pagination) {
         level.state.pagination.totalRecords = Math.max(
@@ -442,7 +444,9 @@ function createStore() {
       }
 
       const anchor: NodeDto<HierarchyNode> | null = getColumnAnchor(depth);
-      const anchorIsListed: boolean = items.some((i: NodeDto<HierarchyNode>) => i.node.data.uuid === anchor?.node.data.uuid);
+      const anchorIsListed: boolean = items.some(
+        (i: NodeDto<HierarchyNode>) => i.node.properties.uuid === anchor?.node.properties.uuid,
+      );
 
       applySelection(depth, items, anchorIsListed ? anchor : items[0], items);
     }
@@ -477,8 +481,12 @@ function createStore() {
       }
 
       const entries: HierarchyEntry[] = levels.value[depth]?.entries ?? [];
-      const anchorIndex: number = entries.findIndex((e: HierarchyEntry) => e.data.node.data.uuid === anchor.node.data.uuid);
-      const targetIndex: number = entries.findIndex((e: HierarchyEntry) => e.data.node.data.uuid === item.node.data.uuid);
+      const anchorIndex: number = entries.findIndex(
+        (e: HierarchyEntry) => e.data.node.properties.uuid === anchor.node.properties.uuid,
+      );
+      const targetIndex: number = entries.findIndex(
+        (e: HierarchyEntry) => e.data.node.properties.uuid === item.node.properties.uuid,
+      );
 
       if (anchorIndex === -1 || targetIndex === -1) {
         toggleItem(item, depth);
@@ -490,10 +498,10 @@ function createStore() {
         .map((e: HierarchyEntry) => e.data);
 
       const baseItems: NodeDto<HierarchyNode>[] = multiSelection.value?.depth === depth ? multiSelection.value.baseItems : [];
-      const baseUuids = new Set<string>(baseItems.map((base: NodeDto<HierarchyNode>) => base.node.data.uuid));
+      const baseUuids = new Set<string>(baseItems.map((base: NodeDto<HierarchyNode>) => base.node.properties.uuid));
       const items: NodeDto<HierarchyNode>[] = [
         ...baseItems,
-        ...range.filter((rangeItem: NodeDto<HierarchyNode>) => !baseUuids.has(rangeItem.node.data.uuid)),
+        ...range.filter((rangeItem: NodeDto<HierarchyNode>) => !baseUuids.has(rangeItem.node.properties.uuid)),
       ];
 
       applySelection(depth, items, anchor, baseItems);
@@ -524,13 +532,13 @@ function createStore() {
      * @returns {void} This function does not return a value.
      */
     function toggleItem(item: NodeDto<HierarchyNode>, depth: number): void {
-      const uuid: string = item.node.data.uuid;
+      const uuid: string = item.node.properties.uuid;
       const current: NodeDto<HierarchyNode>[] = getColumnSelection(depth);
-      const isSelected: boolean = current.some((selected: NodeDto<HierarchyNode>) => selected.node.data.uuid === uuid);
+      const isSelected: boolean = current.some((selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid === uuid);
 
       if (isSelected) {
         const remaining: NodeDto<HierarchyNode>[] = current.filter(
-          (selected: NodeDto<HierarchyNode>) => selected.node.data.uuid !== uuid,
+          (selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid !== uuid,
         );
 
         applySelection(depth, remaining, remaining[remaining.length - 1] ?? null, remaining);
@@ -590,7 +598,7 @@ function createStore() {
       // decided by `root`, not by a parent uuid.
       levels.value.forEach((level: Level, index: number) => {
         level.activeItem = path.value[index];
-        level.parentUuid = levels.value[index - 1]?.activeItem?.node.data.uuid ?? null;
+        level.parentUuid = levels.value[index - 1]?.activeItem?.node.properties.uuid ?? null;
       });
 
       // A focused Content is a leaf — no child column to append
@@ -598,7 +606,7 @@ function createStore() {
         return;
       }
 
-      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.data.uuid ?? null;
+      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.properties.uuid ?? null;
       const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
 
       if (canReuse) {

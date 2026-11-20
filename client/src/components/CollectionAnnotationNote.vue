@@ -29,7 +29,9 @@ const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotati
 
 const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value.node));
 
-const label: ComputedRef<string> = computed(() => String(annotation.value.node.data.subType ?? annotation.value.node.data.type));
+const label: ComputedRef<string> = computed(() =>
+  String(annotation.value.node.properties.subType ?? annotation.value.node.properties.type),
+);
 
 /**
  * Shows or hides the details popover. Ignores remove clicks (not stopped, the confirmation needs them to position).
@@ -65,7 +67,7 @@ function handleEditFromPopover(event: MouseEvent): void {
     tabindex="0"
     :aria-disabled="props.disabled"
     :title="`Show ${label} details`"
-    :data-annotation-uuid="annotation.node.data.uuid"
+    :data-annotation-uuid="annotation.node.properties.uuid"
     @click="handleTogglePopover"
     @keydown.enter.self.prevent="handleTogglePopover"
     @keydown.space.self.prevent="handleTogglePopover"
@@ -87,7 +89,7 @@ function handleEditFromPopover(event: MouseEvent): void {
     />
 
     <NodePreviewPopover ref="popover">
-      <NodePropertiesTable :data="annotation.node.data" :fields="propertyFields" />
+      <NodePropertiesTable :properties="annotation.node.properties" :fields="propertyFields" />
       <AnnotationReferencesSection v-model="annotation.connectedNodes" :annotation="annotation.node" mode="view" />
       <div class="flex justify-center">
         <Button

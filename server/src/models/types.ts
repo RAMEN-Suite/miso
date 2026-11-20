@@ -35,7 +35,7 @@ export type AttributeOwner = Owned<RamenNode> | ModelAnnotationShape;
  */
 export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
 
-/** A node in the element format: `uuid` inside `data`, attributes by name, the model refs next to them */
+/** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
   /** What a write does with the node. Missing on reads. */
   status?: NodeStatus;
@@ -45,7 +45,7 @@ export interface ElementNode {
   shapeRef?: string | null;
   /** Reads only: the labels as stored. Writes derive them from `classifierRef`. */
   nodeLabels?: string[];
-  data: BaseNodeData & Record<string, unknown>;
+  properties: BaseNodeProperties & Record<string, unknown>;
 }
 
 /** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
@@ -102,7 +102,7 @@ export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
-export interface BaseNodeData {
+export interface BaseNodeProperties {
   uuid: string;
 }
 
@@ -210,7 +210,7 @@ export interface FaviconResponse {
 }
 
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
-  data: T;
+  properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
   /**
@@ -232,7 +232,7 @@ export interface NodeSearchParams {
 }
 
 /** A status object for incoming API requests that should update a subgraph */
-export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeStatusObject<T>[];
   meta: {

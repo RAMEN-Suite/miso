@@ -77,7 +77,7 @@ async function openInHierarchy(hierarchyPath: HierarchyPath): Promise<void> {
 </script>
 <template>
   <div v-if="hasChoice" class="page-container text-center">
-    <h2>Collection "{{ collection?.node.data.label }}"</h2>
+    <h2>Collection "{{ collection?.node.properties.label }}"</h2>
 
     <p>This collection is part of {{ ancestryPaths.length }} hierarchies. Select one of them:</p>
 

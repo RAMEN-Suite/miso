@@ -243,14 +243,14 @@ function handleDetailsClick(line: PositionedLine): void {
   const annotation: Annotation = toAnnotation(docAnnotation, status);
 
   if (!getAnnotationShape(annotation.node)) {
-    throw Error(`Annotation type "${annotation.node.data.type}" is not supported.`);
+    throw Error(`Annotation type "${annotation.node.properties.type}" is not supported.`);
   }
 
   createModalInstance(
     dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${annotation.node.data.subType ?? annotation.node.data.type} annotation`,
+        header: `Edit ${annotation.node.properties.subType ?? annotation.node.properties.type} annotation`,
       },
 
       data: { annotation, mode: "edit" },

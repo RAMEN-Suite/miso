@@ -35,7 +35,7 @@ export default class EntityService {
 
       RETURN collect({
         nodeLabels: labels(n),
-        data: n {.*}
+        properties: n {.*}
       }) as entities
     `;
 

@@ -77,7 +77,7 @@ export default class HierarchyService {
           apoc.coll.toSet(apoc.coll.flatten(collect(relationships(path)))) AS pathRelations
 
       RETURN
-          [n IN pathNodes | {nodeLabels: labels(n), data: n {.*}}] AS nodes,
+          [n IN pathNodes | {nodeLabels: labels(n), properties: n {.*}}] AS nodes,
           [r IN pathRelations | {type: type(r), from: startNode(r).uuid, to: endNode(r).uuid}] AS relations
       `;
 
@@ -193,7 +193,7 @@ export default class HierarchyService {
       LIMIT $limit
 
       RETURN collect({
-          node: { nodeLabels: labels(n), data: n {.*} },
+          node: { nodeLabels: labels(n), properties: n {.*} },
           groupRank: groupRank,
           sortValue: sortValue
       }) AS children
@@ -221,7 +221,7 @@ export default class HierarchyService {
 
     const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
     const rawChildren: {
-      node: { nodeLabels: string[]; data: { uuid: string; [key: string]: unknown } };
+      node: { nodeLabels: string[]; properties: { uuid: string; [key: string]: unknown } };
       groupRank: number;
       sortValue: unknown;
     }[] = dataResult.records[0]?.get("children") ?? [];
@@ -243,7 +243,7 @@ export default class HierarchyService {
         v: CURSOR_VERSION,
         g: last.groupRank,
         k: [valueToNativeType(last.sortValue) as string | number],
-        u: last.node.data.uuid,
+        u: last.node.properties.uuid,
         s: signature,
       };
 
@@ -277,7 +277,7 @@ export default class HierarchyService {
   public async createNode(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
     const context = await ConfigService.getModelContext();
 
-    if (!payload.nodes.some((node) => node.data?.uuid === uuid)) {
+    if (!payload.nodes.some((node) => node.properties?.uuid === uuid)) {
       throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
     }
 

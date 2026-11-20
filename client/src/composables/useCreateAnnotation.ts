@@ -36,16 +36,16 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   /**
    * Creates an annotation object with the given parameters.
    *
-   * The annotation object contains the annotation node (with its data created from the fields), no connected nodes yet
-   * and the status `created`.
+   * The annotation object contains the annotation node (with its properties created from the fields), no connected
+   * nodes yet and the status `created`.
    *
    * @param {Object} params - The parameters object. Contains the properties of the shape, subType (optional) and type of the annotation.
    * @returns {Annotation} The new annotation.
    */
   function createAnnotationObject(params: { fields: ModelAttribute[]; subType?: string | number; type: string }): Annotation {
-    const nodeData: IAnnotation = createNodeData({ ...params });
+    const properties: IAnnotation = createProperties({ ...params });
     const node: AnnotationNode = {
-      data: nodeData,
+      properties,
       nodeLabels: ["Annotation"],
     };
 
@@ -61,36 +61,36 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   }
 
   /**
-   * Creates a base node data object with the given parameters.
+   * Creates the base properties of an annotation node.
    *
    * The object contains the annotation type, subType (if applicable), and fields specific to the annotation type.
    * If the subType field exists, but not subType was provided, the first option is set as default value.
    *
    * @param {Object} params - The parameters object. Contains the properties of the shape, subType (optional) and type of the annotation.
-   * @returns {IAnnotation} A base node data object with the given parameters.
+   * @returns {IAnnotation} The base properties.
    */
-  function createBaseNodeData(params: { fields: ModelAttribute[]; subType?: string | number; type: string }): IAnnotation {
+  function createBaseProperties(params: { fields: ModelAttribute[]; subType?: string | number; type: string }): IAnnotation {
     const { type, subType, fields } = params;
     const subTypeField: ModelAttribute | undefined = fields.find((field) => field.attribute.name === "subType");
 
-    const baseNodeData: IAnnotation = {} as IAnnotation;
+    const baseProperties: IAnnotation = {} as IAnnotation;
 
     fields.forEach((field: ModelAttribute) => {
-      baseNodeData[field.attribute.name] = isRequired(field) ? getDefaultValue(getModelContext(), field) : null;
+      baseProperties[field.attribute.name] = isRequired(field) ? getDefaultValue(getModelContext(), field) : null;
     });
 
     // Set explicitly after the fields are set to override default values if necessary
-    baseNodeData.type = type;
-    baseNodeData.uuid = crypto.randomUUID();
+    baseProperties.type = type;
+    baseProperties.uuid = crypto.randomUUID();
 
     // If a subType field exists (filled with a default value just before), but not subType was provided
     // (= the user clicked the button directly instead of selecting an entry from the dropdown),
     // set the first option as default value
     if (subTypeField) {
-      baseNodeData.subType = subType ?? (getOptions(getModelContext(), subTypeField) ?? [])[0];
+      baseProperties.subType = subType ?? (getOptions(getModelContext(), subTypeField) ?? [])[0];
     }
 
-    return baseNodeData;
+    return baseProperties;
   }
 
   /**
@@ -119,30 +119,28 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   }
 
   /**
-   * Creates a node data object with the given parameters.
-   *
-   * The node data object contains base node data (see `createBaseNodeData`) and, if the scope is 'Content',
-   * additional fields specific to content annotations are added (`selector` and `text`).
+   * Creates the properties of an annotation node: the base properties (see {@linkcode createBaseProperties}) and, if
+   * the scope is 'Content', the fields specific to content annotations (`selector` and `text`).
    *
    * @param {Object} params - The parameters object. Contains the fields, subType (optional) and type of the annotation.
-   * @returns {IAnnotation} A node data object with the given parameters.
+   * @returns {IAnnotation} The properties.
    */
-  function createNodeData(params: { fields: ModelAttribute[]; subType?: string | number; type: string }): IAnnotation {
-    const nodeData: IAnnotation = createBaseNodeData(params);
+  function createProperties(params: { fields: ModelAttribute[]; subType?: string | number; type: string }): IAnnotation {
+    const properties: IAnnotation = createBaseProperties(params);
 
     // Other fields specifically for content annotations
     if (scope === "Content") {
       // Start and end can be 0 since the real values are set from the editor on save
-      nodeData.selector = createTextPositionSelector(0, 0);
+      properties.selector = createTextPositionSelector(0, 0);
       // Empty string since value is added in createTextAnnotation().
-      nodeData.text = "";
+      properties.text = "";
 
       if (getAnnotationExtent(params.type) === "zeroPoint") {
-        nodeData.isZeroPoint = true;
+        properties.isZeroPoint = true;
       }
     }
 
-    return nodeData;
+    return properties;
   }
 
   /**
@@ -167,7 +165,7 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
     }
 
     // Initial text property from text selection.
-    annotation.node.data.text = selectedText;
+    annotation.node.properties.text = selectedText;
 
     return annotation;
   }

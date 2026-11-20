@@ -52,7 +52,7 @@ export function useTextPreview(): UseTextPreviewReturnType {
   function createTextPreview(text: string, annotations: NodeDto<AnnotationNode>[], maxLength: number): TextPreview {
     const schema: Schema = getEditorSchema();
     const structural: NodeDto<AnnotationNode>[] = annotations.filter(
-      (a) => getAnnotationRepresentation(a.node.data.type) === "structure",
+      (a) => getAnnotationRepresentation(a.node.properties.type) === "structure",
     );
 
     const cut: number = findCutIndex(text, structural, maxLength, schema);
@@ -86,12 +86,12 @@ export function useTextPreview(): UseTextPreviewReturnType {
     const lastIndex: number = maxLength - 1;
     const textBlock: NodeDto<AnnotationNode> | undefined = structural.find(
       (a) =>
-        schema.nodes[getEditorRole(a.node.data.type)]?.isTextblock &&
-        a.node.data.selector.start <= lastIndex &&
-        a.node.data.selector.end >= lastIndex,
+        schema.nodes[getEditorRole(a.node.properties.type)]?.isTextblock &&
+        a.node.properties.selector.start <= lastIndex &&
+        a.node.properties.selector.end >= lastIndex,
     );
 
-    const blockEnd: number = textBlock ? textBlock.node.data.selector.end + 1 : maxLength;
+    const blockEnd: number = textBlock ? textBlock.node.properties.selector.end + 1 : maxLength;
 
     return Math.min(blockEnd, maxLength * 2, text.length);
   }
@@ -106,15 +106,15 @@ export function useTextPreview(): UseTextPreviewReturnType {
    */
   function clipAnnotations(annotations: NodeDto<AnnotationNode>[], cut: number): NodeDto<AnnotationNode>[] {
     return annotations
-      .filter((a) => a.node.data.selector.start < cut)
+      .filter((a) => a.node.properties.selector.start < cut)
       .map((a) => {
-        if (a.node.data.selector.end < cut) {
+        if (a.node.properties.selector.end < cut) {
           return a;
         }
 
-        const selector: TextPositionSelector = createTextPositionSelector(a.node.data.selector.start, cut - 1);
+        const selector: TextPositionSelector = createTextPositionSelector(a.node.properties.selector.start, cut - 1);
 
-        return { ...a, node: { ...a.node, data: { ...a.node.data, selector } } };
+        return { ...a, node: { ...a.node, properties: { ...a.node.properties, selector } } };
       });
   }
 

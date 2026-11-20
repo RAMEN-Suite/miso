@@ -6,11 +6,11 @@ import { isVisible } from "../utils/helper/modelHelper";
 import type { ModelAttribute } from "../models/types";
 
 const props = defineProps<{
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Data can be of very different shape. Maybe fix in the future
-  data: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Properties can be of very different shape. Maybe fix in the future
+  properties: any;
   /**
    * The model attributes to show; an empty list shows nothing (e.g. an annotation type without properties). Without
-   * it, all properties of the data are shown as they are.
+   * it, all properties are shown as they are.
    */
   fields?: ModelAttribute[];
 }>();
@@ -28,11 +28,11 @@ const rows: ComputedRef<PropertyRow[]> = computed(() => {
       .filter((field: ModelAttribute) => isVisible(getModelContext(), field))
       .map((field: ModelAttribute) => ({
         name: camelCaseToTitleCase(field.attribute.name),
-        value: formatPropertyValue(props.data?.[field.attribute.name], field),
+        value: formatPropertyValue(props.properties?.[field.attribute.name], field),
       }));
   }
 
-  return Object.entries(props.data ?? {}).map(([name, value]) => ({
+  return Object.entries(props.properties ?? {}).map(([name, value]) => ({
     name: camelCaseToTitleCase(name),
     value: formatPropertyValue(value),
   }));

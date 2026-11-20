@@ -1,5 +1,5 @@
 import type {
-  BaseNodeData,
+  BaseNodeProperties,
   BaseNodeLabel,
   ElementGraph,
   ElementNode,
@@ -75,14 +75,14 @@ function treeRelationOf(parent: BaseNodeLabel, child: BaseNodeLabel): TreeRelati
  * write still goes through and the server reports them.
  *
  * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeData>} node - The node.
+ * @param {DataNode<BaseNodeProperties>} node - The node.
  * @param {BaseNodeLabel} baseLabel - The base node of the node.
  * @param {string | null} carrierRef - For annotations: the classifier of the parent, which carries the annotation.
  * @returns {Pick<ElementNode, "classifierRef" | "shapeRef">} The refs.
  */
 function resolveNodeRefs(
   context: ModelContext,
-  node: DataNode<BaseNodeData>,
+  node: DataNode<BaseNodeProperties>,
   baseLabel: BaseNodeLabel,
   carrierRef: string | null,
 ): { classifierRef: string; shapeRef?: string | null } {
@@ -92,7 +92,7 @@ function resolveNodeRefs(
     return { classifierRef: fallbackRef };
   }
 
-  const type: unknown = (node.data as BaseNodeData & { type?: unknown }).type;
+  const type: unknown = (node.properties as BaseNodeProperties & { type?: unknown }).type;
   const resolution: RefResolution | null =
     carrierRef && typeof type === "string" ? resolveShapeRef(context, carrierRef, type) : null;
   const shapeRef: string | null = resolution?.ref ?? null;
@@ -172,7 +172,7 @@ export function toWritePayload(context: ModelContext, root: NodeStatusObject): E
   /** Converts a node and its children */
   function visit(entry: NodeStatusObject, parent: ConvertedParent | null): void {
     const { node, meta } = entry;
-    const uuid: string = node.data.uuid;
+    const uuid: string = node.properties.uuid;
     const baseLabel: BaseNodeLabel | undefined = getBaseNodeLabel(context, node);
 
     if (!baseLabel) {
@@ -184,7 +184,7 @@ export function toWritePayload(context: ModelContext, root: NodeStatusObject): E
     const refs = resolveNodeRefs(context, node, baseLabel, carrierRef);
 
     if (SENT_NODE_STATUSES.includes(meta.status)) {
-      nodes.push({ status: meta.status, ...refs, data: node.data as ElementNode["data"] });
+      nodes.push({ status: meta.status, ...refs, properties: node.properties as ElementNode["properties"] });
     }
 
     const relationStatus: NodeStatus | null = parent ? relationStatusOf(meta.status, parent.status) : null;

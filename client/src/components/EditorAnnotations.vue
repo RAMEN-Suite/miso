@@ -76,13 +76,13 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
       } satisfies TreeNode;
 
       const annos: NodeStatusObject<AnnotationNode>[] = displayedAnnotations.value.filter(
-        (a) => a.node.data.type === annoType.type,
+        (a) => a.node.properties.type === annoType.type,
       );
 
       annos.forEach((anno: NodeStatusObject<AnnotationNode>, k: number) => {
         const newAnnotation: TreeNode = {
           key: i.toString() + "-" + j.toString() + "-" + k.toString(),
-          label: anno.node.data.text,
+          label: anno.node.properties.text,
           type: "annotation",
           data: anno,
         };
@@ -128,7 +128,7 @@ watch(
 function toggleEditorHighlight(annotation: NodeStatusObject<AnnotationNode>, direction: "on" | "off"): void {
   const renderType: "range" | "zeroPoint" = isZeroPoint(annotation.node) ? "zeroPoint" : "range";
 
-  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.data.uuid, { renderType });
+  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.properties.uuid, { renderType });
 }
 
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
@@ -195,8 +195,8 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
               @keydown.enter="handleAnnotationSelect"
               @keydown.space.prevent="handleAnnotationSelect"
             >
-              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.data.uuid">
-                {{ slotProps.node.data.node.data.text }}
+              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.properties.uuid">
+                {{ slotProps.node.data.node.properties.text }}
               </div>
             </div>
           </template>

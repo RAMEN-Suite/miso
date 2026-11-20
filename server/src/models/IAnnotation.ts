@@ -1,7 +1,7 @@
-import { BaseNodeData } from "./types.js";
+import { BaseNodeProperties } from "./types.js";
 import type { Selector } from "../utils/selector.js";
 
-export type IAnnotation = BaseNodeData & {
+export type IAnnotation = BaseNodeProperties & {
   [keyof: string]: unknown;
   /** The part of the annotated Content the annotation covers. Only annotations on a Content have one. */
   selector?: Selector;

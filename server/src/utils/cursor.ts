@@ -109,7 +109,7 @@ export function querySignature(spec: HierarchyQuerySpec): string {
     filters: canonicalFilters(spec.filters),
   });
 
-  return createHash("sha1").update(canonical).digest("hex").slice(0, 12);
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 12);
 }
 
 /**

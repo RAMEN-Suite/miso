@@ -2,15 +2,14 @@ import type { CollectionNode, ElementGraph, ElementNode, NodeAncestry, NodeDto }
 
 /**
  * Turns reads in the element format (every read that returns nodes) into the client's formats: plain nodes, `NodeDto`
- * trees and ancestries. The counterpart of `writePayload.ts`; the tree stays the format of the components until they
- * work on the flat list.
+ * trees and ancestries. The counterpart of `writePayload.ts`.
  *
  * @packageDocumentation
  */
 
 /**
  * The tree node of an element. The properties are copied, so a node that appears in several places of the tree (e.g. a person
- * referred to by several annotations) can be edited in one place without changing the others, as before.
+ * referred to by several annotations) can be edited in one place without changing the others.
  *
  * @param {ElementNode} element - The element.
  * @returns {NodeDto["node"]} The node with its stored labels and refs.

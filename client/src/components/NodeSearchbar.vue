@@ -223,7 +223,7 @@ async function fetchNextPage(): Promise<void> {
  * performance issues. Visual clipping is handled via CSS `text-overflow: ellipsis`.
  *
  * @param text - The text to truncate.
- * @returns {void} - This function does not return any value.
+ * @returns {string} The truncated text, empty if there is none.
  */
 function getPreviewText(text: string | undefined): string {
   return text?.slice(0, PREVIEW_CHARACTER_SIZE) ?? "";

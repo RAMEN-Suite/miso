@@ -786,8 +786,8 @@ export function resolveClassifierRef(context: ModelContext, nodeLabels: string[]
 }
 
 /**
- * The classifier of a node: the `classifierRef` the server resolved, otherwise resolved here from the labels. Client
- * only: nodes the client creates itself have no `classifierRef` until node creation works with refs.
+ * The classifier of a node: the `classifierRef` the server resolved, otherwise resolved here from the labels (nodes
+ * created by the client have no `classifierRef`).
  *
  * @param {ModelContext} context - The model context.
  * @param {DataNode<BaseNodeProperties>} node - The node.

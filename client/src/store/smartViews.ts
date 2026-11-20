@@ -33,8 +33,7 @@ if (!Array.isArray(storedSmartViews.value)) {
   storedSmartViews.value = [];
 }
 
-// Views stored without a scope, or with the no longer offered `top` scope, search everywhere. Rules of the replaced
-// `labels` filter (node types by label strings, now `classifier` by refs) are dropped: such views list all types again
+// Migrates stored views: scopes other than `all`/`descendants` become `all`, `labels` filter rules are dropped
 storedSmartViews.value.forEach((view: SmartView) => {
   const storedKind: string | undefined = (view.config.scope as { kind?: string } | undefined)?.kind;
 

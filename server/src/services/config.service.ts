@@ -192,12 +192,10 @@ export default class ConfigService {
   /**
    * Checks that the data is a Miso config with a valid model and valid settings (`elements`, mappings, their refs),
    * creates its model context and logs the warnings of the checks and the problems the name lookups can't handle.
-   * Runs once per version of the config.
    *
    * @param {unknown} data - The parsed JSON.
-   * @throws {ExternalServiceError} If the data is no Miso config of the current format (e.g. a file in the old
-   * guidelines format or with a `miso` wrapper), its model is invalid, an `elements` entry is invalid or of the wrong
-   * kind for its section, or a mapping is invalid.
+   * @throws {ExternalServiceError} If the data is no Miso config, its model is invalid, an `elements` entry is invalid
+   * or of the wrong kind for its section, or a mapping is invalid.
    * @return {ModelContext} The model context of the config.
    */
   private static validate(data: unknown): ModelContext {
@@ -212,7 +210,7 @@ export default class ConfigService {
       !candidate.editors?.text?.mappings
     ) {
       throw new ExternalServiceError(
-        `The config file is no Miso config of the current format (old guidelines or config format, or missing $schema/id?).`,
+        `The config file is no Miso config (missing $schema, id, model, general, elements or editors.text.mappings).`,
       );
     }
 

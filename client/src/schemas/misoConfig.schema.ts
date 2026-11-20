@@ -66,7 +66,7 @@ const misoConfigSchema = z.strictObject({
   model: z.custom<RamenFile>((value) => typeof value === "object" && value !== null, "The model must be an object"),
   /** Settings that concern the whole app, not a single editor */
   general: z.strictObject({
-    /** Subgraph templates. Not migrated yet, always empty for now. */
+    /** Subgraph templates (currently always empty) */
     templates: z.array(z.unknown()),
   }),
   elements: elementsSchema,
@@ -101,43 +101,8 @@ interface ConfigFindings {
 }
 
 /**
- * Warns about `ext.miso` blocks left in the model. Settings are read from `elements` only, so such a block (e.g. of a
- * config in the old format) would be ignored silently. Mirrored in `server/src/schemas/configBlocks.schema.ts`.
- *
- * @param {RamenFile} model - The raw model.
- * @returns {string[]} The warnings, one per block.
- */
-function checkLeftoverExtBlocks(model: RamenFile): string[] {
-  const warnings: string[] = [];
-  const check = (ext: Record<string, unknown> | undefined, label: string): void => {
-    if (ext?.miso !== undefined) {
-      warnings.push(`${label}: "ext.miso" in the model is ignored, settings belong in "elements" (old config format?)`);
-    }
-  };
-
-  for (const classifier of model.classifiers) {
-    const label: string = `${classifier.kind} "${classifier.name}" (${classifier.modelId}:${classifier.id})`;
-
-    check(classifier.ext, label);
-
-    if (classifier.kind === "Node") {
-      classifier.attributes.forEach((attribute) => check(attribute.ext, `${label}.${attribute.name}`));
-    }
-  }
-
-  for (const shape of model.annotations) {
-    const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
-
-    check(shape.ext, label);
-    shape.properties.forEach((property) => check(property.ext, `${label}.${property.name}`));
-  }
-
-  return warnings;
-}
-
-/**
  * Checks the refs of `elements` against the model. Mirrored in `server/src/schemas/configBlocks.schema.ts`.
- * - A ref of an element of another kind than its section is a problem, a ref that the model doesn't have (any longer)
+ * - A ref of an element of another kind than its section is a problem, a ref that the model doesn't have
  *   is a warning, and the entry is ignored.
  * - Attribute refs must be declared on the entry's element; any other attribute ref (removed from the model, or of
  *   another element) is a warning, and the entry is ignored.
@@ -331,6 +296,6 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   return {
     config: result.data,
     model,
-    warnings: [...checkLeftoverExtBlocks(result.data.model), ...elementFindings.warnings, ...mappingFindings.warnings],
+    warnings: [...elementFindings.warnings, ...mappingFindings.warnings],
   };
 }

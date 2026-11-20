@@ -416,8 +416,8 @@ export default class StandoffConverter {
   /**
    * Emits paragraphs for a gap into given `content`, preserving EVERY character of [gapStart, gapEnd].
    * The gap is split at block-classification boundaries so each text run becomes its own paragraph and
-   * receives the correct semantic labels. Used only when the parent accepts paragraphs (e.g. `bulletList` can not
-   * contain paragraphs, only `tableRows`).
+   * receives the correct semantic labels. Used only when the parent accepts paragraphs (e.g. not in `bulletList`,
+   * which only contains `listItem`s).
    *
    * Main reason for this function is to catch orphaned text indices that are not contained by any structural annotation
    * -> tiptap needs a paragraph to render the text.

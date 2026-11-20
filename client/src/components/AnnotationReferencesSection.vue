@@ -159,8 +159,7 @@ function handleRemoveNode(node: NodeStatusObject<CollectionNode | EntityNode | T
 }
 
 /**
- * Checks if the passed node is a reference node (Entity/Collection/Content) and not an Annotation node
- * (Annotations) are handled by {@link AnnotationAnnotationsSection}.
+ * Checks if the passed node is a reference node (Entity/Collection/Content) and not an Annotation node.
  *
  * @param node - The node to check.
  * @returns `True` if the node is a reference node, `false` otherwise.

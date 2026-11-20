@@ -46,7 +46,7 @@ export interface IMisoConfig {
   model: RamenFile;
   /** Settings that concern the whole app, not a single editor */
   general: {
-    /** Subgraph templates. Not migrated yet, always empty for now. */
+    /** Subgraph templates (currently always empty) */
     templates: unknown[];
   };
   /** How model elements are shown and edited, by section of element kind and keyed by qualified ref */

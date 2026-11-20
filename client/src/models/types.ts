@@ -32,8 +32,7 @@ export interface NodeDto<T extends Node<BaseNodeProperties> = AnnotationNode | E
   connectedNodes: NodeDto[];
 }
 
-// Types of the settings of model elements (entries of `elements`), inferred from their schemas. Re-exported here so
-// existing importers keep working.
+// Types of the settings of model elements (entries of `elements`), inferred from their schemas
 export type {
   AnnotationAppearance,
   AnnotationExtent,

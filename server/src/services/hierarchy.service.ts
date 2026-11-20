@@ -39,8 +39,7 @@ export interface HierarchyListOptions {
 }
 
 /**
- * Service for reading and validating the Collection/Content hierarchy. Serves the column view today
- * and the planned directory / tree views with the same endpoints.
+ * Service for reading and validating the Collection/Content hierarchy.
  */
 export default class HierarchyService {
   /**

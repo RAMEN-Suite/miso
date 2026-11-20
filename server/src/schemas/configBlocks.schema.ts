@@ -5,7 +5,7 @@ import type { AttributeOwner } from "../models/types.js";
 import { findAttribute } from "../utils/modelHelper.js";
 
 // Schemas of the settings in the config (`elements`, `editors.text.mappings`) and their checks against the model.
-// Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkLeftoverExtBlocks`/`checkElements`/`checkMappings` in
+// Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkElements`/`checkMappings` in
 // `client/src/schemas/misoConfig.schema.ts` and the built-in attributes of `BUILTIN_STRUCTURAL_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
 // reads a few keys.
@@ -173,43 +173,8 @@ const elementsSchema = z.strictObject({
 });
 
 /**
- * Warns about `ext.miso` blocks left in the model. Settings are read from `elements` only, so such a block (e.g. of a
- * config in the old format) would be ignored silently.
- *
- * @param {RamenFile} model - The raw model.
- * @returns {string[]} The warnings, one per block.
- */
-export function checkLeftoverExtBlocks(model: RamenFile): string[] {
-  const warnings: string[] = [];
-  const check = (ext: Record<string, unknown> | undefined, label: string): void => {
-    if (ext?.miso !== undefined) {
-      warnings.push(`${label}: "ext.miso" in the model is ignored, settings belong in "elements" (old config format?)`);
-    }
-  };
-
-  for (const classifier of model.classifiers) {
-    const label: string = `${classifier.kind} "${classifier.name}" (${classifier.modelId}:${classifier.id})`;
-
-    check(classifier.ext, label);
-
-    if (classifier.kind === "Node") {
-      classifier.attributes.forEach((attribute) => check(attribute.ext, `${label}.${attribute.name}`));
-    }
-  }
-
-  for (const shape of model.annotations) {
-    const label: string = `Annotation shape "${shape.type}" (${shape.modelId}:${shape.id})`;
-
-    check(shape.ext, label);
-    shape.properties.forEach((property) => check(property.ext, `${label}.${property.name}`));
-  }
-
-  return warnings;
-}
-
-/**
  * Checks `elements` against its schema (the kind-specific options by section) and its refs against the model.
- * - A ref of an element of another kind than its section is a problem, a ref that the model doesn't have (any longer)
+ * - A ref of an element of another kind than its section is a problem, a ref that the model doesn't have
  *   is a warning, and the entry is ignored.
  * - Attribute refs must be declared on the entry's element; any other attribute ref (removed from the model, or of
  *   another element) is a warning, and the entry is ignored.
@@ -382,8 +347,7 @@ export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): Conf
 }
 
 /**
- * Runs all checks of the settings against the model: {@linkcode checkElements}, {@linkcode checkMappings} and
- * {@linkcode checkLeftoverExtBlocks}.
+ * Runs all checks of the settings against the model: {@linkcode checkElements} and {@linkcode checkMappings}.
  *
  * @param {IMisoConfig} config - The config, with a model RAMEN core accepted.
  * @returns {ConfigFindings} The problems and warnings of all checks.
@@ -394,6 +358,6 @@ export function checkConfigSettings(config: IMisoConfig): ConfigFindings {
 
   return {
     problems: [...elementFindings.problems, ...mappingFindings.problems],
-    warnings: [...checkLeftoverExtBlocks(config.model), ...elementFindings.warnings, ...mappingFindings.warnings],
+    warnings: [...elementFindings.warnings, ...mappingFindings.warnings],
   };
 }

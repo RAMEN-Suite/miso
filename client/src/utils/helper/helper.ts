@@ -175,10 +175,10 @@ export function createContentNodeStatusObject(type: NodeTypeOption): NodeStatusO
 }
 
 /**
- * Creates a a valid node DTO object from a given raw node (Annotation, Entity, Collection, Text).
+ * Creates a valid node DTO object from a given raw node (Annotation, Entity, Collection, Text).
  * This is to match the structure of the generic {@link NodeDto} object used in the API data.
  *
- * @return {TextNode} A new Text object with default values.
+ * @return {NodeDto<T>} A new node DTO without connected nodes.
  */
 export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | CollectionNode | TextNode>(rawNode: T): NodeDto<T> {
   return {

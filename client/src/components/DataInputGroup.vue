@@ -44,8 +44,8 @@ function handleAddItem(): void {
 /**
  * Handles the deletion of a specific input item from input group.
  *
- * If the item to be deleted is the last one in the group and the property is required,
- * the value will be set to null instead of deleting the item (and creating an empty array in the process).
+ * If the item to be deleted is the last one in the group and the property is optional,
+ * the value will be set to null instead of deleting the item (and leaving an empty array in the process).
  * This is mainly to keep the data clean, a visual difference does not exist.
  *
  * @param {number} itemIndex - The index of the item to be deleted.

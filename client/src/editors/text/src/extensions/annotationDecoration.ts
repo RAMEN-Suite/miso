@@ -578,12 +578,8 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             let newFiltered: DecorationSet = oldDecorations.filtered;
 
             if (decorationsChanged || tr.docChanged) {
-              /*
-              TODO: Recreation of the "filtered" set might be an overkill, but it works currently. Before, the "filtered" set did not change since
-              the drawn HTML would not change completely. However, when a lot of text is removed an new text comes into
-              the viewport, it does not have decorations yet - they are only added when a viewportChanged transaction
-              was dispatched during scroll. Keep in mind
-              */
+              // Rebuilt on every change: text moving into the viewport after a large deletion would otherwise lack
+              // decorations until the next scroll
               newFiltered = createFilteredDecorations(
                 newAll,
                 { ...oldDecorations, visibleFrom: newVisibleFrom, visibleTo: newVisibleTo },

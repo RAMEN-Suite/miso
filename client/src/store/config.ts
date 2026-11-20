@@ -72,7 +72,7 @@ const { parseShortcut } = useShortcutsStore();
 const modelContext = shallowRef<ModelContext>();
 /**
  * The annotation shapes Content nodes may carry, by type. Built once on initialization, since the editor looks them up
- * for every annotation it renders. Name matching, until the lookups use IDs.
+ * for every annotation it renders.
  */
 const textShapesByType = shallowRef<Map<string, ModelAnnotationShape>>(new Map());
 const isFetching = ref<boolean>(false);
@@ -127,10 +127,11 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 /**
  * Store for making the Miso config available to all components. When the app is mounted, the store is
  * initialized with the fetched Miso config. Model questions are answered by RAMEN core, the config of model elements
- * comes from `elements` and `editors.text.mappings`. Nothing is changed after the initialization.
+ * comes from `elements` and `editors.text.mappings`. Only the annotation mapping changes after the initialization
+ * (see {@linkcode setAnnotationMapping}).
  *
  * Nodes are looked up by their classifier (`classifierRef`, see {@link getClassifierRef}), annotations
- * by their `shapeRef`. Text annotation types are still matched by `type`, which is the editor's key.
+ * by their `shapeRef`. Text annotation types are matched by `type`, which is the editor's key.
  */
 export function useConfigStore() {
   /**

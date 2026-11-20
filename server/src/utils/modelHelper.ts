@@ -642,7 +642,7 @@ export function resolveRelationRef(context: ModelContext, fromRef: string, type:
   }
 }
 
-// ----- Lookups by name (until the lookups use IDs) -----
+// ----- Lookups by name -----
 
 /** Qualified refs of the RAMEN Content node and its refinements */
 function getContentCarrierRefs(context: ModelContext): string[] {

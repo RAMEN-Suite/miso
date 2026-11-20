@@ -13,7 +13,7 @@ const sidebarWidth = computed(() => props.width);
   <section
     :sidebar-id="position"
     :class="['sidebar', 'sidebar-' + position, isCollapsed ? 'collapsed' : '']"
-    class="p-3 flex flex-column overflow-y-auto"
+    class="p-4 flex flex-col overflow-y-auto"
     :style="{ width: sidebarWidth + 'px', background: '#e9e9e9' }"
   >
     <slot></slot>

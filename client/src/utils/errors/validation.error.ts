@@ -6,8 +6,4 @@ import AppError from "./app.error.js";
  *
  * @extends {AppError} - The generic `AppError` class.
  */
-export default class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message);
-  }
-}
+export default class ValidationError extends AppError {}

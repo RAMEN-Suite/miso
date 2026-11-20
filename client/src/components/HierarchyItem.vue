@@ -1,0 +1,154 @@
+<script setup lang="ts">
+import { computed } from "vue";
+import { detectPlatform } from "@tanstack/vue-hotkeys";
+import { CollectionNode, HierarchyEntry, IconSpec, SelectionModifiers } from "../models/types";
+import { resolveNodeIcon } from "../config/icons";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+import { useTagsStore } from "../store/tags";
+import { normalizeTagColor } from "../config/tags";
+import { getTypeLabelText } from "../utils/helper/modelHelper";
+import { useConfigStore } from "../store/config";
+
+const emit = defineEmits<{
+  itemSelected: [uuid: string, modifiers: SelectionModifiers];
+}>();
+
+const props = defineProps<{
+  entry: HierarchyEntry;
+  /**
+   * How the item is highlighted, like in macOS Finder: `emphasized` for the selection being worked on (the focused
+   * item or a multiselection), `unemphasized` for the selected items along the path in the other columns.
+   */
+  selection: "emphasized" | "unemphasized" | null;
+}>();
+
+const isMac: boolean = detectPlatform() === "mac";
+
+const { entryIndex, tags } = useTagsStore();
+const { getModelContext } = useConfigStore();
+
+const isCollection = computed<boolean>(() => props.entry.meta.baseLabel === "Collection");
+const icon = computed<IconSpec>(() => resolveNodeIcon(props.entry.data.node));
+const tagColors = computed<string[]>(() => {
+  const tagUuids: string[] = entryIndex.value.get(props.entry.data.node.properties.uuid) ?? [];
+
+  return tagUuids.map((uuid) => normalizeTagColor(tags.value.find((tag) => tag.uuid === uuid)?.appearance?.color));
+});
+
+const displayText = computed<string>(() => {
+  if (isCollection.value) {
+    return (props.entry.data.node as CollectionNode).properties.label;
+  }
+
+  return getTypeLabelText(getModelContext(), props.entry.data.node);
+});
+
+// A Content's display text is its type label (e.g. "Letter"), the project's name for it
+const title = computed<string>(() =>
+  isCollection.value ? `Open "${displayText.value}"` : `Show preview of this ${displayText.value || "text"}`,
+);
+
+/**
+ * Emits the selection together with the held modifier keys. Used for clicks as well as Enter/Space.
+ *
+ * @param {MouseEvent | KeyboardEvent} event - The triggering event.
+ * @returns {void} This function does not return a value.
+ */
+function handleItemSelect(event: MouseEvent | KeyboardEvent): void {
+  emit("itemSelected", props.entry.data.node.properties.uuid, {
+    toggle: isMac ? event.metaKey : event.ctrlKey,
+    range: event.shiftKey,
+  });
+}
+</script>
+
+<template>
+  <div
+    class="hierarchy-item p-1 select-none"
+    draggable="true"
+    role="treeitem"
+    tabindex="0"
+    :class="{
+      emphasized: props.selection === 'emphasized',
+      unemphasized: props.selection === 'unemphasized',
+      collection: isCollection,
+      content: !isCollection,
+    }"
+    :data-node-uuid="props.entry.data.node.properties.uuid"
+    :title="title"
+    :aria-selected="props.selection !== null"
+    @click="handleItemSelect"
+    @keydown.enter="handleItemSelect"
+    @keydown.space.prevent="handleItemSelect"
+  >
+    <div class="body flex items-center gap-2">
+      <RAMENNodeIcon :spec="icon" class="node-icon shrink-0" />
+      <div class="text-and-labels grow min-w-0">
+        <div class="label" :class="{ 'font-bold': isCollection }">
+          {{ displayText }}
+        </div>
+      </div>
+      <div class="tags flex">
+        <span v-for="color in tagColors" :key="color" class="tag-dot" :style="{ backgroundColor: color }"></span>
+      </div>
+      <i v-if="isCollection" class="icon-chevron-right chevron shrink-0" />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.hierarchy-item {
+  border-bottom: 1px solid var(--p-surface-200);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--p-surface-200);
+  }
+
+  &.unemphasized {
+    background-color: var(--p-surface-200);
+  }
+
+  &.emphasized {
+    background-color: var(--p-primary-color);
+    color: var(--p-primary-contrast-color);
+
+    .label,
+    .chevron {
+      color: inherit;
+    }
+
+    .tag-dot {
+      box-shadow: 0 0 0 1.5px var(--p-primary-contrast-color);
+    }
+  }
+}
+
+.content .label {
+  color: hsl(0, 0%, 40%);
+}
+
+.label {
+  height: 1.5rem;
+  font-size: 0.9rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tags {
+  gap: 2px;
+
+  .tag-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+}
+
+.chevron {
+  font-size: 0.75rem;
+  color: hsl(0, 0%, 45%);
+}
+</style>

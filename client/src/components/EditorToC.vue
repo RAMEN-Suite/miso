@@ -1,34 +1,75 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, useTemplateRef } from "vue";
 import { useTiptapStore } from "../store/tiptap";
-import Tree from "primevue/tree";
 import Panel from "primevue/panel";
-import { ToCItem } from "../models/types.ts";
+import Menu from "primevue/menu";
+import { MenuItem } from "primevue/menuitem";
+import { type ToCItem, findNodePosByUuid } from "../editors/text/src";
+import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import EditorToCItem from "./EditorToCItem.vue";
 
 const { tiptap, tableOfContent } = useTiptapStore();
+const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 
-const expandedKeys = ref<Record<string, boolean>>({});
+const expandedKeys = ref<Set<string>>(new Set());
+
+const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
+const menuItems = ref<MenuItem[]>([]);
+
+function handleToggle(key: string): void {
+  if (expandedKeys.value.has(key)) {
+    expandedKeys.value.delete(key);
+  } else {
+    expandedKeys.value.add(key);
+  }
+}
 
 function handleNodeClick(node: ToCItem) {
   if (!tiptap.value) {
     return;
   }
 
-  tiptap.value.chain().setTextSelection(node.data.pos).focus().run();
+  // Resolved on click since items carry no positions (they would shift with every edit)
+  const pos: number | null = findNodePosByUuid(tiptap.value.state.doc, node.key);
 
-  const domNode = tiptap.value.view.nodeDOM(node.data.pos);
+  if (pos === null) {
+    return;
+  }
+
+  tiptap.value.chain().setTextSelection(pos).focus().run();
+
+  const domNode = tiptap.value.view.nodeDOM(pos);
 
   // This does not work reliably, maybe CSS attributes on scroll containers need to be more strict...
   if (domNode instanceof Element) {
     domNode.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 }
+
+/**
+ * Builds the menu for the given item and toggles it open, anchored at the triggering event.
+ *
+ * @param {Event} event - The click event of the item's menu button, used to position the menu
+ * @param {ToCItem} item - The item the menu actions should target
+ * @returns {void} This function does not return any value.
+ */
+function handleOpenMenu(event: Event, item: ToCItem): void {
+  menuItems.value = [
+    {
+      label: "Edit",
+      icon: "icon-pencil",
+      title: "Show and edit details",
+      command: () => openStructuralAnnotationEditor(item.key),
+    },
+  ];
+
+  menu.value?.toggle(event);
+}
 </script>
 
 <template>
   <Panel
-    class="toc-container mb-3"
+    class="toc-container mb-4"
     toggleable
     :toggle-button-props="{
       severity: 'secondary',
@@ -41,7 +82,7 @@ function handleNodeClick(node: ToCItem) {
       <div class="header font-bold">Table of Contents</div>
     </template>
     <template #toggleicon="{ collapsed }">
-      <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
+      <i :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
     <div class="table-of-contents">
       <template v-if="tiptap">
@@ -51,54 +92,30 @@ function handleNodeClick(node: ToCItem) {
           </div>
         </template>
         <template v-else>
-          <Tree
-            v-model:expanded-keys="expandedKeys"
-            :value="tableOfContent"
-            selection-mode="single"
-            :meta-key-selection="false"
-            class="w-full"
-            :pt="{
-              root: {
-                style: {
-                  paddingLeft: 0,
-                },
-              },
-              nodeContent: {
-                style: {
-                  gap: 0,
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                },
-              },
-              nodeLabel: {
-                style: {
-                  width: '100%',
-                },
-              },
-              nodeToggleButton: ({ context }) => ({
-                style: {
-                  visibility: 'visible',
-                  pointerEvents: context.node.children?.length !== 0 ? 'auto' : 'none',
-                },
-              }),
-            }"
-          >
-            <template #nodetoggleicon="{ node, expanded }">
-              <template v-if="node.children?.length !== 0">
-                <i :class="`pi pi-chevron-${expanded ? 'down' : 'right'}`"></i>
-              </template>
-              <template v-else>
-                <i class="pi pi-minus"></i>
-              </template>
-            </template>
-            <template #default="slotProps">
-              <EditorToCItem :key="slotProps.node.key" :item="slotProps.node as ToCItem" @item-click="handleNodeClick" />
-            </template>
-          </Tree>
+          <ul role="tree" aria-label="Table of Contents" class="w-full">
+            <EditorToCItem
+              v-for="item in tableOfContent"
+              :key="item.key"
+              :item="item"
+              :expanded-keys="expandedKeys"
+              :level="1"
+              @item-click="handleNodeClick"
+              @toggle="handleToggle"
+              @open-menu="handleOpenMenu"
+            />
+          </ul>
         </template>
       </template>
     </div>
   </Panel>
+  <Menu
+    ref="menu"
+    :model="menuItems"
+    popup
+    dismissable
+    close-on-escape
+    :pt="{ item: ({ context }) => ({ title: context.item.title }) }"
+  />
 </template>
 
 <style scoped>

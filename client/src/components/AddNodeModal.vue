@@ -4,13 +4,13 @@ import Button from "primevue/button";
 import Divider from "primevue/divider";
 import { useAddNode } from "../composables/useAddNode";
 import { RouteLocationNormalizedLoaded, useRoute } from "vue-router";
-import { BaseNodeLabel, NodeStatusObject, CollectionNode, TextNode, EntityNode } from "../models/types";
+import { NodeStatusObject, CollectionNode, TextNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import TextContainer from "./TextContainer.vue";
+import TextDraftContainer from "./TextDraftContainer.vue";
 import EntityCard from "./EntityCard.vue";
-import { createContentNodeStatusObject } from "../utils/helper/helper";
+import EntityDraftContainer from "./EntityDraftContainer.vue";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -23,7 +23,12 @@ const route: RouteLocationNormalizedLoaded = useRoute();
 
 const { currentStep, node: nodeToAdd, setPipelineStep, setNode, finish: finishProcess } = useAddNode();
 
-const baseNodeLabel: BaseNodeLabel = dialogRef.value.data.baseNodeLabel;
+const baseNodeLabel: ReferenceNodeLabel = dialogRef.value.data.baseNodeLabel;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
+
+if (!nodeType) {
+  throw new Error("nodeType not provided - the node type must be chosen before opening the modal");
+}
 
 const emit = defineEmits<{
   (e: "close"): void;
@@ -34,8 +39,8 @@ const nodeAsCollection = computed(() => (nodeToAdd.value ?? undefined) as NodeSt
 const nodeAsText = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<TextNode> | undefined);
 const nodeAsEntity = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<EntityNode> | undefined);
 
-const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content");
-const draftNode = ref<NodeStatusObject<TextNode> | null>(null);
+const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content" || baseNodeLabel === "Entity");
+const isDrafting = ref<boolean>(false);
 
 watch(() => route.path, closeModal);
 
@@ -61,26 +66,24 @@ function handleSearchItemSelected(item: CollectionNode | TextNode | EntityNode) 
 }
 
 function handleStartDraft(): void {
-  draftNode.value = createContentNodeStatusObject();
+  isDrafting.value = true;
 }
 
 function handleDiscardDraft(): void {
-  draftNode.value = null;
+  isDrafting.value = false;
 }
 
 /**
  * Takes over the finished draft node as the node to add.
  *
- * @param {NodeStatusObject<TextNode>} newNode - The drafted Content node.
+ * @param {NodeStatusObject} newNode - The drafted Content or Entity node.
  * @returns {void} This function does not return any value.
  */
-function handleDraftConfirmed(newNode: NodeStatusObject<TextNode>): void {
-  newNode.node.data.text = newNode.node.data.text.replace(/(\r\n|\n|\r)/g, " ");
-
+function handleDraftConfirmed(newNode: NodeStatusObject): void {
   setNode(newNode);
   setPipelineStep("finishing");
 
-  draftNode.value = null;
+  isDrafting.value = false;
 }
 
 function handleGoBack(): void {
@@ -94,44 +97,54 @@ function closeModal(): void {
 </script>
 
 <template>
-  <div class="container">
+  <div class="modal-container">
     <template v-if="currentStep === 'choosing'">
-      <NodeSearchbar :base-node-label="baseNodeLabel" @item-selected="handleSearchItemSelected" />
+      <NodeSearchbar
+        :base-node-label="baseNodeLabel"
+        :additional-node-label="nodeType.name"
+        @item-selected="handleSearchItemSelected"
+      />
 
       <template v-if="canCreateNode">
         <Divider align="center">
           <span class="text-sm">or create a new one</span>
         </Divider>
 
-        <TextContainer
-          v-if="draftNode"
-          :text="draftNode"
-          mode="edit"
-          status="temporary"
+        <TextDraftContainer
+          v-if="isDrafting && baseNodeLabel === 'Content'"
+          :node-type="nodeType"
           @text-added="handleDraftConfirmed"
-          @text-removed="handleDiscardDraft"
+          @text-discarded="handleDiscardDraft"
+        />
+        <EntityDraftContainer
+          v-else-if="isDrafting && baseNodeLabel === 'Entity'"
+          :node-type="nodeType"
+          @entity-added="handleDraftConfirmed"
+          @entity-discarded="handleDiscardDraft"
         />
         <Button
           v-else
-          label="Create new Content"
-          icon="pi pi-plus"
+          :label="`Create new ${nodeType.name}`"
+          icon="icon-plus"
           severity="secondary"
           class="w-full"
-          title="Create a new Content node"
+          :title="`Create a new ${nodeType.name} node`"
           @click="handleStartDraft"
         />
       </template>
     </template>
-    <template v-if="currentStep === 'editing'">
-      <h2>Edit your data here :)</h2>
-    </template>
     <template v-if="currentStep === 'finishing'">
-      <CollectionCard v-if="baseNodeLabel === 'Collection'" :model-value="nodeAsCollection" mode="view" />
-      <TextCard v-if="baseNodeLabel === 'Content'" :model-value="nodeAsText" mode="view" />
-      <EntityCard v-if="baseNodeLabel === 'Entity'" :model-value="nodeAsEntity" mode="view" />
-      <div class="flex justify-content-center gap-2 mt-4 w-full">
-        <Button label="Add" icon="pi pi-plus" @click="handleFinishClick" />
-        <Button label="Go back" icon="pi pi-arrow-left" severity="secondary" @click="handleGoBack" />
+      <CollectionCard
+        v-if="baseNodeLabel === 'Collection' && nodeAsCollection"
+        :model-value="nodeAsCollection"
+        mode="view"
+        :show-badge="false"
+      />
+      <TextCard v-if="baseNodeLabel === 'Content' && nodeAsText" :model-value="nodeAsText" mode="view" :show-badge="false" />
+      <EntityCard v-if="baseNodeLabel === 'Entity' && nodeAsEntity" :model-value="nodeAsEntity" mode="view" :show-badge="false" />
+      <div class="flex justify-center gap-2 mt-6 w-full">
+        <Button label="Add" icon="icon-plus" @click="handleFinishClick" />
+        <Button label="Go back" icon="icon-arrow-left" severity="secondary" @click="handleGoBack" />
       </div>
     </template>
   </div>
@@ -139,7 +152,7 @@ function closeModal(): void {
 
 <style scoped>
 /* The dialog has a fixed height, so the searchbar plus the draft area need to stay scrollable */
-.container {
+.modal-container {
   height: 100%;
   overflow-y: auto;
 }

@@ -1,37 +1,129 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue";
-import Fieldset from "primevue/fieldset";
+import { ComponentPublicInstance, computed, useTemplateRef } from "vue";
 import EntityCard from "./EntityCard.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
-import { BaseNodeLabel, CollectionNode, EntityNode, NodeStatusObject, TextNode } from "../models/types";
-import { isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/helper";
+import {
+  AnnotationNode,
+  CollectionNode,
+  EntityNode,
+  IconSpec,
+  NodeStatusObject,
+  NodeTypeOption,
+  ReferenceNodeLabel,
+  TextNode,
+} from "../models/types";
+import { BASE_NODE_REF } from "../config/ramen";
+import { getClassifierRef, getNodeTypeOption, isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/modelHelper";
 import Button from "primevue/button";
-import Menu from "primevue/menu";
+import FilterableMenu from "./FilterableMenu.vue";
+import { MenuItem } from "primevue/menuitem";
 import AddNodeModal from "./AddNodeModal.vue";
 import { useAppStore } from "../store/app";
+import { useConfigStore } from "../store/config";
 import { useDialog } from "primevue/usedialog";
+import { resolveNodeIcon } from "../config/icons.ts";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+import { BASE_MODAL_PROPS } from "../config/modals.ts";
+
+/**
+ * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ */
+interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
+  icon?: IconSpec;
+  items?: NodeMenuItem[];
+}
 
 const nodes = defineModel<NodeStatusObject[]>({ required: true });
 
 const props = defineProps<{
+  /** The annotation whose references these are. Its annotation type decides which node types can be added. */
+  annotation: AnnotationNode;
   mode: "edit" | "view";
+  /** Locks adding and removing references temporarily, e.g. while a request is pending */
+  disabled?: boolean;
 }>();
 
 const { createModalInstance, destroyModalInstance } = useAppStore();
+const { getReferenceTypeOptions, getMissingAnnotationReferences, getModelContext } = useConfigStore();
 const dialog: ReturnType<typeof useDialog> = useDialog();
 
-const sectionIsCollapsed = ref<boolean>(false);
+const menu = useTemplateRef<InstanceType<typeof FilterableMenu>>("menu");
+const addButton = useTemplateRef<ComponentPublicInstance>("addButton");
 
-const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
+defineExpose({ addButton });
 
-function startAddingNode(nodeLabel: BaseNodeLabel): void {
+/**
+ * Builds one menu group per base node, listing the node types that refine it.
+ *
+ * @param {ReferenceNodeLabel} baseNodeLabel - The base node label of the group.
+ * @param {NodeTypeOption[]} nodeTypes - The node types of that base node.
+ * @returns {NodeMenuItem} The menu group for the given base node.
+ */
+function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, nodeTypes: NodeTypeOption[]): NodeMenuItem {
+  return {
+    label: baseNodeLabel,
+    items: nodeTypes.map((nodeType: NodeTypeOption) => ({
+      label: nodeType.name,
+      icon: resolveNodeIcon(nodeType),
+      command: () => startAddingNode(baseNodeLabel, nodeType),
+    })),
+  };
+}
+
+/** Classifier refs of the current (not removed) references, one per reference; unresolvable nodes are left out */
+const referencedRefs = computed<string[]>(() =>
+  nodes.value
+    .filter((node) => isNotDeleted(node) && isReference(node))
+    .flatMap((node) => getClassifierRef(getModelContext(), node.node) ?? []),
+);
+
+/**
+ * The node types the annotation may still refer to (from the `REFERS_TO` rules of its annotation type and their upper
+ * bounds), grouped by base node. Groups without allowed types are left out.
+ */
+const addMenuItems = computed<NodeMenuItem[]>(() =>
+  [
+    createAddMenuGroup("Collection", getReferenceTypeOptions(BASE_NODE_REF.Collection, props.annotation, referencedRefs.value)),
+    createAddMenuGroup("Content", getReferenceTypeOptions(BASE_NODE_REF.Content, props.annotation, referencedRefs.value)),
+    createAddMenuGroup("Entity", getReferenceTypeOptions(BASE_NODE_REF.Entity, props.annotation, referencedRefs.value)),
+  ].filter((group) => (group.items?.length ?? 0) > 0),
+);
+
+/**
+ * The required references that are still missing, as text per unfulfilled rule, e.g. "1 more Person required". The
+ * modals don't let the annotation through while any are missing.
+ */
+const missingReferenceHints = computed<string[]>(() =>
+  getMissingAnnotationReferences(props.annotation, nodes.value).map(({ targetRefs, missing }) => {
+    const names: string = targetRefs.map((ref) => getNodeTypeOption(getModelContext(), ref).name).join(" or ");
+
+    return `${missing} more ${names} required`;
+  }),
+);
+
+/**
+ * Whether the annotation type may refer to anything at all, regardless of the existing references. Decides whether
+ * the add button is shown; {@linkcode addMenuItems} decides whether it is enabled.
+ */
+const canHaveReferences = computed<boolean>(() =>
+  [BASE_NODE_REF.Collection, BASE_NODE_REF.Content, BASE_NODE_REF.Entity].some(
+    (baseNodeRef) => getReferenceTypeOptions(baseNodeRef, props.annotation).length > 0,
+  ),
+);
+
+/**
+ * Opens the modal for adding a reference of the given base node, fixed to one node type.
+ *
+ * @param {ReferenceNodeLabel} baseNodeLabel - The base node label of the reference to add.
+ * @param {NodeTypeOption} nodeType - The node type chosen in the menu.
+ * @returns {void} This function does not return any value.
+ */
+function startAddingNode(baseNodeLabel: ReferenceNodeLabel, nodeType: NodeTypeOption): void {
   createModalInstance(
     dialog.open(AddNodeModal, {
       props: {
-        modal: true,
-        closable: true,
-        closeOnEscape: false,
+        ...BASE_MODAL_PROPS,
         style: { width: "40rem", height: "30rem" },
         closeButtonProps: {
           severity: "secondary",
@@ -39,13 +131,15 @@ function startAddingNode(nodeLabel: BaseNodeLabel): void {
           style: { width: "30px", height: "30px" },
           rounded: true,
         },
-        header: `Add a ${nodeLabel} node`,
+        header: `Add ${nodeType.name}`,
         pt: {
+          ...BASE_MODAL_PROPS.pt,
           headerActions: { style: "margin-left: auto" },
         },
       },
       data: {
-        baseNodeLabel: nodeLabel,
+        baseNodeLabel,
+        nodeType,
       },
       emits: {
         onSubmit: (node: NodeStatusObject) => {
@@ -63,43 +157,37 @@ function addNode(node: NodeStatusObject): void {
 }
 
 function handleRemoveNode(node: NodeStatusObject<CollectionNode | EntityNode | TextNode>): void {
-  nodes.value = nodes.value.filter((n) => n.node.data.uuid !== node.node.data.uuid);
+  nodes.value = nodes.value.filter((n) => n.node.properties.uuid !== node.node.properties.uuid);
 }
 
 /**
- * Checks if the passed node is a reference node (Entity/Collection/Content) and not an Annotation node
- * (Annotations) are handled by {@link AnnotationAnnotationsSection}.
+ * Checks if the passed node is a reference node (Entity/Collection/Content) and not an Annotation node.
  *
  * @param node - The node to check.
  * @returns `True` if the node is a reference node, `false` otherwise.
  */
 function isReference(node: NodeStatusObject): boolean {
-  return isEntityNode(node) || isCollectionNode(node) || isContentNode(node);
+  return isEntity(node) || isCollection(node) || isContent(node);
+}
+
+/** Whether a reference is an Entity, from its node type */
+function isEntity(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
+  return isEntityNode(getModelContext(), node);
+}
+
+/** Whether a reference is a Content, from its node type */
+function isContent(node: NodeStatusObject): node is NodeStatusObject<TextNode> {
+  return isContentNode(getModelContext(), node);
+}
+
+/** Whether a reference is a Collection, from its node type */
+function isCollection(node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
+  return isCollectionNode(getModelContext(), node);
 }
 
 function isNotDeleted(node: NodeStatusObject): boolean {
   return node.meta.status !== "deleted" && node.meta.status !== "removed";
 }
-
-const nodeOptions = ref([
-  {
-    label: "Reference types",
-    items: [
-      {
-        label: "Collection",
-        command: () => startAddingNode("Collection"),
-      },
-      {
-        label: "Entity",
-        command: () => startAddingNode("Entity"),
-      },
-      {
-        label: "Content",
-        command: () => startAddingNode("Content"),
-      },
-    ],
-  },
-]);
 
 function handleAddNodeClick(event: PointerEvent): void {
   menu.value?.toggle(event);
@@ -107,55 +195,58 @@ function handleAddNodeClick(event: PointerEvent): void {
 </script>
 
 <template>
-  <Fieldset
-    legend="References"
-    :toggleable="true"
-    :toggle-button-props="{
-      title: `${sectionIsCollapsed ? 'Expand' : 'Collapse'} references`,
-    }"
-    @toggle="sectionIsCollapsed = !sectionIsCollapsed"
-  >
-    <template #toggleicon>
-      <span :class="`pi pi-chevron-${sectionIsCollapsed ? 'down' : 'up'}`"></span>
+  <template v-for="(node, index) in nodes" :key="node.node.properties.uuid">
+    <template v-if="isNotDeleted(node) && isReference(node)">
+      <EntityCard
+        v-if="isEntity(node)"
+        v-model="nodes![index] as NodeStatusObject<EntityNode>"
+        :mode="props.mode"
+        :disabled="props.disabled"
+        @remove-node="handleRemoveNode(node)"
+      />
+      <TextCard
+        v-else-if="isContent(node)"
+        v-model="nodes![index] as NodeStatusObject<TextNode>"
+        :mode="props.mode"
+        :disabled="props.disabled"
+        @remove-node="handleRemoveNode(node)"
+      />
+      <CollectionCard
+        v-else-if="isCollection(node)"
+        v-model="nodes![index] as NodeStatusObject<CollectionNode>"
+        :mode="props.mode"
+        :disabled="props.disabled"
+        @remove-node="handleRemoveNode(node)"
+      />
     </template>
+  </template>
 
-    <template v-for="(node, index) in nodes" :key="node.node.data.uuid">
-      <template v-if="isNotDeleted(node) && isReference(node)">
-        <EntityCard
-          v-if="isEntityNode(node)"
-          v-model="nodes![index] as NodeStatusObject<EntityNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-        <TextCard
-          v-else-if="isContentNode(node)"
-          v-model="nodes![index] as NodeStatusObject<TextNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-        <CollectionCard
-          v-else-if="isCollectionNode(node)"
-          v-model="nodes![index] as NodeStatusObject<CollectionNode>"
-          :mode="props.mode"
-          @remove-node="handleRemoveNode(node)"
-        />
-      </template>
+  <Button
+    v-if="props.mode === 'edit' && canHaveReferences"
+    ref="addButton"
+    type="button"
+    label="Add Reference"
+    icon="icon-plus"
+    class="w-full"
+    severity="secondary"
+    aria-haspopup="true"
+    aria-controls="references_overlay_menu"
+    :disabled="props.disabled || addMenuItems.length === 0"
+    :title="addMenuItems.length > 0 ? 'Add new reference' : 'No more references allowed for this annotation type'"
+    @click="handleAddNodeClick"
+  />
+  <ul v-if="props.mode === 'edit' && missingReferenceHints.length > 0" class="missing-references mt-1 text-sm">
+    <li v-for="hint in missingReferenceHints" :key="hint">{{ hint }}</li>
+  </ul>
+  <FilterableMenu id="references_overlay_menu" ref="menu" :model="addMenuItems as MenuItem[]">
+    <template #itemicon="{ item }">
+      <RAMENNodeIcon :spec="(item as NodeMenuItem).icon" />
     </template>
-
-    <Button
-      v-if="props.mode === 'edit'"
-      type="button"
-      label="Add Reference"
-      icon="pi pi-plus"
-      class="w-full"
-      severity="secondary"
-      aria-haspopup="true"
-      aria-controls="references_overlay_menu"
-      title="Add new reference"
-      @click="handleAddNodeClick"
-    />
-    <Menu id="references_overlay_menu" ref="menu" :model="nodeOptions" :popup="true" />
-  </Fieldset>
+  </FilterableMenu>
 </template>
 
-<style scoped></style>
+<style scoped>
+.missing-references {
+  color: var(--p-red-500);
+}
+</style>

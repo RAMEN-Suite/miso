@@ -1,0 +1,638 @@
+<script setup lang="ts">
+import { InputText, Button, SplitButton, useDialog } from "primevue";
+import { useHierarchyStore } from "../store/hierarchy";
+import HierarchyItem from "./HierarchyItem.vue";
+import { MenuItem } from "primevue/menuitem";
+import {
+  FilterRule,
+  FilterSpec,
+  FilterTarget,
+  HierarchyEntry,
+  HierarchyScope,
+  HierarchyNode,
+  IconSpec,
+  Level,
+  LevelState,
+  NodeDto,
+  NodeTypeOption,
+  SelectionModifiers,
+} from "../models/types";
+import { targetKey } from "../config/filters";
+import { BASE_NODE_REF } from "../config/ramen";
+import { useTagsStore } from "../store/tags";
+import { useSmartViewsStore } from "../store/smartViews";
+import { useConfigStore } from "../store/config";
+import FilterableMenu from "./FilterableMenu.vue";
+import FilterPopover from "./FilterPopover.vue";
+import { computed, nextTick, onMounted, useTemplateRef, watch, WritableComputedRef } from "vue";
+import { useAppStore } from "../store/app";
+import { useDebounceFn, useEventListener, useInfiniteScroll } from "@vueuse/core";
+import { useHierarchyChildren } from "../composables/useHierarchyChildren";
+import { FETCH_DELAY } from "../config/constants";
+import CreateCollectionModal from "./CreateCollectionModal.vue";
+import CreateContentModal from "./CreateContentModal.vue";
+import { resolveNodeIcon } from "../config/icons.ts";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
+import { FIXED_FOOTER_MODAL_PROPS } from "../config/modals.ts";
+import LoadingSpinner from "./LoadingSpinner.vue";
+import { getClassifierRef } from "../utils/helper/modelHelper";
+
+/**
+ * Extends the PrimeVue `MenuItem` interface to allow for more flexible icon specifications.
+ *
+ * `icon` is either a plain icon class (`"icon-folder"`) for icons chosen in code, or an {@link IconSpec}
+ * for node icons, which can come from project configuration.
+ */
+interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
+  icon?: string | IconSpec;
+  items?: NodeMenuItem[];
+}
+
+const props = defineProps<{
+  index: number;
+  parentUuid: string | null;
+}>();
+
+const dialog: ReturnType<typeof useDialog> = useDialog();
+
+const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
+const { getAllCollectionAttributes, getHierarchyClassifierRefs, getNodeTypeOptions, getModelContext } = useConfigStore();
+const {
+  levels,
+  focus,
+  root,
+  multiSelection,
+  path,
+  selectedUuids,
+  clearSelectionFrom,
+  resetQuery,
+  selectItem,
+  selectRange,
+  toggleItem,
+} = useHierarchyStore();
+const { getTagEntryUuids } = useTagsStore();
+const { getSmartViewScope } = useSmartViewsStore();
+
+/** Derived state from the store. Shorthand since multiple use cases in the component */
+const state = computed<LevelState>(() => levels.value[props.index]?.state);
+
+/** Filters of this column. */
+const filters: WritableComputedRef<FilterSpec> = computed({
+  get: () => levels.value[props.index]?.query.filters ?? [],
+  set: (value: FilterSpec) => {
+    if (levels.value[props.index]) {
+      levels.value[props.index].query.filters = value;
+    }
+  },
+});
+
+/**
+ * The rule representing the distinct property search (`label` for Collections, `text` for Content).
+ * Used to access the nested state direcly via a searchbox component.
+ */
+const searchRule = computed<FilterRule | undefined>(() =>
+  filters.value.find((rule: FilterRule) => rule.target.kind === "distinct"),
+);
+
+/**
+ * The search input for the search rule. Bound to the component's state.
+ */
+const searchInput: WritableComputedRef<string> = computed({
+  get: () => (searchRule.value?.conditions[0]?.value as string) ?? "",
+  set: (value: string) => {
+    if (searchRule.value?.conditions[0]) {
+      searchRule.value.conditions[0].value = value;
+    }
+  },
+});
+
+const addMenu = useTemplateRef<InstanceType<typeof FilterableMenu>>("add-menu");
+const filterPopover = useTemplateRef<InstanceType<typeof FilterPopover>>("filter-popover");
+const sortButton = useTemplateRef<{ $el: HTMLElement }>("sort-button");
+
+/** The parent of new nodes: the active item of the previous column, always a Collection (Contents have no columns) */
+const parentCollection = computed<HierarchyNode | null>(() =>
+  props.index > 0 ? levels.value[props.index - 1]?.activeItem?.node ?? null : null,
+);
+
+/** Classifier ref of the parent Collection; `null` at the top level or if it can't be resolved */
+const parentClassifierRef = computed<string | null>(() =>
+  parentCollection.value ? getClassifierRef(getModelContext(), parentCollection.value) : null,
+);
+
+/**
+ * The "+" menu: the Collection and Content types the model allows in the parent Collection, all types at the top
+ * level. Groups without allowed types are left out.
+ */
+const addMenuItems = computed<NodeMenuItem[]>(() => {
+  const partOfRef: string | null = parentClassifierRef.value;
+  const groups: { kind: "Collection" | "Content"; baseNodeRef: string }[] = [
+    { kind: "Collection", baseNodeRef: BASE_NODE_REF.Collection },
+    { kind: "Content", baseNodeRef: BASE_NODE_REF.Content },
+  ];
+
+  return groups
+    .map(({ kind, baseNodeRef }) => ({
+      label: kind,
+      icon: resolveNodeIcon({ classifierRef: baseNodeRef, nodeLabels: [] }),
+      items: getNodeTypeOptions(baseNodeRef, partOfRef).map((nodeType) => ({
+        label: nodeType.name,
+        icon: resolveNodeIcon(nodeType),
+        command: () => openCreateModal(kind, nodeType),
+      })),
+    }))
+    .filter((group) => group.items.length > 0);
+});
+
+/** Classifier refs of all node types the hierarchy lists */
+const allClassifierRefs: string[] = getHierarchyClassifierRefs();
+
+/**
+ * Whether anything in the filter popover currently narrows the listing.
+ */
+const hasActiveFilters = computed<boolean>(() => {
+  const selectedTypes: string[] = (filters.value.find((rule: FilterRule) => rule.target.kind === "classifier")?.conditions[0]
+    ?.value ?? []) as string[];
+
+  if (allClassifierRefs.some((ref) => !selectedTypes.includes(ref))) {
+    return true;
+  }
+
+  for (const rule of filters.value) {
+    if (rule.target.kind === "property" && rule.conditions.length > 0) {
+      return true;
+    }
+
+    if (rule.target.kind === "distinct" && rule.conditions[0]?.value !== "") {
+      return true;
+    }
+  }
+
+  return false;
+});
+
+const column = useTemplateRef<HTMLDivElement>("column");
+const scrollPane = useTemplateRef<HTMLDivElement>("scroll-pane");
+const resizer = useTemplateRef<HTMLDivElement>("resizer");
+
+// The store-owned entries array for this column is the fetch sink - shared, reachable by the focus pane
+// and the children composable. Needed to allow the composable working on the
+// reactive data itself since it can not reach to the store itself (too many moving parts)
+const entries: WritableComputedRef<HierarchyEntry[]> = computed({
+  get: () => levels.value[props.index]?.entries ?? [],
+  set: (value: HierarchyEntry[]) => {
+    if (levels.value[props.index]) {
+      levels.value[props.index].entries = value;
+    }
+  },
+});
+
+const isLoading = computed<boolean>(() => state.value.isLoading);
+
+/**
+ * Whether a first page fetch is in flight - either because the column is loading for the first time
+ * or because the query changed and the data need to be re-assembled.
+ */
+const isReloading = computed<boolean>(() => state.value.isLoading && state.value.cursor === null);
+
+/**
+ * Which set of nodes this column lists (db hierarchy, tags, smart views etc.). Only the first column depends on the active
+ * root — every column below it always shows the `PART_OF` children of the item selected in the previous one.
+ */
+const scope = computed<HierarchyScope>(() => {
+  if (props.parentUuid) {
+    return { kind: "children", parentUuid: props.parentUuid };
+  }
+
+  if (props.index === 0 && root.value.kind === "tag") {
+    return { kind: "uuids", uuids: getTagEntryUuids(root.value.uuid) };
+  }
+
+  if (props.index === 0 && root.value.kind === "smartView") {
+    return getSmartViewScope(root.value.uuid) ?? { kind: "all" };
+  }
+
+  return { kind: "top" };
+});
+
+/** Creating a node inside a tag listing or a smart view with accumulated nodes across the database should not be allowed.
+ * There is no place to put it in the database and no reliable validation possible */
+const canCreateNodes = computed<boolean>(() => scope.value.kind === "top" || scope.value.kind === "children");
+
+const focusedUuid = computed<string | null>(() => {
+  if (!focus.value) {
+    return null;
+  }
+
+  return focus.value.kind === "collection"
+    ? focus.value.collection.node.properties.uuid
+    : focus.value.content.node.properties.uuid;
+});
+
+// Getters, not the objects themselves: `updateLevels` replaces the whole level on navigation, and a
+// captured reference would keep sending the previous level's query (the column is reused by index,
+// not remounted).
+const { hasMore, fetchFirstPage, fetchNextPage, createEntryFromNode } = useHierarchyChildren(scope, entries, state, {
+  filters: () => levels.value[props.index].query.filters,
+  sort: () => levels.value[props.index].query.sort,
+});
+
+useEventListener(resizer, "mousedown", startResize);
+useEventListener(window, "mouseup", endResize);
+
+useInfiniteScroll(scrollPane, fetchNextPage, {
+  distance: 25,
+  canLoadMore: () => hasMore.value && !isLoading.value,
+});
+
+// A changed first-column listing (e.g. tag removed under a tag root) clears the selection like a filter change.
+// Not on the initial run (remount keeps the selection), not for deeper columns (their scope changes by navigation).
+// The root is watched too: two smart views can share a scope but differ in their filter preset.
+watch(
+  [scope, root],
+  ([newScope, newRoot], [oldScope, oldRoot]): Promise<void> | undefined => {
+    // Recomputed without an actual change (e.g. another tag was edited)
+    if (oldScope && newRoot === oldRoot && JSON.stringify(newScope) === JSON.stringify(oldScope)) {
+      return;
+    }
+
+    if (oldScope && props.index === 0) {
+      clearSelectionFrom(props.index);
+    }
+
+    return fetchFirstPage();
+  },
+  { immediate: true },
+);
+
+const debouncedRefetchAfterQueryChange = useDebounceFn(() => refetchAfterQueryChange(), FETCH_DELAY);
+
+/** Whether this column holds the multiselection. */
+const hasMultiSelection = computed<boolean>(() => multiSelection.value?.depth === props.index);
+
+/**
+ * Whether this column holds the focused item (the last path item) while nothing is multiselected. Based on `path`
+ * rather than `focus`, since the focus loads asynchronously and the highlight would lag behind.
+ */
+const holdsFocusedItem = computed<boolean>(() => !multiSelection.value && path.value.length - 1 === props.index);
+
+/**
+ * Refetches the listing after a filter, search or sort change. The selection in this column is dropped first
+ * (closing the columns right of it and unfocusing the pane).
+ *
+ * @returns {Promise<void>} Resolves when the first page is loaded.
+ */
+async function refetchAfterQueryChange(): Promise<void> {
+  clearSelectionFrom(props.index);
+
+  await fetchFirstPage();
+}
+
+// PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons
+// (see the same workaround in AnnotationButton.vue), so the width is set on the DOM node directly.
+onMounted(() => {
+  const dropdownButton: HTMLButtonElement | null = sortButton.value?.$el.querySelector(".p-splitbutton-dropdown") ?? null;
+
+  if (dropdownButton) {
+    dropdownButton.style.width = "15px";
+    dropdownButton.style.padding = "1px";
+  }
+});
+
+/**
+ * Opens the modal for creating a Collection or Content of the given type in this column.
+ *
+ * @param {"Collection" | "Content"} kind - Which modal to open.
+ * @param {NodeTypeOption} nodeType - The type of the new node.
+ * @returns {void} This function does not return any value.
+ */
+function openCreateModal(kind: "Collection" | "Content", nodeType: NodeTypeOption): void {
+  const modalComponent = kind === "Collection" ? CreateCollectionModal : CreateContentModal;
+
+  createModalInstance(
+    dialog.open(modalComponent, {
+      props: {
+        ...FIXED_FOOTER_MODAL_PROPS,
+        header: `Create new ${nodeType.name}`,
+        style: { width: "420px" },
+      },
+      data: { parentCollection: parentCollection.value, nodeType },
+      emits: {
+        onSuccess: async (created: NodeDto<HierarchyNode>) => {
+          if (!created) {
+            return;
+          }
+
+          // Add to top of list (should be visible directly) and focus it
+          entries.value.unshift(createEntryFromNode(created));
+          selectItem(created, props.index);
+
+          addToastMessage({ severity: "success", summary: "Operation successful", detail: "", life: 2000 });
+
+          destroyModalInstance();
+
+          await scrollElementIntoView(created.node.properties.uuid);
+        },
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
+}
+
+async function scrollElementIntoView(uuid: string) {
+  await nextTick();
+
+  const el: HTMLDivElement | null = document.querySelector(`[data-node-uuid="${uuid}"]`);
+
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+function toggleAddMenu(event: Event): void {
+  addMenu.value?.toggle(event);
+}
+
+/**
+ * Opens/closes the filter popover.
+ *
+ * @param {Event} event - The click that triggered it, used by the popover to position itself.
+ * @returns {void} This function does not return a value.
+ */
+function toggleFilterPopover(event: Event): void {
+  filterPopover.value?.toggle(event);
+}
+
+/**
+ * Resets this column back to an unfiltered listing. The defaults come from the store, so "no
+ * filtering" means the same thing here as it does for a freshly built level.
+ *
+ * @returns {void} This function does not return a value.
+ */
+async function handleClearFilters(): Promise<void> {
+  resetQuery(props.index);
+
+  await refetchAfterQueryChange();
+}
+
+/**
+ * Apply filters to the current column and refetch the first page.
+ *
+ * @param {FilterSpec} updatedFilters - The filters to apply.
+ * @returns {void} This function does not return a value.
+ */
+async function handleApplyFilters(updatedFilters: FilterSpec): Promise<void> {
+  levels.value[props.index].query.filters = updatedFilters;
+
+  await refetchAfterQueryChange();
+}
+
+async function handleChangeSortOrderClick(): Promise<void> {
+  const level: Level | undefined = levels.value[props.index];
+
+  if (!level) {
+    return;
+  }
+
+  level.query.sort = { ...level.query.sort, order: level.query.sort.order === "asc" ? "desc" : "asc" };
+
+  await refetchAfterQueryChange();
+}
+
+const sortTargetOptions = computed<{ label: string; value: string }[]>(() => [
+  { label: "Alphabetically", value: "distinct" },
+  // Each name once, only of the types allowed under the parent, see getAllCollectionAttributes
+  ...getAllCollectionAttributes(parentClassifierRef.value)
+    .map((property) => property.attribute.name)
+    .toSorted((a: string, b: string) => a.localeCompare(b))
+    .map((name: string) => ({ label: name, value: name })),
+]);
+
+const sortTargetKey = computed<string>(() => targetKey(levels.value[props.index]?.query.sort.target ?? { kind: "distinct" }));
+
+const sortMenuItems = computed<MenuItem[]>(() =>
+  sortTargetOptions.value.map((option) => ({
+    label: option.label,
+    icon: sortTargetKey.value === option.value ? "icon-check" : undefined,
+    title: option.value === "distinct" ? "Sort alphabetically" : `Sort by ${option.label}`,
+    command: () => handleSortTargetChange(option.value),
+  })),
+);
+
+/**
+ * Switches what this column is sorted by and refetches the first page.
+ *
+ * @param {string} key - The chosen option's value: "distinct", or a property name.
+ * @returns {void} This function does not return a value.
+ */
+async function handleSortTargetChange(key: string): Promise<void> {
+  const level: Level | undefined = levels.value[props.index];
+
+  if (!level) {
+    return;
+  }
+
+  const target: FilterTarget = key === "distinct" ? { kind: "distinct" } : { kind: "property", field: key };
+
+  level.query.sort = { ...level.query.sort, target };
+
+  await refetchAfterQueryChange();
+}
+
+/**
+ * Selects an item, adds it to the selection (Cmd/Ctrl) or selects a range (Shift). A modifier click
+ * in a column other than the one holding the multiselection starts over with a plain selection, so a
+ * selection never spans several columns.
+ *
+ * @param {string} uuid - The clicked item's UUID.
+ * @param {SelectionModifiers} modifiers - The modifier keys held during the click.
+ * @returns {void} This function does not return a value.
+ */
+function handleItemSelected(uuid: string, modifiers: SelectionModifiers): void {
+  const entry: HierarchyEntry | undefined = entries.value.find((e) => e.data.node.properties.uuid === uuid);
+
+  if (!entry) {
+    return;
+  }
+
+  const isOtherColumn: boolean = !!multiSelection.value && !hasMultiSelection.value;
+
+  if (modifiers.range && !isOtherColumn) {
+    selectRange(entry.data, props.index);
+  } else if (modifiers.toggle && !isOtherColumn) {
+    toggleItem(entry.data, props.index);
+  } else if (uuid !== focusedUuid.value || multiSelection.value) {
+    selectItem(entry.data, props.index);
+  }
+}
+
+/**
+ * How an entry is highlighted: `emphasized` for the selection being worked on (the focused item or this column's
+ * multiselection), `unemphasized` for the path item of any other column.
+ *
+ * @param {HierarchyEntry} entry - The entry to check.
+ * @returns {"emphasized" | "unemphasized" | null} The highlight, or null if the entry is not selected.
+ */
+function getEntrySelection(entry: HierarchyEntry): "emphasized" | "unemphasized" | null {
+  const uuid: string = entry.data.node.properties.uuid;
+
+  if (hasMultiSelection.value) {
+    return selectedUuids.value.has(uuid) ? "emphasized" : null;
+  }
+
+  if (levels.value[props.index]?.activeItem?.node.properties.uuid !== uuid) {
+    return null;
+  }
+
+  return holdsFocusedItem.value ? "emphasized" : "unemphasized";
+}
+
+function handleResize(event: MouseEvent): void {
+  if (!column.value) {
+    return;
+  }
+
+  const newWidth: number = event.clientX - column.value.getBoundingClientRect().left;
+  column.value.style.width = `${newWidth}px`;
+}
+
+function startResize(): void {
+  window.addEventListener("mousemove", handleResize);
+}
+
+function endResize(): void {
+  window.removeEventListener("mousemove", handleResize);
+}
+</script>
+
+<template>
+  <div v-if="levels[props.index]" ref="column" class="column flex flex-col p-1" :data-level-index="props.index">
+    <div class="header flex gap-1">
+      <InputText
+        v-model="searchInput"
+        size="small"
+        class="w-full"
+        spellcheck="false"
+        placeholder="Search..."
+        title="Filter by label or text"
+        @update:model-value="debouncedRefetchAfterQueryChange"
+      />
+      <Button size="small" severity="secondary" title="Filter the listing" class="shrink-0" @click="toggleFilterPopover">
+        <i class="icon-filter" :class="{ 'filter-active': hasActiveFilters }" />
+      </Button>
+      <SplitButton
+        ref="sort-button"
+        size="small"
+        severity="secondary"
+        dropdown-icon="icon-chevron-down"
+        :icon="`icon-arrow-${levels[props.index].query.sort.order === 'asc' ? 'down' : 'up'}-narrow-wide`"
+        :model="sortMenuItems"
+        class="shrink-0"
+        :button-props="{ title: 'Change sort direction' }"
+        :menu-button-props="{ title: 'Choose what to sort by' }"
+        :pt="{ pcMenu: { itemLink: ({ context }) => ({ title: context.item.title }) } }"
+        @click="handleChangeSortOrderClick"
+      />
+    </div>
+    <FilterPopover
+      ref="filter-popover"
+      :filters="filters"
+      :part-of-ref="parentClassifierRef"
+      @apply="handleApplyFilters"
+      @clear="handleClearFilters"
+    />
+    <div class="content-wrapper">
+      <LoadingSpinner v-if="isReloading" :size="20" color="grey" />
+      <div ref="scroll-pane" class="content" role="tree" aria-multiselectable="true" :class="{ 'is-stale': isReloading }">
+        <template v-for="entry in entries" :key="entry.data.node.properties.uuid">
+          <HierarchyItem :entry="entry" :selection="getEntrySelection(entry)" @item-selected="handleItemSelected"></HierarchyItem>
+        </template>
+        <div v-if="isLoading && !isReloading" class="text-center" title="More data are loading...">
+          <span class="icon-loader-circle animate-spin"></span>
+        </div>
+      </div>
+      <Button
+        v-if="canCreateNodes && addMenuItems.length > 0"
+        class="add-button"
+        severity="secondary"
+        icon="icon-plus"
+        title="Add Collection or Content"
+        @click="toggleAddMenu"
+      />
+      <FilterableMenu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]">
+        <template #itemicon="{ item }">
+          <i v-if="typeof item.icon === 'string'" :class="item.icon"></i>
+          <RAMENNodeIcon v-else :spec="(item as NodeMenuItem).icon" />
+        </template>
+      </FilterableMenu>
+    </div>
+    <div class="footer">
+      <div class="count text-xs text-right pr-4">{{ entries.length }}/{{ state.pagination?.totalRecords ?? 0 }}</div>
+    </div>
+  </div>
+  <div ref="resizer" class="resizer" title="Hold down mouse and drag to resize column">
+    <div class="handle"></div>
+  </div>
+</template>
+
+<style scoped>
+.column {
+  display: flex;
+  width: 220px;
+}
+
+.resizer {
+  padding: 10px 0;
+  background-color: var(--p-splitter-gutter-background);
+  width: 7px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .handle {
+    width: 3px;
+    border-radius: 5px;
+    background-color: rgb(143, 143, 143);
+    height: 50px;
+  }
+}
+
+.header > * {
+  min-width: 0;
+}
+
+.filter-active {
+  color: var(--p-primary-color);
+}
+
+.content-wrapper {
+  position: relative;
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-grow: 1;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+/* Stale listing shown behind the column wide spinner while the column refetches */
+.is-stale {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.add-button {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+}
+</style>

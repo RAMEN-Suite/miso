@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { useTemplateRef, computed, ref, watchEffect } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
+import { useTemplateRef, computed, ref, watchEffect, type CSSProperties } from "vue";
+import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
-import { AnnotationType, NodeStatusObject, AnnotationNode, Annotation } from "../models/types";
+import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
 import { useCreateAnnotation } from "../composables/useCreateAnnotation";
+import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
 import ShortcutError from "../utils/errors/shortcut.error";
-import AnnotationRangeError from "../utils/errors/annotationRange.error";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
-import AnnotationCreateModal from "./AnnotationCreateModal.vue";
+import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
 import { useTiptapStore } from "../store/tiptap";
-import { useValidateTextSelection } from "../composables/useValidateTextSelection";
+import { AnnotationRangeError, validateSelection } from "../editors/text/src";
+import { HEADING_LEVELS } from "../editors/text/src/config/editor";
 import { Selection } from "@tiptap/pm/state";
 import Button from "primevue/button";
-import SplitButton from "primevue/splitbutton";
+import Divider from "primevue/divider";
+import Select from "primevue/select";
 import TableInsertPopover from "./TableInsertPopover.vue";
 import TieredMenu from "primevue/tieredmenu";
 import { MenuItem, MenuItemCommandEvent } from "primevue/menuitem";
@@ -25,33 +27,103 @@ import TabList from "primevue/tablist";
 import Tab from "primevue/tab";
 import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
-import { HEADING_LEVELS } from "../config/editor.ts";
+import { ANNOTATION_MODAL_PROPS } from "../config/modals.ts";
+import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 
-const { isValid: isSelectionValid } = useValidateTextSelection();
+/** A block is either a paragraph or one of the existing heading levels. */
+type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
+
 const {
-  groupedAnnotationTypes,
+  groupedAndSortedAnnotationTypes,
   annotationHasConstraints,
-  getAnnotationConfig,
-  getStructuralAnnotationConfig,
-  getAnnotationRole,
+  getTextAnnotationShape,
+  getAnnotationRepresentation,
   isZeroPoint,
-} = useGuidelinesStore();
+} = useConfigStore();
 const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
 const { selectedOptions } = useFilterStore();
-const { tiptap, annotations } = useTiptapStore();
+const { tiptap } = useTiptapStore();
 const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
+const { insertLineBreak } = useInsertLineBreak();
 
 const selectedTab = ref<"annotations" | "structure">("structure");
 
+const tabProps = {
+  pt: { root: { class: "px-3! py-2!" } },
+} as const;
+
+/** Matches the look of {@linkcode AnnotationButton} so structure and annotation buttons line up. */
+const structureButtonProps = {
+  severity: "secondary",
+  outlined: true,
+  raised: true,
+  style: { height: "35px", width: "35px" },
+} as const;
+
 const annotationCategories = computed(() =>
-  Object.entries(groupedAnnotationTypes.value ?? {}).filter(([category]) => category !== "structure"),
+  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
 );
 
 const selectedCategory = ref<string>("");
 
-const semanticBlockTypes = computed<AnnotationType[]>(() =>
-  (groupedAnnotationTypes.value?.structure ?? []).filter((t) => getAnnotationRole(t.type) === "semanticBlock"),
+const blockClassificationTypes = computed<ModelAnnotationShape[]>(() =>
+  (groupedAndSortedAnnotationTypes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
+    (t) => getAnnotationRepresentation(t.type) === "blockClassification",
+  ),
 );
+
+/** Font size per heading level in the block type dropdown, so options preview their size like in a word processor. */
+const HEADING_OPTION_FONT_SIZES = {
+  1: "1.5rem",
+  2: "1.3rem",
+  3: "1.15rem",
+  4: "1rem",
+  5: "0.9rem",
+  6: "0.8rem",
+} as const satisfies Record<(typeof HEADING_LEVELS)[number], string>;
+
+const blockTypeOptions: { label: string; value: BlockTypeValue; style: CSSProperties }[] = [
+  { label: "Paragraph", value: "paragraph", style: {} },
+  ...HEADING_LEVELS.map((level: (typeof HEADING_LEVELS)[number]) => ({
+    label: `Heading ${level}`,
+    value: level,
+    style: { fontSize: HEADING_OPTION_FONT_SIZES[level], fontWeight: 600, lineHeight: 1.2 },
+  })),
+];
+
+/**
+ * Block type at the editor caret position.
+ *
+ * Used to drive the block type Select. `null` when the caret sits in neither a paragraph nor a heading.
+ */
+const currentBlockType = computed<BlockTypeValue | null>({
+  get: () => {
+    const activeLevel: (typeof HEADING_LEVELS)[number] | undefined = HEADING_LEVELS.find((level) =>
+      tiptap.value?.isActive("heading", { level }),
+    );
+
+    if (activeLevel) {
+      return activeLevel;
+    }
+
+    if (tiptap.value?.isActive("paragraph")) {
+      return "paragraph";
+    }
+
+    return null;
+  },
+  set: (value: BlockTypeValue | null) => {
+    if (value === null) {
+      return;
+    }
+
+    if (value === "paragraph") {
+      tiptap.value?.chain().focus().setNode("paragraph").run();
+    } else {
+      tiptap.value?.chain().focus().setNode("heading", { level: value }).run();
+    }
+  },
+});
 
 watchEffect(() => {
   if (!selectedCategory.value && annotationCategories.value.length > 0) {
@@ -94,16 +166,16 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Insert table",
       title: "Insert table",
-      icon: "pi pi-table",
+      icon: "icon-table",
       command: (e: MenuItemCommandEvent) => tablePopover.value?.toggle(e.originalEvent),
     },
-    { label: "Delete table", icon: "pi pi-trash", command: () => runTableCommand((c) => c.deleteTable()) },
+    { label: "Delete table", icon: "icon-trash-2", command: () => runTableCommand((c) => c.deleteTable()) },
 
     { separator: true },
     {
       label: "Add",
       title: "Add row or column",
-      icon: "pi pi-plus",
+      icon: "icon-plus",
       disabled: !inTable,
       items: [
         { label: "Row above", title: "Add row above", command: () => runTableCommand((c) => c.addRowBefore()) },
@@ -115,7 +187,7 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Remove",
       title: "Remove row or column",
-      icon: "pi pi-minus",
+      icon: "icon-minus",
       disabled: !inTable,
       items: [
         { label: "Delete row", title: "Delete row", command: () => runTableCommand((c) => c.deleteRow()) },
@@ -125,7 +197,7 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Merge / Split",
       title: "Merge or split cells",
-      icon: "pi pi-arrows-h",
+      icon: "icon-move-horizontal",
       disabled: !inTable,
       items: [
         { label: "Merge cells", title: "Merge cells", command: () => runTableCommand((c) => c.mergeCells()) },
@@ -135,15 +207,28 @@ function buildTableMenuItems(): MenuItem[] {
     },
     {
       label: "Header",
-      title: "Toggle header row or column",
-      icon: "pi pi-list",
+      title: "Toggle header cells, row or column",
+      icon: "icon-list",
       disabled: !inTable,
       items: [
-        { label: "Toggle header row", title: "Toggle header row", command: () => runTableCommand((c) => c.toggleHeaderRow()) },
+        {
+          label: "Toggle header cell",
+          title: "Toggle header for the selected cells",
+          command: () => {
+            const isHeader: boolean = tiptap.value?.isActive("tableCell", { role: "label" }) ?? false;
+
+            runTableCommand((c) => c.setCellAttribute("role", isHeader ? null : "label"));
+          },
+        },
+        {
+          label: "Toggle header row",
+          title: "Toggle header for the first row",
+          command: () => runTableCommand((c) => c.toggleLabelRow()),
+        },
         {
           label: "Toggle header column",
-          title: "Toggle header column",
-          command: () => runTableCommand((c) => c.toggleHeaderColumn()),
+          title: "Toggle header for the first column",
+          command: () => runTableCommand((c) => c.toggleLabelColumn()),
         },
       ],
     },
@@ -160,15 +245,6 @@ function openTableMenu(event: Event): void {
   tableMenuItems.value = buildTableMenuItems();
   tableMenu.value?.toggle(event);
 }
-
-// Dropdown model for the headings SplitButton — one entry per level, each toggling that heading.
-const headingMenuItems = computed<MenuItem[]>(() =>
-  HEADING_LEVELS.map((level) => ({
-    label: `Heading ${level}`,
-    class: tiptap.value?.isActive("heading", { level }) ? "is-active" : undefined,
-    command: () => tiptap.value?.chain().focus().toggleHeading({ level }).run(),
-  })),
-);
 
 /**
  * Checks if the annotation type is enabled by verifying if it is included in the selected options. If not, an `ShortcutError` is thrown.
@@ -194,10 +270,15 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
   }
 
   try {
-    const config: AnnotationType = getAnnotationConfig(data.type);
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
+
+    if (!shape) {
+      console.error(`No annotation shape found for type "${data.type}"`);
+      return;
+    }
 
     isAnnotationTypeEnabled(data.type);
-    isSelectionValid(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -209,25 +290,16 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
       selectedText: textInSelection,
     });
 
-    if (annotationHasConstraints(config)) {
+    if (annotationHasConstraints(shape)) {
       createModalInstance(
-        dialog.open(AnnotationCreateModal, {
+        dialog.open(AnnotationDetailsModal, {
           props: {
-            modal: true,
-            closable: false,
-            closeOnEscape: true,
-            dismissableMask: true,
-            style: { width: "25rem", height: "35rem" },
-            pt: {
-              content: {
-                style: {
-                  flexGrow: 1,
-                },
-              },
-            },
+            ...ANNOTATION_MODAL_PROPS,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
           },
           data: {
             annotation: newAnnotationTemplate,
+            mode: "create",
           },
           emits: {
             onSubmit: (editedAnnotationData: Annotation) => {
@@ -269,9 +341,9 @@ function handleInlineAnnotationButtonClick(data: { type: string; subType?: strin
 }
 
 /**
- * Adds a new annotation to the store by executing the `createAnnotation` command.
+ * Adds a new annotation to the editor.
  *
- * @param {Annotation} annotation - The annotation to add to the store.
+ * @param {Annotation} annotation - The annotation to add.
  * @param {Object} selection - The selection object with `from` and `to` properties.
  * @returns {void} This function does not return any value.
  */
@@ -282,12 +354,10 @@ function addAnnotation(annotation: Annotation, selection: { from: number; to: nu
   // Add decoration or inline block, depeding on config
   if (isAnnoZeroPoint) {
     // TODO: Cursor is set before the inserted element, not after. Fix later
-    tiptap.value?.commands.addZeroPointAnnotation(annotation.node, from);
+    tiptap.value?.commands.addZeroPointAnnotation(annotation, from);
   } else {
-    tiptap.value?.commands.addAnnotationDecoration(annotation.node, from, to);
+    tiptap.value?.commands.addAnnotationDecoration(annotation, from, to);
   }
-  // Add to store
-  annotations.value?.set(annotation.node.data.uuid, annotation);
 }
 
 function handleBlockAnnotationClick(data: { type: string; subType?: string | number }): void {
@@ -298,10 +368,15 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
   }
 
   try {
-    const config: AnnotationType = getAnnotationConfig(data.type);
+    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
+
+    if (!shape) {
+      console.error(`No annotation shape found for type "${data.type}"`);
+      return;
+    }
 
     isAnnotationTypeEnabled(data.type);
-    isSelectionValid(selection, config);
+    validateSelection(selection, data.type);
 
     // Needs to be captured since modal opening collapses editor selection
     const capturedSelection = { from: selection.from, to: selection.to };
@@ -313,7 +388,30 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
       selectedText: textInSelection,
     });
 
-    tiptap.value?.commands.addSemanticBlock(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    // Like inline annotations: with required properties or references, the modal only lets a complete one through
+    if (annotationHasConstraints(shape)) {
+      createModalInstance(
+        dialog.open(AnnotationDetailsModal, {
+          props: {
+            ...ANNOTATION_MODAL_PROPS,
+            header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
+          },
+          data: {
+            annotation: newAnnotationTemplate,
+            mode: "create",
+          },
+          emits: {
+            onSubmit: (editedAnnotationData: Annotation) => {
+              tiptap.value?.commands.addBlockClassification(editedAnnotationData, capturedSelection.from, capturedSelection.to);
+              destroyModalInstance();
+            },
+          },
+          onClose: destroyModalInstance,
+        }),
+      );
+    } else {
+      tiptap.value?.commands.addBlockClassification(newAnnotationTemplate, capturedSelection.from, capturedSelection.to);
+    }
   } catch (error: unknown) {
     if (error instanceof AnnotationRangeError) {
       addToastMessage({
@@ -339,82 +437,82 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
 <template>
   <Tabs v-model:value="selectedTab">
     <TabList>
-      <Tab value="structure" title="Structure elements (paragraphs, lists, tables etc.)">Document</Tab>
-      <Tab value="semanticBlocks" title="Labels for structure elements (opener, closer, salute etc.)">Block labels</Tab>
-      <Tab value="annotations" title="Annotations (persons, places, transcriptions)">Annotations</Tab>
+      <Tab
+        value="structure"
+        title="Structure elements (paragraphs, lists, tables etc.) and their labels (opener, closer, salute etc.)"
+        v-bind="tabProps"
+      >
+        <span class="flex items-center gap-1.5"><i class="icon-file-text" />Document</span>
+      </Tab>
+      <Tab value="annotations" title="Annotations (persons, places, transcriptions)" v-bind="tabProps">
+        <span class="flex items-center gap-1.5"><i class="icon-highlighter" />Annotations</span>
+      </Tab>
     </TabList>
-    <TabPanels
-      :pt="{
-        root: {
-          style: {
-            paddingTop: 0,
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
-        },
-      }"
-    >
+    <TabPanels :pt="{ root: { style: { padding: 0 } } }">
       <TabPanel value="structure">
-        <div class="flex flex-wrap gap-3">
-          <Button
-            v-tooltip.hover.top="{ value: 'paragraph', showDelay: 50 }"
-            severity="secondary"
-            icon="pi pi-align-justify"
-            :class="{ 'is-active': tiptap?.isActive('paragraph') }"
-            @click="tiptap?.chain().focus().setNode('paragraph').run()"
+        <div class="buttons flex flex-wrap items-center gap-1">
+          <!-- eslint-disable vuejs-accessibility/form-control-has-label -- Eslint config does not recognize PrimeVue's component -->
+          <Select
+            v-model="currentBlockType"
+            class="block-type-select"
+            :options="blockTypeOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="Block type"
           >
-          </Button>
-          <SplitButton
-            v-tooltip.hover.top="{ value: 'heading', showDelay: 50 }"
-            label="H1"
-            severity="secondary"
-            :model="headingMenuItems"
-            :class="{ 'is-active': tiptap?.isActive('heading', { level: 1 }) }"
-            @click="tiptap?.chain().focus().toggleHeading({ level: 1 }).run()"
-          />
+            <template #option="{ option }">
+              <span :style="option.style">{{ option.label }}</span>
+            </template>
+          </Select>
           <Button
             v-tooltip.hover.top="{ value: 'list', showDelay: 50 }"
-            severity="secondary"
-            icon="pi pi-list"
+            v-bind="structureButtonProps"
+            icon="icon-list"
             :class="{ 'is-active': tiptap?.isActive('bulletList') }"
             @click="tiptap?.chain().focus().toggleBulletList().run()"
           ></Button>
           <Button
             v-tooltip.hover.top="{ value: 'table', showDelay: 50 }"
-            severity="secondary"
-            icon="pi pi-table"
+            v-bind="structureButtonProps"
+            icon="icon-table"
             aria-haspopup="true"
             :class="{ 'is-active': tiptap?.isActive('table') }"
             @click="openTableMenu($event)"
           >
           </Button>
-        </div>
-      </TabPanel>
-      <TabPanel value="semanticBlocks">
-        <div class="buttons">
-          <AnnotationButton
-            v-for="blockType in semanticBlockTypes"
-            :key="blockType.type"
-            v-tooltip.hover.top="{ value: blockType.type, showDelay: 50 }"
-            severity="secondary"
-            :type="blockType.type"
-            :disabled="!selectedOptions.includes(blockType.type)"
-            :class="{ 'is-active': true }"
-            :config="getAnnotationConfig(blockType.type)!"
-            @click="handleBlockAnnotationClick({ type: blockType.type })"
+          <Button
+            v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
+            v-bind="structureButtonProps"
+            icon="icon-text-wrap"
+            @click="insertLineBreak()"
           >
-            {{ blockType.type }}
-          </AnnotationButton>
+          </Button>
+          <template v-if="blockClassificationTypes.length > 0">
+            <Divider layout="vertical" class="mx-3! self-stretch" />
+            <AnnotationButton
+              v-for="blockType in blockClassificationTypes"
+              :key="blockType.type"
+              v-tooltip.hover.top="{ value: blockType.type, showDelay: 50 }"
+              severity="secondary"
+              :type="blockType.type"
+              :disabled="!selectedOptions.includes(blockType.type)"
+              :class="{ 'is-active': true }"
+              :shape="blockType"
+              @click="handleBlockAnnotationClick({ type: blockType.type })"
+            >
+              {{ blockType.type }}
+            </AnnotationButton>
+          </template>
         </div>
       </TabPanel>
       <TabPanel value="annotations">
         <Tabs v-model:value="selectedCategory">
           <TabList>
-            <Tab v-for="[category, types] in annotationCategories" :key="category" :value="category">
+            <Tab v-for="[category, types] in annotationCategories" :key="category" :value="category" v-bind="tabProps">
               {{ capitalize(category) }} ({{ types.length }})
             </Tab>
           </TabList>
-          <TabPanels>
+          <TabPanels :pt="{ root: { style: { padding: 0 } } }">
             <TabPanel v-for="[category, types] in annotationCategories" :key="category" :value="category">
               <div class="buttons">
                 <AnnotationButton
@@ -422,7 +520,7 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
                   :key="type.type"
                   :type="type.type"
                   :disabled="!selectedOptions.includes(type.type)"
-                  :config="getAnnotationConfig(type.type)"
+                  :shape="type"
                   @clicked="handleInlineAnnotationButtonClick($event)"
                 />
               </div>
@@ -449,6 +547,13 @@ function handleBlockAnnotationClick(data: { type: string; subType?: string | num
 .buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 6px 2px;
+  padding-top: 8px;
+}
+
+.block-type-select {
+  min-width: 9rem;
+  height: 35px;
+  align-items: center;
 }
 </style>

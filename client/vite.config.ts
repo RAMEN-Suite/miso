@@ -1,9 +1,16 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
+  test: {
+    // Pure-function tests by default; DOM-dependent files opt in via `// @vitest-environment jsdom`
+    environment: "node",
+    include: ["tests/unit/**/*.test.ts"],
+  },
   server: {
     proxy: {
       "/api": {

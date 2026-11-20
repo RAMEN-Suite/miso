@@ -6,7 +6,7 @@ const router: Router = express.Router();
 
 /**
  * Redirects to a per-project external tool. Any path following the tool name is forwarded onto the
- * tool's server-configured base URL, e.g. GET /api/tools/awen/entity/:uuid redirects to
+ * tool's server-configured base URL, e.g. GET /api/tools/tori/entity/:uuid redirects to
  * <tool-base-url>/entity/:uuid. Without a trailing path it redirects to the tool's base URL itself.
  *
  * @param {Request} req - The Express request object.
@@ -15,6 +15,14 @@ const router: Router = express.Router();
  * @returns {void} This function does not return any value.
  */
 function handleRedirect(req: Request, res: Response, next: NextFunction): void {
+  if (!req.params.toolName) {
+    throw new ValidationError("Missing tool name");
+  }
+
+  if (typeof req.params.toolName !== "string") {
+    throw new ValidationError("Malformed tool name");
+  }
+
   try {
     const baseUrl: string = getToolUrl(req.params.toolName);
 
@@ -28,7 +36,7 @@ function handleRedirect(req: Request, res: Response, next: NextFunction): void {
 
     try {
       targetUrl = new URL(targetStr);
-    } catch (error: unknown) {
+    } catch {
       throw new ValidationError("Invalid redirect target");
     }
 

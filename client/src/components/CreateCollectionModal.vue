@@ -1,19 +1,15 @@
 <script setup lang="ts">
 import { ref, inject, watch, computed, toValue, Ref } from "vue";
 import Button from "primevue/button";
-import MultiSelect from "primevue/multiselect";
 import { useRoute } from "vue-router";
-import { CollectionNode, EntityNode, NodeDto, NodeStatus, NodeStatusObject, TextNode } from "../models/types";
-import NodeSearchbar from "./NodeSearchbar.vue";
-import CollectionCard from "./CollectionCard.vue";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
-import NodeTag from "./NodeTag.vue";
+import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
-import { useGuidelinesStore } from "../store/guidelines";
-import { createCollectionNode, createNodeDtoFromNode, createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { useConfigStore } from "../store/config";
+import { createCollectionNode } from "../config/ramen";
+import { validateValue } from "../utils/helper/modelHelper";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-
-type Mode = "new" | "existing";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
 
@@ -23,38 +19,31 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", collection: NodeDto<CollectionNode>): void;
+  (e: "success", collection: NodeDto<HierarchyNode>): void;
 }>();
 
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
-const { getCollectionConfigFields, getAvailableCollectionLabels } = useGuidelinesStore();
+const { getCollectionAttributes, getModelContext } = useConfigStore();
 
-const mode: Mode = dialogRef.value.data.mode;
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newCollectionNode = ref<CollectionNode>(createCollectionNode());
-const additionalLabels = ref<string[]>([]);
-const allLabels = computed<string[]>(() => ["Collection", ...additionalLabels.value]);
-const availableCollectionLabels = getAvailableCollectionLabels();
-const collectionFields = computed(() => getCollectionConfigFields(allLabels.value));
-
-const selectedCollection = ref<CollectionNode | null>(null);
-const selectedAsStatusObject = computed(() =>
-  selectedCollection.value
-    ? (createNodeStatusObjectFromRawData(createNodeDtoFromNode(selectedCollection.value)) as NodeStatusObject<CollectionNode>)
-    : undefined,
+const newCollectionNode = ref<CollectionNode>(createCollectionNode(nodeType));
+// The label has its own input above the form
+const collectionFields = computed(() =>
+  getCollectionAttributes(newCollectionNode.value).filter((field) => field.attribute.name !== "label"),
 );
 
-const inputIsValid = computed<boolean>(() => {
-  if (mode === "new") {
-    return newCollectionNode.value.data.label.trim().length > 0;
-  }
-
-  return selectedCollection.value !== null;
-});
+const inputIsValid = computed<boolean>(
+  () =>
+    newCollectionNode.value.properties.label.trim().length > 0 &&
+    collectionFields.value.every(
+      (field) => validateValue(getModelContext(), field, newCollectionNode.value.properties[field.attribute.name]).length === 0,
+    ),
+);
 
 watch(() => route.path, closeModal);
 
@@ -62,19 +51,19 @@ function closeModal() {
   dialogRef?.value?.close();
 }
 
-function handleSearchItemSelected(item: CollectionNode | EntityNode | TextNode) {
-  selectedCollection.value = item as CollectionNode;
-}
-
-function wrapDataForCreation(
-  collectionNode: CollectionNode,
-  parent: CollectionNode | null,
-  status: "created" | "added",
-): NodeStatusObject {
+/**
+ * Wraps the new node in an ownership tree for the create endpoint: the parent as root with the new
+ * node attached, or the new node alone when created at top level.
+ *
+ * @param {CollectionNode} collectionNode - The new collection node.
+ * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
+ * @returns {NodeStatusObject} The ownership tree to persist.
+ */
+function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionNode | null): NodeStatusObject {
   const nodeStatusObject: NodeStatusObject<CollectionNode> = {
     node: collectionNode,
     connectedNodes: [],
-    meta: { status },
+    meta: { status: "created" },
   };
 
   if (!parent) {
@@ -89,21 +78,18 @@ function wrapDataForCreation(
 }
 
 async function handleSubmit() {
-  const collectionNodeToAdd: CollectionNode | null =
-    mode === "new" ? { ...newCollectionNode.value, nodeLabels: allLabels.value } : selectedCollection.value;
-
-  if (!collectionNodeToAdd) {
+  if (isLoading.value) {
     return;
   }
 
-  const status: NodeStatus = mode === "new" ? "created" : "added";
+  const collectionNodeToAdd: CollectionNode = { ...newCollectionNode.value };
 
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection, status);
+    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
 
-    const result: NodeDto<CollectionNode> = await api.createOrAddCollection(collectionNodeToAdd.data.uuid, updateObj);
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.properties.uuid, updateObj);
 
     emit("success", toValue(result));
 
@@ -112,7 +98,7 @@ async function handleSubmit() {
     addToastMessage({
       severity: "error",
       summary: "Error",
-      detail: mode === "new" ? "Failed to create collection." : "Failed to add collection.",
+      detail: "Failed to create collection.",
       life: 3000,
     });
   } finally {
@@ -122,48 +108,46 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="container flex flex-column gap-3">
-    <template v-if="mode === 'new'">
-      <div class="flex flex-column gap-1">
-        <h3 class="text-center">Labels</h3>
-        <MultiSelect
-          v-model="additionalLabels"
-          :options="availableCollectionLabels"
-          display="chip"
-          placeholder="Select labels"
-          :filter="false"
-        >
-          <template #chip="{ value }">
-            <NodeTag :content="value" type="Collection" class="mr-1" />
-          </template>
-        </MultiSelect>
-      </div>
-      <div class="flex flex-column gap-1">
-        <h3 class="text-center">Properties</h3>
-        <FormPropertiesSection v-model="newCollectionNode.data" :fields="collectionFields" mode="edit" />
-      </div>
-    </template>
+  <div class="modal-container flex flex-col gap-4 py-2">
+    <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
+    <CollectionLabelInput
+      v-model:label="newCollectionNode.properties.label"
+      :placeholder="`Provide a ${nodeType.name} label`"
+      :disabled="isLoading"
+      autofocus
+    />
+    <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
-    <template v-else>
-      <NodeSearchbar base-node-label="Collection" @item-selected="handleSearchItemSelected" />
-      <CollectionCard v-if="selectedAsStatusObject" :model-value="selectedAsStatusObject" mode="view" />
-    </template>
-
-    <div class="flex justify-content-center gap-2">
-      <Button label="Cancel" icon="pi pi-times" severity="secondary" @click="closeModal" />
-      <Button
-        :disabled="!inputIsValid"
-        :loading="isLoading"
-        :label="mode === 'new' ? 'Create' : 'Add'"
-        :icon="mode === 'new' ? 'pi pi-plus' : 'pi pi-check'"
-        @click="handleSubmit"
+    <div class="modal-body flex flex-col gap-1 px-1">
+      <FormPropertiesSection
+        v-model="newCollectionNode.properties"
+        :fields="collectionFields"
+        mode="edit"
+        :disabled="isLoading"
       />
+    </div>
+
+    <div class="modal-footer flex justify-center gap-2">
+      <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.container {
+.modal-container {
   min-width: 350px;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.modal-body {
+  flex-grow: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.modal-footer {
+  flex-shrink: 0;
 }
 </style>

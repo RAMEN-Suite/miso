@@ -1,19 +1,12 @@
-import { TreeNode } from "primevue/treenode";
+import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
+import type { MisoConfig } from "../schemas/misoConfig.schema";
 import { IAnnotation } from "./IAnnotation";
-import ICharacter from "./ICharacter";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
-import type { BuiltinEditorAttribute } from "../config/editor";
-import type { AnnotationMapping } from "../config/editor";
-
-export interface AdditionalText {
-  annotation: IAnnotation;
-  text: TextNode;
-}
 
 /** A status object for nodes in the frontend and for API requests */
-export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeStatusObject<T>[];
   meta: {
@@ -28,181 +21,153 @@ export interface NodeStatusObject<T extends Node<BaseNodeData> = AnnotationNode 
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
+/** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
 export type Annotation = NodeStatusObject<AnnotationNode>;
 
 export type AnnotationNode = Node<IAnnotation>;
 
 /** A node object for retrieving data */
-export interface NodeDto<T extends Node<BaseNodeData> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
+export interface NodeDto<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
   node: T;
   connectedNodes: NodeDto[];
 }
 
-export interface AnnotationData {
-  additionalTexts: AdditionalText[];
-  entities: EntityNode[];
-  properties: IAnnotation;
+// Types of the settings of model elements (entries of `elements`), inferred from their schemas
+export type {
+  AnnotationAppearance,
+  AnnotationExtent,
+  AnnotationShapeConfig,
+  AppearanceOverride,
+  AppearanceVariant,
+  AttributeConfig,
+  BuiltinStructuralType,
+  ContentMedium,
+  ContentTypeConfig,
+  HighlightTextStyle,
+  IconSpec,
+  IconSpecInput,
+  IconStyle,
+  LucideIconSpec,
+  MarkerStyle,
+  MathTextStyle,
+  NodeAppearance,
+  NodeConfig,
+  PropertiesTextStyle,
+  SvgIconSpec,
+  TextAnnotationRepresentation,
+  UrlIconSpec,
+} from "../schemas/configBlocks.schema";
+
+/** The model and the config every model lookup works on */
+export interface ModelContext {
+  /** The model, imported by RAMEN core */
+  model: RamenModel;
+  /** The validated config: the raw model and the settings of its elements */
+  config: MisoConfig;
+}
+
+/** An attribute of a node, or a property of an annotation shape, with the element that declares it */
+export interface ModelAttribute {
+  /** The attribute as declared in the model */
+  attribute: Attribute;
+  /** Qualified ref (`<modelId>:<id>`) of the declaring node or annotation shape */
+  ownerRef: string;
 }
 
 /**
- * CAMI-internal role of the annotation in a text document. Defines how an annotation is represented
- * in the tiptap editor. Options are:
- * - `structure`: document scaffolding (paragraph, heading, table, hardBreak etc.). Used by
- *    the built-in types, can be (partially) overriden by the user with custom type names and additional properties
- * - `semanticBlock`: whole-block labels. Are always attached to a whole built-in document blocks and give them as semantic meaning.
- *    Mirror TEI-like block elements (opener, closer, addrLine etc.) to a certain extent.
- * - `inline`: user interpretation of a text range (font styling, commentaries, entities). Kind of the default annotation.
+ * An annotation shape as listed in a RamenFile: with the `modelId` of the model level it is declared in, since the file
+ * flattens all levels into one `annotations` list.
  */
-export type AnnotationRole = "structure" | "inline" | "semanticBlock";
+export type ModelAnnotationShape = Owned<AnnotationShape>;
+
+/** An element that declares attributes, as listed in a RamenFile: a node classifier or an annotation shape */
+export type AttributeOwner = Owned<RamenNode> | ModelAnnotationShape;
+
+/** A node type new nodes can be created with, e.g. in the "add" menus */
+export interface NodeTypeOption {
+  /** Qualified ref of the classifier */
+  classifierRef: string;
+  /** The classifier's name, for display */
+  name: string;
+  /** The labels new nodes of the type are stored with: the names of its lineage, base first */
+  nodeLabels: string[];
+  /**
+   * The values new nodes of the type start with: `false` for required Boolean attributes (an untouched checkbox would
+   * otherwise have no value). Other required attributes stay empty, so they are filled in deliberately.
+   */
+  initialData: Record<string, unknown>;
+}
 
 /**
- * How an annotation sits in the text.
- * - `range`: covers a range in the text, marked with `startIndex` and `endIndex` (both inclusive).
- *    Required for annotations with role `semanticBlock`.
- * - `zeroPoint`: an atom between two characters; `startIndex` is an offset, not a range start.
+ * The model element a stored name (node labels, annotation `type`) resolves to: its qualified ref, or `null` and the
+ * problem, so reads can report unresolvable data instead of failing.
  */
-export type AnnotationBehaviour = "zeroPoint" | "range";
+export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
 
-export interface AnnotationType {
-  category: string; // CAMI
-  defaultSelected: boolean; // CAMI
-  /** @deprecated Use `behaviour: "zeroPoint"`. Kept as a legacy input the normalization derives from. */
-  isZeroPoint?: boolean; // CAMI and NORI
-  hasAdditionalTexts?: boolean; // Derived from NORI
-  hasEntities?: boolean; // Derived from NORI
-  entityNodes?: string[]; // Derived from NORI
-  properties?: PropertyConfig[]; // NORI
-  shortcut: string[]; // CAMI
-  text: string; // CAMI
-  type: string; // NORI -> discriminator, also property there
-  /** @deprecated Use `role`. Kept as a legacy input the normalization derives from. */
-  isBlock?: boolean; // CAMI
-  contains?: string[]; // CAMI -> only for builtin structural elements
-  topLevel?: boolean; // CAMI -> deprecated, but keep for now
-  priority?: number; // CAMI
-  role?: AnnotationRole; // CAMI -> operational category (structure/inline/semanticBlock)
-  behaviour?: AnnotationBehaviour; // CAMI -> zeroPoint vs range
+/** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
+export interface ElementNode {
+  /** What a write does with the node. Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
+  classifierRef: string | null;
+  /** Annotations only: qualified ref of the annotation shape */
+  shapeRef?: string | null;
+  /** Reads only: the labels as stored. Writes derive them from `classifierRef`. */
+  nodeLabels?: string[];
+  properties: BaseNodeProperties & Record<string, unknown>;
 }
 
-export interface AnnotationReference {
-  isFirstCharacter: boolean;
-  isLastCharacter: boolean;
-  subType: string | null;
-  type: string;
-  uuid: string;
+/** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
+export interface ElementRelation {
+  /** What a write does with the relation (`added`/`removed`). Missing on reads. */
+  status?: NodeStatus;
+  /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
+  relationRef: string | null;
+  /** uuid of the start node */
+  from: string;
+  /** uuid of the end node */
+  to: string;
 }
 
-export interface AnnotationConfigEntity {
-  category: string;
-  nodeLabel: string;
+/** Nodes and relations in the element format, as validated by `validateElements` */
+export interface ElementGraph {
+  nodes: ElementNode[];
+  relations: ElementRelation[];
 }
 
-export interface ApiJson {
-  text: string;
-  annotations: NodeDto[];
+/** A read in the element format: the stored nodes and relations, and the problems of resolving them to the model */
+export interface ElementResponse extends ElementGraph {
+  diagnostics: ElementDiagnostic[];
 }
 
-export type BuiltinStructuralType =
-  | "paragraph"
-  | "heading"
-  | "hardBreak"
-  | "table"
-  | "tableRow"
-  | "tableCell"
-  | "tableHeader"
-  | "bulletList"
-  | "listItem";
-
-// Editor-framework facts live in `config/editor` (imported above). Re-exported here for convenience
-// so existing model-type importers keep working.
-export type { BuiltinEditorAttribute };
-export type { AnnotationMapping };
-
-export interface TiptapMark {
-  type: string;
-  attrs: Record<string, any>;
+/** A validation finding, mapped back to the element it belongs to */
+export interface ElementDiagnostic {
+  severity: Diagnostic["severity"];
+  /** RAMEN core's code, or a `MISO_` code for the app's own checks */
+  code: string;
+  message: string;
+  /** uuid of the node the finding belongs to */
+  uuid?: string;
+  /** The relation the finding belongs to */
+  relation?: Omit<ElementRelation, "status">;
+  /** Name of the property the finding belongs to */
+  attribute?: string;
 }
 
-export type AllowedTiptapNodeTypes = string;
-
-export interface TiptapNode {
-  type: AllowedTiptapNodeTypes;
-  attrs?: Record<string, any>;
-  content?: TiptapNode[];
-  marks?: TiptapMark[];
-  text?: string;
-}
-
-export type TiptapJson = TiptapNode;
-
-export interface BaseNodeData {
+export interface BaseNodeProperties {
   uuid: string;
 }
 
 /** Base node labels in RAMEN */
-export type BaseNodeLabel = "Annotation" | "Character" | "Collection" | "Entity" | "Content";
+export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
-export interface Bookmark {
-  data: CollectionNode | TextNode;
-  createdAt: string; // ISO 8601 string
-  updatedAt: string; // ISO 8601 string
-}
+/** The base node labels that can be searched for and referenced from an Annotation */
+export type ReferenceNodeLabel = Extract<BaseNodeLabel, "Collection" | "Entity" | "Content">;
 
-export interface Character {
-  data: ICharacter;
-  annotations: AnnotationReference[];
-}
-
-export interface CharacterPostData {
-  characters: ICharacter[];
-  text: string;
-  textUuid: string;
-  uuidEnd: string;
-  uuidStart: string;
-}
+/** Name of a layout component wrapping a route's view, resolved by `resolveLayout` */
+export type LayoutName = "default" | "blank";
 
 export type CollectionNode = Node<ICollection>;
-
-export interface CollectionAccessObject {
-  annotations: NodeDto<AnnotationNode>[];
-  collection: NodeDto<CollectionNode>;
-  texts: NodeDto<TextNode>[];
-}
-
-export interface CollectionAccessStatusObject {
-  collection: NodeStatusObject<CollectionNode>;
-  texts: NodeStatusObject<TextNode>[];
-  annotations: NodeStatusObject[];
-}
-
-export type CollectionCreationData = CollectionAccessObject & {
-  parentCollection: CollectionNode | null;
-};
-
-export type CollectionNetworkActionType = "move" | "reference" | "dereference" | "delete";
-
-export interface CollectionPostData {
-  data: CollectionAccessObject;
-  initialData: CollectionAccessObject;
-}
-
-export interface CollectionPreview {
-  collection: CollectionNode;
-  nodeCounts: {
-    annotations: number;
-    texts: number;
-    collections: number;
-  };
-}
-
-export interface EditorSettings {
-  blockDecorations: {
-    outline: boolean;
-    baseType: boolean;
-    semanticTypes: boolean;
-  };
-  documentStructures: boolean;
-}
 
 export interface NodeSearchParams {
   searchInput?: string;
@@ -214,47 +179,222 @@ export interface NodeSearchParams {
 
 export type EntityNode = Node<IEntity>;
 
-export type HistoryStack = HistoryRecord[];
+/** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
+export type HierarchyNode = CollectionNode | TextNode;
 
-export interface HistoryRecord {
-  caretPosition: string | null;
-  timestamp: Date;
-  data: {
-    afterEndCharacter: Character | null;
-    annotations: Annotation[];
-    beforeStartCharacter: Character | null;
-    characters: Character[];
+/**
+ * An ordered path of hierarchy nodes, root first, focused node last. */
+export type HierarchyPath = NodeDto<HierarchyNode>[];
+
+/** A single item in a hierarchy listing (column / directory / tree). */
+export interface HierarchyEntry {
+  data: NodeDto<HierarchyNode>;
+  meta: {
+    /**
+     * Derived from the node type via `getBaseNodeLabel`. Cached here because it is read
+     * on every render (icon, click behaviour).
+     */
+    baseLabel: "Collection" | "Content";
   };
 }
 
-export type IndexMap = Map<string, { startIndex: number; endIndex: number }>;
+/**
+ * Several items selected inside one column at once. Only exists with two or more items — a single
+ * selection is expressed by the hierarchy path alone.
+ */
+export interface MultiSelection {
+  /** The level index (column) the selection lives in. */
+  depth: number;
+  /** The selected items, in the order they were added. Whole DTOs, since an item might not be in the column's loaded entries. */
+  items: NodeDto<HierarchyNode>[];
+  /** Where a range selection starts. */
+  anchor: NodeDto<HierarchyNode>;
+  /** The selection at the time the anchor was set. A range is always added to this base, not to the previous range. */
+  baseItems: NodeDto<HierarchyNode>[];
+}
 
-export interface ColumnEntry {
-  data: NodeDto<CollectionNode>;
-  status: "existing" | "temporary";
+/** The modifier keys held while selecting an item. */
+export interface SelectionModifiers {
+  /** Add or remove the item (Cmd on Mac, Ctrl elsewhere). */
+  toggle: boolean;
+  /** Select from the anchor up to the item (Shift). */
+  range: boolean;
 }
 
 export interface Level {
-  collections: ColumnEntry[];
-  activeCollection: NodeDto<CollectionNode> | null;
+  entries: HierarchyEntry[];
+  /** The item selected in this level — the one whose children the next level shows. */
+  activeItem: NodeDto<HierarchyNode> | null;
   parentUuid: string | null;
+  query: LevelQuery;
+  state: LevelState;
 }
 
-export interface MalformedAnnotation {
-  reason: "indexOutOfBounds" | "unconfiguredType";
-  data: StandoffAnnotation;
+/**
+ * User-editable constraints for the to-be-displayed items (filter, sorting, etc).
+ *
+ * Lives on the {@linkcode Level} rather than in the component rendering it, so that it can be
+ * reached from anywhere.
+ */
+export interface LevelQuery {
+  filters: HierarchyFilters;
+  sort: HierarchySort;
 }
 
-export interface NetworkPostData {
-  type: CollectionNetworkActionType;
-  nodes: (CollectionNode | TextNode)[];
-  origin: CollectionNode | null;
-  target: CollectionNode | null;
+/**
+ * Non-editable state information for the level. Contains pagination, loading/initializing state etc.
+ * Can be written by the fetching engine ({@link useHierarchyChildren}) and is invalidated
+ * as soon as {@linkcode LevelQuery} changes — every field here describes the last request made.
+ */
+export interface LevelState {
+  /** Opaque position handed out by the server, or null at the start of a listing. */
+  cursor: string | null;
+  pagination: PaginationData | null;
+  isLoading: boolean;
+  /** False until the first page has been fetched */
+  initialized: boolean;
 }
+
+/**
+ * Root element for any kind of Collection/Content hierarchies in the editor.
+ * Which set of items the first column lists. `"database"` lists the top of the `PART_OF` hierarchy;
+ * `"tag"` lists the nodes carrying one client-side tag, which may sit anywhere in the graph.
+ * Every column below the first shows `PART_OF` children regardless of the root.
+ */
+export type HierarchyRoot =
+  | { kind: "database" }
+  | { kind: "tag"; uuid: string }
+  /**
+   * Same fetching mechanism as `database`, but the first column lists the set chosen by the
+   * {@linkcode SmartView}'s stored scope and is seeded with its stored filter preset.
+   */
+  | { kind: "smartView"; uuid: string };
+
+/**
+ * Which set of nodes a hierarchy listing is drawn from.
+ *
+ * This is the *scope*, not a filter: {@link HierarchyFilters} narrows a set, a scope defines it,
+ * and the five kinds are mutually exclusive. All of them are served by `POST /hierarchy/query`.
+ *
+ * - `children`: the direct `PART_OF` children of one Collection.
+ * - `descendants`: everything below one Collection, at any depth of the `PART_OF` hierarchy.
+ * - `top`: the top of the `PART_OF` hierarchy.
+ * - `all`: every Collection and Content, wherever it sits in the hierarchy.
+ * - `uuids`: an explicit set of nodes, independent of `PART_OF`.
+ */
+export type HierarchyScope =
+  | { kind: "children"; parentUuid: string }
+  | { kind: "descendants"; ancestorUuid: string }
+  | { kind: "top" }
+  | { kind: "all" }
+  | { kind: "uuids"; uuids: string[] };
+
+/** The scopes a {@linkcode SmartView} can search in. The other kinds are bound to navigation or tags. */
+export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendants" }>;
+
+/** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
+export interface CollectionFocus {
+  kind: "collection";
+  collection: NodeStatusObject<CollectionNode>;
+  annotations: Annotation[];
+}
+
+/** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */
+export interface ContentFocus {
+  kind: "content";
+  content: NodeStatusObject<TextNode>;
+  annotations: NodeDto<AnnotationNode>[];
+}
+
+export type FilterComparator =
+  | "contains"
+  | "notContains"
+  | "startsWith"
+  | "endsWith"
+  | "equals"
+  | "notEquals"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "between"
+  | "in"
+  | "dateIs"
+  | "dateBefore"
+  | "dateAfter"
+  | "isEmpty"
+  | "isNotEmpty";
+
+/**
+ * A single condition/constraint for filtering a list of nodes.
+ */
+export interface FilterCondition {
+  comparator: FilterComparator;
+  value: unknown;
+}
+
+/** A group of filter conditions which are applied together, and the concatenation operator */
+export interface FilterConditionGroup {
+  operator: FilterOperator;
+  conditions: FilterCondition[];
+}
+
+export type FilterTarget =
+  /** A node property: `n.<field>`. */
+  | { kind: "property"; field: string }
+  /** The node's default value to fulltext-search — `label`, falling back to a `text` currently */
+  | { kind: "distinct" }
+  /**
+   * The node's type: an `in` condition over classifier refs matches nodes of these types and their refinements. Filter
+   * only — not a valid sort target.
+   */
+  | { kind: "classifier" };
+
+export type FilterOperator = "and" | "or";
+
+export type FilterRule = { target: FilterTarget } & FilterConditionGroup;
+
+export type FilterSpec = FilterRule[];
+
+/**
+ * One rule of the filter editor. Represents one condition of a filter rule.
+ */
+export interface FilterRow {
+  id: string;
+  target: FilterTarget;
+  comparator: FilterComparator;
+  value: unknown;
+}
+
+/** What the focus pane renders — a Collection (editable) or a Content (read-only preview). */
+export type FocusData = CollectionFocus | ContentFocus;
+
+/** Sort state for a hierarchy listing. */
+export interface HierarchySort {
+  /**
+   * What to sort by, named the same way a {@linkcode FilterRule} names what it matches — so anything
+   * filterable is sortable, and both resolve through the same expression builder on the server.
+   * `{ kind: "classifier" }` is rejected: a set of node types has no ordering.
+   */
+  target: FilterTarget;
+  /** Direction to sort by. */
+  order: "asc" | "desc";
+}
+
+/** Filter state for a hierarchy listing: the rules are ANDed with each other. */
+export type HierarchyFilters = FilterSpec;
 
 export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
-  data: T;
+  properties: T;
+  /** The labels as stored in the database */
   nodeLabels: string[];
+  /**
+   * Qualified ref of the node's classifier, resolved by the server from the labels (for annotations: the family of
+   * its shape). `null` if the stored data can't be resolved, missing on nodes the client created itself.
+   */
+  classifierRef?: string | null;
+  /** Annotations only: qualified ref of the annotation shape, resolved by the server from the carrier and `type` */
+  shapeRef?: string | null;
 }
 
 export type NodeAncestry = NodeDto<CollectionNode>[];
@@ -265,7 +405,8 @@ export interface PaginationData {
   order: string;
   search: string;
   totalRecords: number;
-  nextCursor?: CursorData | null;
+  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
+  nextCursor?: CursorData | string | null;
 }
 
 export interface CursorData {
@@ -278,80 +419,28 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export interface PropertyConfig {
-  /** folioEnd, label, websiteUrl */
-  name: string; // CAMI -> name to display. Or remove kompletely, type is type
-  /** data type (raw string, dropdown, multiple options) */
-  type: PropertyConfigDataType; // NORI
-  /** required or optional */
-  required: boolean; // NORI
-  /** Editable by user */
-  editable: boolean; // CAMI
-  /** Visible by user */
-  visible: boolean; // CAMI;
-  /** Render as normal input or textarea? */
-  template?: PropertyConfigStringTemplate; // CAMI;
-  // The rest here is cami
-  /* Only relevant if type is "array" */
-  items?: Partial<PropertyConfig>;
-  minItems?: number;
-  maxItems?: number;
-  /* Only relevant if type is "number"/"integer" */
-  minimum?: number;
-  maximum?: number;
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
-  /* Only relevant if type is "string" */
-  minLength?: number;
-  maxLength?: number;
-  options?: string[] | number[] /* Options if type is dropdown */;
-}
-
-export type PropertyConfigDataType = "array" | "boolean" | "date" | "date-time" | "integer" | "number" | "string" | "time";
-
-export type PropertyConfigStringTemplate = "input" | "textarea";
-
-export interface Range {
-  from: number;
-  to: number;
-}
-
-export interface RedrawModeOptions {
-  direction: "on" | "off";
-  cause?: "success" | "cancel";
-  annotationUuid?: string;
-}
-
-export interface SemanticBlockRange {
-  startPos: number;
-  endPos: number;
-  type: string;
+/**
+ * A user-defined view: a named scope and filter preset held in the browser. Selecting one lists the
+ * nodes of its scope, pre-filtered by its filters (see {@linkcode SmartView.config}). Unlike a
+ * {@linkcode Tag} it references no listed nodes at all — membership is decided by scope and filters
+ * on every request, so it never goes stale.
+ */
+export interface SmartView {
   uuid: string;
-}
-
-export interface StandoffAnnotation {
-  [key: string]: any;
-  startIndex: number;
-  endIndex: number;
-  text: string;
-  type: string;
-  subType?: string | number;
-}
-
-export interface StandoffJson {
-  annotations: StandoffAnnotation[];
-  text: string;
+  label: string;
+  appearance?: {
+    icon?: string;
+  };
+  config: {
+    /** Where the view searches: everywhere, or everything below one Collection. */
+    scope: SmartViewScope;
+    filters: FilterSpec;
+  };
 }
 
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
-
-export interface TextAccessObject {
-  collection: CollectionNode | null;
-  paths: NodeAncestry[];
-  text: TextNode;
-}
 
 /**
  * Type for updating text + annotations.
@@ -361,24 +450,26 @@ export interface TextUpdateDto {
   annotations: Annotation[];
 }
 
-export interface TextOperationResult {
-  leftBoundary?: string | null;
-  rightBoundary?: string | null;
-  changeSet?: Character[];
+/**
+ * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text
+ * describing what the set is for ("Workspace", "In Review"). A node can carry any
+ * number of tags, and a tag's members may sit anywhere in the graph.
+ */
+export interface Tag {
+  uuid: string;
+  label: string;
+  appearance?: {
+    icon?: string;
+    color?: string;
+  };
+  entries: TagEntry[];
 }
 
-export type ToCItem = TreeNode & {
-  data: {
-    nodeSize: number;
-    nodeType: string;
-    /** Canonical (project-configured) annotation type, derived from the live node, not _annotationData. */
-    type: string;
-    /** Heading level when the node is a heading; read from the live native attr. */
-    level?: number;
-    pos: number;
-    text: string;
-    _annotationData: Record<string, any>;
-    _semanticBlocks: { uuid: string; annotationType: string }[] | null;
-  };
-  children: ToCItem[];
-};
+/**
+ * One tagged node. A **reference only** — never a node snapshot, so a renamed or re-parented node
+ * cannot go stale here. The node itself is resolved server-side via `POST /api/hierarchy/query`.
+ */
+export interface TagEntry {
+  uuid: string;
+  createdAt: string; // ISO 8601 string
+}

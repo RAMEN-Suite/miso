@@ -9,14 +9,14 @@ const shortcutMap = ref<Map<string, () => void>>(new Map());
  */
 export function useShortcutsStore() {
   /**
-   * Registers a shortcut key combination with a corresponding action (e.g. annotating text). Done within the component that has the shortcut.
+   * Registers a shortcut with a corresponding action (e.g. annotating text). Done within the component that has the shortcut.
    *
-   * @param {string} shortcutCombo A string representing the shortcut key combination, e.g. 'Ctrl+Shift+A'.
+   * @param {string} shortcut The shortcut in keymap notation, e.g. `Mod-Shift-a`. See {@linkcode parseShortcut}.
    * @param {function} action The action to execute when the shortcut is pressed.
    * @return {void} This function does not return any value.
    */
-  function registerShortcut(shortcutCombo: string, action: () => void): void {
-    shortcutMap.value.set(shortcutCombo, action);
+  function registerShortcut(shortcut: string, action: () => void): void {
+    shortcutMap.value.set(parseShortcut(shortcut), action);
   }
 
   /**
@@ -33,5 +33,43 @@ export function useShortcutsStore() {
       .join("+");
   }
 
-  return { shortcutMap, normalizeKeys, registerShortcut };
+  /**
+   * Parses a shortcut in keymap notation (e.g. `Mod-Shift-e`) into the normalized key combination that is compared
+   * against pressed keys.
+   *
+   * @param {string} shortcut The shortcut in keymap notation.
+   * @returns {string} The normalized key combination, e.g. `ctrl+e+shift`.
+   */
+  function parseShortcut(shortcut: string): string {
+    const isMac: boolean = /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+    // Split on "-" except for a trailing one, so that "Mod--" resolves to the "-" key
+    const parts: string[] = shortcut.split(/-(?!$)/);
+
+    const keys: string[] = parts.map((part: string) => {
+      const lower: string = part.toLowerCase();
+
+      if (lower === "mod") {
+        return isMac ? "meta" : "ctrl";
+      }
+
+      if (lower === "control") {
+        return "ctrl";
+      }
+
+      if (lower === "cmd" || lower === "command") {
+        return "meta";
+      }
+
+      if (lower === "option") {
+        return "alt";
+      }
+
+      return lower;
+    });
+
+    return normalizeKeys(keys);
+  }
+
+  return { shortcutMap, normalizeKeys, parseShortcut, registerShortcut };
 }

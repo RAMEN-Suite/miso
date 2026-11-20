@@ -1,33 +1,32 @@
 import { readonly, ref } from "vue";
 import ApiService from "../services/api";
-import { useStyleTag } from "@vueuse/core";
-import { useGuidelinesStore } from "./guidelines";
+import { useConfigStore } from "./config";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 import { ToastMessageOptions, ToastServiceMethods } from "primevue";
 import AppError from "../utils/errors/app.error";
+import { ParsedMisoConfig, parseMisoConfig } from "../schemas/misoConfig.schema";
 
-const { error: guidelinesError, initializeGuidelines } = useGuidelinesStore();
+const { error: configError, initializeConfig } = useConfigStore();
 
 // Data
 const api: ApiService = new ApiService();
 
 // Modals anywhere in the app are set to this variable
-const activeModal = ref<DynamicDialogInstance>(null);
+const activeModal = ref<DynamicDialogInstance | null>(null);
 
 // App-wide toast service
-const toast = ref<ToastServiceMethods>(null);
+const toast = ref<ToastServiceMethods | null>(null);
 
 // Fetch status
 const isFetching = ref<boolean>(false);
-const error = ref<AppError>(null);
+const error = ref<AppError | null>(null);
 
 /**
  * Returns an object containing methods for fetching data from the API and initializing the application.
  *
  * The object contains the following methods:
- *   - `fetchAndApplyStyles`: Fetches the custom stylesheet and applies it to the document.
- *   - `fetchAndInitializeGuidelines`: Fetches the guidelines and initializes the store with the fetched data.
- *   - `initializeApp`: Initializes the application by fetching guidelines, styles, configuration etc.
+ *   - `fetchAndInitializeConfig`: Fetches the Miso config and initializes the config store with it.
+ *   - `initializeApp`: Initializes the application by fetching the config etc.
  *
  * The object also contains the following properties:
  *   - `api`: The API instance.
@@ -74,25 +73,15 @@ export function useAppStore() {
   }
 
   /**
-   * Fetches the custom stylesheet and applies it to the document.
+   * Fetches the Miso config, validates it and initializes the config store with it.
    *
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
+   * @throws {ConfigValidationError} If the fetched config does not have the expected format or its model is invalid.
    */
-  async function fetchAndApplyStyles(): Promise<void> {
-    const css: string = await api.getStyles();
+  async function fetchAndInitializeConfig(): Promise<void> {
+    const parsed: ParsedMisoConfig = parseMisoConfig(await api.getConfig());
 
-    useStyleTag(css, { id: "custom-styles" });
-  }
-
-  /**
-   * Fetches the guidelines and initializes the store with the fetched data.
-   *
-   * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   */
-  async function fetchAndInitializeGuidelines(): Promise<void> {
-    const guidelines = await api.getGuidelines();
-
-    initializeGuidelines(guidelines);
+    initializeConfig(parsed);
   }
 
   /**
@@ -107,7 +96,7 @@ export function useAppStore() {
   }
 
   /**
-   * Initializes the application by fetching guidelines, styles, configuration etc.
+   * Initializes the application by fetching the config etc.
    *
    * This function is called when the application is mounted.
    *
@@ -118,13 +107,13 @@ export function useAppStore() {
 
     try {
       await checkDatabaseStatus();
-      await fetchAndInitializeGuidelines();
-      await fetchAndApplyStyles();
+      await fetchAndInitializeConfig();
 
-      if (guidelinesError.value) {
-        throw guidelinesError.value;
+      if (configError.value) {
+        throw configError.value;
       }
     } catch (e: unknown) {
+      console.error("Error initializing the app:", e);
       error.value = e as AppError;
     } finally {
       isFetching.value = false;

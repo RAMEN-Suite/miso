@@ -4,6 +4,7 @@ import Popover from "primevue/popover";
 import InputNumber from "primevue/inputnumber";
 import Button from "primevue/button";
 import Checkbox from "primevue/checkbox";
+import type { ChainedCommands } from "@tiptap/core";
 import { useTiptapStore } from "../store/tiptap";
 const { tiptap } = useTiptapStore();
 
@@ -18,7 +19,20 @@ function toggle(event: Event): void {
 }
 
 function addTable(): void {
-  tiptap.value?.chain().focus().insertTable({ cols: columns.value, rows: rows.value, withHeaderRow: hasHeaderRow.value }).run();
+  if (!tiptap.value) {
+    return;
+  }
+
+  const chain: ChainedCommands = tiptap.value
+    .chain()
+    .focus()
+    .insertTable({ cols: columns.value, rows: rows.value, withHeaderRow: false });
+
+  if (hasHeaderRow.value) {
+    chain.toggleLabelRow();
+  }
+
+  chain.run();
 
   columns.value = 3;
   rows.value = 3;
@@ -32,18 +46,21 @@ defineExpose({ toggle });
 
 <template>
   <Popover ref="popover">
-    <div class="flex flex-col gap-4 w-[25rem]">
-      <div class="flex-auto w-6rem">
+    <div class="flex gap-4">
+      <div class="flex-auto w-24">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="columns" class="font-bold block mb-2"> Columns </label>
         <InputNumber v-model="columns" input-id="columns" fluid :min="1" :max="10" show-buttons />
       </div>
-      <div class="flex-auto w-6rem">
+      <div class="flex-auto w-24">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="rows" class="font-bold block mb-2"> Rows </label>
         <InputNumber v-model="rows" input-id="rows" fluid :min="1" :max="10" show-buttons />
       </div>
     </div>
-    <div class="flex items-center gap-2 mt-2 justify-content-center">
+    <div class="flex items-center gap-2 mt-2 justify-center">
       <Checkbox v-model="hasHeaderRow" input-id="header-row" name="header-row" binary />
+      <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
       <label for="header-row"> Add header row </label>
     </div>
     <div class="mt-2 text-center">

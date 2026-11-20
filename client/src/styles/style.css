@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "lucide-static/font/lucide.css";
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -10,9 +13,13 @@
 
   --z-index-overlay: 100;
   --z-index-gutter: 200;
-  --z-index-edit-pane: 1000;
+  --z-index-focus-pane: 1000;
   --z-index-text-container: 1000;
   --z-index-max: 99999;
+}
+
+* {
+  scrollbar-width: thin;
 }
 
 a {
@@ -22,11 +29,6 @@ a {
 body {
   margin: 0;
   min-height: 100vh;
-}
-
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
 kbd {
@@ -47,6 +49,17 @@ kbd {
 
 .card {
   padding: 2em;
+}
+
+/*
+   Base box for every Lucide font icon, mirroring what PrimeIcons' `.pi` used to provide. 
+   Needed because the properties are not set by lucide and would therefore be
+   falsely inherited.
+ */
+[class^="icon-"],
+[class*=" icon-"] {
+  display: inline-block;
+  line-height: var(--icon-size);
 }
 
 #app {

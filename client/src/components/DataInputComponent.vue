@@ -38,9 +38,7 @@ const context: ModelContext = useConfigStore().getModelContext();
 const name: string = props.attribute.attribute.name;
 const valueType: AttributeValueType = getValueType(context, props.attribute);
 const options: string[] | number[] | undefined = getOptions(context, props.attribute);
-const isDisabled = computed<boolean>(
-  () => props.disabled || !isEditable(context, props.attribute) || props.mode === "view",
-);
+const isDisabled = computed<boolean>(() => props.disabled || !isEditable(context, props.attribute) || props.mode === "view");
 // A single item is checked as part of the whole list by the group
 const required: boolean = !props.item && isRequired(props.attribute);
 

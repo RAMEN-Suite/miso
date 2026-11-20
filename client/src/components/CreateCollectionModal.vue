@@ -119,7 +119,12 @@ async function handleSubmit() {
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <div class="modal-body flex flex-col gap-1 px-1">
-      <FormPropertiesSection v-model="newCollectionNode.properties" :fields="collectionFields" mode="edit" :disabled="isLoading" />
+      <FormPropertiesSection
+        v-model="newCollectionNode.properties"
+        :fields="collectionFields"
+        mode="edit"
+        :disabled="isLoading"
+      />
     </div>
 
     <div class="modal-footer flex justify-center gap-2">

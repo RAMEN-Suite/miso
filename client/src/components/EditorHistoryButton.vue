@@ -20,10 +20,10 @@ function handleClick(): void {
 
 <template>
   <Button
-    icon="pi pi-undo"
+    icon="icon-undo-2"
     aria-label="Home"
     severity="secondary"
-    :class="`w-2rem h-2rem btn-${props.action}`"
+    :class="`w-8! h-8! btn-${props.action}`"
     :title="title"
     :disabled="false"
     @click="handleClick"

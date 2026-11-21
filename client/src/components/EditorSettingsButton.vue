@@ -15,37 +15,29 @@ function toggle(event: PointerEvent): void {
 </script>
 
 <template>
-  <Button
-    icon="pi pi-cog"
-    severity="secondary"
-    aria-label="View settings"
-    title="View settings"
-    class="w-2rem h-2rem ml-1"
-    @click="toggle"
-  />
+  <Button severity="secondary" aria-label="View settings" title="View settings" class="w-8! h-8! ml-1" @click="toggle">
+    <i class="icon-settings"></i>
+  </Button>
   <Popover ref="popover">
-    <div class="flex flex-column gap-3 p-2" style="min-width: 16rem">
+    <div class="flex flex-col gap-4 p-2" style="min-width: 16rem">
       <span class="font-bold">Document structures</span>
 
-      <div class="flex align-items-center justify-content-between gap-3" title="Toggle line break and paragraph symbols">
+      <div class="flex items-center justify-between gap-4" title="Toggle line break and paragraph symbols">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="doc-structures">Show formatting marks</label>
         <ToggleSwitch v-model="settings.documentStructures" input-id="doc-structures" />
       </div>
 
       <span class="font-bold">Block decorations</span>
 
-      <div
-        class="flex align-items-center justify-content-between gap-3"
-        title="Toggle outlines for document blocks (paragraphs, lists)"
-      >
+      <div class="flex items-center justify-between gap-4" title="Toggle outlines for document blocks (paragraphs, lists)">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="deco-outline">Show block outlines</label>
         <ToggleSwitch v-model="settings.blockDecorations.outline" input-id="deco-outline" />
       </div>
 
-      <div
-        class="flex align-items-center justify-content-between gap-3"
-        title="Display block names (paragraphs, lists) on top of each block"
-      >
+      <div class="flex items-center justify-between gap-4" title="Display block names (paragraphs, lists) on top of each block">
+        <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
         <label for="deco-base">Show block names</label>
         <ToggleSwitch v-model="settings.blockDecorations.baseType" input-id="deco-base" />
       </div>

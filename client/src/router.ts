@@ -1,29 +1,32 @@
 import { Router, createWebHistory, createRouter } from "vue-router";
-import Editor from "./views/Editor.vue";
-import CollectionManager from "./views/CollectionManager.vue";
+import EditorView from "./views/EditorView.vue";
+import HierarchyView from "./views/HierarchyView.vue";
 import CollectionSingleView from "./views/CollectionSingleView.vue";
+import NotFound from "./views/NotFound.vue";
 import { useNavigationGuard } from "./composables/useNavigationGuard";
 
-const { hasOpenModal, redirectToCollectionPath } = useNavigationGuard();
+const { hasOpenModal } = useNavigationGuard();
 
 const allRoutes = [
-  { path: "/", component: CollectionManager },
+  { path: "/", component: HierarchyView, meta: { layout: "default" as const } },
   {
     path: "/collections/:uuid",
     component: CollectionSingleView,
-    beforeEnter: redirectToCollectionPath,
+    props: true,
+    meta: { layout: "default" as const },
   },
-  { path: "/texts/:uuid", component: Editor },
-  { path: "/contents/:uuid", component: Editor },
+  { path: "/contents/:uuid", component: EditorView, meta: { layout: "default" as const }, alias: ["/texts/:uuid"] },
+  // Dev only: `import.meta.env.DEV` is replaced with `false` in production builds, so the dynamic import is removed and
+  // no playground chunk is emitted
+  ...(import.meta.env.DEV
+    ? [{ path: "/playground", component: () => import("./views/PlaygroundView.vue"), meta: { layout: "default" as const } }]
+    : []),
+  { path: "/:pathMatch(.*)*", component: NotFound, meta: { layout: "blank" as const } },
 ];
-
-const prodRoutes = allRoutes.filter((r) => !["/test", "/playground"].includes(r.path));
-
-const usedRoutes = import.meta.env.DEV ? allRoutes : prodRoutes;
 
 const router: Router = createRouter({
   history: createWebHistory(),
-  routes: usedRoutes,
+  routes: allRoutes,
 });
 
 router.beforeEach(() => hasOpenModal());

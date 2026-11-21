@@ -5,8 +5,4 @@ import ApiError from "./api.error";
  *
  * @extends {ApiError} - The base API error class.
  */
-export default class NotFoundError extends ApiError {
-  constructor(httpStatusCode: number, message: string) {
-    super(httpStatusCode, message);
-  }
-}
+export default class NotFoundError extends ApiError {}

@@ -1,40 +1,25 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from "vue";
-import { ToCItem } from "../models/types";
-import { MenuItem, MenuItemCommandEvent } from "primevue/menuitem";
-import { Menu } from "primevue";
+import { computed } from "vue";
 import Button from "primevue/button";
-import ConfirmPopup from "primevue/confirmpopup";
-import { useAppStore } from "../store/app";
-import Popover from "primevue/popover";
+import type { ToCItem } from "../editors/text/src";
 import { ellipsize } from "../utils/helper/helper.ts";
 
+// Unchanged items keep their identity across transactions (see buildDocChildren), so Vue skips re-rendering
+// them: a row only re-renders when its own item changes or its key is toggled in the reactive `expandedKeys`.
 const props = defineProps<{
   item: ToCItem;
+  expandedKeys: ReadonlySet<string>;
+  level: number;
 }>();
 
-const emit = defineEmits<(e: "itemClick", node: ToCItem) => void>();
+const emit = defineEmits<{
+  itemClick: [item: ToCItem];
+  toggle: [key: string];
+  openMenu: [event: Event, item: ToCItem];
+}>();
 
-const { addToastMessage } = useAppStore();
-const menu = useTemplateRef("menu");
-const menuItems = ref<MenuItem[]>([
-  {
-    items: [
-      {
-        label: "Edit",
-        icon: "pi pi-pencil",
-        title: "Edit attributes",
-        command: handleMenuItemClick,
-      },
-      {
-        label: "Delete",
-        icon: "pi pi-trash",
-        title: "Delete block",
-        command: (e) => handleDeleteClick(e),
-      },
-    ],
-  },
-]);
+const hasChildren = computed<boolean>(() => props.item.children.length > 0);
+const isExpanded = computed<boolean>(() => props.expandedKeys.has(props.item.key));
 
 const displayedText = computed<string>(() => ellipsize(props.item.data.text, 20));
 const displayedLabel = computed<string>(() => {
@@ -45,78 +30,127 @@ const displayedLabel = computed<string>(() => {
   } else if (item.data.nodeType === "paragraph") {
     return "p";
   } else {
-    return item.data._annotationData.type;
+    return item.data.type;
   }
 });
 
-function handleMenuItemClick(e: MenuItemCommandEvent) {
-  addToastMessage({
-    severity: "info",
-    summary: `${e.item.label} clicked`,
-    life: 2000,
-  });
-}
-
-function handleNodeSelect() {
+function handleNodeSelect(): void {
   emit("itemClick", props.item);
 }
 
-function handleDeleteClick(e: MenuItemCommandEvent): void {
-  handleMenuItemClick(e);
+function handleToggle(): void {
+  emit("toggle", props.item.key);
 }
 
-function handleOptionButtonClick(event: MouseEvent): void {
-  menu.value?.toggle(event);
+function handleArrowRight(): void {
+  if (hasChildren.value && !isExpanded.value) {
+    handleToggle();
+  }
+}
+
+function handleArrowLeft(): void {
+  if (isExpanded.value) {
+    handleToggle();
+  }
 }
 </script>
 
 <template>
-  <div class="flex align-items-center gap-2">
-    <div
-      class="type-container ml-1 flex align-items-center gap-3 flex-grow-1"
-      tabindex="0"
-      role="button"
-      @click="handleNodeSelect"
-      @keydown.enter="handleNodeSelect"
-      @keydown.space.prevent="handleNodeSelect"
-    >
-      <span> {{ displayedLabel }} </span>
-      <small :title="props.item.data.text" class="font-italic">
-        {{ displayedText }}
-      </small>
-    </div>
-    <div class="action-container ml-2">
+  <li role="treeitem" :aria-level="level" :aria-expanded="hasChildren ? isExpanded : undefined" aria-selected="false">
+    <div class="toc-row flex items-center gap-2">
+      <button
+        v-if="hasChildren"
+        type="button"
+        class="toggle-button flex items-center justify-center"
+        :title="isExpanded ? 'Collapse' : 'Expand'"
+        tabindex="-1"
+        @click="handleToggle"
+      >
+        <i :class="`icon-chevron-${isExpanded ? 'down' : 'right'}`" aria-hidden="true"></i>
+      </button>
+      <span v-else class="toggle-button flex items-center justify-center">
+        <i class="icon-minus" aria-hidden="true"></i>
+      </span>
+      <div
+        class="type-container ml-1 flex items-center gap-4 grow"
+        tabindex="0"
+        role="button"
+        @click="handleNodeSelect"
+        @keydown.enter="handleNodeSelect"
+        @keydown.space.prevent="handleNodeSelect"
+        @keydown.right.prevent="handleArrowRight"
+        @keydown.left.prevent="handleArrowLeft"
+      >
+        <span> {{ displayedLabel }} </span>
+        <small :title="props.item.data.text" class="italic">
+          {{ displayedText }}
+        </small>
+      </div>
       <Button
-        icon="pi pi-ellipsis-v"
-        rounded
-        :style="{
-          width: '25px',
-          height: '25px',
-        }"
-        size="small"
+        class="row-action"
+        icon="icon-ellipsis-vertical"
         severity="secondary"
-        class="ml-2"
-        title="Click to show preview of entity data"
-        @click="handleOptionButtonClick"
-      ></Button>
+        text
+        rounded
+        size="small"
+        :title="`More options for ${displayedLabel}`"
+        :aria-label="`More options for ${displayedLabel}`"
+        @click.stop="emit('openMenu', $event, props.item)"
+      />
     </div>
-  </div>
-  <Menu
-    ref="menu"
-    :model="menuItems"
-    :popup="true"
-    dismissable
-    close-on-escape
-    :pt="{
-      submenuLabel: { style: { display: 'none' } },
-      item: ({ context }) => ({ title: context.item.title }),
-    }"
-  />
-  <ConfirmPopup />
-  <Popover ref="block-info-popover" dismissable close-on-escape>
-    <pre
-      >{{ JSON.stringify(props.item.data, null, 2) }}
-  </pre
-    >
-  </Popover>
+    <ul v-if="hasChildren && isExpanded" role="group" class="pl-4">
+      <EditorToCItem
+        v-for="child in item.children"
+        :key="child.key"
+        :item="child"
+        :expanded-keys="expandedKeys"
+        :level="level + 1"
+        @item-click="emit('itemClick', $event)"
+        @toggle="emit('toggle', $event)"
+        @open-menu="(event: Event, child: ToCItem) => emit('openMenu', event, child)"
+      />
+    </ul>
+  </li>
 </template>
+
+<style scoped>
+.toggle-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--p-text-muted-color);
+}
+
+button.toggle-button {
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--p-content-hover-background);
+  }
+}
+
+/* The menu button stays out of the way until the row is hovered or keyboard-focused */
+.toc-row {
+  .row-action {
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  &:hover .row-action,
+  &:focus-within .row-action {
+    opacity: 1;
+  }
+}
+
+.type-container {
+  cursor: pointer;
+  border-radius: var(--p-content-border-radius);
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--p-content-hover-background);
+  }
+}
+</style>

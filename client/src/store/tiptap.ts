@@ -1,43 +1,36 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation, NodeStatusObject, AnnotationNode, ToCItem, SemanticBlockRange } from "../models/types";
+import { NodeDto, Annotation } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
-import { Node } from "@tiptap/pm/model";
-import Heading from "@tiptap/extension-heading";
-import Document from "@tiptap/extension-document";
-import Paragraph from "@tiptap/extension-paragraph";
-import Text from "@tiptap/extension-text";
-import { BulletList, ListItem } from "@tiptap/extension-list";
-import UniqueID from "@tiptap/extension-unique-id";
-import HardBreak from "@tiptap/extension-hard-break";
-import { TableKit } from "@tiptap/extension-table";
-import { UndoRedo } from "@tiptap/extensions";
-import { Gapcursor } from "@tiptap/extensions";
-import InvisibleCharacters, { HardBreakNode, ParagraphNode } from "@tiptap/extension-invisible-characters";
-import { ZeroPointAnnotation } from "../editors/text/extensions/zeroPointAnnotation";
-import StandoffConverter from "../services/standoffConverter";
-import { buildDocStructure, cloneDeep, getVisibleDocRange } from "../utils/helper/helper";
-import { AnnotationDecoration } from "../editors/text/extensions/annotationDecoration";
+import { Node, Schema } from "@tiptap/pm/model";
+import { cloneDeep } from "../utils/helper/helper";
 import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
-import { AnnotationAttributes } from "../editors/text/extensions/AnnotationAttributes";
-import { CustomBlock } from "../editors/text/extensions/customBlock";
-import { BlockDecorations } from "../editors/text/extensions/blockDecorations";
 import { history } from "prosemirror-history";
-import { type Extensions } from "@tiptap/core";
+import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
-import { AnnotationHighlight } from "../editors/text/extensions/annotationHighlight";
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
-import { pastedSliceToRawText } from "../utils/helper/tiptapHelper";
+import {
+  type BlockClassificationRange,
+  type ExtensionOptions,
+  type StandoffParseIssue,
+  type ToCItem,
+  StandoffConverter,
+  buildDocStructure,
+  collectInlineAnnotations,
+  createExtensions,
+  getBlockClassificationRanges,
+  getVisibleDocRange,
+  pastedSliceToRawText,
+} from "../editors/text/src";
+import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
+const { getTextAnnotationAppearance } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
-
-const structuralAnnotations = ref<Map<string, Annotation>>();
-const annotations = ref<Map<string, Annotation>>();
 
 const initialStructuralAnnotations = ref<Map<string, Annotation>>();
 const initialAnnotations = ref<Map<string, Annotation>>();
@@ -45,41 +38,23 @@ let initialDoc: ReturnType<Editor["getJSON"]> | null = null;
 let initialPlainText: string | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-const tableOfContent = ref<ToCItem[]>([]);
-const semanticBlockRanges = ref<SemanticBlockRange[]>([]);
+// Shallow: items are frozen and reused across transactions, so only the array reference needs to be reactive
+const tableOfContent = shallowRef<ToCItem[]>([]);
+// Recreated per editor, so a newly loaded text (or changed config) never reuses stale items
+let tocItemCache = new WeakMap<Node, ToCItem>();
+const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
+// Built on first use by `getEditorSchema`. The node types don't depend on the config, so it never goes stale.
+let editorSchema: Schema | null = null;
 
-function getConfiguredExtensions(): Extensions {
-  return [
-    Document,
-    Paragraph,
-    Text,
-    Heading,
-    TableKit.configure({
-      table: { resizable: true },
-    }),
-    BulletList,
-    ListItem,
-    Gapcursor,
-    HardBreak,
-    UndoRedo,
-    ZeroPointAnnotation,
-    CustomBlock,
-    InvisibleCharacters.configure({
-      visible: false,
-      builders: [new ParagraphNode(), new HardBreakNode()],
-    }),
-    AnnotationDecoration.configure({
-      getAnnotationByUuid: (uuid: string) => annotations.value?.get(uuid)?.node ?? structuralAnnotations.value?.get(uuid)?.node,
-    }),
-    BlockDecorations,
-    UniqueID.configure({
-      types: "all",
-      attributeName: "uuid",
-      generateID: () => crypto.randomUUID(),
-    }),
-    AnnotationAttributes,
-    AnnotationHighlight,
-  ];
+/**
+ * Returns the ProseMirror schema of the text editor, e.g. to parse a document without creating an editor.
+ *
+ * @returns {Schema} The schema, built once and reused.
+ */
+function getEditorSchema(): Schema {
+  editorSchema ??= getSchema(createExtensions({ getAppearance: getTextAnnotationAppearance }));
+
+  return editorSchema;
 }
 
 function handleScroll() {
@@ -122,14 +97,16 @@ function hasUnsavedChanges(): boolean {
     return true;
   }
 
+  const annotations: Map<string, Annotation> = tiptap.value ? collectInlineAnnotations(tiptap.value.state) : new Map();
+
   // Compare annotations size
-  if (initialAnnotations.value?.size !== annotations.value?.size) {
+  if (initialAnnotations.value?.size !== annotations.size) {
     console.log("Annotation size has changed.");
     return true;
   }
 
   // Compare annotations status (modified -> something has been changed, not need to deep compare)
-  if (annotations.value?.values().some((a) => a.meta.status !== "unchanged")) {
+  if (annotations.values().some((a) => a.meta.status !== "unchanged")) {
     console.log("Some annotations were modified");
     return true;
   }
@@ -137,15 +114,31 @@ function hasUnsavedChanges(): boolean {
   return false;
 }
 
-function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[] }): void {
-  const converter: StandoffConverter = new StandoffConverter(standoffObject);
-  const { tipTapJson, annotations, structuralAnnotations } = converter.getData();
+/**
+ * Parses the given standoff document and creates the tiptap editor from it.
+ *
+ * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
+ * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut">} lineBreakHandlers - What happens on
+ *   a click on a line break's `¬` and on the line break shortcuts. Passed in since they open modals, which needs a
+ *   component's setup.
+ * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
+ */
+function initializeTiptap(
+  standoffObject: { text: string; annotations: NodeDto[] },
+  lineBreakHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut"> = {},
+): StandoffParseIssue[] {
+  const extensions: Extensions = createExtensions({ getAppearance: getTextAnnotationAppearance, ...lineBreakHandlers });
+
+  const converter: StandoffConverter = new StandoffConverter(standoffObject, getSchema(extensions));
+  const { tipTapJson, annotations, structuralAnnotations, issues } = converter.getData();
 
   setAnnotations({ annotations, structuralAnnotations });
 
+  tocItemCache = new WeakMap();
+
   tiptap.value = new Editor({
     content: tipTapJson,
-    extensions: [...getConfiguredExtensions()],
+    extensions,
     autofocus: "start",
     editorProps: {
       attributes: {
@@ -163,57 +156,28 @@ function initializeTiptap(standoffObject: { text: string; annotations: NodeDto[]
       // This is done in the hook since it has more context than just the raw JSON from the converter.
       // TODO: Might be worth to refactor later, keep in mind
       initialDoc = editor.getJSON();
-
-      // console.log('initial tiptap json: ', initialDoc);
       initialPlainText = editor.state.doc.textContent;
 
       initializeEventListeners(editor);
 
       updateTableOfContent(editor.state.doc);
-      computeSemanticBlockRanges(tiptap.value);
+      computeBlockClassificationRanges(tiptap.value);
     },
     onUpdate: ({ transaction }) => {
       updateTableOfContent(transaction.doc);
-      computeSemanticBlockRanges(tiptap.value);
+      computeBlockClassificationRanges(tiptap.value);
     },
     onDestroy: () => {
       resizeObserver?.disconnect();
       resizeObserver = null;
     },
   });
+
+  return issues;
 }
 
-function computeSemanticBlockRanges(editor: TiptapEditor | null): void {
-  if (!editor) {
-    semanticBlockRanges.value = [];
-    return;
-  }
-
-  const uuidMap = new Map<string, SemanticBlockRange>();
-
-  editor.state.doc.descendants((node, pos) => {
-    const semanticBlocks: NodeStatusObject<AnnotationNode>[] = node.attrs._semanticBlocks ?? [];
-
-    // TODO: Hardcoded because of assignment mistake in standoff converter
-    // (hardBreaks should not get a semanticBlocks attr since they are zero point annotations)
-    if (node.type.name === "hardBreak") {
-      return;
-    }
-
-    semanticBlocks.forEach((block) => {
-      const { type, uuid } = block.node.data;
-
-      const existing: SemanticBlockRange | undefined = uuidMap.get(uuid);
-
-      if (existing) {
-        existing.endPos = pos + (node.nodeSize - 1);
-      } else {
-        uuidMap.set(uuid, { startPos: pos, endPos: pos + (node.nodeSize - 1), type, uuid });
-      }
-    });
-  });
-
-  semanticBlockRanges.value = [...uuidMap.values()];
+function computeBlockClassificationRanges(editor: TiptapEditor | null): void {
+  blockClassificationRanges.value = editor ? getBlockClassificationRanges(editor.state.doc) : [];
 }
 
 function initializeEventListeners(editor: TiptapEditor): void {
@@ -222,11 +186,11 @@ function initializeEventListeners(editor: TiptapEditor): void {
   // TODO: Should this maybe moved directly to the plugin?
   useEventListener(scrollContainer, "scroll", handleScroll);
 
-  resizeObserver = new ResizeObserver(() => computeSemanticBlockRanges(editor));
+  resizeObserver = new ResizeObserver(() => computeBlockClassificationRanges(editor));
   resizeObserver.observe(editor.view.dom);
 }
 
-function initializeDecorationView(annotations: Map<string, NodeStatusObject<AnnotationNode>>): void {
+function initializeDecorationView(annotations: Map<string, Annotation>): void {
   if (!tiptap.value) {
     console.error("Could not initialize decorations since no tiptap instance was found");
     return;
@@ -256,7 +220,7 @@ watch(
 
     tiptap.value.commands.setBlockDecorationSettings(newVal);
 
-    if (newVal.documentStructures === true) {
+    if (newVal.documentStructures) {
       tiptap.value.commands.showInvisibleCharacters();
     } else {
       tiptap.value.commands.hideInvisibleCharacters();
@@ -270,14 +234,10 @@ function resetToInitialState(): void {
     return;
   }
 
-  // Reset annotation maps
-  annotations.value = cloneDeep(initialAnnotations.value);
-  structuralAnnotations.value = cloneDeep(initialStructuralAnnotations.value);
-
   // setContent goes through TipTap's dispatchTransaction, keeping internal state in sync.
   tiptap.value.commands.setContent(initialDoc);
 
-  initializeDecorationView(annotations.value);
+  initializeDecorationView(cloneDeep(initialAnnotations.value));
 
   resetHistory();
 }
@@ -290,6 +250,10 @@ function setNewInitialDocState() {
   // Annotations and structural annotations are already reset in the editor's cleanup function
   initialDoc = tiptap.value.getJSON();
   initialPlainText = tiptap.value.state.doc.textContent;
+
+  // Currently important because undo could silently revert status attributes of connected nodes e.g.
+  // which would invalidate the doc state vs db state comparison. Not very user-friendly, might be updated in the future.
+  resetHistory();
 }
 
 /**
@@ -297,7 +261,8 @@ function setNewInitialDocState() {
  * recreating editor state/instance is too expensive and directly accessing the history state is neither type-safe
  * nor reliable. Might be updated in the future.
  *
- * Called when the editor is reset to initial state.
+ * Called when the editor is reset to initial state and after a successful save, which makes the saved
+ * state the new initial state.
  *
  * @returns {void} This function does not return any value.
  */
@@ -311,28 +276,32 @@ function destroyTiptap(): void {
   tiptap.value = null;
 }
 
+/**
+ * Stores the given annotations as the last saved state. Cloned, since the editor handles the annotation
+ * objects themselves.
+ *
+ * @param {{ structuralAnnotations?: Map<string, Annotation>; annotations?: Map<string, Annotation> }} data - The
+ *   inline and structural annotations as parsed from the saved document.
+ * @returns {void} This function does not return any value.
+ */
 function setAnnotations(data: { structuralAnnotations?: Map<string, Annotation>; annotations?: Map<string, Annotation> }): void {
-  structuralAnnotations.value = data.structuralAnnotations;
-  annotations.value = data.annotations;
-
   initialAnnotations.value = cloneDeep(data.annotations);
   initialStructuralAnnotations.value = cloneDeep(data.structuralAnnotations);
 }
 
 function updateTableOfContent(doc: Node): void {
-  tableOfContent.value = buildDocStructure(doc);
+  tableOfContent.value = buildDocStructure(doc, tocItemCache);
 }
 
 export function useTiptapStore() {
   return {
-    annotations,
     initialAnnotations,
     initialStructuralAnnotations,
-    semanticBlockRanges,
-    structuralAnnotations,
+    blockClassificationRanges,
     tiptap,
     tableOfContent,
     destroyTiptap,
+    getEditorSchema,
     hasUnsavedChanges,
     initializeTiptap,
     resetToInitialState,

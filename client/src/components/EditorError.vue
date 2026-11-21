@@ -5,7 +5,7 @@ defineProps<{ uuid: string }>();
 </script>
 
 <template>
-  <div class="error-container flex flex-column justify-content-center align-items-center gap-4">
+  <div class="error-container flex flex-col justify-center items-center gap-6">
     <div class="text">A text with UUID {{ uuid }} does not exist :/</div>
     <RouterLink to="/">
       <Button aria-label="Home">Go to overview</Button>

@@ -1,5 +1,7 @@
 import winston from "winston";
 import "winston-daily-rotate-file";
+import { env } from "./env.js";
+import type { Env } from "./schemas/env.schema.js";
 
 const { combine, timestamp, printf, colorize, json, errors } = winston.format;
 
@@ -33,7 +35,7 @@ const consoleFormat: winston.Logform.Format = combine(
     // Add meta data if present (currently request data from the middleware)
     const metaStr: string = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : "";
     // Error stack if present (used for error handling)
-    const stackStr: string = stack ? `\n${stack}` : "";
+    const stackStr: string = typeof stack === "string" ? `\n${stack}` : "";
 
     return `${timestamp} [${level}]: ${message}${stackStr}${metaStr}`;
   }),
@@ -79,23 +81,27 @@ const allTransports = [
 /**
  * Returns the transports (console or log files) to use based on the given mode.
  *
- * @param {string | undefined} mode The mode to select transports for. Comes from environment variables and can therefore be undefined.
+ * @param {Env["NODE_ENV"]} mode The mode to select transports for (env `NODE_ENV`); without one, both are used.
  * @returns {winston.transport[]} The transports to use.
  */
-function getTransports(mode: "development" | "production" | string | undefined): winston.transport[] {
+function getTransports(mode: Env["NODE_ENV"]): winston.transport[] {
+  // The rule can't match winston's transport typings to the `TransportStream` class, although all are real instances
   if (mode === "development") {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
     return allTransports.filter((t) => t instanceof winston.transports.Console);
   } else if (mode === "production") {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
     return allTransports.filter((t) => t instanceof winston.transports.DailyRotateFile);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-class-instance-assignment
   return allTransports;
 }
 
 const logger = winston.createLogger({
   levels: logLevels.levels,
-  level: process.env.LOG_LEVEL || "debug",
-  transports: getTransports(process.env.NODE_ENV),
+  level: env.LOG_LEVEL,
+  transports: getTransports(env.NODE_ENV),
 }) as winston.Logger & {
   fatal: winston.LeveledLogMethod;
 };

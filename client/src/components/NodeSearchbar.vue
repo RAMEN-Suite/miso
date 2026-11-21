@@ -1,79 +1,232 @@
 <script setup lang="ts">
-import { computed, ref, toValue, watch } from "vue";
+import { ComponentPublicInstance, computed, ref, useTemplateRef, watch } from "vue";
 import AutoComplete from "primevue/autocomplete";
-import MultiSelect from "primevue/multiselect";
+import InputGroup from "primevue/inputgroup";
+import InputGroupAddon from "primevue/inputgroupaddon";
+import Button from "primevue/button";
+import { MenuItem } from "primevue/menuitem";
+import FilterableMenu from "./FilterableMenu.vue";
 
 import { useSearchParams } from "../composables/useSearchParams";
 import {
-  BaseNodeLabel,
   CollectionNode,
   NodeSearchParams,
   EntityNode,
   PaginationData,
   PaginationResult,
+  ReferenceNodeLabel,
   TextNode,
 } from "../models/types";
-import { useGuidelinesStore } from "../store/guidelines";
 import { useAppStore } from "../store/app";
-import NodeTag from "./NodeTag.vue";
-import { filterDefaultLabels } from "../utils/helper/helper";
+import { onStartTyping, useElementSize, useInfiniteScroll } from "@vueuse/core";
+import { resolveNodeIcon } from "../config/icons";
+import { filterBaseNodeLabels } from "../config/ramen";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const props = defineProps<{
-  baseNodeLabel: BaseNodeLabel;
+  baseNodeLabel: ReferenceNodeLabel;
+  additionalNodeLabel: string;
+  /**
+   * When given, the label icon in front of the searchbar becomes a
+   * button opening a searchable menu of these labels.
+   */
+  additionalNodeLabelOptions?: string[];
+  variant?: "filled" | "outlined";
+  size?: "normal" | "small";
 }>();
 
-const { getAvailableNodeLabels } = useGuidelinesStore();
+const heightClass = computed<string>(() => (props.size === "small" ? "h-9" : "h-12"));
+const variant = computed<"filled" | "outlined">(() => props.variant ?? "filled");
+
+const labelMenu = useTemplateRef<InstanceType<typeof FilterableMenu>>("label-menu");
+const labelButton = useTemplateRef<{ $el: HTMLElement }>("label-button");
+
+const labelMenuItems = computed<MenuItem[]>(() => [
+  {
+    label: props.baseNodeLabel,
+    items: (props.additionalNodeLabelOptions ?? []).map((label: string) => ({
+      label,
+      nodeIcon: resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, label] }),
+      command: () => emit("update:additionalNodeLabel", label),
+    })),
+  },
+]);
+
 const { api } = useAppStore();
 const { searchParams, updateSearchParams, resetSearchParams } = useSearchParams({
   scope: props.baseNodeLabel,
   rowCount: 50,
+  nodeLabels: [props.additionalNodeLabel],
 });
 
-const emit = defineEmits<(e: "itemSelected", item: CollectionNode | TextNode | EntityNode) => void>();
+const emit = defineEmits<{
+  itemSelected: [item: CollectionNode | TextNode | EntityNode];
+  "update:additionalNodeLabel": [label: string];
+}>();
 
-const PREVIEW_CHARACTER_SIZE: number = 25;
+const PREVIEW_CHARACTER_SIZE: number = 1000;
+
+/** Distance (in px) to the end of the result list below which the next page is fetched. */
+const NEXT_PAGE_SCROLL_DISTANCE: number = 25;
 
 const isSearchActive = ref<boolean>(false);
 const placeHolder = computed<string>(() => {
-  return `Search ${getNodeLabelPlural(props.baseNodeLabel)}`;
+  return `Search ${props.additionalNodeLabel}`;
 });
 
-const availableNodeLabels: string[] = toValue(getAvailableNodeLabels(props.baseNodeLabel));
+/**
+ * The text currently shown in the input field. Must be kept separate since the
+ * searchParams.searchInput value is updated asynchronously via debounce which
+ * would lead to a laggy input on typing.
+ */
+const visibleSearchInput = ref<string>("");
 
 const fetchedItems = ref<(CollectionNode | TextNode | EntityNode)[]>([]);
-const resultPagination = ref<PaginationData>();
+const resultPagination = ref<PaginationData | null>(null);
+const hasMoreItems = ref<boolean>(false);
+
+const isLoading = ref<boolean>(false);
+const isLoadingMore = ref<boolean>(false);
+const isReloading = computed<boolean>(() => isLoading.value && !isLoadingMore.value);
+
+/** Guards against out-of-order responses overwriting the results of a newer search. */
+let latestRequestId: number = 0;
+
+const resultList = ref<HTMLElement | null>(null);
+const searchbar = useTemplateRef<InstanceType<typeof AutoComplete> & ComponentPublicInstance>("searchbar");
+
+const { width: searchbarWidth } = useElementSize(searchbar, undefined, { box: "border-box" });
 
 watch(searchParams, handleSearchParamsChange, {
   deep: true,
 });
 
-function getNodeLabelPlural(nodeLabel: BaseNodeLabel): string {
-  switch (nodeLabel) {
-    case "Collection":
-      return "Collections";
-    case "Content":
-      return "Contents";
-    case "Entity":
-      return "Entities";
-    case "Annotation":
-      return "Annotations";
-    default:
-      return "Nodes";
+useInfiniteScroll(resultList, fetchNextPage, {
+  distance: NEXT_PAGE_SCROLL_DISTANCE,
+  canLoadMore: () => hasMoreItems.value && !isLoading.value,
+});
+
+onStartTyping(() => {
+  const inputEl: HTMLInputElement | null = getInputElement();
+
+  if (inputEl && document.activeElement !== inputEl) {
+    inputEl.focus();
+  }
+});
+
+/**
+ * Moves the focus into the searchbar. Exposed for callers that show the searchbar in reaction to a user
+ * action.
+ *
+ * @param {"input" | "labelMenu"} [target] - `input` (default) focuses the search input. `labelMenu` opens the label
+ * menu, `input` focuses the input.
+ * @returns {void} This function does not return any value.
+ */
+function focus(target: "input" | "labelMenu" = "input"): void {
+  const button: HTMLElement | undefined = labelButton.value?.$el;
+
+  if (target === "labelMenu" && button && (props.additionalNodeLabelOptions?.length ?? 0) > 1) {
+    button.click();
+  } else {
+    getInputElement()?.focus();
   }
 }
 
-function resetSearch(): void {
-  resetSearchParams();
-  resetPagination();
-  setIsSearchActive(false);
+function getInputElement(): HTMLInputElement | null {
+  return searchbar.value?.$el.querySelector("input") ?? null;
 }
 
-function setIsSearchActive(mode: boolean): void {
-  isSearchActive.value = mode;
+/**
+ * Appends a fetched page to the result list. Nodes that are already listed are skipped: the offset
+ * pagination can return a node twice if the data changed between two page requests.
+ *
+ * @param {(CollectionNode | EntityNode | TextNode)[]} data - The nodes of the fetched page.
+ * @returns {void} This function does not return any value.
+ */
+function appendData(data: (CollectionNode | EntityNode | TextNode)[]): void {
+  const existingUuids = new Set<string>(fetchedItems.value.map((item) => item.properties.uuid));
 
-  if (!mode) {
+  fetchedItems.value.push(...data.filter((item) => !existingUuids.has(item.properties.uuid)));
+}
+
+/**
+ * Stores the pagination of a fetched page. The offset is advanced by the page size, so it always
+ * holds the number of results fetched from the server so far — the offset of the next page.
+ *
+ * @param {PaginationData} pagination - The pagination returned with the page.
+ * @param {number} pageSize - The number of nodes the page contained.
+ * @returns {void} This function does not return any value.
+ */
+function applyPagination(pagination: PaginationData, pageSize: number): void {
+  pagination.offset = (pagination.offset ?? 0) + pageSize;
+
+  setPagination(pagination);
+
+  // An empty page ends the list even if the total says otherwise (results removed in the meantime)
+  hasMoreItems.value = pageSize > 0 && pagination.offset < pagination.totalRecords;
+}
+
+/**
+ * Fetches one page of nodes matching the current search parameters.
+ *
+ * @param {number} offset - The number of results to skip, i.e. how many were already fetched.
+ * @returns {Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>>} The fetched page plus pagination.
+ */
+async function fetchData(offset: number = 0): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
+  const { data, pagination } = await api.searchNodes(props.baseNodeLabel, {
+    filters: { ...searchParams.value, offset },
+  });
+
+  return { data, pagination };
+}
+
+/**
+ * Fetches the next page of the current search and appends it to the result list. No-op while a
+ * request is running or when everything is fetched. A search started in the meantime wins: the
+ * page of the outdated search is dropped.
+ *
+ * @returns {Promise<void>} Resolves when the next page is applied.
+ */
+async function fetchNextPage(): Promise<void> {
+  if (isLoading.value || !hasMoreItems.value) {
     return;
   }
+
+  const requestId: number = ++latestRequestId;
+  isLoading.value = true;
+  isLoadingMore.value = true;
+
+  try {
+    const { data, pagination } = await fetchData(resultPagination.value?.offset ?? fetchedItems.value.length);
+
+    if (requestId !== latestRequestId) {
+      return;
+    }
+
+    appendData(data);
+    applyPagination(pagination, data.length);
+  } finally {
+    // A search that started in the meantime is a reload, whatever happened to this page
+    isLoadingMore.value = false;
+
+    // Only the newest request can end the loading state
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
+  }
+}
+
+/**
+ * Returns the first characters of given text.
+ *
+ * Used to cap the characters inserted into the DOM as fulltext or title attributes to prevent
+ * performance issues. Visual clipping is handled via CSS `text-overflow: ellipsis`.
+ *
+ * @param text - The text to truncate.
+ * @returns {string} The truncated text, empty if there is none.
+ */
+function getPreviewText(text: string | undefined): string {
+  return text?.slice(0, PREVIEW_CHARACTER_SIZE) ?? "";
 }
 
 function handleResultItemSelect(item: CollectionNode | TextNode | EntityNode): void {
@@ -90,102 +243,197 @@ function handleSearchInputChange(newInput: string) {
   updateSearchParams(data, { immediate: false });
 }
 
-function resetPagination(): void {
-  setPagination(null);
-}
+async function handleSearchParamsChange() {
+  const requestId: number = ++latestRequestId;
+  isLoading.value = true;
 
-async function fetchData(): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
-  const { data, pagination } = await api.searchNodes(props.baseNodeLabel, {
-    filters: searchParams.value,
-  });
+  try {
+    const { data, pagination } = await fetchData();
 
-  return { data, pagination };
-}
+    if (requestId !== latestRequestId) {
+      return;
+    }
 
-function handleNodeLabelsChange(selectedLabels: string[]) {
-  const data: NodeSearchParams = {
-    nodeLabels: selectedLabels,
-  };
-
-  updateSearchParams(data);
-}
-
-function setPagination(newPagination: PaginationData) {
-  resultPagination.value = newPagination;
+    replaceData(data);
+    applyPagination(pagination, data.length);
+  } finally {
+    // Only the newest request can end the loading state
+    if (requestId === latestRequestId) {
+      isLoading.value = false;
+    }
+  }
 }
 
 function replaceData(data: (CollectionNode | EntityNode | TextNode)[]) {
   fetchedItems.value = data;
 }
 
-async function handleSearchParamsChange() {
-  const { data, pagination } = await fetchData();
-
-  pagination.offset = (pagination.offset ?? 0) + data.length;
-
-  replaceData(data);
-  setPagination(pagination);
-  resetPagination();
+function resetPagination(): void {
+  setPagination(null);
+  hasMoreItems.value = false;
 }
+
+function resetSearch(): void {
+  visibleSearchInput.value = "";
+  fetchedItems.value = [];
+  resetSearchParams();
+  resetPagination();
+  setIsSearchActive(false);
+}
+
+function setIsSearchActive(mode: boolean): void {
+  isSearchActive.value = mode;
+
+  if (!mode) {
+    return;
+  }
+}
+
+function setPagination(newPagination: PaginationData | null) {
+  resultPagination.value = newPagination;
+}
+
+/**
+ * Function ref for the scrollable result list. The list lives in the AutoComplete's overlay, which
+ * is only mounted while open — Vue calls this with the element on mount and with `null` on unmount.
+ *
+ * @param {Element | ComponentPublicInstance | null} element - The result list element, or `null` once it is gone.
+ * @returns {void} This function does not return any value.
+ */
+function setResultList(element: Element | ComponentPublicInstance | null): void {
+  resultList.value = element as HTMLElement | null;
+}
+
+defineExpose({ focus });
 </script>
 
 <template>
-  <div class="flex gap-1">
-    <MultiSelect
-      :model-value="searchParams.nodeLabels"
-      :options="availableNodeLabels"
-      :filter="false"
-      display="chip"
-      :max-selected-labels="2"
-      :selected-items-label="`${searchParams.nodeLabels?.length ?? 0} labels selected`"
-      title="Select node labels to filter"
-      class="flex-shrink-0 w-12rem"
-      @update:model-value="handleNodeLabelsChange"
-    />
+  <InputGroup>
+    <template v-if="props.additionalNodeLabelOptions?.length">
+      <Button
+        ref="label-button"
+        type="button"
+        class="label-button"
+        :class="heightClass"
+        :size="props.size === 'small' ? 'small' : undefined"
+        severity="secondary"
+        :outlined="variant === 'outlined'"
+        :title="`Searching ${props.additionalNodeLabel} nodes. Click to search another type`"
+        @click="labelMenu?.toggle($event)"
+      >
+        <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
+        <i class="icon-chevron-down" />
+      </Button>
+      <FilterableMenu ref="label-menu" :model="labelMenuItems">
+        <template #itemicon="{ item }">
+          <RAMENNodeIcon :spec="item.nodeIcon" />
+        </template>
+      </FilterableMenu>
+    </template>
+    <InputGroupAddon v-else class="w-12" :title="`Searching ${props.additionalNodeLabel} nodes`">
+      <RAMENNodeIcon :spec="resolveNodeIcon({ nodeLabels: [props.baseNodeLabel, props.additionalNodeLabel] })" />
+    </InputGroupAddon>
     <AutoComplete
       ref="searchbar"
-      :class="isSearchActive ? 'active' : 'inactive'"
-      :model-value="searchParams.searchInput"
+      v-model="visibleSearchInput"
+      :class="[heightClass, isSearchActive ? 'active' : 'inactive']"
       :placeholder="placeHolder"
       :suggestions="fetchedItems"
+      :loading="isReloading"
       input-class="w-full"
-      class="searchbar h-3rem flex-grow-1"
-      variant="filled"
+      class="searchbar"
+      :size="props.size === 'small' ? 'small' : undefined"
+      :variant="variant"
       :title="placeHolder"
+      :overlay-style="{ width: `${searchbarWidth}px`, maxWidth: `${searchbarWidth}px` }"
+      :pt="{
+        pcInputText: {
+          root: {
+            autofocus: true,
+          },
+        },
+        listContainer: {
+          ref: setResultList,
+        },
+        loader: {
+          style: {
+            zIndex: 1,
+          },
+        },
+      }"
       @complete="handleSearchInputChange($event.query)"
       @option-select="handleResultItemSelect($event.value)"
     >
       <template v-if="fetchedItems.length > 0" #header>
-        <div class="font-medium px-3 py-2">{{ fetchedItems.length }} Results</div>
+        <div class="font-medium px-4 py-2">
+          {{ fetchedItems.length }}
+          <template v-if="hasMoreItems">of {{ resultPagination?.totalRecords }}</template>
+          Results
+        </div>
       </template>
       <template #option="{ option }">
         <template v-if="props.baseNodeLabel === 'Collection'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
-            <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
+            <RAMENNodeIcon
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option)"
+            />
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
+            </span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Entity'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
-            <span :title="option.data">{{ option.data?.label ?? option.data?.text }}</span>
+            <RAMENNodeIcon
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option)"
+            />
+            <span :title="getPreviewText(option.properties?.label ?? option.properties?.text)">
+              {{ getPreviewText(option.properties?.label ?? option.properties?.text) }}
+            </span>
           </div>
         </template>
         <template v-if="props.baseNodeLabel === 'Content'">
           <div class="result-item">
-            <template v-for="nodeLabel in filterDefaultLabels(option.nodeLabels)" :key="nodeLabel">
-              <NodeTag :content="nodeLabel" :type="baseNodeLabel" />
-            </template>
-            <span :title="option.data">{{ option.data?.text.slice(0, PREVIEW_CHARACTER_SIZE) }}</span>
+            <RAMENNodeIcon
+              v-tooltip.hover.top="{ value: filterBaseNodeLabels(option.nodeLabels).join(', '), showDelay: 50 }"
+              :spec="resolveNodeIcon(option)"
+            />
+            <span :title="getPreviewText(option.properties?.text)">{{ getPreviewText(option.properties?.text) }}</span>
           </div>
         </template>
       </template>
     </AutoComplete>
-  </div>
+    <Teleport v-if="resultList && isLoadingMore" :to="resultList">
+      <div class="text-center py-1" title="More data are loading...">
+        <span class="icon-loader-circle animate-spin"></span>
+      </div>
+    </Teleport>
+  </InputGroup>
 </template>
 
-<style scoped></style>
+<style scoped>
+.label-button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.result-item > :first-child {
+  flex-shrink: 0;
+}
+
+.result-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>

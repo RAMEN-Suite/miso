@@ -1,0 +1,340 @@
+<script setup lang="ts">
+import { computed, DeepReadonly, ref, useTemplateRef } from "vue";
+import { useEventListener } from "@vueuse/core";
+import Button from "primevue/button";
+import ConfirmDialog from "primevue/confirmdialog";
+import { useConfirm } from "primevue/useconfirm";
+import { useDialog } from "primevue/usedialog";
+import { BASE_MODAL_PROPS } from "../config/modals";
+import { useTagsStore } from "../store/tags";
+import { useSmartViewsStore } from "../store/smartViews";
+import { useHierarchyStore } from "../store/hierarchy";
+import { useAppStore } from "../store/app";
+import CreateTagPopover from "./CreateTagPopover.vue";
+import TagItem from "./TagItem.vue";
+import SmartViewModal from "./SmartViewModal.vue";
+import SmartViewItem from "./SmartViewItem.vue";
+import { SmartView, Tag } from "../models/types";
+
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 600;
+
+const { tags, deleteTag } = useTagsStore();
+const { smartViews, deleteSmartView } = useSmartViewsStore();
+const { root, setRoot } = useHierarchyStore();
+const { createModalInstance, destroyModalInstance } = useAppStore();
+
+const confirm: ReturnType<typeof useConfirm> = useConfirm();
+const dialog: ReturnType<typeof useDialog> = useDialog();
+
+const createTagPopover = useTemplateRef<InstanceType<typeof CreateTagPopover>>("tag-popover");
+
+const width = ref<number>(280);
+const isResizing = ref<boolean>(false);
+
+/** True while the database hierarchy is the active listing. */
+const isDatabaseActive = computed<boolean>(() => root.value.kind === "database");
+
+/**
+ * Checks whether a tag is the active listing.
+ *
+ * @param {string} uuid - The tag UUID.
+ * @returns {boolean} Whether that tag is currently displayed.
+ */
+function isTagActive(uuid: string): boolean {
+  return root.value.kind === "tag" && root.value.uuid === uuid;
+}
+
+/**
+ * Switches the columns back to the database hierarchy.
+ *
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectDatabase(): void {
+  if (isDatabaseActive.value) {
+    return;
+  }
+
+  setRoot({ kind: "database" });
+}
+
+/**
+ * Switches the columns to a tag: the first column then lists the nodes carrying it, which may sit
+ * anywhere in the graph, and navigating into one of them follows `PART_OF` as usual.
+ *
+ * @param {string} uuid - The tag UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectTag(uuid: string): void {
+  if (isTagActive(uuid)) {
+    return;
+  }
+
+  setRoot({ kind: "tag", uuid });
+}
+
+/**
+ * Opens the blank creation form. Existing tags are edited in place, in their own row.
+ *
+ * @param {Event} event - The click event, used to anchor the popover.
+ * @returns {void} This function does not return any value.
+ */
+function handleOpenTagPopover(event: Event): void {
+  createTagPopover.value?.open(event);
+}
+
+/**
+ * Deletes a tag its row has already asked about. If the deleted tag was the active listing, the
+ * columns fall back to the database hierarchy — otherwise the view stays rooted in a tag that no
+ * longer exists.
+ *
+ * @param {DeepReadonly<Tag>} tag - The tag to delete.
+ * @returns {void} This function does not return any value.
+ */
+function handleDeleteTag(tag: DeepReadonly<Tag>): void {
+  const wasActive: boolean = isTagActive(tag.uuid);
+
+  deleteTag(tag.uuid);
+
+  if (wasActive) {
+    setRoot({ kind: "database" });
+  }
+}
+
+/**
+ * Checks whether a smart view is the active listing.
+ *
+ * @param {string} uuid - The view UUID.
+ * @returns {boolean} Whether that view is currently displayed.
+ */
+function isSmartViewActive(uuid: string): boolean {
+  return root.value.kind === "smartView" && root.value.uuid === uuid;
+}
+
+/**
+ * Switches the columns to a smart view: the first column lists the nodes of the view's stored scope,
+ * narrowed by its stored filter preset. Everything below behaves as it does under the database root.
+ *
+ * @param {string} uuid - The view UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleSelectSmartView(uuid: string): void {
+  if (isSmartViewActive(uuid)) {
+    return;
+  }
+
+  setRoot({ kind: "smartView", uuid });
+}
+
+/**
+ * Opens the create/edit form.
+ *
+ * @param {DeepReadonly<SmartView>} view - The view to edit. Omitted when creating.
+ * @returns {void} This function does not return any value.
+ */
+function handleOpenSmartViewModal(view?: DeepReadonly<SmartView>): void {
+  createModalInstance(
+    dialog.open(SmartViewModal, {
+      props: {
+        ...BASE_MODAL_PROPS,
+        // The form brings its own title row (including the close button), width and padding
+        showHeader: false,
+        pt: {
+          ...BASE_MODAL_PROPS.pt,
+          root: { "aria-label": view ? `Edit smart view "${view.label}"` : "Create a new smart view" },
+          content: { style: { padding: "0" } },
+        },
+      },
+      data: { viewUuid: view?.uuid ?? null },
+      emits: {
+        onSaved: handleSmartViewSaved,
+      },
+      onClose: destroyModalInstance,
+    }),
+  );
+}
+
+/**
+ * Re-applies a view that was just saved (both created or updated).
+ *
+ * @param {string} uuid - The saved view's UUID.
+ * @returns {void} This function does not return any value.
+ */
+function handleSmartViewSaved(uuid: string): void {
+  if (!isSmartViewActive(uuid)) {
+    return;
+  }
+
+  // A fresh object MUST be passed: `root` holds a ref, so re-assigning the identical one would not
+  // trigger a (maybe necessary) refetch
+  setRoot({ kind: "smartView", uuid });
+}
+
+/**
+ * Asks before deleting a view. Smart views are more complex to rebuild and might be stored on the server
+ * in the future, so deleting them would affect all users.
+ *
+ * @param {DeepReadonly<SmartView>} view - The view to delete.
+ * @returns {void} This function does not return any value.
+ */
+function handleDeleteSmartView(view: DeepReadonly<SmartView>): void {
+  confirm.require({
+    header: "Delete view",
+    message: `Delete the view "${view.label}"? The nodes it lists are not affected.`,
+    icon: "icon-alert-triangle",
+    rejectProps: { label: "Cancel", severity: "secondary", autofocus: true },
+    acceptProps: { label: "Delete", severity: "danger" },
+    accept: () => {
+      const wasActive: boolean = isSmartViewActive(view.uuid);
+
+      deleteSmartView(view.uuid);
+
+      if (wasActive) {
+        setRoot({ kind: "database" });
+      }
+    },
+  });
+}
+
+useEventListener(window, "mousemove", (event: MouseEvent) => {
+  if (!isResizing.value) {
+    return;
+  }
+
+  width.value = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, event.clientX));
+});
+
+useEventListener(window, "mouseup", () => {
+  isResizing.value = false;
+});
+</script>
+
+<template>
+  <aside class="sidebar flex shrink-0 h-full" :style="{ width: width + 'px' }">
+    <div class="sidebar-body flex flex-col grow min-w-0 overflow-y-auto">
+      <div class="sidebar-content flex flex-col gap-4 p-4">
+        <nav aria-label="Collection navigation">
+          <ul class="nav-list flex flex-col gap-1 list-none p-0 m-0">
+            <li>
+              <div
+                class="nav-item flex items-center gap-2 p-2"
+                :class="{ active: isDatabaseActive }"
+                role="link"
+                tabindex="0"
+                :aria-current="isDatabaseActive ? 'true' : undefined"
+                title="Show the full hierarchy"
+                @click="handleSelectDatabase"
+                @keydown.enter.prevent="handleSelectDatabase"
+                @keydown.space.prevent="handleSelectDatabase"
+              >
+                <i class="icon-folder shrink-0" />
+                <span class="text-sm">Data</span>
+              </div>
+            </li>
+          </ul>
+        </nav>
+
+        <div class="views-header flex items-center justify-between gap-2">
+          <h4 class="m-0 font-normal">Views</h4>
+          <Button
+            icon="icon-plus"
+            severity="secondary"
+            text
+            rounded
+            size="small"
+            title="Create a new view"
+            aria-label="Create a new view"
+            @click="handleOpenSmartViewModal()"
+          />
+        </div>
+
+        <p v-if="smartViews.length === 0" class="m-0 text-sm italic opacity-70">No views yet.</p>
+
+        <ul v-else class="nav-list flex flex-col gap-1 list-none p-0 m-0">
+          <SmartViewItem
+            v-for="view in smartViews"
+            :key="view.uuid"
+            :view="view"
+            :is-active="isSmartViewActive(view.uuid)"
+            @select="handleSelectSmartView(view.uuid)"
+            @edit="handleOpenSmartViewModal(view)"
+            @delete="handleDeleteSmartView(view)"
+          />
+        </ul>
+
+        <div class="tags-header flex items-center justify-between gap-2">
+          <h4 class="m-0 font-normal">Tags</h4>
+          <Button
+            icon="icon-plus"
+            severity="secondary"
+            text
+            rounded
+            size="small"
+            title="Create a new tag"
+            aria-label="Create a new tag"
+            @click="handleOpenTagPopover($event)"
+          />
+        </div>
+
+        <p v-if="tags.length === 0" class="m-0 text-sm italic opacity-70">No tags yet.</p>
+
+        <ul v-else class="nav-list flex flex-col gap-1 list-none p-0 m-0">
+          <TagItem
+            v-for="tag in tags"
+            :key="tag.uuid"
+            :tag="tag"
+            :is-active="isTagActive(tag.uuid)"
+            @select="handleSelectTag(tag.uuid)"
+            @delete="handleDeleteTag(tag)"
+          />
+        </ul>
+      </div>
+    </div>
+
+    <div
+      class="resizer shrink-0"
+      :class="{ active: isResizing }"
+      role="button"
+      tabindex="0"
+      @mousedown.prevent="isResizing = true"
+    ></div>
+
+    <CreateTagPopover ref="tag-popover" />
+
+    <!-- ConfirmationService is registered app-wide, but the dialog it drives has to be mounted somewhere -->
+    <!-- `close-icon` is not a ConfirmDialog prop; it falls through to the Dialog it renders. -->
+    <ConfirmDialog close-icon="icon-x" />
+  </aside>
+</template>
+
+<style scoped>
+.sidebar {
+  .resizer {
+    width: 5px;
+    cursor: col-resize;
+    background-color: whitesmoke;
+    border-right: 1px solid var(--p-content-border-color);
+
+    &:hover,
+    &.active {
+      background-color: var(--p-primary-color);
+      transition: background-color 200ms;
+    }
+  }
+
+  .nav-list .nav-item {
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+
+    &:hover {
+      background-color: hsl(0, 0%, 90%);
+    }
+
+    &.active {
+      background-color: hsl(0, 0%, 87%);
+      font-weight: 600;
+    }
+  }
+}
+</style>

@@ -1,9 +1,24 @@
 import { Request } from "express";
-import { int, isDate, isDateTime, isDuration, isInt, isLocalDateTime, isLocalTime, isTime, types } from "neo4j-driver";
-import { CursorData, PropertyConfig } from "../models/types.js";
-import ICharacter from "../models/ICharacter.js";
+import { isDuration, isInt, types } from "neo4j-driver";
+import {
+  CursorData,
+  FilterSpec,
+  FilterTarget,
+  HierarchyQuery,
+  HierarchyScope,
+  ElementGraph,
+  ModelAttribute,
+  ModelContext,
+} from "../models/types.js";
+import { parseFilterSpec, parseFilterTarget } from "./filter.js";
+import { getValueType, isList, isRequired } from "./modelHelper.js";
+import { isInteger, isObject } from "./propertyType.js";
 import NotFoundError from "../errors/notFound.error.js";
+import ValidationError from "../errors/validation.error.js";
 import { TOOL_URL_MAPPING } from "../constants.js";
+import { env } from "../env.js";
+import { AttributeValueType } from "./ramen.js";
+import { isPlainObject } from "./selector.js";
 
 /**
  * Capitalizes the first letter of a given string.
@@ -16,38 +31,28 @@ export function capitalize(inputString: string): string {
 }
 
 /**
- * Creates an array of Character nodes from a given string.
- *
- * Used for preprocessing texts that came attached to Annotations or Collections and have to be created
- * from scratch in the database.
- *
- * @param {string} text - The string to create characters from.
- * @return {ICharacter[]} An array of ICharacter objects, one for each character in the input string.
- */
-export function createCharactersFromText(text: string): ICharacter[] {
-  return text.split("").map((c: string) => ({
-    text: c,
-    uuid: crypto.randomUUID(),
-  }));
-}
-
-/**
  * Parses pagination parameters from the request query.
  *
  * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
  * and modiefied.
  *
  * @param {Request} req - The express request object.
- * @returns {Record<string, any>} An object with the following properties:
+ * @returns {{ cursor: CursorData | null; limit: number; offset: number; order: string; search: string }} An object with the following properties:
+ *   - `cursor`: The cursor to continue from, or `null` if none (or an invalid one) was provided.
  *   - `search`: The search string to filter by.
- *   - `sort`: The field to sort by.
  *   - `order`: The direction of the sort (ascending/descending).
  *   - `limit`: The maximum number of results to return.
  *   - `offset`: The number of results to skip.
  */
-export function getPagination(req: Request): Record<string, any> {
+export function getPagination(req: Request): {
+  cursor: CursorData | null;
+  limit: number;
+  offset: number;
+  order: string;
+  search: string;
+} {
   // TODO: Should this function have more restriction functionalities/error handling
-  let { search, limit, order, cursorUuid, cursorLabel, offset } = req.query;
+  const { limit, cursorUuid, cursorLabel, offset } = req.query;
 
   // Valid Order directions
   const ORDER_ASC: string = "ASC";
@@ -61,7 +66,7 @@ export function getPagination(req: Request): Record<string, any> {
   const isCursorValid: boolean = typeof cursorUuid === "string" && typeof cursorLabel === "string" && cursorUuid !== "";
 
   // Set default values
-  search ||= "";
+  const search: string = typeof req.query.search === "string" ? req.query.search : "";
   const cursor: CursorData | null = isCursorValid
     ? {
         uuid: cursorUuid as string,
@@ -70,9 +75,8 @@ export function getPagination(req: Request): Record<string, any> {
     : null;
 
   // Only accept ASC/DESC values
-  if (!order || !ORDERS.includes(order.toString().toUpperCase())) {
-    order = ORDER_ASC;
-  }
+  const rawOrder: unknown = req.query.order;
+  const order: string = typeof rawOrder === "string" && ORDERS.includes(rawOrder.toUpperCase()) ? rawOrder : ORDER_ASC;
 
   return {
     cursor,
@@ -84,46 +88,219 @@ export function getPagination(req: Request): Record<string, any> {
 }
 
 /**
- * Checks if a given file name is a valid configuration file.
+ * Parses a uuid from the given request source, trying each key in order.
  *
- * Currently used to validate the provided file name for guidelines and stylesheet when the provided URL
- * is not a valid HTTP URL, to prevent path traversal and only allow JSON and CSS files in the config directory.
+ * Used as generic uuid parser to read from params, query and body.
  *
- * @param {string} fileName The file name (maybe including a path) to check.
- * @return {boolean} True if the file name is a valid configuration file, false otherwise.
+ * @param {Record<string, unknown>} source - The object to read the uuid from (`req.params`, `req.query` or `req.body`).
+ * @param {string[]} keys - The keys to try, in order.
+ * @returns {string} The parsed uuid.
+ * @throws {ValidationError} If none of the keys yield a non-empty string.
  */
-export function isValidConfigFile(fileName: string): boolean {
-  // No path traversal should be allowed, only the file name
-  if (fileName.includes("/") || fileName.includes("..")) {
-    return false;
+export function parseUuidFrom(source: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value: unknown = source[key];
+
+    if (Array.isArray(value)) {
+      throw new ValidationError("`uuid` can not be an array");
+    }
+
+    if (typeof value === "string" && value !== "") {
+      return value;
+    }
   }
 
-  // Files in the directry are either JSON (guidelines) or CSS (stylesheet) files, so only these should be allowed
-  if (!fileName.endsWith(".json") && !fileName.endsWith(".css")) {
-    return false;
-  }
-
-  return true;
+  throw new ValidationError("`uuid` is required.");
 }
 
 /**
- * Checks if a given string is a valid HTTP URL.
+ * Parses a non-empty list of UUIDs from a request body, e.g. for batch operations.
  *
- * Currently only used to determine whether the provided URLs for
- * guidelines and styles are a remote URL that needs to be fetched
- * or a local file path that can be read from the file system directly.
- *
- * @param {string} string The string to check.
- * @return {boolean} True if the string is a valid HTTP URL, false otherwise.
+ * @param {Record<string, unknown>} source - The request body.
+ * @param {string} key - The key holding the list.
+ * @param {number} maxLength - The maximum number of UUIDs accepted.
+ * @returns {string[]} The de-duplicated UUIDs.
+ * @throws {ValidationError} If the list is missing, empty, too long or contains non-strings.
  */
-export function isValidHttpUrl(string: string): boolean {
-  try {
-    const newUrl: URL = new URL(string);
+export function parseUuidListFrom(source: Record<string, unknown>, key: string, maxLength: number): string[] {
+  const value: unknown = source[key];
 
-    return newUrl.protocol === "http:" || newUrl.protocol === "https:";
-  } catch (err: unknown) {
-    return false;
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ValidationError(`\`${key}\` must be a non-empty array.`);
   }
+
+  if (value.length > maxLength) {
+    throw new ValidationError(`\`${key}\` must not contain more than ${maxLength} entries.`);
+  }
+
+  if (!value.every((uuid: unknown) => typeof uuid === "string" && uuid !== "")) {
+    throw new ValidationError(`\`${key}\` must only contain UUID strings.`);
+  }
+
+  return [...new Set<string>(value as string[])];
+}
+
+/**
+ * Parses a write payload: nodes and relations in the element format. Their content is checked by `toNodeChanges`.
+ *
+ * @param {unknown} raw - The payload.
+ * @returns {ElementGraph} The payload.
+ * @throws {ValidationError} If `nodes` or `relations` is missing.
+ */
+export function parseWritePayload(raw: unknown): ElementGraph {
+  const payload = (raw ?? {}) as Partial<ElementGraph>;
+
+  if (!Array.isArray(payload.nodes) || !Array.isArray(payload.relations)) {
+    throw new ValidationError("The payload needs `nodes` and `relations` lists.");
+  }
+
+  return payload as ElementGraph;
+}
+
+/**
+ *  Parses the `POST /nodes` request body into the uuid of the created/added node and the write payload.
+ *
+ * @param {Request} req - The express request object.
+ * @returns The parsed uuid and write payload.
+ * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
+ */
+export function parseCreateNodePayload(req: Request): { uuid: string; data: ElementGraph } {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+  const uuid: string = parseUuidFrom(body, ["uuid"]);
+  const data: ElementGraph = parseWritePayload(body.data);
+
+  return { uuid, data };
+}
+
+/**
+ * Parses and validates the `scope` of a hierarchy listing request — which set of nodes is being
+ * listed.
+ *
+ * @param {unknown} raw - The `scope` member of the request body.
+ * @returns {HierarchyScope} The validated scope.
+ * @throws {ValidationError} If the scope is missing, of an unknown kind, or malformed.
+ */
+function parseHierarchyScope(raw: unknown): HierarchyScope {
+  if (!raw || typeof raw !== "object") {
+    throw new ValidationError("`scope` is required.");
+  }
+
+  const maxScopeUuids: number = 10000;
+  const scope = raw as { kind?: unknown; parentUuid?: unknown; ancestorUuid?: unknown; uuids?: unknown };
+
+  switch (scope.kind) {
+    case "top": {
+      return { kind: "top" };
+    }
+    case "all": {
+      return { kind: "all" };
+    }
+    case "children": {
+      if (typeof scope.parentUuid !== "string" || scope.parentUuid === "") {
+        throw new ValidationError("A `children` scope needs a `parentUuid`.");
+      }
+
+      return { kind: "children", parentUuid: scope.parentUuid };
+    }
+    case "descendants": {
+      if (typeof scope.ancestorUuid !== "string" || scope.ancestorUuid === "") {
+        throw new ValidationError("A `descendants` scope needs an `ancestorUuid`.");
+      }
+
+      return { kind: "descendants", ancestorUuid: scope.ancestorUuid };
+    }
+    case "uuids": {
+      if (!Array.isArray(scope.uuids) || scope.uuids.some((uuid) => typeof uuid !== "string")) {
+        throw new ValidationError("A `uuids` scope needs `uuids` to be an array of strings.");
+      }
+
+      if (scope.uuids.length > maxScopeUuids) {
+        throw new ValidationError(`Too many uuids requested (max ${maxScopeUuids}).`);
+      }
+
+      return { kind: "uuids", uuids: scope.uuids as string[] };
+    }
+    default: {
+      throw new ValidationError(`Unknown scope kind "${String(scope.kind)}".`);
+    }
+  }
+}
+
+/**
+ * Reads the sort direction out of a request.
+ *
+ * Deliberately forgiving: anything that is not explicitly `desc` falls back to `asc`, but is logged to the console.
+ * A wrong direction shows the same listing in the wrong order which the user sees immediately and fixes with one click.
+ *
+ * @param {unknown} order - The `order` value from the request body.
+ * @returns {"asc" | "desc"} The normalized direction, defaulting to `asc`.
+ */
+export function parseSortDirection(order: unknown): "asc" | "desc" {
+  if (typeof order !== "string" || order === "") {
+    console.error(`Invalid sort direction "${String(order)}"`);
+  }
+
+  if (order === "desc" || order === "DESC") {
+    return "desc";
+  } else {
+    return "asc";
+  }
+}
+
+/**
+ * Parses a `POST /hierarchy/query` request into a normalized listing spec.
+ *
+ * Every hierarchy listing goes through this one endpoint, whatever its scope — see the route for
+ * why a read is a POST. Distinct from {@link getPagination}: this uses opaque cursor pagination
+ * (not offset/structured cursor) and carries the filter rules the hierarchy view needs.
+ *
+ * The model context and the property allowlist are passed in rather than read here: they come from the config
+ * service, and reading them in this module would make the low-level helpers depend on a service that depends on
+ * them.
+ *
+ * @param {Request} req - The express request object.
+ * @param {ModelContext} context - The model context, for the value types of the properties.
+ * @param {Map<string, ModelAttribute>} properties - Filterable properties, from `filterableProperties`.
+ * @returns {HierarchyQuery} The parsed hierarchy query.
+ * @throws {ValidationError} If the scope, a filter rule or the sort target is missing or malformed.
+ * @throws {UnknownFilterFieldError} If a filter or the sort names a property the model does not define.
+ */
+export function parseHierarchyQuery(
+  req: Request,
+  context: ModelContext,
+  properties: Map<string, ModelAttribute>,
+): HierarchyQuery {
+  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
+
+  const scope: HierarchyScope = parseHierarchyScope(body.scope);
+  const filters: FilterSpec = parseFilterSpec(context, body.filters, properties);
+  const sort: FilterTarget = parseFilterTarget(body.sort ?? { kind: "distinct" }, properties, true);
+  const order: "asc" | "desc" = parseSortDirection(body.order);
+  const limit: number = parsePaginationLimit(body.limit);
+
+  const cursor: string | null = (body.cursor as string) || null;
+
+  return { scope, filters, sort, order, limit, cursor, properties };
+}
+
+/**
+ * Parses the pagination limit from the request body.
+ *
+ * @param {unknown} rawLimit - The `limit` value from the request body. Typed as `unknown` to be forgiving, but very likely string
+ * @returns {number} The normalized limit, defaulting to 50 and capped to 1000.
+ */
+function parsePaginationLimit(rawLimit: unknown): number {
+  const DEFAULT_LIMIT: number = 50;
+  const MAX_LIMIT: number = 1000;
+
+  if (!rawLimit || typeof rawLimit !== "string") {
+    return DEFAULT_LIMIT;
+  }
+
+  const parsedLimit: number = parseInt(rawLimit);
+  const limit: number = Math.min(Number.isNaN(parsedLimit) ? DEFAULT_LIMIT : parsedLimit, MAX_LIMIT);
+
+  return limit;
 }
 
 /**
@@ -131,22 +308,20 @@ export function isValidHttpUrl(string: string): boolean {
  *
  * The tool name is looked up in the `TOOL_URL_MAPPING` whitelist to find the
  * environment variable holding its base URL. Only known tool names resolve, so arbitrary environment
- * variables cannot be probed via the request path.
+ * variables cannot be probed via the request path. The URL itself is checked at startup.
  *
  * @param {string} toolName - The name of the tool as provided in the request path.
- * @throws {NotFoundError} If the tool name is unknown or no valid URL is configured for it.
+ * @throws {NotFoundError} If the tool name is unknown or no URL is configured for it.
  * @return {string} The configured base URL of the tool.
  */
 export function getToolUrl(toolName: string): string {
-  const envKey: string | undefined = TOOL_URL_MAPPING[toolName];
-
-  if (!envKey) {
+  if (!Object.prototype.hasOwnProperty.call(TOOL_URL_MAPPING, toolName)) {
     throw new NotFoundError(`Unknown tool: "${toolName}"`);
   }
 
-  const url: string | undefined = process.env[envKey];
+  const url: string | undefined = env[TOOL_URL_MAPPING[toolName]];
 
-  if (!url || !isValidHttpUrl(url)) {
+  if (!url) {
     throw new NotFoundError(`No URL is configured for tool "${toolName}"`);
   }
 
@@ -159,13 +334,13 @@ export function getToolUrl(toolName: string): string {
  * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
  * and modiefied.
  *
- * @param {Record<string, any>} properties
- * @return {Record<string, any>}
+ * @param {object} properties
+ * @return {object}
  */
-export function toNativeTypes(properties: Record<string, any>): Record<string, any> {
+export function toNativeTypes(properties: object): object {
   return Object.fromEntries(
-    Object.keys(properties).map((key) => {
-      const value: any = valueToNativeType(properties[key]);
+    Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
+      const value: unknown = valueToNativeType(rawValue);
 
       return [key, value];
     }),
@@ -178,18 +353,14 @@ export function toNativeTypes(properties: Record<string, any>): Record<string, a
  * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
  * and modiefied.
  *
- * @param {any} value
- * @returns {any}
+ * @param {unknown} value
+ * @returns {unknown}
  */
-function valueToNativeType(value: any): any {
+export function valueToNativeType(value: unknown): unknown {
   if (Array.isArray(value)) {
     value = value.map((innerValue) => valueToNativeType(innerValue));
   } else if (isInt(value)) {
     value = value.toNumber();
-  } else if (isDate(value) || isDateTime(value) || isLocalDateTime(value)) {
-    value = value.toStandardDate();
-  } else if (isLocalTime(value) || isTime(value)) {
-    value = value.toString();
   } else if (isDuration(value)) {
     value = value.toString();
   } else if (typeof value === "object" && value !== undefined && value !== null) {
@@ -200,68 +371,121 @@ function valueToNativeType(value: any): any {
 }
 
 /**
- * Convert JavaScript types back into Neo4j Properties, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
- * (e.g. dates, date times and times are always strings in JavaScript).
+ * Convert JavaScript types back into Neo4j Properties, using the attributes of the model. This conversion direction
+ * uses the attributes since the desired neo4j data type can not always be inferred from the JavaScript type
+ * (e.g. integers and floats are both numbers in JavaScript).
  *
- * @param {Record<string, any>} properties
- * @param {PropertyConfig[]} fields
- * @return {Record<string, any>}
+ * @param {ModelContext} context - The model context.
+ * @param {object} properties - The properties to convert.
+ * @param {ModelAttribute[]} fields - The attributes of the node, matched by name.
+ * @return {Record<string, unknown>}
  */
-export function toNeo4jTypes(properties: any, fields: PropertyConfig[]): Record<string, any> {
+export function toNeo4jTypes(context: ModelContext, properties: object, fields: ModelAttribute[]): Record<string, unknown> {
   return Object.fromEntries(
-    Object.keys(properties).map((key) => {
-      const config: PropertyConfig | undefined = fields.find((field) => field.name === key);
-      const value: any = valueToNeo4jType(properties[key], config);
+    Object.entries(properties).map(([key, rawValue]: [string, unknown]): [string, unknown] => {
+      const entry: ModelAttribute | undefined = fields.find((field) => field.attribute.name === key);
+      const value: unknown = valueToNeo4jType(context, rawValue, entry);
 
       return [key, value];
     }),
   );
 }
 
+/** The annotation property that holds the selector */
+const SELECTOR_PROPERTY = "selector";
+
 /**
- * Convert an individual value to its Neo4j equivalent, using the provided configuration. This conversion direction
- * uses the field configuration since the desired neo4j data type can not always be inferred from the JavaScript type
- * (e.g. dates, date times and times are always strings in JavaScript).
+ * Neo4j can't store objects as properties, so a selector is stored as JSON string.
  *
- * @param {any} value
- * @param {PropertyConfig | undefined} config
- * @returns {any}
+ * @param {Record<string, unknown>} properties - The node's properties with native values.
+ * @returns {Record<string, unknown>} The properties with the selector as JSON string.
  */
-function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefined): any {
+export function toStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const selector: unknown = properties[SELECTOR_PROPERTY];
+
+  return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: JSON.stringify(selector) } : properties;
+}
+
+/**
+ * Parses a selector stored as JSON string. A string that isn't a JSON object is kept, so the selector check reports it.
+ *
+ * @param {Record<string, unknown>} properties - The node's properties as stored.
+ * @returns {Record<string, unknown>} The properties with the selector as object.
+ */
+export function fromStoredSelector(properties: Record<string, unknown>): Record<string, unknown> {
+  const stored: unknown = properties[SELECTOR_PROPERTY];
+
+  if (typeof stored !== "string") {
+    return properties;
+  }
+
+  try {
+    const selector: unknown = JSON.parse(stored);
+
+    return isPlainObject(selector) ? { ...properties, [SELECTOR_PROPERTY]: selector } : properties;
+  } catch {
+    return properties;
+  }
+}
+
+/**
+ * Convert an individual value to its Neo4j equivalent, using its model attribute. This conversion direction
+ * uses the attribute since the desired neo4j data type can not always be inferred from the JavaScript type
+ * (e.g. integers and floats are both numbers in JavaScript).
+ *
+ * Objects can not be stored as Neo4j properties, so a property of type `Object` only accepts an empty value for now.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {unknown} value - The value to convert.
+ * @param {ModelAttribute | undefined} entry - The attribute of the value. Values without one are kept as they are.
+ * @param {boolean} [asItem] - The value is one item of a list attribute, not the whole list.
+ * @returns {unknown}
+ * @throws {ValidationError} If a value is given for a property of type `Object`.
+ */
+function valueToNeo4jType(
+  context: ModelContext,
+  value: unknown,
+  entry: ModelAttribute | undefined,
+  asItem: boolean = false,
+): unknown {
   // TODO: How handle empty string?
-  // TODO: This is the case for non-customizable properties (uuid, start/endIndex etc.). Keep or handle better?
-  if (!config) {
+  // TODO: This is the case for non-customizable properties (uuid, selector, editor fields etc.). Keep or handle better?
+  if (!entry) {
     return value;
   }
 
-  const isRequired: boolean = config?.required ?? true;
+  // Items of a list are dropped below when they are empty, so they count as required here
+  const required: boolean = asItem || isRequired(entry);
   const valueIsNull: boolean = value === null || value === undefined;
 
   // This can be applied to all data types - if the value does not exist and is not needed, it doesnt need to be set
-  if (valueIsNull && !isRequired) {
+  if (valueIsNull && !required) {
     return null;
   }
 
   // Call function recursively when needed if data type is array
-  if (config.type === "array") {
-    if (value.length === 0) {
-      if (isRequired) {
+  if (isList(entry) && !asItem) {
+    const items: unknown[] = Array.isArray(value) ? value : [];
+
+    if (items.length === 0) {
+      if (required) {
         return [];
       } else {
         return null;
       }
     } else {
       return (
-        value
-          .map((innerValue: any) => valueToNeo4jType(innerValue, config.items))
+        items
+          .map((innerValue: unknown) => valueToNeo4jType(context, innerValue, entry, true))
           // This is needed since arrays with null values (e.g. [1, 2, null, 4]) are not allowed as node properties)
-          .filter((v: any) => v !== null && v !== undefined)
+          .filter((v: unknown) => v !== null && v !== undefined)
       );
     }
   }
 
-  if (config.type === "integer") {
+  const valueType: AttributeValueType = getValueType(context, entry);
+
+  if (isInteger(valueType)) {
     if (valueIsNull) {
       if (!isRequired) {
         return null;
@@ -269,63 +493,17 @@ function valueToNeo4jType(value: any, config: Partial<PropertyConfig> | undefine
         return 0;
       }
     } else {
-      return types.Integer.fromValue(value);
+      return types.Integer.fromValue(value as number | string);
     }
-  } else if (config.type === "number") {
-    return value;
-  } else if (config.type === "string") {
-    return value;
-  } else if (config.type === "date") {
-    if (valueIsNull && !isRequired) {
-      return null;
-    } else {
-      return types.Date.fromStandardDate(new Date(value));
-    }
-  } else if (config.type === "date-time") {
-    if (valueIsNull && !isRequired) {
-      return null;
-    } else {
-      return types.DateTime.fromStandardDate(new Date(value));
-    }
-  } else if (config.type === "time") {
+  } else if (isObject(valueType)) {
     if (valueIsNull) {
-      if (!isRequired) {
-        return null;
-      } else {
-        return new types.LocalTime(0, 0, 0, 0);
-      }
+      return null;
     } else {
-      // Needs more work since parsing can fail easily (Dates/Datetimes handle wrong values better)
-      try {
-        const items: number[] = (value as string).split(":").map((item: string) => {
-          const parsed: number = parseInt(item);
-
-          if (isNaN(parsed)) {
-            throw new Error(`Invalid time format: ${value}`);
-          }
-
-          return parsed;
-        });
-
-        const hours: number = items[0] ?? 0;
-        const minutes: number = items[1] ?? 0;
-        const seconds: number = items[2] ?? 0;
-
-        return new types.LocalTime(hours, minutes, seconds, 0);
-      } catch (e: unknown) {
-        console.error(`Failed to parse time from value "${value}":`, e);
-
-        // Same logic as above (no value/not required)
-        if (!isRequired) {
-          return null;
-        }
-
-        return new types.LocalTime(0, 0, 0, 0);
-      }
+      throw new ValidationError(`Property "${entry.attribute.name}" is of type Object, which can not be stored yet.`);
     }
-  } else if (config.type === "boolean") {
-    return value;
   } else {
+    // Everything else is stored as it arrives: floats, strings and booleans map directly, and dates and date times
+    // are kept as raw strings (`YYYY-MM-DD`, ISO 8601) instead of Neo4j temporals
     return value;
   }
 }

@@ -1,6 +1,6 @@
-import { BaseNodeData } from "./types.js";
+import { BaseNodeProperties } from "./types.js";
 
-export type ICollection = BaseNodeData & {
+export type ICollection = BaseNodeProperties & {
   [keyof: string]: unknown;
   label: string;
 };

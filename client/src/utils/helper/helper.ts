@@ -1,95 +1,18 @@
-import { Ref } from "vue";
 import {
   NodeDto,
-  Character,
-  PropertyConfigDataType,
-  StandoffAnnotation,
-  StandoffJson,
   TextNode,
   NodeStatusObject,
+  NodeStatus,
   AnnotationNode,
   EntityNode,
   CollectionNode,
-  ToCItem,
   Annotation,
-  BaseNodeLabel,
+  ModelAttribute,
+  ModelContext,
+  NodeTypeOption,
 } from "../../models/types";
-import { EditorView } from "@tiptap/pm/view";
-import { Node } from "@tiptap/pm/model";
-import { useGuidelinesStore } from "../../store/guidelines";
-
-const { getAnnotationType } = useGuidelinesStore();
-
-/**
- * Recursively builds a tree of {@link ToCItem} nodes from a ProseMirror node's block children.
- *
- * @param node - The ProseMirror node whose block children to traverse.
- * @param contentStartPos - Absolute document position where `node`'s content begins.
- *   For the document root this is `0`; for any other block node it is `nodePos + 1`
- *   (skipping the opening token).
- */
-export function buildDocChildren(node: Node, contentStartPos: number): ToCItem[] {
-  const result: ToCItem[] = [];
-
-  node.forEach((child: Node, offset: number) => {
-    if (!child.isBlock) {
-      return;
-    }
-
-    const annotationType: string = getAnnotationType(child.type.name);
-    const childPos: number = contentStartPos + offset;
-
-    result.push({
-      key: child.attrs.uuid ?? childPos.toString(),
-      label: annotationType,
-      data: {
-        text: child.textContent ?? "",
-        pos: childPos,
-        nodeSize: child.nodeSize,
-        nodeType: child.type.name,
-        type: annotationType,
-        level: child.attrs.level ?? null,
-        _annotationData: child.attrs._annotationData,
-        _semanticBlocks: child.attrs._semanticBlocks ?? [],
-      },
-      children: buildDocChildren(child, childPos + 1),
-    });
-  });
-
-  return result;
-}
-
-/**
- * Builds a nested {@link ToCItem} tree representing the full block structure of a ProseMirror document.
- *
- * Each item carries the node's absolute position (`data.pos`), which can be passed directly to
- * `editor.commands.setTextSelection` or `editor.view.nodeDOM` for navigation.
- *
- * @param doc - The ProseMirror document node (`editor.state.doc`).
- */
-export function buildDocStructure(doc: Node): ToCItem[] {
-  // doc has no opening token, so its content starts at position 0
-  const structure: ToCItem[] = buildDocChildren(doc, 0);
-
-  return structure;
-}
-
-/**
- * Converts the given characters and annotations into a single StandoffJson object.
- *
- * @param characters - The list of characters.
- * @param annotations - The list of annotations.
- * @returns {StandoffJson} The assembled Standoff JSON object.
- */
-export function buildStandoffJson(characters: Character[], annotations: Annotation[]): StandoffJson {
-  const text: string = characters.map((c) => c.data.text).join("");
-  const standoffAnnotations: StandoffAnnotation[] = annotations.map((a) => a.node.data);
-
-  return {
-    text,
-    annotations: standoffAnnotations,
-  };
-}
+import { createEntityNode, createTextNode } from "../../config/ramen";
+import { isList, validateValue } from "./modelHelper";
 
 /**
  * Converts a camelCase or PascalCase string into a space-separated title case string
@@ -121,7 +44,7 @@ export function capitalize(inputString: string): string {
  */
 export function cloneDeep<T>(input: T): T {
   if (input instanceof Map) {
-    const clonedMap = new Map<any, any>();
+    const clonedMap = new Map<unknown, unknown>();
 
     // new Map(input) would not work since the reference to nested objects would still be the same
     input.forEach((value, key) => {
@@ -143,16 +66,6 @@ export function cloneDeep<T>(input: T): T {
   return input;
 }
 
-export function createNewCharacter(char: string): Character {
-  return {
-    data: {
-      uuid: crypto.randomUUID(),
-      text: char,
-    },
-    annotations: [],
-  };
-}
-
 /**
  * Creates a a valid node status object from a given {@link NodeDto} by adding
  * a `meta` key to the node DTO which makes it editable in the frontend.
@@ -170,56 +83,91 @@ export function createNodeStatusObjectFromRawData(rawNode: NodeDto): NodeStatusO
 }
 
 /**
- * Creates a new Collection object with default values.
+ * Recursively sets the status of a node and all its connected nodes, in place.
  *
- * This function is used to generate a new Collection object with default values for the node labels and data properties.
+ * Mainly used as post-request cleanup: once the backend has persisted the changes, the whole tree
+ * is "unchanged" again, so the next save does not re-announce nodes as created/modified/deleted.
  *
- * @return {CollectionNode} A new Collection object with default values.
+ * @param {NodeStatusObject} node - The root node of the tree. Is mutated in place.
+ * @param {NodeStatus} status - The status to apply to every node in the tree.
+ * @returns {void} This function does not return any value.
  */
-export function createCollectionNode(): CollectionNode {
-  return {
-    nodeLabels: ["Collection"],
-    data: {
-      uuid: crypto.randomUUID(),
-      label: "",
-    },
-  };
+export function setNodeTreeStatus(node: NodeStatusObject, status: NodeStatus): void {
+  node.meta.status = status;
+
+  node.connectedNodes.forEach((child) => setNodeTreeStatus(child, status));
 }
 
 /**
- * Creates a new Text object with default values.
+ * Recursively removes all connected nodes that were deleted or detached during editing, in place.
  *
- * This function is used to generate a new Text object with default values for the node labels and data properties.
+ * Used as post-request cleanup, together with {@link setNodeTreeStatus}, to match the database state
+ * after a successful operation.
  *
- * @return {TextNode} A new Text object with default values.
+ * @param {NodeStatusObject} node - The root node of the tree. Is mutated in place.
+ * @returns {void} This function does not return any value.
  */
-export function createTextNode(): TextNode {
-  return {
-    nodeLabels: ["Text"],
-    data: {
-      uuid: crypto.randomUUID(),
-      text: "",
-    },
-  };
+export function pruneDeletedNodes(node: NodeStatusObject): void {
+  node.connectedNodes = node.connectedNodes.filter((c) => c.meta.status !== "deleted" && c.meta.status !== "removed");
+
+  node.connectedNodes.forEach((child) => pruneDeletedNodes(child));
+}
+
+/**
+ * Removes all properties of a node that are not declared in the model, in place.
+ *
+ * Is applied before saving to keep stale properties (e.g. from a configuration that has changed in the meantime) out of the database.
+ *
+ * @param {Record<string, unknown>} properties - The node's properties to prune. Is mutated in place.
+ * @param {readonly string[]} names - The names of the properties declared for the node.
+ * @param {readonly string[]} intrinsic - Properties that are always kept, whether they are declared or not.
+ * @returns {void} This function does not return any value.
+ */
+export function pruneUnconfiguredProperties(
+  properties: Record<string, unknown>,
+  names: readonly string[],
+  intrinsic: readonly string[],
+): void {
+  const allowed = new Set<string>([...names, ...intrinsic]);
+
+  Object.keys(properties).forEach((key: string) => {
+    if (!allowed.has(key)) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Safe to delete
+      delete properties[key];
+    }
+  });
+}
+
+/**
+ * Creates a new, not yet persisted Entity node wrapped in a node status object, ready to be filled in by the user.
+ *
+ * The node is marked as "created" so that the backend creates it once the parent node is saved.
+ *
+ * @param {NodeTypeOption} type - The node type of the new Entity.
+ * @return {NodeStatusObject<EntityNode>} A new Entity node status object with default values.
+ */
+export function createEntityNodeStatusObject(type: NodeTypeOption): NodeStatusObject<EntityNode> {
+  const entityNode: NodeStatusObject<EntityNode> = createNodeStatusObjectFromRawData(
+    createNodeDtoFromNode(createEntityNode(type)),
+  ) as NodeStatusObject<EntityNode>;
+
+  entityNode.meta.status = "created";
+
+  return entityNode;
 }
 
 /**
  * Creates a new, not yet persisted Content node wrapped in a node status object, ready to be filled in by the user.
  *
- * The node is marked as "created" so that the backend creates it once the parent node is saved. Note that
- * {@link createTextNode} still applies the legacy "Text" label, so the "Content" base label is added here: Without it,
- * {@link getBaseNodeLabel} throws and {@link isContentNode} does not recognize the node.
+ * The node is marked as "created" so that the backend creates it once the parent node is saved.
  *
+ * @param {NodeTypeOption} type - The node type of the new Content.
  * @return {NodeStatusObject<TextNode>} A new Content node status object with default values.
  */
-export function createContentNodeStatusObject(): NodeStatusObject<TextNode> {
+export function createContentNodeStatusObject(type: NodeTypeOption): NodeStatusObject<TextNode> {
   const contentNode: NodeStatusObject<TextNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createTextNode()),
+    createNodeDtoFromNode(createTextNode(type)),
   ) as NodeStatusObject<TextNode>;
-
-  if (!contentNode.node.nodeLabels.includes("Content")) {
-    contentNode.node.nodeLabels.push("Content");
-  }
 
   contentNode.meta.status = "created";
 
@@ -227,10 +175,10 @@ export function createContentNodeStatusObject(): NodeStatusObject<TextNode> {
 }
 
 /**
- * Creates a a valid node DTO object from a given raw node (Annotation, Entity, Collection, Text).
+ * Creates a valid node DTO object from a given raw node (Annotation, Entity, Collection, Text).
  * This is to match the structure of the generic {@link NodeDto} object used in the API data.
  *
- * @return {TextNode} A new Text object with default values.
+ * @return {NodeDto<T>} A new node DTO without connected nodes.
  */
 export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | CollectionNode | TextNode>(rawNode: T): NodeDto<T> {
   return {
@@ -239,98 +187,24 @@ export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | Co
   };
 }
 
-export function createExtendedStandoffObject(standoffObject: { text: string; annotations: NodeDto[] }): {
-  text: string;
-  annotations: NodeDto[];
-} {
-  const extended = cloneDeep(standoffObject);
-
-  if (extended.annotations.find((a) => a.node.data.type === "paragraph")) {
-    return extended;
-  }
-
-  extended.annotations.push({
-    node: {
-      nodeLabels: ["Annotation"],
-      data: {
-        text: standoffObject.text,
-        startIndex: 0,
-        uuid: crypto.randomUUID(),
-        subType: "",
-        endIndex: standoffObject.text.length - 1,
-        type: "paragraph",
-      },
-    },
-    connectedNodes: [],
-  });
-
-  return extended;
-}
-
 /**
- * Returns a list of all labels that are not one of the RAMEN base node labels.
+ * Checks whether the properties of an annotation are valid according to the model (validated by RAMEN core).
  *
- * Mainly used for visual purposes (base node labels do not need to be displayed).
+ * Currently only properties are validated. Will be extended when rules for connected entities etc. are applied.
  *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {string[]} List of all labels that are not one of the RAMEN base node labels
+ * @param {Annotation} annotation - The annotation whose node data is checked.
+ * @param {ModelAttribute[]} properties - The properties of its annotation shape.
+ * @param {ModelContext} context - The model context.
+ * @return {boolean} Returns `true` if all properties are valid, `false` otherwise.
  */
-export function filterBaseNodeLabel(labels: string[]): string[] {
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity"];
-
-  return labels.filter((l: string) => !baseNodeLabels.includes(l));
+export function checkAnnotationValidity(annotation: Annotation, properties: ModelAttribute[], context: ModelContext): boolean {
+  return properties.every(
+    (entry: ModelAttribute) => validateValue(context, entry, annotation.node.properties[entry.attribute.name]).length === 0,
+  );
 }
 
 /**
- * Returns the RAMEN base node label for a node from its full list of labels.
- *
- * @param {string[]} labels - All Node labels of a RAMEN-valid node
- * @returns {BaseNodeLabel} The node's base label
- * @throws {Error} If none of the base labels is present
- */
-export function getBaseNodeLabel(labels: string[]): BaseNodeLabel {
-  if (labels.includes("Entity")) {
-    return "Entity";
-  } else if (labels.includes("Collection")) {
-    return "Collection";
-  } else if (labels.includes("Content")) {
-    return "Content";
-  } else if (labels.includes("Annotation")) {
-    return "Annotation";
-  } else {
-    throw new Error("Node does not have a valid base label");
-  }
-}
-
-/**
- * A function that compares two objects to check if they are equal. Works only for non-nested objects
- * where values are strings or numbers.
- *
- * @param {Record<string, any>} obj1 - The first object to compare.
- * @param {Record<string, any>} obj2 - The second object to compare.
- * @return {boolean} Returns true if the objects are equal, otherwise false.
- */
-export function areObjectsEqual(obj1: Record<string, any>, obj2: Record<string, any>): boolean {
-  // TODO: This function needs to be rewritten when there are more complex objects...
-  const keys1: string[] = Object.keys(obj1);
-  const keys2: string[] = Object.keys(obj2);
-
-  if (keys1.length !== keys2.length) {
-    return false;
-  }
-
-  for (const key of keys1) {
-    if (!keys2.includes(key) || obj1[key] !== obj2[key]) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Checks if two sets are equal by comparing their sizes and elements. Used for comparing
- * character annotations.
+ * Checks if two sets are equal by comparing their sizes and elements.
  *
  * @param {Set<string>} setA - The first set to compare.
  * @param {Set<string>} setB - The second set to compare.
@@ -366,25 +240,6 @@ export function ellipsize(text: string, maxLength: number): string {
 }
 
 /**
- * Filters out the RAMEN base node labels (`"Annotation"`, `"Collection"`, `"Content"`, `"Entity"`, `"Text"`)
- * from the given array, returning only the domain-specific labels.
- *
- * This function is mostly used for displaying labels in node previews (e.g. in annotation forms,
- * collection column entries etc.).
- *
- * // TODO: Don't forget to remove the "Text" label.
- *
- * @param {string[]} nodeLabels - The full list of node labels to filter.
- * @returns {string[]} The labels with all base node labels removed.
- */
-export function filterDefaultLabels(nodeLabels: string[]): string[] {
-  // TODO: Remove "Text" check ("Content") is enough. Only kept for legacy reasons :)
-  const baseNodeLabels: string[] = ["Annotation", "Collection", "Content", "Entity", "Content"];
-
-  return nodeLabels.filter((l) => !baseNodeLabels.includes(l));
-}
-
-/**
  * Format a file size in bytes into a human-readable string.
  *
  * @param {number} bytes The file size in bytes
@@ -404,219 +259,28 @@ export function formatFileSize(bytes: number): string {
   return `${formattedSize} ${sizes[i]}`;
 }
 
-export function getCharacterUuidFromSpan(span: HTMLSpanElement | Element | null): string | null {
-  return span?.id ?? null;
-}
-
 /**
- * Determines the outer boundary elements and their UUIDs of a given range.
- * The function extracts the start and end span elements using `getRangeBoundaries`,
- * then identifies the span elements immediately before the start and after the end
- * of the range, if they exist. It returns these outer span elements and their corresponding
- * UUIDs.
+ * Formats a raw property value for read-only display. When the attribute is known, its cardinality is used,
+ * otherwise the shape is derived from the raw value itself (e.g. for properties not declared in the model).
  *
- * @param {Range} range - A Range object representing the selected or highlighted text.
- * @returns {Object} An object containing `leftSpan` and `rightSpan`, which are the
- * HTML span elements immediately before and after the range, respectively, as well as
- * `leftUuid` and `rightUuid`, which are the UUIDs of these span elements.
+ * @param {unknown} value - The raw property value.
+ * @param {ModelAttribute} [entry] - The attribute of the property, if known.
+ * @returns {string} The formatted, human-readable value.
  */
-export function getOuterRangeBoundaries(range: Range): {
-  leftSpan: HTMLSpanElement | null;
-  rightSpan: HTMLSpanElement | null;
-  leftUuid: string | null;
-  rightUuid: string | null;
-} {
-  const { startSpan, endSpan } = getRangeBoundaries(range);
-
-  const leftSpan: HTMLSpanElement | null = (startSpan?.previousElementSibling as HTMLSpanElement) ?? null;
-  const rightSpan: HTMLSpanElement | null = (endSpan?.nextElementSibling as HTMLSpanElement) ?? null;
-
-  const leftUuid: string | null = leftSpan?.id ?? null;
-  const rightUuid: string | null = rightSpan?.id ?? null;
-
-  return {
-    leftSpan,
-    rightSpan,
-    leftUuid,
-    rightUuid,
-  };
-}
-
-/**
- * Get the HTML span elements that the user wants to annotate. If selection is of type 'Range', all spans between
- * the range's start and end container are returned. If selection is of type 'Caret', the span elements to the left and right
- * of the caret are returned (this is the case for zero-point annotations). The `isSelectionValid` function takes care of the existence
- * of previous and next elements.
- *
- * @returns {HTMLSpanElement[]} An array of HTML span elements to annotate.
- */
-export function getSpansToAnnotate(): HTMLSpanElement[] {
-  const { range, type } = getSelectionData();
-  let spans: HTMLSpanElement[] = [];
-
-  if (type === "Range") {
-    const firstSpan: HTMLSpanElement = getParentCharacterSpan(range.startContainer);
-    const lastSpan: HTMLSpanElement = getParentCharacterSpan(range.endContainer);
-    spans = findSpansWithinBoundaries(firstSpan, lastSpan);
+export function formatPropertyValue(value: unknown, entry?: ModelAttribute): string {
+  if (value === null || value === undefined || value === "") {
+    return "—";
   }
 
-  if (type === "Caret") {
-    const referenceSpanElement: HTMLSpanElement = getParentCharacterSpan(range.startContainer);
-    let leftSpan: HTMLSpanElement;
-    let rightSpan: HTMLSpanElement;
-
-    if (range.startOffset === 0) {
-      leftSpan = referenceSpanElement.previousElementSibling as HTMLSpanElement;
-      rightSpan = referenceSpanElement;
-    } else {
-      leftSpan = referenceSpanElement;
-      rightSpan = referenceSpanElement.nextElementSibling as HTMLSpanElement;
-    }
-
-    spans = [leftSpan, rightSpan];
+  if ((entry && isList(entry)) || Array.isArray(value)) {
+    return Array.isArray(value) && value.length > 0 ? value.join(", ") : "—";
   }
 
-  return spans;
-}
-
-/**
- * Returns the ProseMirror document positions that correspond to the top and bottom edges
- * of the editor's scroll container (i.e. the currently visible range of the document).
- *
- * Falls back to `0` for `from` and `doc.content.size` for `to` when `posAtCoords` returns
- * `null` — which happens when the editor content does not yet fill the container or the
- * coordinates land outside the rendered document.
- *
- * @param {EditorView} editorView - The ProseMirror EditorView instance.
- * @returns {{ from: number; to: number }} The start and end document positions of the visible range.
- */
-export function getVisibleDocRange(editorView: EditorView): { from: number; to: number } {
-  // TODO: Add viewport buffer so that annotation directly above/below are included...
-  const rect: DOMRect | undefined = editorView.dom.parentElement?.getBoundingClientRect();
-
-  if (!rect) {
-    return { from: 0, to: editorView.state.doc.content.size };
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
   }
 
-  const { top: parentTopOffset, left: parentLeftOffset, height } = rect;
-
-  const startPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset,
-  });
-  const endPos = editorView.posAtCoords({
-    left: parentLeftOffset + 1,
-    top: parentTopOffset + height,
-  });
-
-  // Catch edge cases
-  const from: number = startPos?.pos ?? 0;
-  const to: number = endPos?.pos ?? editorView.state.doc.content.size;
-
-  return { from, to };
-}
-
-/**
- * Finds all HTML span elements between two given span elements. Used for iterating over the DOM when the selection is of type 'Range'.
- *
- * @param {HTMLSpanElement} firstChar The first span element to include in the result.
- * @param {HTMLSpanElement} lastChar The last span element to include in the result.
- *
- * @returns {HTMLSpanElement[]} An array of all span elements between (and including) the given `firstChar` and `lastChar`.
- */
-export function findSpansWithinBoundaries(firstChar: HTMLSpanElement, lastChar: HTMLSpanElement): HTMLSpanElement[] {
-  const spans: HTMLSpanElement[] = [];
-  let current: HTMLSpanElement = firstChar;
-
-  while (current && current !== lastChar) {
-    spans.push(current);
-    current = current.nextElementSibling as HTMLSpanElement;
-  }
-
-  spans.push(lastChar);
-
-  return spans;
-}
-
-/**
- * Extracts the start and end span elements from a given Range, if possible, and returns an object with two properties,
- * `startSpan` and `endSpan`, which contain the start and end span elements, respectively.
- *
- * Both can be `null` if the range covers the whole text container div (this is the case when all text is selected with Ctrl + A).
- *
- * @param {Range} range A Range object.
- * @returns {Object} An object with two properties, `startSpan` and `endSpan`, which contain the start and end span elements or `null`, respectively.
- */
-export function getRangeBoundaries(range: Range): {
-  startSpan: HTMLSpanElement | null;
-  endSpan: HTMLSpanElement | null;
-} {
-  let startReferenceSpanElement: HTMLSpanElement | null = null;
-  let endReferenceSpanElement: HTMLSpanElement | null = null;
-
-  if (isEditorElement(range.startContainer) && isEditorElement(range.endContainer)) {
-    startReferenceSpanElement = (range.startContainer as HTMLDivElement).firstElementChild as HTMLSpanElement;
-    endReferenceSpanElement = (range.endContainer as HTMLDivElement).lastElementChild as HTMLSpanElement;
-  } else {
-    startReferenceSpanElement = getParentCharacterSpan(range.startContainer);
-    endReferenceSpanElement = getParentCharacterSpan(range.endContainer);
-  }
-
-  return { startSpan: startReferenceSpanElement, endSpan: endReferenceSpanElement };
-}
-
-// TODO: These functions should actually check the node, not the status object...refactor later
-export function isEntityNode(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
-  return node.node.nodeLabels.includes("Entity");
-}
-
-export function isAnnotationNode(node: NodeStatusObject): node is NodeStatusObject<AnnotationNode> {
-  return node.node.nodeLabels.includes("Annotation");
-}
-
-export function isCollectionNode(node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
-  return node.node.nodeLabels.includes("Collection");
-}
-
-export function isContentNode(node: NodeStatusObject): node is NodeStatusObject<TextNode> {
-  return node.node.nodeLabels.includes("Content");
-}
-
-/**
- * Checks if the given node is the text container element with id "text".
- *
- * @param {Node} node - The node to check.
- * @return {boolean} Returns true if the node is the text container element, false otherwise.
- */
-export function isEditorElement(node: Node): boolean {
-  return node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).id === "text";
-}
-
-/**
- * Returns the HTMLSpanElement that is the parent of the given node if it is a text node, or the element itself if it is a span element.
- * Used for getting and setting selection ranges during input handling.
- *
- * @param {Node} node - The node for which to find the parent character span (if it is not a span element itself)
- * @return {HTMLSpanElement} The parent span element of the given node (or the node itself)
- */
-export function getParentCharacterSpan(node: Node): HTMLSpanElement {
-  if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === "SPAN") {
-    return node as HTMLSpanElement;
-  } else if (node.nodeType === Node.TEXT_NODE) {
-    return node.parentElement as HTMLSpanElement;
-  }
-
-  throw new Error("The provided node is neither a text node nor a span element.");
-}
-
-/**
- * Determines if the given character is a word boundary, for example whitespace or punctuation.
- *
- * @param {string} char - The character to check.
- * @returns {boolean} True if the character is a word boundary, false otherwise.
- */
-export function isWordBoundary(char: string): boolean {
-  return /\s/.test(char) || /[.,!?;:(){}[\]"']/g.test(char);
+  return JSON.stringify(value);
 }
 
 /**
@@ -628,124 +292,4 @@ export function isWordBoundary(char: string): boolean {
 export function removeFormatting(text: string): string {
   const plainText: string = text.replace(/\r\n?|\n/g, "");
   return plainText;
-}
-
-/**
- * Retrieves relevant data from the Selection object of the current window.
- *
- * @return {Object} An object containing the Selection object itself, the Range object, and the type of the selection ('Caret', 'Range', 'None').
- */
-export function getSelectionData(): { selection: Selection; range: Range; type: string } {
-  const selection: Selection = window.getSelection();
-  const range: Range | null = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-  const type: string = selection.type;
-
-  return { selection, range, type };
-}
-
-/**
- * Determines if the caret is before the first character in the editor. Used for determining where to execute the insert/delete operation.
- *
- * @param {HTMLSpanElement} characterSpan - The HTMLSpanElement representing the character span.
- * @param {Ref<HTMLDivElement>} editorElm - The ref to the editor element.
- * @return {boolean} True if the caret is before the first character, false otherwise.
- */
-export function isCaretAtBeginning(characterSpan: HTMLSpanElement, editorElm: Ref<HTMLDivElement>): boolean {
-  const { range } = getSelectionData();
-  return characterSpan === editorElm.value.firstElementChild && range.startOffset === 0;
-}
-
-/**
- * Determines if the caret is after the last character in the editor.
- * Used for determining where to execute the insert/delete operation.
- *
- * @param {HTMLSpanElement} characterSpan - The HTMLSpanElement representing the character span.
- * @param {Ref<HTMLDivElement>} editorElm - The ref to the editor element.
- * @return {boolean} True if the caret is after the last character, false otherwise.
- */
-export function isCaretAtEnd(characterSpan: HTMLSpanElement, editorElm: Ref<HTMLDivElement>): boolean {
-  const { range } = getSelectionData();
-  const lastChild = editorElm.value.lastElementChild;
-
-  // Check if the current span is the last element and caret is at its end
-  return characterSpan === lastChild && range.startOffset === 1;
-}
-
-/**
- * Toggles the text highlighting for the given annotation by adding CSS classes to annotated span elements.
- *
- * @param {Annotation} annotation - The annotation for which to toggle highlighting.
- * @param {'on' | 'off'} direction - The direction of the toggle operation.
- * @return {void}
- */
-export function toggleTextHightlighting(annotation: Annotation, direction: "on" | "off"): void {
-  const annotatedSpans: NodeListOf<HTMLSpanElement> = document.querySelectorAll(
-    `#text > span:has(span[data-anno-uuid="${annotation.node.data.uuid}"])`,
-  );
-
-  if (annotatedSpans.length === 0) {
-    return;
-  }
-
-  scrollIntoViewIfNeeded(annotatedSpans[0]);
-
-  annotatedSpans.forEach((span: HTMLSpanElement) => {
-    if (direction === "on") {
-      span.classList.add("highlight");
-    } else {
-      span.classList.remove("highlight");
-    }
-  });
-}
-
-/**
- * Scrolls the given span element into view if it is outside the viewport.
- *
- * @param {HTMLSpanElement} span - The span element to scroll into view.
- * @return {void}
- */
-export function scrollIntoViewIfNeeded(span: HTMLSpanElement): void {
-  const spanRect: DOMRect = span.getBoundingClientRect();
-  const containerRect: DOMRect = document.querySelector(".text-container").getBoundingClientRect();
-
-  const isOutsideViewport: boolean = spanRect.top <= containerRect.top || spanRect.bottom >= containerRect.bottom;
-
-  if (isOutsideViewport) {
-    span.scrollIntoView({ behavior: "smooth" });
-  }
-}
-
-/**
- * Returns a default value based on the data type.
- *
- * Used during import, editing and saving of Collections or Annotations.
- *
- * @param {PropertyConfigDataType} type - The data type.
- * @return {any} The appropriate default value for the data type.
- */
-export function getDefaultValueForProperty(type: PropertyConfigDataType): any {
-  switch (type) {
-    case "boolean":
-      return false;
-    case "date":
-      const today: Date = new Date();
-      const year: number = today.getUTCFullYear();
-      const month: number = today.getUTCMonth();
-      const day: number = today.getUTCDate();
-      return new Date(Date.UTC(year, month, day, 0, 0, 0)).toISOString();
-    case "date-time":
-      return new Date().toISOString();
-    case "integer":
-      return 0;
-    case "number":
-      return 0;
-    case "string":
-      return "";
-    case "time":
-      return "00:00:00";
-    case "array":
-      return [];
-    default:
-      return null;
-  }
 }

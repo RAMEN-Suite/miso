@@ -16,6 +16,8 @@ export function useNavigationGuard() {
     if (!answer) {
       return false;
     }
+
+    return true;
   }
 
   /**
@@ -35,7 +37,7 @@ export function useNavigationGuard() {
    */
   async function redirectToCollectionPath(route: RouteLocationNormalized): Promise<RouteLocationRaw | boolean> {
     const uuid: string = route.params.uuid as string;
-    const ancestryPaths: NodeAncestry[] = await api.getCollectionAncestry(uuid);
+    const ancestryPaths: NodeAncestry[] = await api.getHierarchyNodeAncestry(uuid);
 
     // If multiple paths exist, set data to route object and return back to router
     if (ancestryPaths.length > 1) {
@@ -49,11 +51,11 @@ export function useNavigationGuard() {
 
     const singleAncestry: NodeAncestry | null = ancestryPaths[0] ?? null;
 
-    let pathQuery: string = "";
+    let pathQuery: string;
 
     // The api response only contains item's the ancestry, not the item itself
     if (singleAncestry?.length > 0) {
-      pathQuery = [...singleAncestry.map((n) => n.node.data.uuid), uuid].join(",");
+      pathQuery = [...singleAncestry.map((n) => n.node.properties.uuid), uuid].join(",");
     } else {
       pathQuery = uuid;
     }

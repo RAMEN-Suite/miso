@@ -1,68 +1,88 @@
 <script setup lang="ts">
-import { computed, ComputedRef, ref, watch } from "vue";
-import { useGuidelinesStore } from "../store/guidelines";
-import { capitalize, toggleTextHightlighting } from "../utils/helper/helper";
-import { AnnotationType, NodeStatusObject, AnnotationNode } from "../models/types";
-import Button from "primevue/button";
+import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
+import { useDebounceFn } from "@vueuse/core";
+import { useConfigStore } from "../store/config";
+import { capitalize } from "../utils/helper/helper";
+import { NodeStatusObject, AnnotationNode, ModelAnnotationShape } from "../models/types";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useTiptapStore } from "../store/tiptap";
+import { collectInlineAnnotations, getAnnotationRevision } from "../editors/text/src";
 
 export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
   data?: NodeStatusObject;
+  /** Annotation shape of the annotation type, only set on nodes of type `type` */
+  shape?: ModelAnnotationShape;
   key: string;
   label: string;
   type: "category" | "type" | "annotation";
 }
 
-const { groupedAndSortedAnnotationTypes } = useGuidelinesStore();
-const { annotations } = useTiptapStore();
+const { groupedAndSortedAnnotationTypes, isZeroPoint } = useConfigStore();
+const { tiptap } = useTiptapStore();
 
-const displayedAnnotations = ref<NodeStatusObject<AnnotationNode>[]>([]);
+/** Delay in ms before the list is rebuilt after a change in the editor. */
+const UPDATE_DELAY: number = 300;
+
+const displayedAnnotations = shallowRef<NodeStatusObject<AnnotationNode>[]>([]);
 
 const expandedKeys = ref<Record<string, boolean>>({});
 
+/** Keys of the categories that were displayed (and expanded) once, so that collapsing them is not undone. */
+const knownCategoryKeys = new Set<string>();
+
+function updateDisplayedAnnotations(): void {
+  const current: NodeStatusObject<AnnotationNode>[] = tiptap.value
+    ? [...collectInlineAnnotations(tiptap.value.state).values()]
+    : [];
+
+  const hasChanged: boolean =
+    current.length !== displayedAnnotations.value.length || current.some((a, i) => a !== displayedAnnotations.value[i]);
+
+  if (hasChanged) {
+    displayedAnnotations.value = current;
+  }
+}
+
 watch(
-  () => annotations.value?.size,
-  () => {
-    if (!annotations.value) {
-      displayedAnnotations.value = [];
-    } else {
-      displayedAnnotations.value = [...annotations.value.values()].filter((a: NodeStatusObject) => a.meta.status !== "deleted");
-    }
-  },
-  { deep: false, immediate: true },
+  [() => (tiptap.value ? getAnnotationRevision(tiptap.value.state) : 0), () => tiptap.value?.state.doc],
+  useDebounceFn(updateDisplayedAnnotations, UPDATE_DELAY),
 );
+
+updateDisplayedAnnotations();
 
 const nodes: ComputedRef<TreeNode[]> = computed(() => {
   const nodes: TreeNode[] = [];
 
-  Object.entries(groupedAndSortedAnnotationTypes.value).forEach(([category, annotationType], i: number) => {
+  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).forEach(([category, annotationType], i: number) => {
     const newCategory = {
       key: i.toString(),
       label: category,
       type: "category",
-      children: [],
+      children: [] as TreeNode[],
       annotationCount: 0,
     } satisfies TreeNode;
 
-    annotationType.forEach((annoType: AnnotationType, j: number) => {
+    annotationType.forEach((annoType: ModelAnnotationShape, j: number) => {
       const newAnnotationType = {
         key: i.toString() + "-" + j.toString(),
         label: annoType.type,
         type: "type",
-        children: [],
+        shape: annoType,
+        children: [] as TreeNode[],
       } satisfies TreeNode;
 
-      const annos: NodeStatusObject[] = displayedAnnotations.value.filter((a) => a.node.data.type === annoType.type);
+      const annos: NodeStatusObject<AnnotationNode>[] = displayedAnnotations.value.filter(
+        (a) => a.node.properties.type === annoType.type,
+      );
 
-      annos.forEach((anno: NodeStatusObject, k: number) => {
+      annos.forEach((anno: NodeStatusObject<AnnotationNode>, k: number) => {
         const newAnnotation: TreeNode = {
           key: i.toString() + "-" + j.toString() + "-" + k.toString(),
-          label: anno.node.data.text,
+          label: anno.node.properties.text,
           type: "annotation",
           data: anno,
         };
@@ -85,31 +105,30 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
   return nodes;
 });
 
-// Set initially expanded nodes -> Categories
-nodes.value.forEach((node) => {
-  expandedKeys.value[node.key] = true;
-});
+watch(
+  nodes,
+  (newNodes: TreeNode[]) => {
+    newNodes.forEach((node) => {
+      if (!knownCategoryKeys.has(node.key)) {
+        knownCategoryKeys.add(node.key);
+        expandedKeys.value[node.key] = true;
+      }
+    });
+  },
+  { immediate: true },
+);
 
-function expandAll(): void {
-  for (const node of nodes.value) {
-    expandNode(node);
-  }
+/**
+ * Highlights the annotation in the editor while its list entry is hovered or focused.
+ *
+ * @param {NodeStatusObject<AnnotationNode>} annotation - The annotation of the list entry.
+ * @param {"on" | "off"} direction - Whether to add or remove the highlight.
+ * @returns {void} This function does not return any value.
+ */
+function toggleEditorHighlight(annotation: NodeStatusObject<AnnotationNode>, direction: "on" | "off"): void {
+  const renderType: "range" | "zeroPoint" = isZeroPoint(annotation.node) ? "zeroPoint" : "range";
 
-  expandedKeys.value = { ...expandedKeys.value };
-}
-
-function collapseAll(): void {
-  expandedKeys.value = {};
-}
-
-function expandNode(node: TreeNode): void {
-  if (node.children?.length) {
-    expandedKeys.value[node.key] = true;
-
-    for (const child of node.children) {
-      expandNode(child);
-    }
-  }
+  tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.properties.uuid, { renderType });
 }
 
 function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
@@ -123,7 +142,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
 
 <template>
   <Panel
-    class="annotations-container mb-3"
+    class="annotations-container mb-4"
     toggleable
     :toggle-button-props="{
       severity: 'secondary',
@@ -136,54 +155,48 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
       <div class="header font-bold">Annotations [{{ displayedAnnotations.length }}]</div>
     </template>
     <template #toggleicon="{ collapsed }">
-      <i :class="`pi pi-chevron-${collapsed ? 'down' : 'up'}`"></i>
+      <i :class="`icon-chevron-${collapsed ? 'down' : 'up'}`"></i>
     </template>
-    <div class="collapse-buttons">
-      <Button type="button" icon="pi pi-plus" size="small" label="Expand All" title="Expand annotation tree" @click="expandAll" />
-      <Button
-        type="button"
-        icon="pi pi-minus"
-        size="small"
-        label="Collapse All"
-        title="Collapse annotation tree"
-        @click="collapseAll"
-      />
-    </div>
     <div class="tree">
       <div class="flex justify-center">
         <Tree
+          v-if="nodes.length > 0"
           v-model:expanded-keys="expandedKeys"
           :value="nodes"
           selection-mode="single"
           :meta-key-selection="false"
           class="w-full"
         >
+          <template #nodetoggleicon="{ expanded }">
+            <i :class="`icon-chevron-${expanded ? 'down' : 'right'}`"></i>
+          </template>
           <template #default="slotProps">
             <div v-if="slotProps.node.type === 'category'">
               <div class="name-container ml-2 font-bold">
                 {{ capitalize(slotProps.node.label!) }} [{{ slotProps.node.annotationCount }}]
               </div>
             </div>
-            <div v-else-if="slotProps.node.type === 'type'" class="flex align-items-center">
-              <div class="icon-container">
-                <AnnotationTypeIcon :annotation-type="slotProps.node.label" />
+            <div v-else-if="slotProps.node.type === 'type'" class="flex items-center">
+              <div class="annotation-type-icon-container">
+                <AnnotationTypeIcon :shape="slotProps.node.shape" />
               </div>
-              <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children.length }}]</div>
+              <div class="name-container ml-2">{{ slotProps.node.label }} [{{ slotProps.node.children?.length ?? 0 }}]</div>
             </div>
             <div
               v-else
               tabindex="0"
+              role="button"
               :style="{ 'text-wrap': 'nowrap' }"
-              @mouseover="toggleTextHightlighting(slotProps.node.data, 'on')"
-              @mouseout="toggleTextHightlighting(slotProps.node.data, 'off')"
-              @focus="toggleTextHightlighting(slotProps.node.data, 'on')"
-              @blur="toggleTextHightlighting(slotProps.node.data, 'off')"
+              @mouseover="toggleEditorHighlight(slotProps.node.data, 'on')"
+              @mouseout="toggleEditorHighlight(slotProps.node.data, 'off')"
+              @focus="toggleEditorHighlight(slotProps.node.data, 'on')"
+              @blur="toggleEditorHighlight(slotProps.node.data, 'off')"
               @click="handleAnnotationSelect"
               @keydown.enter="handleAnnotationSelect"
               @keydown.space.prevent="handleAnnotationSelect"
             >
-              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.data.uuid">
-                {{ slotProps.node.data.node.data.text }}
+              <div class="ml-2 anno-entry preview" :data-annotation-uuid="slotProps.node.data.node.properties.uuid">
+                {{ slotProps.node.data.node.properties.text }}
               </div>
             </div>
           </template>
@@ -206,7 +219,7 @@ function handleAnnotationSelect(event: MouseEvent | KeyboardEvent): void {
   font-style: italic;
 }
 
-.icon-container {
+.annotation-type-icon-container {
   width: 15px;
   height: 15px;
 }

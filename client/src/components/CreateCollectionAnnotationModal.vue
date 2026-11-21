@@ -1,0 +1,166 @@
+<script setup lang="ts">
+import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vue";
+import { useRoute } from "vue-router";
+import Button from "primevue/button";
+import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
+import { Annotation, CollectionNode, ModelAttribute } from "../models/types";
+import { isVisible } from "../utils/helper/modelHelper";
+import { useAppStore } from "../store/app";
+import { useConfigStore } from "../store/config";
+import { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
+import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
+import FormPropertiesSection from "./FormPropertiesSection.vue";
+import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
+
+const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
+
+if (!dialogRef) {
+  throw new Error("dialogRef not provided - component must be used inside a DynamicDialog");
+}
+
+const emit = defineEmits<{
+  saved: [annotation: Annotation];
+}>();
+
+const route = useRoute();
+const { api, addToastMessage } = useAppStore();
+const {
+  getAnnotationShape,
+  getAnnotationNodeProperties,
+  getAnnotationProperties,
+  getMissingAnnotationReferences,
+  getModelContext,
+} = useConfigStore();
+
+const collection: CollectionNode = dialogRef.value.data.collection;
+const mode: "create" | "edit" = dialogRef.value.data.mode;
+
+const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
+
+const allProperties: ModelAttribute[] = getAnnotationProperties(annotation.value.node);
+const propertyFields: ModelAttribute[] = allProperties.filter((field) => isVisible(getModelContext(), field));
+
+const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
+const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReferencesSection>>("referencesSection");
+
+const isLoading = ref<boolean>(false);
+
+/** Valid properties and no missing required references; the save button stays disabled until then */
+const inputIsValid = computed<boolean>(
+  () =>
+    checkAnnotationValidity(annotation.value, allProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+);
+
+watch(() => route.path, closeModal);
+
+onMounted(focusFirstInput);
+
+function closeModal(): void {
+  dialogRef?.value?.close();
+}
+
+function focusFirstInput(): void {
+  const firstField: Element | null | undefined = propertiesSection.value?.$el.querySelector(
+    'input:not([disabled]), textarea:not([disabled]), [role="combobox"]:not([tabindex="-1"])',
+  );
+
+  (firstField ?? referencesSection.value?.addButton?.$el)?.setAttribute("autofocus", "");
+}
+
+/**
+ * Returns a copy of the annotation, ready to send: status set and pruned to the configured properties.
+ *
+ * @returns {Annotation} The annotation to save.
+ */
+function prepareAnnotation(): Annotation {
+  const prepared: Annotation = cloneDeep(annotation.value);
+
+  prepared.meta.status = mode === "create" ? "created" : "modified";
+
+  if (getAnnotationShape(prepared.node) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+    pruneUnconfiguredProperties(
+      prepared.node.properties,
+      getAnnotationProperties(prepared.node).map((field) => field.attribute.name),
+      getAnnotationNodeProperties(prepared.node),
+    );
+  }
+
+  return prepared;
+}
+
+/**
+ * Saves the annotation, emits `saved` and closes the modal. Stays open on failure.
+ *
+ * @returns {Promise<void>} Resolves when the save is done.
+ */
+async function handleSubmit(): Promise<void> {
+  if (isLoading.value) {
+    return;
+  }
+
+  const prepared: Annotation = prepareAnnotation();
+
+  isLoading.value = true;
+
+  try {
+    await api.updateCollectionAnnotation(collection, prepared);
+
+    emit("saved", prepared);
+    closeModal();
+  } catch (error: unknown) {
+    addToastMessage({ severity: "error", summary: "Not saved", detail: (error as Error).message, life: 4000 });
+  } finally {
+    isLoading.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="flex flex-col gap-4 annotation-modal">
+    <div class="content px-1">
+      <FormPropertiesSection
+        ref="propertiesSection"
+        v-model="annotation.node.properties"
+        :fields="propertyFields"
+        mode="edit"
+        :disabled="isLoading"
+      />
+      <AnnotationReferencesSection
+        ref="referencesSection"
+        v-model="annotation.connectedNodes"
+        :annotation="annotation.node"
+        mode="edit"
+        :disabled="isLoading"
+      />
+    </div>
+
+    <div class="footer flex justify-center gap-2 w-full">
+      <Button
+        icon="icon-save"
+        label="Save"
+        title="Save annotation"
+        :disabled="!inputIsValid || isLoading"
+        :loading="isLoading"
+        @click="handleSubmit"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.annotation-modal {
+  padding: 0.25rem;
+  height: 100%;
+}
+
+.content {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  flex-grow: 1;
+
+  > * {
+    margin-bottom: 2rem;
+  }
+}
+</style>

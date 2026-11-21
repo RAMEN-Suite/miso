@@ -1,0 +1,138 @@
+<script setup lang="ts">
+import { ref, inject, watch, computed, toValue, Ref } from "vue";
+import Button from "primevue/button";
+import Textarea from "primevue/textarea";
+import { useRoute } from "vue-router";
+import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption, TextNode } from "../models/types";
+import { useAppStore } from "../store/app";
+import { createTextNode } from "../config/ramen";
+import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
+
+const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
+
+if (!dialogRef) {
+  throw new Error("dialogRef not provided - component must be used inside a DynamicDialog");
+}
+
+const emit = defineEmits<{
+  (e: "close"): void;
+  (e: "success", content: NodeDto<HierarchyNode>): void;
+}>();
+
+const route = useRoute();
+
+const { api, addToastMessage } = useAppStore();
+
+const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
+const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
+
+const isLoading = ref<boolean>(false);
+const newContentNode = ref<TextNode>(createTextNode(nodeType));
+
+const inputIsValid = computed<boolean>(() => newContentNode.value.properties.text.trim().length > 0);
+
+watch(() => route.path, closeModal);
+
+function closeModal() {
+  dialogRef?.value?.close();
+}
+
+/**
+ * Wraps the new Content node in an ownership tree for the create endpoint: the parent as root with
+ * the Content attached, or the Content alone when created at top level.
+ *
+ * @param {TextNode} contentNode - The new content node.
+ * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
+ * @returns {NodeStatusObject} The ownership tree to persist.
+ */
+function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | null): NodeStatusObject {
+  const nodeStatusObject: NodeStatusObject<TextNode> = {
+    node: contentNode,
+    connectedNodes: [],
+    meta: { status: "created" },
+  };
+
+  if (!parent) {
+    return nodeStatusObject;
+  }
+
+  return {
+    node: parent,
+    connectedNodes: [nodeStatusObject],
+    meta: { status: "unchanged" },
+  };
+}
+
+async function handleSubmit() {
+  if (isLoading.value) {
+    return;
+  }
+
+  const text: string = newContentNode.value.properties.text.replace(/(\r\n|\n|\r)/g, " ");
+
+  const contentNodeToAdd: TextNode = {
+    ...newContentNode.value,
+    properties: { ...newContentNode.value.properties, text },
+  };
+
+  isLoading.value = true;
+
+  try {
+    const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
+
+    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.properties.uuid, updateObj);
+
+    emit("success", toValue(result));
+
+    dialogRef?.value.close({ content: result.node });
+  } catch {
+    addToastMessage({
+      severity: "error",
+      summary: "Error",
+      detail: "Failed to create content.",
+      life: 3000,
+    });
+  } finally {
+    isLoading.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="modal-container flex flex-col gap-4">
+    <div class="modal-body">
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- Intended initial focus inside modal -->
+      <Textarea
+        id="text-input"
+        v-model="newContentNode.properties.text"
+        class="w-full"
+        rows="6"
+        placeholder="Add some text"
+        :disabled="isLoading"
+        autofocus
+      />
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+    </div>
+    <div class="modal-footer flex justify-center gap-2">
+      <Button :disabled="!inputIsValid || isLoading" :loading="isLoading" label="Create" icon="icon-plus" @click="handleSubmit" />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.modal-container {
+  min-width: 350px;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.modal-body {
+  flex-grow: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  flex-shrink: 0;
+}
+</style>

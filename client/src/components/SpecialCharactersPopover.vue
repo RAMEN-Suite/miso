@@ -108,9 +108,14 @@ function toggle(event: Event): void {
  * @returns {string} The code points, separated by spaces.
  */
 function getCodePoints(item: SpecialCharacter): string {
-  return [...item.character]
-    .map((char) => `U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`)
-    .join(" ");
+  const codePoints: string[] = [];
+
+  // Iterates by code point on purpose (not by visible character), so a sequence shows each of its code points
+  for (const char of item.character) {
+    codePoints.push(`U+${(char.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`);
+  }
+
+  return codePoints.join(" ");
 }
 
 /**
@@ -151,13 +156,7 @@ defineExpose({ toggle });
           class="flex-1"
           :disabled="searchTerm.trim().length > 0"
         />
-        <InputText
-          v-model="searchTerm"
-          size="small"
-          placeholder="Search"
-          aria-label="Search special characters"
-          class="flex-1"
-        />
+        <InputText v-model="searchTerm" size="small" placeholder="Search" aria-label="Search special characters" class="flex-1" />
       </div>
 
       <div v-if="recentCharacters.length > 0" class="flex flex-col gap-1">

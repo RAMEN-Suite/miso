@@ -4,10 +4,6 @@
     "label": "Latin-1 Supplement",
     "characters": [
       {
-        "character": " ",
-        "name": "NO-BREAK SPACE"
-      },
-      {
         "character": "¡",
         "name": "INVERTED EXCLAMATION MARK"
       },
@@ -4548,50 +4544,6 @@
     "label": "General Punctuation",
     "characters": [
       {
-        "character": " ",
-        "name": "EN QUAD"
-      },
-      {
-        "character": " ",
-        "name": "EM QUAD"
-      },
-      {
-        "character": " ",
-        "name": "EN SPACE"
-      },
-      {
-        "character": " ",
-        "name": "EM SPACE"
-      },
-      {
-        "character": " ",
-        "name": "THREE-PER-EM SPACE"
-      },
-      {
-        "character": " ",
-        "name": "FOUR-PER-EM SPACE"
-      },
-      {
-        "character": " ",
-        "name": "SIX-PER-EM SPACE"
-      },
-      {
-        "character": " ",
-        "name": "FIGURE SPACE"
-      },
-      {
-        "character": " ",
-        "name": "PUNCTUATION SPACE"
-      },
-      {
-        "character": " ",
-        "name": "THIN SPACE"
-      },
-      {
-        "character": " ",
-        "name": "HAIR SPACE"
-      },
-      {
         "character": "‐",
         "name": "HYPHEN"
       },
@@ -4686,18 +4638,6 @@
       {
         "character": "‧",
         "name": "HYPHENATION POINT"
-      },
-      {
-        "character": " ",
-        "name": "LINE SEPARATOR"
-      },
-      {
-        "character": " ",
-        "name": "PARAGRAPH SEPARATOR"
-      },
-      {
-        "character": " ",
-        "name": "NARROW NO-BREAK SPACE"
       },
       {
         "character": "‰",
@@ -4886,10 +4826,6 @@
       {
         "character": "⁞",
         "name": "VERTICAL FOUR DOTS"
-      },
-      {
-        "character": " ",
-        "name": "MEDIUM MATHEMATICAL SPACE"
       }
     ]
   }

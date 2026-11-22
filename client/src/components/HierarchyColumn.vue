@@ -349,8 +349,20 @@ async function scrollElementIntoView(uuid: string) {
   }
 }
 
-function toggleAddMenu(event: Event): void {
-  addMenu.value?.toggle(event);
+/**
+ * Opens the "+" menu, or the create modal directly if only one node type can be created.
+ *
+ * @param {Event} event - The click that triggered it, used by the menu to position itself.
+ * @returns {void} This function does not return any value.
+ */
+function handleAddClick(event: Event): void {
+  const options: NodeMenuItem[] = addMenuItems.value.flatMap((group) => group.items ?? []);
+
+  if (options.length === 1) {
+    options[0].command?.({ originalEvent: event, item: options[0] as MenuItem });
+  } else {
+    addMenu.value?.toggle(event);
+  }
 }
 
 /**
@@ -557,7 +569,7 @@ function endResize(): void {
         severity="secondary"
         icon="icon-plus"
         title="Add Collection or Content"
-        @click="toggleAddMenu"
+        @click="handleAddClick"
       />
       <FilterableMenu v-if="canCreateNodes" ref="add-menu" :model="addMenuItems as MenuItem[]">
         <template #itemicon="{ item }">

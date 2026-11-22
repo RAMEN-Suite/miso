@@ -189,8 +189,20 @@ function isNotDeleted(node: NodeStatusObject): boolean {
   return node.meta.status !== "deleted" && node.meta.status !== "removed";
 }
 
+/**
+ * Opens the add menu, or the add modal directly if only one node type can be added.
+ *
+ * @param {PointerEvent} event - The click that triggered it, used by the menu to position itself.
+ * @returns {void} This function does not return any value.
+ */
 function handleAddNodeClick(event: PointerEvent): void {
-  menu.value?.toggle(event);
+  const options: NodeMenuItem[] = addMenuItems.value.flatMap((group) => group.items ?? []);
+
+  if (options.length === 1) {
+    options[0].command?.({ originalEvent: event, item: options[0] as MenuItem });
+  } else {
+    menu.value?.toggle(event);
+  }
 }
 </script>
 

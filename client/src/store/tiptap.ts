@@ -14,6 +14,7 @@ import { EditorView } from "@tiptap/pm/view";
 import {
   type BlockClassificationRange,
   type ExtensionOptions,
+  type SpecialCharacterGroup,
   type StandoffParseIssue,
   type ToCItem,
   StandoffConverter,
@@ -23,12 +24,14 @@ import {
   getBlockClassificationRanges,
   getVisibleDocRange,
   pastedSliceToRawText,
+  resolveSpecialCharacterGroups,
 } from "../editors/text/src";
+import { BUILTIN_SPECIAL_CHARACTER_GROUPS } from "../editors/text/src/config/specialCharacters";
 import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationAppearance, getAnnotationShortcuts } = useConfigStore();
+const { getTextAnnotationAppearance, getAnnotationShortcuts, getModelContext } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -43,6 +46,8 @@ const tableOfContent = shallowRef<ToCItem[]>([]);
 // Recreated per editor, so a newly loaded text (or changed config) never reuses stale items
 let tocItemCache = new WeakMap<Node, ToCItem>();
 const blockClassificationRanges = ref<BlockClassificationRange[]>([]);
+/** The groups of the special characters picker, from `editors.text.specialCharacters`. Built per editor. */
+const specialCharacterGroups = shallowRef<SpecialCharacterGroup[]>([]);
 // Built on first use by `getEditorSchema`. The node types don't depend on the config, so it never goes stale.
 let editorSchema: Schema | null = null;
 
@@ -139,6 +144,7 @@ function initializeTiptap(
   setAnnotations({ annotations, structuralAnnotations });
 
   tocItemCache = new WeakMap();
+  specialCharacterGroups.value = buildSpecialCharacterGroups();
 
   tiptap.value = new Editor({
     content: tipTapJson,
@@ -178,6 +184,22 @@ function initializeTiptap(
   });
 
   return issues;
+}
+
+/**
+ * Builds the groups of the special characters picker from the config and logs the warnings about them.
+ *
+ * @returns {SpecialCharacterGroup[]} The groups, in the configured order.
+ */
+function buildSpecialCharacterGroups(): SpecialCharacterGroup[] {
+  const { groups, warnings } = resolveSpecialCharacterGroups(
+    getModelContext().config.editors.text.specialCharacters,
+    BUILTIN_SPECIAL_CHARACTER_GROUPS,
+  );
+
+  warnings.forEach((warning) => console.warn(`Miso config: editors.text.specialCharacters: ${warning}`));
+
+  return groups;
 }
 
 function computeBlockClassificationRanges(editor: TiptapEditor | null): void {
@@ -302,6 +324,7 @@ export function useTiptapStore() {
     initialAnnotations,
     initialStructuralAnnotations,
     blockClassificationRanges,
+    specialCharacterGroups,
     tiptap,
     tableOfContent,
     destroyTiptap,

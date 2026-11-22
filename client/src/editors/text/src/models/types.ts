@@ -128,6 +128,31 @@ export interface EditorSettings {
   documentStructures: boolean;
 }
 
+/** A character offered by the special characters picker */
+export interface SpecialCharacter {
+  /** The character, e.g. `ſ` */
+  character: string;
+  /** What the character is, e.g. its Unicode name `LATIN SMALL LETTER LONG S`. Shown as tooltip and searched. */
+  name: string;
+}
+
+/** A group of special characters, shown as one category of the picker */
+export interface SpecialCharacterGroup {
+  /** Identifies the group. Built-in groups use the Unicode block alias, e.g. `Latin_Extended_A`. */
+  id: string;
+  /** Shown in the picker, e.g. "Latin Extended-A" */
+  label: string;
+  /** The characters in the group */
+  characters: SpecialCharacter[];
+}
+
+/**
+ * An entry of the special characters config: the id of a built-in group, or a group of its own. A group with an id that
+ * is already there (built-in or listed before) is merged into that group (its characters are added, its label replaces
+ * the previous one if given).
+ */
+export type SpecialCharacterGroupConfig = string | (Omit<SpecialCharacterGroup, "label"> & { label?: string });
+
 /** The live char positions of annotations by uuid, as in their `TextPositionSelector` (see `start`/`end` there) */
 export type IndexMap = Map<string, TextRange>;
 

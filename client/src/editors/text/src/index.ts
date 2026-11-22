@@ -28,6 +28,7 @@ export {
   getVisibleDocRange,
 } from "./utils/helper/positionHelper";
 export { validateSelection } from "./utils/helper/selectionHelper";
+export { resolveSpecialCharacterGroups } from "./utils/helper/specialCharacterHelper";
 export { buildDocStructure, getBlockClassificationRanges } from "./utils/helper/structureHelper";
 
 export type {
@@ -36,6 +37,9 @@ export type {
   DocAnnotation,
   EditorSettings,
   Range,
+  SpecialCharacter,
+  SpecialCharacterGroup,
+  SpecialCharacterGroupConfig,
   StandoffParseIssue,
   ToCItem,
   TiptapJson,

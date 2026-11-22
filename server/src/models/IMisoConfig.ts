@@ -61,6 +61,8 @@ export interface IMisoConfig {
     text: {
       /** The text editor's native types and the annotation shapes that implement them */
       mappings: ConfigMapping[];
+      /** The groups of the special characters picker. Only read by the client, which validates them. */
+      specialCharacters?: unknown[];
     };
   };
 }

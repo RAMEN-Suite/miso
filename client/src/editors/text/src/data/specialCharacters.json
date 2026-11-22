@@ -1,0 +1,4832 @@
+[
+  {
+    "id": "Latin_1_Supplement",
+    "label": "Latin-1 Supplement",
+    "characters": [
+      {
+        "character": "¡",
+        "name": "INVERTED EXCLAMATION MARK"
+      },
+      {
+        "character": "¢",
+        "name": "CENT SIGN"
+      },
+      {
+        "character": "£",
+        "name": "POUND SIGN"
+      },
+      {
+        "character": "¤",
+        "name": "CURRENCY SIGN"
+      },
+      {
+        "character": "¥",
+        "name": "YEN SIGN"
+      },
+      {
+        "character": "¦",
+        "name": "BROKEN BAR"
+      },
+      {
+        "character": "§",
+        "name": "SECTION SIGN"
+      },
+      {
+        "character": "¨",
+        "name": "DIAERESIS"
+      },
+      {
+        "character": "©",
+        "name": "COPYRIGHT SIGN"
+      },
+      {
+        "character": "ª",
+        "name": "FEMININE ORDINAL INDICATOR"
+      },
+      {
+        "character": "«",
+        "name": "LEFT-POINTING DOUBLE ANGLE QUOTATION MARK"
+      },
+      {
+        "character": "¬",
+        "name": "NOT SIGN"
+      },
+      {
+        "character": "®",
+        "name": "REGISTERED SIGN"
+      },
+      {
+        "character": "¯",
+        "name": "MACRON"
+      },
+      {
+        "character": "°",
+        "name": "DEGREE SIGN"
+      },
+      {
+        "character": "±",
+        "name": "PLUS-MINUS SIGN"
+      },
+      {
+        "character": "²",
+        "name": "SUPERSCRIPT TWO"
+      },
+      {
+        "character": "³",
+        "name": "SUPERSCRIPT THREE"
+      },
+      {
+        "character": "´",
+        "name": "ACUTE ACCENT"
+      },
+      {
+        "character": "µ",
+        "name": "MICRO SIGN"
+      },
+      {
+        "character": "¶",
+        "name": "PILCROW SIGN"
+      },
+      {
+        "character": "·",
+        "name": "MIDDLE DOT"
+      },
+      {
+        "character": "¸",
+        "name": "CEDILLA"
+      },
+      {
+        "character": "¹",
+        "name": "SUPERSCRIPT ONE"
+      },
+      {
+        "character": "º",
+        "name": "MASCULINE ORDINAL INDICATOR"
+      },
+      {
+        "character": "»",
+        "name": "RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK"
+      },
+      {
+        "character": "¼",
+        "name": "VULGAR FRACTION ONE QUARTER"
+      },
+      {
+        "character": "½",
+        "name": "VULGAR FRACTION ONE HALF"
+      },
+      {
+        "character": "¾",
+        "name": "VULGAR FRACTION THREE QUARTERS"
+      },
+      {
+        "character": "¿",
+        "name": "INVERTED QUESTION MARK"
+      },
+      {
+        "character": "À",
+        "name": "LATIN CAPITAL LETTER A WITH GRAVE"
+      },
+      {
+        "character": "Á",
+        "name": "LATIN CAPITAL LETTER A WITH ACUTE"
+      },
+      {
+        "character": "Â",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ã",
+        "name": "LATIN CAPITAL LETTER A WITH TILDE"
+      },
+      {
+        "character": "Ä",
+        "name": "LATIN CAPITAL LETTER A WITH DIAERESIS"
+      },
+      {
+        "character": "Å",
+        "name": "LATIN CAPITAL LETTER A WITH RING ABOVE"
+      },
+      {
+        "character": "Æ",
+        "name": "LATIN CAPITAL LETTER AE"
+      },
+      {
+        "character": "Ç",
+        "name": "LATIN CAPITAL LETTER C WITH CEDILLA"
+      },
+      {
+        "character": "È",
+        "name": "LATIN CAPITAL LETTER E WITH GRAVE"
+      },
+      {
+        "character": "É",
+        "name": "LATIN CAPITAL LETTER E WITH ACUTE"
+      },
+      {
+        "character": "Ê",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ë",
+        "name": "LATIN CAPITAL LETTER E WITH DIAERESIS"
+      },
+      {
+        "character": "Ì",
+        "name": "LATIN CAPITAL LETTER I WITH GRAVE"
+      },
+      {
+        "character": "Í",
+        "name": "LATIN CAPITAL LETTER I WITH ACUTE"
+      },
+      {
+        "character": "Î",
+        "name": "LATIN CAPITAL LETTER I WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ï",
+        "name": "LATIN CAPITAL LETTER I WITH DIAERESIS"
+      },
+      {
+        "character": "Ð",
+        "name": "LATIN CAPITAL LETTER ETH"
+      },
+      {
+        "character": "Ñ",
+        "name": "LATIN CAPITAL LETTER N WITH TILDE"
+      },
+      {
+        "character": "Ò",
+        "name": "LATIN CAPITAL LETTER O WITH GRAVE"
+      },
+      {
+        "character": "Ó",
+        "name": "LATIN CAPITAL LETTER O WITH ACUTE"
+      },
+      {
+        "character": "Ô",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Õ",
+        "name": "LATIN CAPITAL LETTER O WITH TILDE"
+      },
+      {
+        "character": "Ö",
+        "name": "LATIN CAPITAL LETTER O WITH DIAERESIS"
+      },
+      {
+        "character": "×",
+        "name": "MULTIPLICATION SIGN"
+      },
+      {
+        "character": "Ø",
+        "name": "LATIN CAPITAL LETTER O WITH STROKE"
+      },
+      {
+        "character": "Ù",
+        "name": "LATIN CAPITAL LETTER U WITH GRAVE"
+      },
+      {
+        "character": "Ú",
+        "name": "LATIN CAPITAL LETTER U WITH ACUTE"
+      },
+      {
+        "character": "Û",
+        "name": "LATIN CAPITAL LETTER U WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ü",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS"
+      },
+      {
+        "character": "Ý",
+        "name": "LATIN CAPITAL LETTER Y WITH ACUTE"
+      },
+      {
+        "character": "Þ",
+        "name": "LATIN CAPITAL LETTER THORN"
+      },
+      {
+        "character": "ß",
+        "name": "LATIN SMALL LETTER SHARP S"
+      },
+      {
+        "character": "à",
+        "name": "LATIN SMALL LETTER A WITH GRAVE"
+      },
+      {
+        "character": "á",
+        "name": "LATIN SMALL LETTER A WITH ACUTE"
+      },
+      {
+        "character": "â",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ã",
+        "name": "LATIN SMALL LETTER A WITH TILDE"
+      },
+      {
+        "character": "ä",
+        "name": "LATIN SMALL LETTER A WITH DIAERESIS"
+      },
+      {
+        "character": "å",
+        "name": "LATIN SMALL LETTER A WITH RING ABOVE"
+      },
+      {
+        "character": "æ",
+        "name": "LATIN SMALL LETTER AE"
+      },
+      {
+        "character": "ç",
+        "name": "LATIN SMALL LETTER C WITH CEDILLA"
+      },
+      {
+        "character": "è",
+        "name": "LATIN SMALL LETTER E WITH GRAVE"
+      },
+      {
+        "character": "é",
+        "name": "LATIN SMALL LETTER E WITH ACUTE"
+      },
+      {
+        "character": "ê",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ë",
+        "name": "LATIN SMALL LETTER E WITH DIAERESIS"
+      },
+      {
+        "character": "ì",
+        "name": "LATIN SMALL LETTER I WITH GRAVE"
+      },
+      {
+        "character": "í",
+        "name": "LATIN SMALL LETTER I WITH ACUTE"
+      },
+      {
+        "character": "î",
+        "name": "LATIN SMALL LETTER I WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ï",
+        "name": "LATIN SMALL LETTER I WITH DIAERESIS"
+      },
+      {
+        "character": "ð",
+        "name": "LATIN SMALL LETTER ETH"
+      },
+      {
+        "character": "ñ",
+        "name": "LATIN SMALL LETTER N WITH TILDE"
+      },
+      {
+        "character": "ò",
+        "name": "LATIN SMALL LETTER O WITH GRAVE"
+      },
+      {
+        "character": "ó",
+        "name": "LATIN SMALL LETTER O WITH ACUTE"
+      },
+      {
+        "character": "ô",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX"
+      },
+      {
+        "character": "õ",
+        "name": "LATIN SMALL LETTER O WITH TILDE"
+      },
+      {
+        "character": "ö",
+        "name": "LATIN SMALL LETTER O WITH DIAERESIS"
+      },
+      {
+        "character": "÷",
+        "name": "DIVISION SIGN"
+      },
+      {
+        "character": "ø",
+        "name": "LATIN SMALL LETTER O WITH STROKE"
+      },
+      {
+        "character": "ù",
+        "name": "LATIN SMALL LETTER U WITH GRAVE"
+      },
+      {
+        "character": "ú",
+        "name": "LATIN SMALL LETTER U WITH ACUTE"
+      },
+      {
+        "character": "û",
+        "name": "LATIN SMALL LETTER U WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ü",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS"
+      },
+      {
+        "character": "ý",
+        "name": "LATIN SMALL LETTER Y WITH ACUTE"
+      },
+      {
+        "character": "þ",
+        "name": "LATIN SMALL LETTER THORN"
+      },
+      {
+        "character": "ÿ",
+        "name": "LATIN SMALL LETTER Y WITH DIAERESIS"
+      }
+    ]
+  },
+  {
+    "id": "Latin_Extended_A",
+    "label": "Latin Extended-A",
+    "characters": [
+      {
+        "character": "Ā",
+        "name": "LATIN CAPITAL LETTER A WITH MACRON"
+      },
+      {
+        "character": "ā",
+        "name": "LATIN SMALL LETTER A WITH MACRON"
+      },
+      {
+        "character": "Ă",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE"
+      },
+      {
+        "character": "ă",
+        "name": "LATIN SMALL LETTER A WITH BREVE"
+      },
+      {
+        "character": "Ą",
+        "name": "LATIN CAPITAL LETTER A WITH OGONEK"
+      },
+      {
+        "character": "ą",
+        "name": "LATIN SMALL LETTER A WITH OGONEK"
+      },
+      {
+        "character": "Ć",
+        "name": "LATIN CAPITAL LETTER C WITH ACUTE"
+      },
+      {
+        "character": "ć",
+        "name": "LATIN SMALL LETTER C WITH ACUTE"
+      },
+      {
+        "character": "Ĉ",
+        "name": "LATIN CAPITAL LETTER C WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ĉ",
+        "name": "LATIN SMALL LETTER C WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ċ",
+        "name": "LATIN CAPITAL LETTER C WITH DOT ABOVE"
+      },
+      {
+        "character": "ċ",
+        "name": "LATIN SMALL LETTER C WITH DOT ABOVE"
+      },
+      {
+        "character": "Č",
+        "name": "LATIN CAPITAL LETTER C WITH CARON"
+      },
+      {
+        "character": "č",
+        "name": "LATIN SMALL LETTER C WITH CARON"
+      },
+      {
+        "character": "Ď",
+        "name": "LATIN CAPITAL LETTER D WITH CARON"
+      },
+      {
+        "character": "ď",
+        "name": "LATIN SMALL LETTER D WITH CARON"
+      },
+      {
+        "character": "Đ",
+        "name": "LATIN CAPITAL LETTER D WITH STROKE"
+      },
+      {
+        "character": "đ",
+        "name": "LATIN SMALL LETTER D WITH STROKE"
+      },
+      {
+        "character": "Ē",
+        "name": "LATIN CAPITAL LETTER E WITH MACRON"
+      },
+      {
+        "character": "ē",
+        "name": "LATIN SMALL LETTER E WITH MACRON"
+      },
+      {
+        "character": "Ĕ",
+        "name": "LATIN CAPITAL LETTER E WITH BREVE"
+      },
+      {
+        "character": "ĕ",
+        "name": "LATIN SMALL LETTER E WITH BREVE"
+      },
+      {
+        "character": "Ė",
+        "name": "LATIN CAPITAL LETTER E WITH DOT ABOVE"
+      },
+      {
+        "character": "ė",
+        "name": "LATIN SMALL LETTER E WITH DOT ABOVE"
+      },
+      {
+        "character": "Ę",
+        "name": "LATIN CAPITAL LETTER E WITH OGONEK"
+      },
+      {
+        "character": "ę",
+        "name": "LATIN SMALL LETTER E WITH OGONEK"
+      },
+      {
+        "character": "Ě",
+        "name": "LATIN CAPITAL LETTER E WITH CARON"
+      },
+      {
+        "character": "ě",
+        "name": "LATIN SMALL LETTER E WITH CARON"
+      },
+      {
+        "character": "Ĝ",
+        "name": "LATIN CAPITAL LETTER G WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ĝ",
+        "name": "LATIN SMALL LETTER G WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ğ",
+        "name": "LATIN CAPITAL LETTER G WITH BREVE"
+      },
+      {
+        "character": "ğ",
+        "name": "LATIN SMALL LETTER G WITH BREVE"
+      },
+      {
+        "character": "Ġ",
+        "name": "LATIN CAPITAL LETTER G WITH DOT ABOVE"
+      },
+      {
+        "character": "ġ",
+        "name": "LATIN SMALL LETTER G WITH DOT ABOVE"
+      },
+      {
+        "character": "Ģ",
+        "name": "LATIN CAPITAL LETTER G WITH CEDILLA"
+      },
+      {
+        "character": "ģ",
+        "name": "LATIN SMALL LETTER G WITH CEDILLA"
+      },
+      {
+        "character": "Ĥ",
+        "name": "LATIN CAPITAL LETTER H WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ĥ",
+        "name": "LATIN SMALL LETTER H WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ħ",
+        "name": "LATIN CAPITAL LETTER H WITH STROKE"
+      },
+      {
+        "character": "ħ",
+        "name": "LATIN SMALL LETTER H WITH STROKE"
+      },
+      {
+        "character": "Ĩ",
+        "name": "LATIN CAPITAL LETTER I WITH TILDE"
+      },
+      {
+        "character": "ĩ",
+        "name": "LATIN SMALL LETTER I WITH TILDE"
+      },
+      {
+        "character": "Ī",
+        "name": "LATIN CAPITAL LETTER I WITH MACRON"
+      },
+      {
+        "character": "ī",
+        "name": "LATIN SMALL LETTER I WITH MACRON"
+      },
+      {
+        "character": "Ĭ",
+        "name": "LATIN CAPITAL LETTER I WITH BREVE"
+      },
+      {
+        "character": "ĭ",
+        "name": "LATIN SMALL LETTER I WITH BREVE"
+      },
+      {
+        "character": "Į",
+        "name": "LATIN CAPITAL LETTER I WITH OGONEK"
+      },
+      {
+        "character": "į",
+        "name": "LATIN SMALL LETTER I WITH OGONEK"
+      },
+      {
+        "character": "İ",
+        "name": "LATIN CAPITAL LETTER I WITH DOT ABOVE"
+      },
+      {
+        "character": "ı",
+        "name": "LATIN SMALL LETTER DOTLESS I"
+      },
+      {
+        "character": "Ĳ",
+        "name": "LATIN CAPITAL LIGATURE IJ"
+      },
+      {
+        "character": "ĳ",
+        "name": "LATIN SMALL LIGATURE IJ"
+      },
+      {
+        "character": "Ĵ",
+        "name": "LATIN CAPITAL LETTER J WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ĵ",
+        "name": "LATIN SMALL LETTER J WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ķ",
+        "name": "LATIN CAPITAL LETTER K WITH CEDILLA"
+      },
+      {
+        "character": "ķ",
+        "name": "LATIN SMALL LETTER K WITH CEDILLA"
+      },
+      {
+        "character": "ĸ",
+        "name": "LATIN SMALL LETTER KRA"
+      },
+      {
+        "character": "Ĺ",
+        "name": "LATIN CAPITAL LETTER L WITH ACUTE"
+      },
+      {
+        "character": "ĺ",
+        "name": "LATIN SMALL LETTER L WITH ACUTE"
+      },
+      {
+        "character": "Ļ",
+        "name": "LATIN CAPITAL LETTER L WITH CEDILLA"
+      },
+      {
+        "character": "ļ",
+        "name": "LATIN SMALL LETTER L WITH CEDILLA"
+      },
+      {
+        "character": "Ľ",
+        "name": "LATIN CAPITAL LETTER L WITH CARON"
+      },
+      {
+        "character": "ľ",
+        "name": "LATIN SMALL LETTER L WITH CARON"
+      },
+      {
+        "character": "Ŀ",
+        "name": "LATIN CAPITAL LETTER L WITH MIDDLE DOT"
+      },
+      {
+        "character": "ŀ",
+        "name": "LATIN SMALL LETTER L WITH MIDDLE DOT"
+      },
+      {
+        "character": "Ł",
+        "name": "LATIN CAPITAL LETTER L WITH STROKE"
+      },
+      {
+        "character": "ł",
+        "name": "LATIN SMALL LETTER L WITH STROKE"
+      },
+      {
+        "character": "Ń",
+        "name": "LATIN CAPITAL LETTER N WITH ACUTE"
+      },
+      {
+        "character": "ń",
+        "name": "LATIN SMALL LETTER N WITH ACUTE"
+      },
+      {
+        "character": "Ņ",
+        "name": "LATIN CAPITAL LETTER N WITH CEDILLA"
+      },
+      {
+        "character": "ņ",
+        "name": "LATIN SMALL LETTER N WITH CEDILLA"
+      },
+      {
+        "character": "Ň",
+        "name": "LATIN CAPITAL LETTER N WITH CARON"
+      },
+      {
+        "character": "ň",
+        "name": "LATIN SMALL LETTER N WITH CARON"
+      },
+      {
+        "character": "ŉ",
+        "name": "LATIN SMALL LETTER N PRECEDED BY APOSTROPHE"
+      },
+      {
+        "character": "Ŋ",
+        "name": "LATIN CAPITAL LETTER ENG"
+      },
+      {
+        "character": "ŋ",
+        "name": "LATIN SMALL LETTER ENG"
+      },
+      {
+        "character": "Ō",
+        "name": "LATIN CAPITAL LETTER O WITH MACRON"
+      },
+      {
+        "character": "ō",
+        "name": "LATIN SMALL LETTER O WITH MACRON"
+      },
+      {
+        "character": "Ŏ",
+        "name": "LATIN CAPITAL LETTER O WITH BREVE"
+      },
+      {
+        "character": "ŏ",
+        "name": "LATIN SMALL LETTER O WITH BREVE"
+      },
+      {
+        "character": "Ő",
+        "name": "LATIN CAPITAL LETTER O WITH DOUBLE ACUTE"
+      },
+      {
+        "character": "ő",
+        "name": "LATIN SMALL LETTER O WITH DOUBLE ACUTE"
+      },
+      {
+        "character": "Œ",
+        "name": "LATIN CAPITAL LIGATURE OE"
+      },
+      {
+        "character": "œ",
+        "name": "LATIN SMALL LIGATURE OE"
+      },
+      {
+        "character": "Ŕ",
+        "name": "LATIN CAPITAL LETTER R WITH ACUTE"
+      },
+      {
+        "character": "ŕ",
+        "name": "LATIN SMALL LETTER R WITH ACUTE"
+      },
+      {
+        "character": "Ŗ",
+        "name": "LATIN CAPITAL LETTER R WITH CEDILLA"
+      },
+      {
+        "character": "ŗ",
+        "name": "LATIN SMALL LETTER R WITH CEDILLA"
+      },
+      {
+        "character": "Ř",
+        "name": "LATIN CAPITAL LETTER R WITH CARON"
+      },
+      {
+        "character": "ř",
+        "name": "LATIN SMALL LETTER R WITH CARON"
+      },
+      {
+        "character": "Ś",
+        "name": "LATIN CAPITAL LETTER S WITH ACUTE"
+      },
+      {
+        "character": "ś",
+        "name": "LATIN SMALL LETTER S WITH ACUTE"
+      },
+      {
+        "character": "Ŝ",
+        "name": "LATIN CAPITAL LETTER S WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ŝ",
+        "name": "LATIN SMALL LETTER S WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ş",
+        "name": "LATIN CAPITAL LETTER S WITH CEDILLA"
+      },
+      {
+        "character": "ş",
+        "name": "LATIN SMALL LETTER S WITH CEDILLA"
+      },
+      {
+        "character": "Š",
+        "name": "LATIN CAPITAL LETTER S WITH CARON"
+      },
+      {
+        "character": "š",
+        "name": "LATIN SMALL LETTER S WITH CARON"
+      },
+      {
+        "character": "Ţ",
+        "name": "LATIN CAPITAL LETTER T WITH CEDILLA"
+      },
+      {
+        "character": "ţ",
+        "name": "LATIN SMALL LETTER T WITH CEDILLA"
+      },
+      {
+        "character": "Ť",
+        "name": "LATIN CAPITAL LETTER T WITH CARON"
+      },
+      {
+        "character": "ť",
+        "name": "LATIN SMALL LETTER T WITH CARON"
+      },
+      {
+        "character": "Ŧ",
+        "name": "LATIN CAPITAL LETTER T WITH STROKE"
+      },
+      {
+        "character": "ŧ",
+        "name": "LATIN SMALL LETTER T WITH STROKE"
+      },
+      {
+        "character": "Ũ",
+        "name": "LATIN CAPITAL LETTER U WITH TILDE"
+      },
+      {
+        "character": "ũ",
+        "name": "LATIN SMALL LETTER U WITH TILDE"
+      },
+      {
+        "character": "Ū",
+        "name": "LATIN CAPITAL LETTER U WITH MACRON"
+      },
+      {
+        "character": "ū",
+        "name": "LATIN SMALL LETTER U WITH MACRON"
+      },
+      {
+        "character": "Ŭ",
+        "name": "LATIN CAPITAL LETTER U WITH BREVE"
+      },
+      {
+        "character": "ŭ",
+        "name": "LATIN SMALL LETTER U WITH BREVE"
+      },
+      {
+        "character": "Ů",
+        "name": "LATIN CAPITAL LETTER U WITH RING ABOVE"
+      },
+      {
+        "character": "ů",
+        "name": "LATIN SMALL LETTER U WITH RING ABOVE"
+      },
+      {
+        "character": "Ű",
+        "name": "LATIN CAPITAL LETTER U WITH DOUBLE ACUTE"
+      },
+      {
+        "character": "ű",
+        "name": "LATIN SMALL LETTER U WITH DOUBLE ACUTE"
+      },
+      {
+        "character": "Ų",
+        "name": "LATIN CAPITAL LETTER U WITH OGONEK"
+      },
+      {
+        "character": "ų",
+        "name": "LATIN SMALL LETTER U WITH OGONEK"
+      },
+      {
+        "character": "Ŵ",
+        "name": "LATIN CAPITAL LETTER W WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ŵ",
+        "name": "LATIN SMALL LETTER W WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ŷ",
+        "name": "LATIN CAPITAL LETTER Y WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ŷ",
+        "name": "LATIN SMALL LETTER Y WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ÿ",
+        "name": "LATIN CAPITAL LETTER Y WITH DIAERESIS"
+      },
+      {
+        "character": "Ź",
+        "name": "LATIN CAPITAL LETTER Z WITH ACUTE"
+      },
+      {
+        "character": "ź",
+        "name": "LATIN SMALL LETTER Z WITH ACUTE"
+      },
+      {
+        "character": "Ż",
+        "name": "LATIN CAPITAL LETTER Z WITH DOT ABOVE"
+      },
+      {
+        "character": "ż",
+        "name": "LATIN SMALL LETTER Z WITH DOT ABOVE"
+      },
+      {
+        "character": "Ž",
+        "name": "LATIN CAPITAL LETTER Z WITH CARON"
+      },
+      {
+        "character": "ž",
+        "name": "LATIN SMALL LETTER Z WITH CARON"
+      },
+      {
+        "character": "ſ",
+        "name": "LATIN SMALL LETTER LONG S"
+      }
+    ]
+  },
+  {
+    "id": "Latin_Extended_B",
+    "label": "Latin Extended-B",
+    "characters": [
+      {
+        "character": "ƀ",
+        "name": "LATIN SMALL LETTER B WITH STROKE"
+      },
+      {
+        "character": "Ɓ",
+        "name": "LATIN CAPITAL LETTER B WITH HOOK"
+      },
+      {
+        "character": "Ƃ",
+        "name": "LATIN CAPITAL LETTER B WITH TOPBAR"
+      },
+      {
+        "character": "ƃ",
+        "name": "LATIN SMALL LETTER B WITH TOPBAR"
+      },
+      {
+        "character": "Ƅ",
+        "name": "LATIN CAPITAL LETTER TONE SIX"
+      },
+      {
+        "character": "ƅ",
+        "name": "LATIN SMALL LETTER TONE SIX"
+      },
+      {
+        "character": "Ɔ",
+        "name": "LATIN CAPITAL LETTER OPEN O"
+      },
+      {
+        "character": "Ƈ",
+        "name": "LATIN CAPITAL LETTER C WITH HOOK"
+      },
+      {
+        "character": "ƈ",
+        "name": "LATIN SMALL LETTER C WITH HOOK"
+      },
+      {
+        "character": "Ɖ",
+        "name": "LATIN CAPITAL LETTER AFRICAN D"
+      },
+      {
+        "character": "Ɗ",
+        "name": "LATIN CAPITAL LETTER D WITH HOOK"
+      },
+      {
+        "character": "Ƌ",
+        "name": "LATIN CAPITAL LETTER D WITH TOPBAR"
+      },
+      {
+        "character": "ƌ",
+        "name": "LATIN SMALL LETTER D WITH TOPBAR"
+      },
+      {
+        "character": "ƍ",
+        "name": "LATIN SMALL LETTER TURNED DELTA"
+      },
+      {
+        "character": "Ǝ",
+        "name": "LATIN CAPITAL LETTER REVERSED E"
+      },
+      {
+        "character": "Ə",
+        "name": "LATIN CAPITAL LETTER SCHWA"
+      },
+      {
+        "character": "Ɛ",
+        "name": "LATIN CAPITAL LETTER OPEN E"
+      },
+      {
+        "character": "Ƒ",
+        "name": "LATIN CAPITAL LETTER F WITH HOOK"
+      },
+      {
+        "character": "ƒ",
+        "name": "LATIN SMALL LETTER F WITH HOOK"
+      },
+      {
+        "character": "Ɠ",
+        "name": "LATIN CAPITAL LETTER G WITH HOOK"
+      },
+      {
+        "character": "Ɣ",
+        "name": "LATIN CAPITAL LETTER GAMMA"
+      },
+      {
+        "character": "ƕ",
+        "name": "LATIN SMALL LETTER HV"
+      },
+      {
+        "character": "Ɩ",
+        "name": "LATIN CAPITAL LETTER IOTA"
+      },
+      {
+        "character": "Ɨ",
+        "name": "LATIN CAPITAL LETTER I WITH STROKE"
+      },
+      {
+        "character": "Ƙ",
+        "name": "LATIN CAPITAL LETTER K WITH HOOK"
+      },
+      {
+        "character": "ƙ",
+        "name": "LATIN SMALL LETTER K WITH HOOK"
+      },
+      {
+        "character": "ƚ",
+        "name": "LATIN SMALL LETTER L WITH BAR"
+      },
+      {
+        "character": "ƛ",
+        "name": "LATIN SMALL LETTER LAMBDA WITH STROKE"
+      },
+      {
+        "character": "Ɯ",
+        "name": "LATIN CAPITAL LETTER TURNED M"
+      },
+      {
+        "character": "Ɲ",
+        "name": "LATIN CAPITAL LETTER N WITH LEFT HOOK"
+      },
+      {
+        "character": "ƞ",
+        "name": "LATIN SMALL LETTER N WITH LONG RIGHT LEG"
+      },
+      {
+        "character": "Ɵ",
+        "name": "LATIN CAPITAL LETTER O WITH MIDDLE TILDE"
+      },
+      {
+        "character": "Ơ",
+        "name": "LATIN CAPITAL LETTER O WITH HORN"
+      },
+      {
+        "character": "ơ",
+        "name": "LATIN SMALL LETTER O WITH HORN"
+      },
+      {
+        "character": "Ƣ",
+        "name": "LATIN CAPITAL LETTER OI"
+      },
+      {
+        "character": "ƣ",
+        "name": "LATIN SMALL LETTER OI"
+      },
+      {
+        "character": "Ƥ",
+        "name": "LATIN CAPITAL LETTER P WITH HOOK"
+      },
+      {
+        "character": "ƥ",
+        "name": "LATIN SMALL LETTER P WITH HOOK"
+      },
+      {
+        "character": "Ʀ",
+        "name": "LATIN LETTER YR"
+      },
+      {
+        "character": "Ƨ",
+        "name": "LATIN CAPITAL LETTER TONE TWO"
+      },
+      {
+        "character": "ƨ",
+        "name": "LATIN SMALL LETTER TONE TWO"
+      },
+      {
+        "character": "Ʃ",
+        "name": "LATIN CAPITAL LETTER ESH"
+      },
+      {
+        "character": "ƪ",
+        "name": "LATIN LETTER REVERSED ESH LOOP"
+      },
+      {
+        "character": "ƫ",
+        "name": "LATIN SMALL LETTER T WITH PALATAL HOOK"
+      },
+      {
+        "character": "Ƭ",
+        "name": "LATIN CAPITAL LETTER T WITH HOOK"
+      },
+      {
+        "character": "ƭ",
+        "name": "LATIN SMALL LETTER T WITH HOOK"
+      },
+      {
+        "character": "Ʈ",
+        "name": "LATIN CAPITAL LETTER T WITH RETROFLEX HOOK"
+      },
+      {
+        "character": "Ư",
+        "name": "LATIN CAPITAL LETTER U WITH HORN"
+      },
+      {
+        "character": "ư",
+        "name": "LATIN SMALL LETTER U WITH HORN"
+      },
+      {
+        "character": "Ʊ",
+        "name": "LATIN CAPITAL LETTER UPSILON"
+      },
+      {
+        "character": "Ʋ",
+        "name": "LATIN CAPITAL LETTER V WITH HOOK"
+      },
+      {
+        "character": "Ƴ",
+        "name": "LATIN CAPITAL LETTER Y WITH HOOK"
+      },
+      {
+        "character": "ƴ",
+        "name": "LATIN SMALL LETTER Y WITH HOOK"
+      },
+      {
+        "character": "Ƶ",
+        "name": "LATIN CAPITAL LETTER Z WITH STROKE"
+      },
+      {
+        "character": "ƶ",
+        "name": "LATIN SMALL LETTER Z WITH STROKE"
+      },
+      {
+        "character": "Ʒ",
+        "name": "LATIN CAPITAL LETTER EZH"
+      },
+      {
+        "character": "Ƹ",
+        "name": "LATIN CAPITAL LETTER EZH REVERSED"
+      },
+      {
+        "character": "ƹ",
+        "name": "LATIN SMALL LETTER EZH REVERSED"
+      },
+      {
+        "character": "ƺ",
+        "name": "LATIN SMALL LETTER EZH WITH TAIL"
+      },
+      {
+        "character": "ƻ",
+        "name": "LATIN LETTER TWO WITH STROKE"
+      },
+      {
+        "character": "Ƽ",
+        "name": "LATIN CAPITAL LETTER TONE FIVE"
+      },
+      {
+        "character": "ƽ",
+        "name": "LATIN SMALL LETTER TONE FIVE"
+      },
+      {
+        "character": "ƾ",
+        "name": "LATIN LETTER INVERTED GLOTTAL STOP WITH STROKE"
+      },
+      {
+        "character": "ƿ",
+        "name": "LATIN LETTER WYNN"
+      },
+      {
+        "character": "ǀ",
+        "name": "LATIN LETTER DENTAL CLICK"
+      },
+      {
+        "character": "ǁ",
+        "name": "LATIN LETTER LATERAL CLICK"
+      },
+      {
+        "character": "ǂ",
+        "name": "LATIN LETTER ALVEOLAR CLICK"
+      },
+      {
+        "character": "ǃ",
+        "name": "LATIN LETTER RETROFLEX CLICK"
+      },
+      {
+        "character": "Ǆ",
+        "name": "LATIN CAPITAL LETTER DZ WITH CARON"
+      },
+      {
+        "character": "ǅ",
+        "name": "LATIN CAPITAL LETTER D WITH SMALL LETTER Z WITH CARON"
+      },
+      {
+        "character": "ǆ",
+        "name": "LATIN SMALL LETTER DZ WITH CARON"
+      },
+      {
+        "character": "Ǉ",
+        "name": "LATIN CAPITAL LETTER LJ"
+      },
+      {
+        "character": "ǈ",
+        "name": "LATIN CAPITAL LETTER L WITH SMALL LETTER J"
+      },
+      {
+        "character": "ǉ",
+        "name": "LATIN SMALL LETTER LJ"
+      },
+      {
+        "character": "Ǌ",
+        "name": "LATIN CAPITAL LETTER NJ"
+      },
+      {
+        "character": "ǋ",
+        "name": "LATIN CAPITAL LETTER N WITH SMALL LETTER J"
+      },
+      {
+        "character": "ǌ",
+        "name": "LATIN SMALL LETTER NJ"
+      },
+      {
+        "character": "Ǎ",
+        "name": "LATIN CAPITAL LETTER A WITH CARON"
+      },
+      {
+        "character": "ǎ",
+        "name": "LATIN SMALL LETTER A WITH CARON"
+      },
+      {
+        "character": "Ǐ",
+        "name": "LATIN CAPITAL LETTER I WITH CARON"
+      },
+      {
+        "character": "ǐ",
+        "name": "LATIN SMALL LETTER I WITH CARON"
+      },
+      {
+        "character": "Ǒ",
+        "name": "LATIN CAPITAL LETTER O WITH CARON"
+      },
+      {
+        "character": "ǒ",
+        "name": "LATIN SMALL LETTER O WITH CARON"
+      },
+      {
+        "character": "Ǔ",
+        "name": "LATIN CAPITAL LETTER U WITH CARON"
+      },
+      {
+        "character": "ǔ",
+        "name": "LATIN SMALL LETTER U WITH CARON"
+      },
+      {
+        "character": "Ǖ",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "ǖ",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "Ǘ",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS AND ACUTE"
+      },
+      {
+        "character": "ǘ",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS AND ACUTE"
+      },
+      {
+        "character": "Ǚ",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS AND CARON"
+      },
+      {
+        "character": "ǚ",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS AND CARON"
+      },
+      {
+        "character": "Ǜ",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS AND GRAVE"
+      },
+      {
+        "character": "ǜ",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS AND GRAVE"
+      },
+      {
+        "character": "ǝ",
+        "name": "LATIN SMALL LETTER TURNED E"
+      },
+      {
+        "character": "Ǟ",
+        "name": "LATIN CAPITAL LETTER A WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "ǟ",
+        "name": "LATIN SMALL LETTER A WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "Ǡ",
+        "name": "LATIN CAPITAL LETTER A WITH DOT ABOVE AND MACRON"
+      },
+      {
+        "character": "ǡ",
+        "name": "LATIN SMALL LETTER A WITH DOT ABOVE AND MACRON"
+      },
+      {
+        "character": "Ǣ",
+        "name": "LATIN CAPITAL LETTER AE WITH MACRON"
+      },
+      {
+        "character": "ǣ",
+        "name": "LATIN SMALL LETTER AE WITH MACRON"
+      },
+      {
+        "character": "Ǥ",
+        "name": "LATIN CAPITAL LETTER G WITH STROKE"
+      },
+      {
+        "character": "ǥ",
+        "name": "LATIN SMALL LETTER G WITH STROKE"
+      },
+      {
+        "character": "Ǧ",
+        "name": "LATIN CAPITAL LETTER G WITH CARON"
+      },
+      {
+        "character": "ǧ",
+        "name": "LATIN SMALL LETTER G WITH CARON"
+      },
+      {
+        "character": "Ǩ",
+        "name": "LATIN CAPITAL LETTER K WITH CARON"
+      },
+      {
+        "character": "ǩ",
+        "name": "LATIN SMALL LETTER K WITH CARON"
+      },
+      {
+        "character": "Ǫ",
+        "name": "LATIN CAPITAL LETTER O WITH OGONEK"
+      },
+      {
+        "character": "ǫ",
+        "name": "LATIN SMALL LETTER O WITH OGONEK"
+      },
+      {
+        "character": "Ǭ",
+        "name": "LATIN CAPITAL LETTER O WITH OGONEK AND MACRON"
+      },
+      {
+        "character": "ǭ",
+        "name": "LATIN SMALL LETTER O WITH OGONEK AND MACRON"
+      },
+      {
+        "character": "Ǯ",
+        "name": "LATIN CAPITAL LETTER EZH WITH CARON"
+      },
+      {
+        "character": "ǯ",
+        "name": "LATIN SMALL LETTER EZH WITH CARON"
+      },
+      {
+        "character": "ǰ",
+        "name": "LATIN SMALL LETTER J WITH CARON"
+      },
+      {
+        "character": "Ǳ",
+        "name": "LATIN CAPITAL LETTER DZ"
+      },
+      {
+        "character": "ǲ",
+        "name": "LATIN CAPITAL LETTER D WITH SMALL LETTER Z"
+      },
+      {
+        "character": "ǳ",
+        "name": "LATIN SMALL LETTER DZ"
+      },
+      {
+        "character": "Ǵ",
+        "name": "LATIN CAPITAL LETTER G WITH ACUTE"
+      },
+      {
+        "character": "ǵ",
+        "name": "LATIN SMALL LETTER G WITH ACUTE"
+      },
+      {
+        "character": "Ƕ",
+        "name": "LATIN CAPITAL LETTER HWAIR"
+      },
+      {
+        "character": "Ƿ",
+        "name": "LATIN CAPITAL LETTER WYNN"
+      },
+      {
+        "character": "Ǹ",
+        "name": "LATIN CAPITAL LETTER N WITH GRAVE"
+      },
+      {
+        "character": "ǹ",
+        "name": "LATIN SMALL LETTER N WITH GRAVE"
+      },
+      {
+        "character": "Ǻ",
+        "name": "LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE"
+      },
+      {
+        "character": "ǻ",
+        "name": "LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE"
+      },
+      {
+        "character": "Ǽ",
+        "name": "LATIN CAPITAL LETTER AE WITH ACUTE"
+      },
+      {
+        "character": "ǽ",
+        "name": "LATIN SMALL LETTER AE WITH ACUTE"
+      },
+      {
+        "character": "Ǿ",
+        "name": "LATIN CAPITAL LETTER O WITH STROKE AND ACUTE"
+      },
+      {
+        "character": "ǿ",
+        "name": "LATIN SMALL LETTER O WITH STROKE AND ACUTE"
+      },
+      {
+        "character": "Ȁ",
+        "name": "LATIN CAPITAL LETTER A WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȁ",
+        "name": "LATIN SMALL LETTER A WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȃ",
+        "name": "LATIN CAPITAL LETTER A WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȃ",
+        "name": "LATIN SMALL LETTER A WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ȅ",
+        "name": "LATIN CAPITAL LETTER E WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȅ",
+        "name": "LATIN SMALL LETTER E WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȇ",
+        "name": "LATIN CAPITAL LETTER E WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȇ",
+        "name": "LATIN SMALL LETTER E WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ȉ",
+        "name": "LATIN CAPITAL LETTER I WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȉ",
+        "name": "LATIN SMALL LETTER I WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȋ",
+        "name": "LATIN CAPITAL LETTER I WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȋ",
+        "name": "LATIN SMALL LETTER I WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ȍ",
+        "name": "LATIN CAPITAL LETTER O WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȍ",
+        "name": "LATIN SMALL LETTER O WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȏ",
+        "name": "LATIN CAPITAL LETTER O WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȏ",
+        "name": "LATIN SMALL LETTER O WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ȑ",
+        "name": "LATIN CAPITAL LETTER R WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȑ",
+        "name": "LATIN SMALL LETTER R WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȓ",
+        "name": "LATIN CAPITAL LETTER R WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȓ",
+        "name": "LATIN SMALL LETTER R WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ȕ",
+        "name": "LATIN CAPITAL LETTER U WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "ȕ",
+        "name": "LATIN SMALL LETTER U WITH DOUBLE GRAVE"
+      },
+      {
+        "character": "Ȗ",
+        "name": "LATIN CAPITAL LETTER U WITH INVERTED BREVE"
+      },
+      {
+        "character": "ȗ",
+        "name": "LATIN SMALL LETTER U WITH INVERTED BREVE"
+      },
+      {
+        "character": "Ș",
+        "name": "LATIN CAPITAL LETTER S WITH COMMA BELOW"
+      },
+      {
+        "character": "ș",
+        "name": "LATIN SMALL LETTER S WITH COMMA BELOW"
+      },
+      {
+        "character": "Ț",
+        "name": "LATIN CAPITAL LETTER T WITH COMMA BELOW"
+      },
+      {
+        "character": "ț",
+        "name": "LATIN SMALL LETTER T WITH COMMA BELOW"
+      },
+      {
+        "character": "Ȝ",
+        "name": "LATIN CAPITAL LETTER YOGH"
+      },
+      {
+        "character": "ȝ",
+        "name": "LATIN SMALL LETTER YOGH"
+      },
+      {
+        "character": "Ȟ",
+        "name": "LATIN CAPITAL LETTER H WITH CARON"
+      },
+      {
+        "character": "ȟ",
+        "name": "LATIN SMALL LETTER H WITH CARON"
+      },
+      {
+        "character": "Ƞ",
+        "name": "LATIN CAPITAL LETTER N WITH LONG RIGHT LEG"
+      },
+      {
+        "character": "ȡ",
+        "name": "LATIN SMALL LETTER D WITH CURL"
+      },
+      {
+        "character": "Ȣ",
+        "name": "LATIN CAPITAL LETTER OU"
+      },
+      {
+        "character": "ȣ",
+        "name": "LATIN SMALL LETTER OU"
+      },
+      {
+        "character": "Ȥ",
+        "name": "LATIN CAPITAL LETTER Z WITH HOOK"
+      },
+      {
+        "character": "ȥ",
+        "name": "LATIN SMALL LETTER Z WITH HOOK"
+      },
+      {
+        "character": "Ȧ",
+        "name": "LATIN CAPITAL LETTER A WITH DOT ABOVE"
+      },
+      {
+        "character": "ȧ",
+        "name": "LATIN SMALL LETTER A WITH DOT ABOVE"
+      },
+      {
+        "character": "Ȩ",
+        "name": "LATIN CAPITAL LETTER E WITH CEDILLA"
+      },
+      {
+        "character": "ȩ",
+        "name": "LATIN SMALL LETTER E WITH CEDILLA"
+      },
+      {
+        "character": "Ȫ",
+        "name": "LATIN CAPITAL LETTER O WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "ȫ",
+        "name": "LATIN SMALL LETTER O WITH DIAERESIS AND MACRON"
+      },
+      {
+        "character": "Ȭ",
+        "name": "LATIN CAPITAL LETTER O WITH TILDE AND MACRON"
+      },
+      {
+        "character": "ȭ",
+        "name": "LATIN SMALL LETTER O WITH TILDE AND MACRON"
+      },
+      {
+        "character": "Ȯ",
+        "name": "LATIN CAPITAL LETTER O WITH DOT ABOVE"
+      },
+      {
+        "character": "ȯ",
+        "name": "LATIN SMALL LETTER O WITH DOT ABOVE"
+      },
+      {
+        "character": "Ȱ",
+        "name": "LATIN CAPITAL LETTER O WITH DOT ABOVE AND MACRON"
+      },
+      {
+        "character": "ȱ",
+        "name": "LATIN SMALL LETTER O WITH DOT ABOVE AND MACRON"
+      },
+      {
+        "character": "Ȳ",
+        "name": "LATIN CAPITAL LETTER Y WITH MACRON"
+      },
+      {
+        "character": "ȳ",
+        "name": "LATIN SMALL LETTER Y WITH MACRON"
+      },
+      {
+        "character": "ȴ",
+        "name": "LATIN SMALL LETTER L WITH CURL"
+      },
+      {
+        "character": "ȵ",
+        "name": "LATIN SMALL LETTER N WITH CURL"
+      },
+      {
+        "character": "ȶ",
+        "name": "LATIN SMALL LETTER T WITH CURL"
+      },
+      {
+        "character": "ȷ",
+        "name": "LATIN SMALL LETTER DOTLESS J"
+      },
+      {
+        "character": "ȸ",
+        "name": "LATIN SMALL LETTER DB DIGRAPH"
+      },
+      {
+        "character": "ȹ",
+        "name": "LATIN SMALL LETTER QP DIGRAPH"
+      },
+      {
+        "character": "Ⱥ",
+        "name": "LATIN CAPITAL LETTER A WITH STROKE"
+      },
+      {
+        "character": "Ȼ",
+        "name": "LATIN CAPITAL LETTER C WITH STROKE"
+      },
+      {
+        "character": "ȼ",
+        "name": "LATIN SMALL LETTER C WITH STROKE"
+      },
+      {
+        "character": "Ƚ",
+        "name": "LATIN CAPITAL LETTER L WITH BAR"
+      },
+      {
+        "character": "Ⱦ",
+        "name": "LATIN CAPITAL LETTER T WITH DIAGONAL STROKE"
+      },
+      {
+        "character": "ȿ",
+        "name": "LATIN SMALL LETTER S WITH SWASH TAIL"
+      },
+      {
+        "character": "ɀ",
+        "name": "LATIN SMALL LETTER Z WITH SWASH TAIL"
+      },
+      {
+        "character": "Ɂ",
+        "name": "LATIN CAPITAL LETTER GLOTTAL STOP"
+      },
+      {
+        "character": "ɂ",
+        "name": "LATIN SMALL LETTER GLOTTAL STOP"
+      },
+      {
+        "character": "Ƀ",
+        "name": "LATIN CAPITAL LETTER B WITH STROKE"
+      },
+      {
+        "character": "Ʉ",
+        "name": "LATIN CAPITAL LETTER U BAR"
+      },
+      {
+        "character": "Ʌ",
+        "name": "LATIN CAPITAL LETTER TURNED V"
+      },
+      {
+        "character": "Ɇ",
+        "name": "LATIN CAPITAL LETTER E WITH STROKE"
+      },
+      {
+        "character": "ɇ",
+        "name": "LATIN SMALL LETTER E WITH STROKE"
+      },
+      {
+        "character": "Ɉ",
+        "name": "LATIN CAPITAL LETTER J WITH STROKE"
+      },
+      {
+        "character": "ɉ",
+        "name": "LATIN SMALL LETTER J WITH STROKE"
+      },
+      {
+        "character": "Ɋ",
+        "name": "LATIN CAPITAL LETTER SMALL Q WITH HOOK TAIL"
+      },
+      {
+        "character": "ɋ",
+        "name": "LATIN SMALL LETTER Q WITH HOOK TAIL"
+      },
+      {
+        "character": "Ɍ",
+        "name": "LATIN CAPITAL LETTER R WITH STROKE"
+      },
+      {
+        "character": "ɍ",
+        "name": "LATIN SMALL LETTER R WITH STROKE"
+      },
+      {
+        "character": "Ɏ",
+        "name": "LATIN CAPITAL LETTER Y WITH STROKE"
+      },
+      {
+        "character": "ɏ",
+        "name": "LATIN SMALL LETTER Y WITH STROKE"
+      }
+    ]
+  },
+  {
+    "id": "Latin_Extended_Additional",
+    "label": "Latin Extended Additional",
+    "characters": [
+      {
+        "character": "Ḁ",
+        "name": "LATIN CAPITAL LETTER A WITH RING BELOW"
+      },
+      {
+        "character": "ḁ",
+        "name": "LATIN SMALL LETTER A WITH RING BELOW"
+      },
+      {
+        "character": "Ḃ",
+        "name": "LATIN CAPITAL LETTER B WITH DOT ABOVE"
+      },
+      {
+        "character": "ḃ",
+        "name": "LATIN SMALL LETTER B WITH DOT ABOVE"
+      },
+      {
+        "character": "Ḅ",
+        "name": "LATIN CAPITAL LETTER B WITH DOT BELOW"
+      },
+      {
+        "character": "ḅ",
+        "name": "LATIN SMALL LETTER B WITH DOT BELOW"
+      },
+      {
+        "character": "Ḇ",
+        "name": "LATIN CAPITAL LETTER B WITH LINE BELOW"
+      },
+      {
+        "character": "ḇ",
+        "name": "LATIN SMALL LETTER B WITH LINE BELOW"
+      },
+      {
+        "character": "Ḉ",
+        "name": "LATIN CAPITAL LETTER C WITH CEDILLA AND ACUTE"
+      },
+      {
+        "character": "ḉ",
+        "name": "LATIN SMALL LETTER C WITH CEDILLA AND ACUTE"
+      },
+      {
+        "character": "Ḋ",
+        "name": "LATIN CAPITAL LETTER D WITH DOT ABOVE"
+      },
+      {
+        "character": "ḋ",
+        "name": "LATIN SMALL LETTER D WITH DOT ABOVE"
+      },
+      {
+        "character": "Ḍ",
+        "name": "LATIN CAPITAL LETTER D WITH DOT BELOW"
+      },
+      {
+        "character": "ḍ",
+        "name": "LATIN SMALL LETTER D WITH DOT BELOW"
+      },
+      {
+        "character": "Ḏ",
+        "name": "LATIN CAPITAL LETTER D WITH LINE BELOW"
+      },
+      {
+        "character": "ḏ",
+        "name": "LATIN SMALL LETTER D WITH LINE BELOW"
+      },
+      {
+        "character": "Ḑ",
+        "name": "LATIN CAPITAL LETTER D WITH CEDILLA"
+      },
+      {
+        "character": "ḑ",
+        "name": "LATIN SMALL LETTER D WITH CEDILLA"
+      },
+      {
+        "character": "Ḓ",
+        "name": "LATIN CAPITAL LETTER D WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ḓ",
+        "name": "LATIN SMALL LETTER D WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ḕ",
+        "name": "LATIN CAPITAL LETTER E WITH MACRON AND GRAVE"
+      },
+      {
+        "character": "ḕ",
+        "name": "LATIN SMALL LETTER E WITH MACRON AND GRAVE"
+      },
+      {
+        "character": "Ḗ",
+        "name": "LATIN CAPITAL LETTER E WITH MACRON AND ACUTE"
+      },
+      {
+        "character": "ḗ",
+        "name": "LATIN SMALL LETTER E WITH MACRON AND ACUTE"
+      },
+      {
+        "character": "Ḙ",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ḙ",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ḛ",
+        "name": "LATIN CAPITAL LETTER E WITH TILDE BELOW"
+      },
+      {
+        "character": "ḛ",
+        "name": "LATIN SMALL LETTER E WITH TILDE BELOW"
+      },
+      {
+        "character": "Ḝ",
+        "name": "LATIN CAPITAL LETTER E WITH CEDILLA AND BREVE"
+      },
+      {
+        "character": "ḝ",
+        "name": "LATIN SMALL LETTER E WITH CEDILLA AND BREVE"
+      },
+      {
+        "character": "Ḟ",
+        "name": "LATIN CAPITAL LETTER F WITH DOT ABOVE"
+      },
+      {
+        "character": "ḟ",
+        "name": "LATIN SMALL LETTER F WITH DOT ABOVE"
+      },
+      {
+        "character": "Ḡ",
+        "name": "LATIN CAPITAL LETTER G WITH MACRON"
+      },
+      {
+        "character": "ḡ",
+        "name": "LATIN SMALL LETTER G WITH MACRON"
+      },
+      {
+        "character": "Ḣ",
+        "name": "LATIN CAPITAL LETTER H WITH DOT ABOVE"
+      },
+      {
+        "character": "ḣ",
+        "name": "LATIN SMALL LETTER H WITH DOT ABOVE"
+      },
+      {
+        "character": "Ḥ",
+        "name": "LATIN CAPITAL LETTER H WITH DOT BELOW"
+      },
+      {
+        "character": "ḥ",
+        "name": "LATIN SMALL LETTER H WITH DOT BELOW"
+      },
+      {
+        "character": "Ḧ",
+        "name": "LATIN CAPITAL LETTER H WITH DIAERESIS"
+      },
+      {
+        "character": "ḧ",
+        "name": "LATIN SMALL LETTER H WITH DIAERESIS"
+      },
+      {
+        "character": "Ḩ",
+        "name": "LATIN CAPITAL LETTER H WITH CEDILLA"
+      },
+      {
+        "character": "ḩ",
+        "name": "LATIN SMALL LETTER H WITH CEDILLA"
+      },
+      {
+        "character": "Ḫ",
+        "name": "LATIN CAPITAL LETTER H WITH BREVE BELOW"
+      },
+      {
+        "character": "ḫ",
+        "name": "LATIN SMALL LETTER H WITH BREVE BELOW"
+      },
+      {
+        "character": "Ḭ",
+        "name": "LATIN CAPITAL LETTER I WITH TILDE BELOW"
+      },
+      {
+        "character": "ḭ",
+        "name": "LATIN SMALL LETTER I WITH TILDE BELOW"
+      },
+      {
+        "character": "Ḯ",
+        "name": "LATIN CAPITAL LETTER I WITH DIAERESIS AND ACUTE"
+      },
+      {
+        "character": "ḯ",
+        "name": "LATIN SMALL LETTER I WITH DIAERESIS AND ACUTE"
+      },
+      {
+        "character": "Ḱ",
+        "name": "LATIN CAPITAL LETTER K WITH ACUTE"
+      },
+      {
+        "character": "ḱ",
+        "name": "LATIN SMALL LETTER K WITH ACUTE"
+      },
+      {
+        "character": "Ḳ",
+        "name": "LATIN CAPITAL LETTER K WITH DOT BELOW"
+      },
+      {
+        "character": "ḳ",
+        "name": "LATIN SMALL LETTER K WITH DOT BELOW"
+      },
+      {
+        "character": "Ḵ",
+        "name": "LATIN CAPITAL LETTER K WITH LINE BELOW"
+      },
+      {
+        "character": "ḵ",
+        "name": "LATIN SMALL LETTER K WITH LINE BELOW"
+      },
+      {
+        "character": "Ḷ",
+        "name": "LATIN CAPITAL LETTER L WITH DOT BELOW"
+      },
+      {
+        "character": "ḷ",
+        "name": "LATIN SMALL LETTER L WITH DOT BELOW"
+      },
+      {
+        "character": "Ḹ",
+        "name": "LATIN CAPITAL LETTER L WITH DOT BELOW AND MACRON"
+      },
+      {
+        "character": "ḹ",
+        "name": "LATIN SMALL LETTER L WITH DOT BELOW AND MACRON"
+      },
+      {
+        "character": "Ḻ",
+        "name": "LATIN CAPITAL LETTER L WITH LINE BELOW"
+      },
+      {
+        "character": "ḻ",
+        "name": "LATIN SMALL LETTER L WITH LINE BELOW"
+      },
+      {
+        "character": "Ḽ",
+        "name": "LATIN CAPITAL LETTER L WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ḽ",
+        "name": "LATIN SMALL LETTER L WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ḿ",
+        "name": "LATIN CAPITAL LETTER M WITH ACUTE"
+      },
+      {
+        "character": "ḿ",
+        "name": "LATIN SMALL LETTER M WITH ACUTE"
+      },
+      {
+        "character": "Ṁ",
+        "name": "LATIN CAPITAL LETTER M WITH DOT ABOVE"
+      },
+      {
+        "character": "ṁ",
+        "name": "LATIN SMALL LETTER M WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṃ",
+        "name": "LATIN CAPITAL LETTER M WITH DOT BELOW"
+      },
+      {
+        "character": "ṃ",
+        "name": "LATIN SMALL LETTER M WITH DOT BELOW"
+      },
+      {
+        "character": "Ṅ",
+        "name": "LATIN CAPITAL LETTER N WITH DOT ABOVE"
+      },
+      {
+        "character": "ṅ",
+        "name": "LATIN SMALL LETTER N WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṇ",
+        "name": "LATIN CAPITAL LETTER N WITH DOT BELOW"
+      },
+      {
+        "character": "ṇ",
+        "name": "LATIN SMALL LETTER N WITH DOT BELOW"
+      },
+      {
+        "character": "Ṉ",
+        "name": "LATIN CAPITAL LETTER N WITH LINE BELOW"
+      },
+      {
+        "character": "ṉ",
+        "name": "LATIN SMALL LETTER N WITH LINE BELOW"
+      },
+      {
+        "character": "Ṋ",
+        "name": "LATIN CAPITAL LETTER N WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ṋ",
+        "name": "LATIN SMALL LETTER N WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ṍ",
+        "name": "LATIN CAPITAL LETTER O WITH TILDE AND ACUTE"
+      },
+      {
+        "character": "ṍ",
+        "name": "LATIN SMALL LETTER O WITH TILDE AND ACUTE"
+      },
+      {
+        "character": "Ṏ",
+        "name": "LATIN CAPITAL LETTER O WITH TILDE AND DIAERESIS"
+      },
+      {
+        "character": "ṏ",
+        "name": "LATIN SMALL LETTER O WITH TILDE AND DIAERESIS"
+      },
+      {
+        "character": "Ṑ",
+        "name": "LATIN CAPITAL LETTER O WITH MACRON AND GRAVE"
+      },
+      {
+        "character": "ṑ",
+        "name": "LATIN SMALL LETTER O WITH MACRON AND GRAVE"
+      },
+      {
+        "character": "Ṓ",
+        "name": "LATIN CAPITAL LETTER O WITH MACRON AND ACUTE"
+      },
+      {
+        "character": "ṓ",
+        "name": "LATIN SMALL LETTER O WITH MACRON AND ACUTE"
+      },
+      {
+        "character": "Ṕ",
+        "name": "LATIN CAPITAL LETTER P WITH ACUTE"
+      },
+      {
+        "character": "ṕ",
+        "name": "LATIN SMALL LETTER P WITH ACUTE"
+      },
+      {
+        "character": "Ṗ",
+        "name": "LATIN CAPITAL LETTER P WITH DOT ABOVE"
+      },
+      {
+        "character": "ṗ",
+        "name": "LATIN SMALL LETTER P WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṙ",
+        "name": "LATIN CAPITAL LETTER R WITH DOT ABOVE"
+      },
+      {
+        "character": "ṙ",
+        "name": "LATIN SMALL LETTER R WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṛ",
+        "name": "LATIN CAPITAL LETTER R WITH DOT BELOW"
+      },
+      {
+        "character": "ṛ",
+        "name": "LATIN SMALL LETTER R WITH DOT BELOW"
+      },
+      {
+        "character": "Ṝ",
+        "name": "LATIN CAPITAL LETTER R WITH DOT BELOW AND MACRON"
+      },
+      {
+        "character": "ṝ",
+        "name": "LATIN SMALL LETTER R WITH DOT BELOW AND MACRON"
+      },
+      {
+        "character": "Ṟ",
+        "name": "LATIN CAPITAL LETTER R WITH LINE BELOW"
+      },
+      {
+        "character": "ṟ",
+        "name": "LATIN SMALL LETTER R WITH LINE BELOW"
+      },
+      {
+        "character": "Ṡ",
+        "name": "LATIN CAPITAL LETTER S WITH DOT ABOVE"
+      },
+      {
+        "character": "ṡ",
+        "name": "LATIN SMALL LETTER S WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṣ",
+        "name": "LATIN CAPITAL LETTER S WITH DOT BELOW"
+      },
+      {
+        "character": "ṣ",
+        "name": "LATIN SMALL LETTER S WITH DOT BELOW"
+      },
+      {
+        "character": "Ṥ",
+        "name": "LATIN CAPITAL LETTER S WITH ACUTE AND DOT ABOVE"
+      },
+      {
+        "character": "ṥ",
+        "name": "LATIN SMALL LETTER S WITH ACUTE AND DOT ABOVE"
+      },
+      {
+        "character": "Ṧ",
+        "name": "LATIN CAPITAL LETTER S WITH CARON AND DOT ABOVE"
+      },
+      {
+        "character": "ṧ",
+        "name": "LATIN SMALL LETTER S WITH CARON AND DOT ABOVE"
+      },
+      {
+        "character": "Ṩ",
+        "name": "LATIN CAPITAL LETTER S WITH DOT BELOW AND DOT ABOVE"
+      },
+      {
+        "character": "ṩ",
+        "name": "LATIN SMALL LETTER S WITH DOT BELOW AND DOT ABOVE"
+      },
+      {
+        "character": "Ṫ",
+        "name": "LATIN CAPITAL LETTER T WITH DOT ABOVE"
+      },
+      {
+        "character": "ṫ",
+        "name": "LATIN SMALL LETTER T WITH DOT ABOVE"
+      },
+      {
+        "character": "Ṭ",
+        "name": "LATIN CAPITAL LETTER T WITH DOT BELOW"
+      },
+      {
+        "character": "ṭ",
+        "name": "LATIN SMALL LETTER T WITH DOT BELOW"
+      },
+      {
+        "character": "Ṯ",
+        "name": "LATIN CAPITAL LETTER T WITH LINE BELOW"
+      },
+      {
+        "character": "ṯ",
+        "name": "LATIN SMALL LETTER T WITH LINE BELOW"
+      },
+      {
+        "character": "Ṱ",
+        "name": "LATIN CAPITAL LETTER T WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ṱ",
+        "name": "LATIN SMALL LETTER T WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ṳ",
+        "name": "LATIN CAPITAL LETTER U WITH DIAERESIS BELOW"
+      },
+      {
+        "character": "ṳ",
+        "name": "LATIN SMALL LETTER U WITH DIAERESIS BELOW"
+      },
+      {
+        "character": "Ṵ",
+        "name": "LATIN CAPITAL LETTER U WITH TILDE BELOW"
+      },
+      {
+        "character": "ṵ",
+        "name": "LATIN SMALL LETTER U WITH TILDE BELOW"
+      },
+      {
+        "character": "Ṷ",
+        "name": "LATIN CAPITAL LETTER U WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "ṷ",
+        "name": "LATIN SMALL LETTER U WITH CIRCUMFLEX BELOW"
+      },
+      {
+        "character": "Ṹ",
+        "name": "LATIN CAPITAL LETTER U WITH TILDE AND ACUTE"
+      },
+      {
+        "character": "ṹ",
+        "name": "LATIN SMALL LETTER U WITH TILDE AND ACUTE"
+      },
+      {
+        "character": "Ṻ",
+        "name": "LATIN CAPITAL LETTER U WITH MACRON AND DIAERESIS"
+      },
+      {
+        "character": "ṻ",
+        "name": "LATIN SMALL LETTER U WITH MACRON AND DIAERESIS"
+      },
+      {
+        "character": "Ṽ",
+        "name": "LATIN CAPITAL LETTER V WITH TILDE"
+      },
+      {
+        "character": "ṽ",
+        "name": "LATIN SMALL LETTER V WITH TILDE"
+      },
+      {
+        "character": "Ṿ",
+        "name": "LATIN CAPITAL LETTER V WITH DOT BELOW"
+      },
+      {
+        "character": "ṿ",
+        "name": "LATIN SMALL LETTER V WITH DOT BELOW"
+      },
+      {
+        "character": "Ẁ",
+        "name": "LATIN CAPITAL LETTER W WITH GRAVE"
+      },
+      {
+        "character": "ẁ",
+        "name": "LATIN SMALL LETTER W WITH GRAVE"
+      },
+      {
+        "character": "Ẃ",
+        "name": "LATIN CAPITAL LETTER W WITH ACUTE"
+      },
+      {
+        "character": "ẃ",
+        "name": "LATIN SMALL LETTER W WITH ACUTE"
+      },
+      {
+        "character": "Ẅ",
+        "name": "LATIN CAPITAL LETTER W WITH DIAERESIS"
+      },
+      {
+        "character": "ẅ",
+        "name": "LATIN SMALL LETTER W WITH DIAERESIS"
+      },
+      {
+        "character": "Ẇ",
+        "name": "LATIN CAPITAL LETTER W WITH DOT ABOVE"
+      },
+      {
+        "character": "ẇ",
+        "name": "LATIN SMALL LETTER W WITH DOT ABOVE"
+      },
+      {
+        "character": "Ẉ",
+        "name": "LATIN CAPITAL LETTER W WITH DOT BELOW"
+      },
+      {
+        "character": "ẉ",
+        "name": "LATIN SMALL LETTER W WITH DOT BELOW"
+      },
+      {
+        "character": "Ẋ",
+        "name": "LATIN CAPITAL LETTER X WITH DOT ABOVE"
+      },
+      {
+        "character": "ẋ",
+        "name": "LATIN SMALL LETTER X WITH DOT ABOVE"
+      },
+      {
+        "character": "Ẍ",
+        "name": "LATIN CAPITAL LETTER X WITH DIAERESIS"
+      },
+      {
+        "character": "ẍ",
+        "name": "LATIN SMALL LETTER X WITH DIAERESIS"
+      },
+      {
+        "character": "Ẏ",
+        "name": "LATIN CAPITAL LETTER Y WITH DOT ABOVE"
+      },
+      {
+        "character": "ẏ",
+        "name": "LATIN SMALL LETTER Y WITH DOT ABOVE"
+      },
+      {
+        "character": "Ẑ",
+        "name": "LATIN CAPITAL LETTER Z WITH CIRCUMFLEX"
+      },
+      {
+        "character": "ẑ",
+        "name": "LATIN SMALL LETTER Z WITH CIRCUMFLEX"
+      },
+      {
+        "character": "Ẓ",
+        "name": "LATIN CAPITAL LETTER Z WITH DOT BELOW"
+      },
+      {
+        "character": "ẓ",
+        "name": "LATIN SMALL LETTER Z WITH DOT BELOW"
+      },
+      {
+        "character": "Ẕ",
+        "name": "LATIN CAPITAL LETTER Z WITH LINE BELOW"
+      },
+      {
+        "character": "ẕ",
+        "name": "LATIN SMALL LETTER Z WITH LINE BELOW"
+      },
+      {
+        "character": "ẖ",
+        "name": "LATIN SMALL LETTER H WITH LINE BELOW"
+      },
+      {
+        "character": "ẗ",
+        "name": "LATIN SMALL LETTER T WITH DIAERESIS"
+      },
+      {
+        "character": "ẘ",
+        "name": "LATIN SMALL LETTER W WITH RING ABOVE"
+      },
+      {
+        "character": "ẙ",
+        "name": "LATIN SMALL LETTER Y WITH RING ABOVE"
+      },
+      {
+        "character": "ẚ",
+        "name": "LATIN SMALL LETTER A WITH RIGHT HALF RING"
+      },
+      {
+        "character": "ẛ",
+        "name": "LATIN SMALL LETTER LONG S WITH DOT ABOVE"
+      },
+      {
+        "character": "ẜ",
+        "name": "LATIN SMALL LETTER LONG S WITH DIAGONAL STROKE"
+      },
+      {
+        "character": "ẝ",
+        "name": "LATIN SMALL LETTER LONG S WITH HIGH STROKE"
+      },
+      {
+        "character": "ẞ",
+        "name": "LATIN CAPITAL LETTER SHARP S"
+      },
+      {
+        "character": "ẟ",
+        "name": "LATIN SMALL LETTER DELTA"
+      },
+      {
+        "character": "Ạ",
+        "name": "LATIN CAPITAL LETTER A WITH DOT BELOW"
+      },
+      {
+        "character": "ạ",
+        "name": "LATIN SMALL LETTER A WITH DOT BELOW"
+      },
+      {
+        "character": "Ả",
+        "name": "LATIN CAPITAL LETTER A WITH HOOK ABOVE"
+      },
+      {
+        "character": "ả",
+        "name": "LATIN SMALL LETTER A WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ấ",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "ấ",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "Ầ",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "ầ",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "Ẩ",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "ẩ",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "Ẫ",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "ẫ",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "Ậ",
+        "name": "LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "ậ",
+        "name": "LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "Ắ",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE AND ACUTE"
+      },
+      {
+        "character": "ắ",
+        "name": "LATIN SMALL LETTER A WITH BREVE AND ACUTE"
+      },
+      {
+        "character": "Ằ",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE AND GRAVE"
+      },
+      {
+        "character": "ằ",
+        "name": "LATIN SMALL LETTER A WITH BREVE AND GRAVE"
+      },
+      {
+        "character": "Ẳ",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE AND HOOK ABOVE"
+      },
+      {
+        "character": "ẳ",
+        "name": "LATIN SMALL LETTER A WITH BREVE AND HOOK ABOVE"
+      },
+      {
+        "character": "Ẵ",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE AND TILDE"
+      },
+      {
+        "character": "ẵ",
+        "name": "LATIN SMALL LETTER A WITH BREVE AND TILDE"
+      },
+      {
+        "character": "Ặ",
+        "name": "LATIN CAPITAL LETTER A WITH BREVE AND DOT BELOW"
+      },
+      {
+        "character": "ặ",
+        "name": "LATIN SMALL LETTER A WITH BREVE AND DOT BELOW"
+      },
+      {
+        "character": "Ẹ",
+        "name": "LATIN CAPITAL LETTER E WITH DOT BELOW"
+      },
+      {
+        "character": "ẹ",
+        "name": "LATIN SMALL LETTER E WITH DOT BELOW"
+      },
+      {
+        "character": "Ẻ",
+        "name": "LATIN CAPITAL LETTER E WITH HOOK ABOVE"
+      },
+      {
+        "character": "ẻ",
+        "name": "LATIN SMALL LETTER E WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ẽ",
+        "name": "LATIN CAPITAL LETTER E WITH TILDE"
+      },
+      {
+        "character": "ẽ",
+        "name": "LATIN SMALL LETTER E WITH TILDE"
+      },
+      {
+        "character": "Ế",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "ế",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "Ề",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "ề",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "Ể",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "ể",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "Ễ",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "ễ",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "Ệ",
+        "name": "LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "ệ",
+        "name": "LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "Ỉ",
+        "name": "LATIN CAPITAL LETTER I WITH HOOK ABOVE"
+      },
+      {
+        "character": "ỉ",
+        "name": "LATIN SMALL LETTER I WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ị",
+        "name": "LATIN CAPITAL LETTER I WITH DOT BELOW"
+      },
+      {
+        "character": "ị",
+        "name": "LATIN SMALL LETTER I WITH DOT BELOW"
+      },
+      {
+        "character": "Ọ",
+        "name": "LATIN CAPITAL LETTER O WITH DOT BELOW"
+      },
+      {
+        "character": "ọ",
+        "name": "LATIN SMALL LETTER O WITH DOT BELOW"
+      },
+      {
+        "character": "Ỏ",
+        "name": "LATIN CAPITAL LETTER O WITH HOOK ABOVE"
+      },
+      {
+        "character": "ỏ",
+        "name": "LATIN SMALL LETTER O WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ố",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "ố",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX AND ACUTE"
+      },
+      {
+        "character": "Ồ",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "ồ",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX AND GRAVE"
+      },
+      {
+        "character": "Ổ",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "ổ",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX AND HOOK ABOVE"
+      },
+      {
+        "character": "Ỗ",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "ỗ",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX AND TILDE"
+      },
+      {
+        "character": "Ộ",
+        "name": "LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "ộ",
+        "name": "LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW"
+      },
+      {
+        "character": "Ớ",
+        "name": "LATIN CAPITAL LETTER O WITH HORN AND ACUTE"
+      },
+      {
+        "character": "ớ",
+        "name": "LATIN SMALL LETTER O WITH HORN AND ACUTE"
+      },
+      {
+        "character": "Ờ",
+        "name": "LATIN CAPITAL LETTER O WITH HORN AND GRAVE"
+      },
+      {
+        "character": "ờ",
+        "name": "LATIN SMALL LETTER O WITH HORN AND GRAVE"
+      },
+      {
+        "character": "Ở",
+        "name": "LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE"
+      },
+      {
+        "character": "ở",
+        "name": "LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE"
+      },
+      {
+        "character": "Ỡ",
+        "name": "LATIN CAPITAL LETTER O WITH HORN AND TILDE"
+      },
+      {
+        "character": "ỡ",
+        "name": "LATIN SMALL LETTER O WITH HORN AND TILDE"
+      },
+      {
+        "character": "Ợ",
+        "name": "LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW"
+      },
+      {
+        "character": "ợ",
+        "name": "LATIN SMALL LETTER O WITH HORN AND DOT BELOW"
+      },
+      {
+        "character": "Ụ",
+        "name": "LATIN CAPITAL LETTER U WITH DOT BELOW"
+      },
+      {
+        "character": "ụ",
+        "name": "LATIN SMALL LETTER U WITH DOT BELOW"
+      },
+      {
+        "character": "Ủ",
+        "name": "LATIN CAPITAL LETTER U WITH HOOK ABOVE"
+      },
+      {
+        "character": "ủ",
+        "name": "LATIN SMALL LETTER U WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ứ",
+        "name": "LATIN CAPITAL LETTER U WITH HORN AND ACUTE"
+      },
+      {
+        "character": "ứ",
+        "name": "LATIN SMALL LETTER U WITH HORN AND ACUTE"
+      },
+      {
+        "character": "Ừ",
+        "name": "LATIN CAPITAL LETTER U WITH HORN AND GRAVE"
+      },
+      {
+        "character": "ừ",
+        "name": "LATIN SMALL LETTER U WITH HORN AND GRAVE"
+      },
+      {
+        "character": "Ử",
+        "name": "LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE"
+      },
+      {
+        "character": "ử",
+        "name": "LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE"
+      },
+      {
+        "character": "Ữ",
+        "name": "LATIN CAPITAL LETTER U WITH HORN AND TILDE"
+      },
+      {
+        "character": "ữ",
+        "name": "LATIN SMALL LETTER U WITH HORN AND TILDE"
+      },
+      {
+        "character": "Ự",
+        "name": "LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW"
+      },
+      {
+        "character": "ự",
+        "name": "LATIN SMALL LETTER U WITH HORN AND DOT BELOW"
+      },
+      {
+        "character": "Ỳ",
+        "name": "LATIN CAPITAL LETTER Y WITH GRAVE"
+      },
+      {
+        "character": "ỳ",
+        "name": "LATIN SMALL LETTER Y WITH GRAVE"
+      },
+      {
+        "character": "Ỵ",
+        "name": "LATIN CAPITAL LETTER Y WITH DOT BELOW"
+      },
+      {
+        "character": "ỵ",
+        "name": "LATIN SMALL LETTER Y WITH DOT BELOW"
+      },
+      {
+        "character": "Ỷ",
+        "name": "LATIN CAPITAL LETTER Y WITH HOOK ABOVE"
+      },
+      {
+        "character": "ỷ",
+        "name": "LATIN SMALL LETTER Y WITH HOOK ABOVE"
+      },
+      {
+        "character": "Ỹ",
+        "name": "LATIN CAPITAL LETTER Y WITH TILDE"
+      },
+      {
+        "character": "ỹ",
+        "name": "LATIN SMALL LETTER Y WITH TILDE"
+      },
+      {
+        "character": "Ỻ",
+        "name": "LATIN CAPITAL LETTER MIDDLE-WELSH LL"
+      },
+      {
+        "character": "ỻ",
+        "name": "LATIN SMALL LETTER MIDDLE-WELSH LL"
+      },
+      {
+        "character": "Ỽ",
+        "name": "LATIN CAPITAL LETTER MIDDLE-WELSH V"
+      },
+      {
+        "character": "ỽ",
+        "name": "LATIN SMALL LETTER MIDDLE-WELSH V"
+      },
+      {
+        "character": "Ỿ",
+        "name": "LATIN CAPITAL LETTER Y WITH LOOP"
+      },
+      {
+        "character": "ỿ",
+        "name": "LATIN SMALL LETTER Y WITH LOOP"
+      }
+    ]
+  },
+  {
+    "id": "Latin_Extended_C",
+    "label": "Latin Extended-C",
+    "characters": [
+      {
+        "character": "Ⱡ",
+        "name": "LATIN CAPITAL LETTER L WITH DOUBLE BAR"
+      },
+      {
+        "character": "ⱡ",
+        "name": "LATIN SMALL LETTER L WITH DOUBLE BAR"
+      },
+      {
+        "character": "Ɫ",
+        "name": "LATIN CAPITAL LETTER L WITH MIDDLE TILDE"
+      },
+      {
+        "character": "Ᵽ",
+        "name": "LATIN CAPITAL LETTER P WITH STROKE"
+      },
+      {
+        "character": "Ɽ",
+        "name": "LATIN CAPITAL LETTER R WITH TAIL"
+      },
+      {
+        "character": "ⱥ",
+        "name": "LATIN SMALL LETTER A WITH STROKE"
+      },
+      {
+        "character": "ⱦ",
+        "name": "LATIN SMALL LETTER T WITH DIAGONAL STROKE"
+      },
+      {
+        "character": "Ⱨ",
+        "name": "LATIN CAPITAL LETTER H WITH DESCENDER"
+      },
+      {
+        "character": "ⱨ",
+        "name": "LATIN SMALL LETTER H WITH DESCENDER"
+      },
+      {
+        "character": "Ⱪ",
+        "name": "LATIN CAPITAL LETTER K WITH DESCENDER"
+      },
+      {
+        "character": "ⱪ",
+        "name": "LATIN SMALL LETTER K WITH DESCENDER"
+      },
+      {
+        "character": "Ⱬ",
+        "name": "LATIN CAPITAL LETTER Z WITH DESCENDER"
+      },
+      {
+        "character": "ⱬ",
+        "name": "LATIN SMALL LETTER Z WITH DESCENDER"
+      },
+      {
+        "character": "Ɑ",
+        "name": "LATIN CAPITAL LETTER ALPHA"
+      },
+      {
+        "character": "Ɱ",
+        "name": "LATIN CAPITAL LETTER M WITH HOOK"
+      },
+      {
+        "character": "Ɐ",
+        "name": "LATIN CAPITAL LETTER TURNED A"
+      },
+      {
+        "character": "Ɒ",
+        "name": "LATIN CAPITAL LETTER TURNED ALPHA"
+      },
+      {
+        "character": "ⱱ",
+        "name": "LATIN SMALL LETTER V WITH RIGHT HOOK"
+      },
+      {
+        "character": "Ⱳ",
+        "name": "LATIN CAPITAL LETTER W WITH HOOK"
+      },
+      {
+        "character": "ⱳ",
+        "name": "LATIN SMALL LETTER W WITH HOOK"
+      },
+      {
+        "character": "ⱴ",
+        "name": "LATIN SMALL LETTER V WITH CURL"
+      },
+      {
+        "character": "Ⱶ",
+        "name": "LATIN CAPITAL LETTER HALF H"
+      },
+      {
+        "character": "ⱶ",
+        "name": "LATIN SMALL LETTER HALF H"
+      },
+      {
+        "character": "ⱷ",
+        "name": "LATIN SMALL LETTER TAILLESS PHI"
+      },
+      {
+        "character": "ⱸ",
+        "name": "LATIN SMALL LETTER E WITH NOTCH"
+      },
+      {
+        "character": "ⱹ",
+        "name": "LATIN SMALL LETTER TURNED R WITH TAIL"
+      },
+      {
+        "character": "ⱺ",
+        "name": "LATIN SMALL LETTER O WITH LOW RING INSIDE"
+      },
+      {
+        "character": "ⱻ",
+        "name": "LATIN LETTER SMALL CAPITAL TURNED E"
+      },
+      {
+        "character": "ⱼ",
+        "name": "LATIN SUBSCRIPT SMALL LETTER J"
+      },
+      {
+        "character": "ⱽ",
+        "name": "MODIFIER LETTER CAPITAL V"
+      },
+      {
+        "character": "Ȿ",
+        "name": "LATIN CAPITAL LETTER S WITH SWASH TAIL"
+      },
+      {
+        "character": "Ɀ",
+        "name": "LATIN CAPITAL LETTER Z WITH SWASH TAIL"
+      }
+    ]
+  },
+  {
+    "id": "Greek_And_Coptic",
+    "label": "Greek and Coptic",
+    "characters": [
+      {
+        "character": "Ͱ",
+        "name": "GREEK CAPITAL LETTER HETA"
+      },
+      {
+        "character": "ͱ",
+        "name": "GREEK SMALL LETTER HETA"
+      },
+      {
+        "character": "Ͳ",
+        "name": "GREEK CAPITAL LETTER ARCHAIC SAMPI"
+      },
+      {
+        "character": "ͳ",
+        "name": "GREEK SMALL LETTER ARCHAIC SAMPI"
+      },
+      {
+        "character": "ʹ",
+        "name": "GREEK NUMERAL SIGN"
+      },
+      {
+        "character": "͵",
+        "name": "GREEK LOWER NUMERAL SIGN"
+      },
+      {
+        "character": "Ͷ",
+        "name": "GREEK CAPITAL LETTER PAMPHYLIAN DIGAMMA"
+      },
+      {
+        "character": "ͷ",
+        "name": "GREEK SMALL LETTER PAMPHYLIAN DIGAMMA"
+      },
+      {
+        "character": "ͺ",
+        "name": "GREEK YPOGEGRAMMENI"
+      },
+      {
+        "character": "ͻ",
+        "name": "GREEK SMALL REVERSED LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "ͼ",
+        "name": "GREEK SMALL DOTTED LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "ͽ",
+        "name": "GREEK SMALL REVERSED DOTTED LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": ";",
+        "name": "GREEK QUESTION MARK"
+      },
+      {
+        "character": "Ϳ",
+        "name": "GREEK CAPITAL LETTER YOT"
+      },
+      {
+        "character": "΄",
+        "name": "GREEK TONOS"
+      },
+      {
+        "character": "΅",
+        "name": "GREEK DIALYTIKA TONOS"
+      },
+      {
+        "character": "Ά",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH TONOS"
+      },
+      {
+        "character": "·",
+        "name": "GREEK ANO TELEIA"
+      },
+      {
+        "character": "Έ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH TONOS"
+      },
+      {
+        "character": "Ή",
+        "name": "GREEK CAPITAL LETTER ETA WITH TONOS"
+      },
+      {
+        "character": "Ί",
+        "name": "GREEK CAPITAL LETTER IOTA WITH TONOS"
+      },
+      {
+        "character": "Ό",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH TONOS"
+      },
+      {
+        "character": "Ύ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH TONOS"
+      },
+      {
+        "character": "Ώ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH TONOS"
+      },
+      {
+        "character": "ΐ",
+        "name": "GREEK SMALL LETTER IOTA WITH DIALYTIKA AND TONOS"
+      },
+      {
+        "character": "Α",
+        "name": "GREEK CAPITAL LETTER ALPHA"
+      },
+      {
+        "character": "Β",
+        "name": "GREEK CAPITAL LETTER BETA"
+      },
+      {
+        "character": "Γ",
+        "name": "GREEK CAPITAL LETTER GAMMA"
+      },
+      {
+        "character": "Δ",
+        "name": "GREEK CAPITAL LETTER DELTA"
+      },
+      {
+        "character": "Ε",
+        "name": "GREEK CAPITAL LETTER EPSILON"
+      },
+      {
+        "character": "Ζ",
+        "name": "GREEK CAPITAL LETTER ZETA"
+      },
+      {
+        "character": "Η",
+        "name": "GREEK CAPITAL LETTER ETA"
+      },
+      {
+        "character": "Θ",
+        "name": "GREEK CAPITAL LETTER THETA"
+      },
+      {
+        "character": "Ι",
+        "name": "GREEK CAPITAL LETTER IOTA"
+      },
+      {
+        "character": "Κ",
+        "name": "GREEK CAPITAL LETTER KAPPA"
+      },
+      {
+        "character": "Λ",
+        "name": "GREEK CAPITAL LETTER LAMDA"
+      },
+      {
+        "character": "Μ",
+        "name": "GREEK CAPITAL LETTER MU"
+      },
+      {
+        "character": "Ν",
+        "name": "GREEK CAPITAL LETTER NU"
+      },
+      {
+        "character": "Ξ",
+        "name": "GREEK CAPITAL LETTER XI"
+      },
+      {
+        "character": "Ο",
+        "name": "GREEK CAPITAL LETTER OMICRON"
+      },
+      {
+        "character": "Π",
+        "name": "GREEK CAPITAL LETTER PI"
+      },
+      {
+        "character": "Ρ",
+        "name": "GREEK CAPITAL LETTER RHO"
+      },
+      {
+        "character": "Σ",
+        "name": "GREEK CAPITAL LETTER SIGMA"
+      },
+      {
+        "character": "Τ",
+        "name": "GREEK CAPITAL LETTER TAU"
+      },
+      {
+        "character": "Υ",
+        "name": "GREEK CAPITAL LETTER UPSILON"
+      },
+      {
+        "character": "Φ",
+        "name": "GREEK CAPITAL LETTER PHI"
+      },
+      {
+        "character": "Χ",
+        "name": "GREEK CAPITAL LETTER CHI"
+      },
+      {
+        "character": "Ψ",
+        "name": "GREEK CAPITAL LETTER PSI"
+      },
+      {
+        "character": "Ω",
+        "name": "GREEK CAPITAL LETTER OMEGA"
+      },
+      {
+        "character": "Ϊ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH DIALYTIKA"
+      },
+      {
+        "character": "Ϋ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH DIALYTIKA"
+      },
+      {
+        "character": "ά",
+        "name": "GREEK SMALL LETTER ALPHA WITH TONOS"
+      },
+      {
+        "character": "έ",
+        "name": "GREEK SMALL LETTER EPSILON WITH TONOS"
+      },
+      {
+        "character": "ή",
+        "name": "GREEK SMALL LETTER ETA WITH TONOS"
+      },
+      {
+        "character": "ί",
+        "name": "GREEK SMALL LETTER IOTA WITH TONOS"
+      },
+      {
+        "character": "ΰ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND TONOS"
+      },
+      {
+        "character": "α",
+        "name": "GREEK SMALL LETTER ALPHA"
+      },
+      {
+        "character": "β",
+        "name": "GREEK SMALL LETTER BETA"
+      },
+      {
+        "character": "γ",
+        "name": "GREEK SMALL LETTER GAMMA"
+      },
+      {
+        "character": "δ",
+        "name": "GREEK SMALL LETTER DELTA"
+      },
+      {
+        "character": "ε",
+        "name": "GREEK SMALL LETTER EPSILON"
+      },
+      {
+        "character": "ζ",
+        "name": "GREEK SMALL LETTER ZETA"
+      },
+      {
+        "character": "η",
+        "name": "GREEK SMALL LETTER ETA"
+      },
+      {
+        "character": "θ",
+        "name": "GREEK SMALL LETTER THETA"
+      },
+      {
+        "character": "ι",
+        "name": "GREEK SMALL LETTER IOTA"
+      },
+      {
+        "character": "κ",
+        "name": "GREEK SMALL LETTER KAPPA"
+      },
+      {
+        "character": "λ",
+        "name": "GREEK SMALL LETTER LAMDA"
+      },
+      {
+        "character": "μ",
+        "name": "GREEK SMALL LETTER MU"
+      },
+      {
+        "character": "ν",
+        "name": "GREEK SMALL LETTER NU"
+      },
+      {
+        "character": "ξ",
+        "name": "GREEK SMALL LETTER XI"
+      },
+      {
+        "character": "ο",
+        "name": "GREEK SMALL LETTER OMICRON"
+      },
+      {
+        "character": "π",
+        "name": "GREEK SMALL LETTER PI"
+      },
+      {
+        "character": "ρ",
+        "name": "GREEK SMALL LETTER RHO"
+      },
+      {
+        "character": "ς",
+        "name": "GREEK SMALL LETTER FINAL SIGMA"
+      },
+      {
+        "character": "σ",
+        "name": "GREEK SMALL LETTER SIGMA"
+      },
+      {
+        "character": "τ",
+        "name": "GREEK SMALL LETTER TAU"
+      },
+      {
+        "character": "υ",
+        "name": "GREEK SMALL LETTER UPSILON"
+      },
+      {
+        "character": "φ",
+        "name": "GREEK SMALL LETTER PHI"
+      },
+      {
+        "character": "χ",
+        "name": "GREEK SMALL LETTER CHI"
+      },
+      {
+        "character": "ψ",
+        "name": "GREEK SMALL LETTER PSI"
+      },
+      {
+        "character": "ω",
+        "name": "GREEK SMALL LETTER OMEGA"
+      },
+      {
+        "character": "ϊ",
+        "name": "GREEK SMALL LETTER IOTA WITH DIALYTIKA"
+      },
+      {
+        "character": "ϋ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DIALYTIKA"
+      },
+      {
+        "character": "ό",
+        "name": "GREEK SMALL LETTER OMICRON WITH TONOS"
+      },
+      {
+        "character": "ύ",
+        "name": "GREEK SMALL LETTER UPSILON WITH TONOS"
+      },
+      {
+        "character": "ώ",
+        "name": "GREEK SMALL LETTER OMEGA WITH TONOS"
+      },
+      {
+        "character": "Ϗ",
+        "name": "GREEK CAPITAL KAI SYMBOL"
+      },
+      {
+        "character": "ϐ",
+        "name": "GREEK BETA SYMBOL"
+      },
+      {
+        "character": "ϑ",
+        "name": "GREEK THETA SYMBOL"
+      },
+      {
+        "character": "ϒ",
+        "name": "GREEK UPSILON WITH HOOK SYMBOL"
+      },
+      {
+        "character": "ϓ",
+        "name": "GREEK UPSILON WITH ACUTE AND HOOK SYMBOL"
+      },
+      {
+        "character": "ϔ",
+        "name": "GREEK UPSILON WITH DIAERESIS AND HOOK SYMBOL"
+      },
+      {
+        "character": "ϕ",
+        "name": "GREEK PHI SYMBOL"
+      },
+      {
+        "character": "ϖ",
+        "name": "GREEK PI SYMBOL"
+      },
+      {
+        "character": "ϗ",
+        "name": "GREEK KAI SYMBOL"
+      },
+      {
+        "character": "Ϙ",
+        "name": "GREEK LETTER ARCHAIC KOPPA"
+      },
+      {
+        "character": "ϙ",
+        "name": "GREEK SMALL LETTER ARCHAIC KOPPA"
+      },
+      {
+        "character": "Ϛ",
+        "name": "GREEK LETTER STIGMA"
+      },
+      {
+        "character": "ϛ",
+        "name": "GREEK SMALL LETTER STIGMA"
+      },
+      {
+        "character": "Ϝ",
+        "name": "GREEK LETTER DIGAMMA"
+      },
+      {
+        "character": "ϝ",
+        "name": "GREEK SMALL LETTER DIGAMMA"
+      },
+      {
+        "character": "Ϟ",
+        "name": "GREEK LETTER KOPPA"
+      },
+      {
+        "character": "ϟ",
+        "name": "GREEK SMALL LETTER KOPPA"
+      },
+      {
+        "character": "Ϡ",
+        "name": "GREEK LETTER SAMPI"
+      },
+      {
+        "character": "ϡ",
+        "name": "GREEK SMALL LETTER SAMPI"
+      },
+      {
+        "character": "Ϣ",
+        "name": "COPTIC CAPITAL LETTER SHEI"
+      },
+      {
+        "character": "ϣ",
+        "name": "COPTIC SMALL LETTER SHEI"
+      },
+      {
+        "character": "Ϥ",
+        "name": "COPTIC CAPITAL LETTER FEI"
+      },
+      {
+        "character": "ϥ",
+        "name": "COPTIC SMALL LETTER FEI"
+      },
+      {
+        "character": "Ϧ",
+        "name": "COPTIC CAPITAL LETTER KHEI"
+      },
+      {
+        "character": "ϧ",
+        "name": "COPTIC SMALL LETTER KHEI"
+      },
+      {
+        "character": "Ϩ",
+        "name": "COPTIC CAPITAL LETTER HORI"
+      },
+      {
+        "character": "ϩ",
+        "name": "COPTIC SMALL LETTER HORI"
+      },
+      {
+        "character": "Ϫ",
+        "name": "COPTIC CAPITAL LETTER GANGIA"
+      },
+      {
+        "character": "ϫ",
+        "name": "COPTIC SMALL LETTER GANGIA"
+      },
+      {
+        "character": "Ϭ",
+        "name": "COPTIC CAPITAL LETTER SHIMA"
+      },
+      {
+        "character": "ϭ",
+        "name": "COPTIC SMALL LETTER SHIMA"
+      },
+      {
+        "character": "Ϯ",
+        "name": "COPTIC CAPITAL LETTER DEI"
+      },
+      {
+        "character": "ϯ",
+        "name": "COPTIC SMALL LETTER DEI"
+      },
+      {
+        "character": "ϰ",
+        "name": "GREEK KAPPA SYMBOL"
+      },
+      {
+        "character": "ϱ",
+        "name": "GREEK RHO SYMBOL"
+      },
+      {
+        "character": "ϲ",
+        "name": "GREEK LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "ϳ",
+        "name": "GREEK LETTER YOT"
+      },
+      {
+        "character": "ϴ",
+        "name": "GREEK CAPITAL THETA SYMBOL"
+      },
+      {
+        "character": "ϵ",
+        "name": "GREEK LUNATE EPSILON SYMBOL"
+      },
+      {
+        "character": "϶",
+        "name": "GREEK REVERSED LUNATE EPSILON SYMBOL"
+      },
+      {
+        "character": "Ϸ",
+        "name": "GREEK CAPITAL LETTER SHO"
+      },
+      {
+        "character": "ϸ",
+        "name": "GREEK SMALL LETTER SHO"
+      },
+      {
+        "character": "Ϲ",
+        "name": "GREEK CAPITAL LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "Ϻ",
+        "name": "GREEK CAPITAL LETTER SAN"
+      },
+      {
+        "character": "ϻ",
+        "name": "GREEK SMALL LETTER SAN"
+      },
+      {
+        "character": "ϼ",
+        "name": "GREEK RHO WITH STROKE SYMBOL"
+      },
+      {
+        "character": "Ͻ",
+        "name": "GREEK CAPITAL REVERSED LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "Ͼ",
+        "name": "GREEK CAPITAL DOTTED LUNATE SIGMA SYMBOL"
+      },
+      {
+        "character": "Ͽ",
+        "name": "GREEK CAPITAL REVERSED DOTTED LUNATE SIGMA SYMBOL"
+      }
+    ]
+  },
+  {
+    "id": "Greek_Extended",
+    "label": "Greek Extended",
+    "characters": [
+      {
+        "character": "ἀ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI"
+      },
+      {
+        "character": "ἁ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA"
+      },
+      {
+        "character": "ἂ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ἃ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ἄ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ἅ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ἆ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ἇ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "Ἀ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI"
+      },
+      {
+        "character": "Ἁ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA"
+      },
+      {
+        "character": "Ἂ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ἃ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ἄ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ἅ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ἆ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "Ἇ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ἐ",
+        "name": "GREEK SMALL LETTER EPSILON WITH PSILI"
+      },
+      {
+        "character": "ἑ",
+        "name": "GREEK SMALL LETTER EPSILON WITH DASIA"
+      },
+      {
+        "character": "ἒ",
+        "name": "GREEK SMALL LETTER EPSILON WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ἓ",
+        "name": "GREEK SMALL LETTER EPSILON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ἔ",
+        "name": "GREEK SMALL LETTER EPSILON WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ἕ",
+        "name": "GREEK SMALL LETTER EPSILON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ἐ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH PSILI"
+      },
+      {
+        "character": "Ἑ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH DASIA"
+      },
+      {
+        "character": "Ἒ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ἓ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ἔ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ἕ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ἠ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI"
+      },
+      {
+        "character": "ἡ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA"
+      },
+      {
+        "character": "ἢ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ἣ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ἤ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ἥ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ἦ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ἧ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "Ἠ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI"
+      },
+      {
+        "character": "Ἡ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA"
+      },
+      {
+        "character": "Ἢ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ἣ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ἤ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ἥ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ἦ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "Ἧ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ἰ",
+        "name": "GREEK SMALL LETTER IOTA WITH PSILI"
+      },
+      {
+        "character": "ἱ",
+        "name": "GREEK SMALL LETTER IOTA WITH DASIA"
+      },
+      {
+        "character": "ἲ",
+        "name": "GREEK SMALL LETTER IOTA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ἳ",
+        "name": "GREEK SMALL LETTER IOTA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ἴ",
+        "name": "GREEK SMALL LETTER IOTA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ἵ",
+        "name": "GREEK SMALL LETTER IOTA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ἶ",
+        "name": "GREEK SMALL LETTER IOTA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ἷ",
+        "name": "GREEK SMALL LETTER IOTA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "Ἰ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH PSILI"
+      },
+      {
+        "character": "Ἱ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH DASIA"
+      },
+      {
+        "character": "Ἲ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ἳ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ἴ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ἵ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ἶ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "Ἷ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ὀ",
+        "name": "GREEK SMALL LETTER OMICRON WITH PSILI"
+      },
+      {
+        "character": "ὁ",
+        "name": "GREEK SMALL LETTER OMICRON WITH DASIA"
+      },
+      {
+        "character": "ὂ",
+        "name": "GREEK SMALL LETTER OMICRON WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ὃ",
+        "name": "GREEK SMALL LETTER OMICRON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ὄ",
+        "name": "GREEK SMALL LETTER OMICRON WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ὅ",
+        "name": "GREEK SMALL LETTER OMICRON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ὀ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH PSILI"
+      },
+      {
+        "character": "Ὁ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH DASIA"
+      },
+      {
+        "character": "Ὂ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ὃ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ὄ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ὅ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ὐ",
+        "name": "GREEK SMALL LETTER UPSILON WITH PSILI"
+      },
+      {
+        "character": "ὑ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DASIA"
+      },
+      {
+        "character": "ὒ",
+        "name": "GREEK SMALL LETTER UPSILON WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ὓ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ὔ",
+        "name": "GREEK SMALL LETTER UPSILON WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ὕ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ὖ",
+        "name": "GREEK SMALL LETTER UPSILON WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ὗ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "Ὑ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH DASIA"
+      },
+      {
+        "character": "Ὓ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ὕ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ὗ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ὠ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI"
+      },
+      {
+        "character": "ὡ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA"
+      },
+      {
+        "character": "ὢ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "ὣ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "ὤ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "ὥ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "ὦ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ὧ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "Ὠ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI"
+      },
+      {
+        "character": "Ὡ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA"
+      },
+      {
+        "character": "Ὢ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND VARIA"
+      },
+      {
+        "character": "Ὣ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND VARIA"
+      },
+      {
+        "character": "Ὤ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND OXIA"
+      },
+      {
+        "character": "Ὥ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND OXIA"
+      },
+      {
+        "character": "Ὦ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "Ὧ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ὰ",
+        "name": "GREEK SMALL LETTER ALPHA WITH VARIA"
+      },
+      {
+        "character": "ά",
+        "name": "GREEK SMALL LETTER ALPHA WITH OXIA"
+      },
+      {
+        "character": "ὲ",
+        "name": "GREEK SMALL LETTER EPSILON WITH VARIA"
+      },
+      {
+        "character": "έ",
+        "name": "GREEK SMALL LETTER EPSILON WITH OXIA"
+      },
+      {
+        "character": "ὴ",
+        "name": "GREEK SMALL LETTER ETA WITH VARIA"
+      },
+      {
+        "character": "ή",
+        "name": "GREEK SMALL LETTER ETA WITH OXIA"
+      },
+      {
+        "character": "ὶ",
+        "name": "GREEK SMALL LETTER IOTA WITH VARIA"
+      },
+      {
+        "character": "ί",
+        "name": "GREEK SMALL LETTER IOTA WITH OXIA"
+      },
+      {
+        "character": "ὸ",
+        "name": "GREEK SMALL LETTER OMICRON WITH VARIA"
+      },
+      {
+        "character": "ό",
+        "name": "GREEK SMALL LETTER OMICRON WITH OXIA"
+      },
+      {
+        "character": "ὺ",
+        "name": "GREEK SMALL LETTER UPSILON WITH VARIA"
+      },
+      {
+        "character": "ύ",
+        "name": "GREEK SMALL LETTER UPSILON WITH OXIA"
+      },
+      {
+        "character": "ὼ",
+        "name": "GREEK SMALL LETTER OMEGA WITH VARIA"
+      },
+      {
+        "character": "ώ",
+        "name": "GREEK SMALL LETTER OMEGA WITH OXIA"
+      },
+      {
+        "character": "ᾀ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾁ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾂ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾃ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾄ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾅ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾆ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾇ",
+        "name": "GREEK SMALL LETTER ALPHA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾈ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾉ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾊ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾋ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾌ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾍ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾎ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾏ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾐ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾑ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾒ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾓ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾔ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾕ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾖ",
+        "name": "GREEK SMALL LETTER ETA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾗ",
+        "name": "GREEK SMALL LETTER ETA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾘ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾙ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾚ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾛ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾜ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾝ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾞ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾟ",
+        "name": "GREEK CAPITAL LETTER ETA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾠ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾡ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾢ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾣ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾤ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾥ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾦ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PSILI AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾧ",
+        "name": "GREEK SMALL LETTER OMEGA WITH DASIA AND PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾨ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾩ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾪ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾫ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND VARIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾬ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾭ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND OXIA AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾮ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PSILI AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾯ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH DASIA AND PERISPOMENI AND PROSGEGRAMMENI"
+      },
+      {
+        "character": "ᾰ",
+        "name": "GREEK SMALL LETTER ALPHA WITH VRACHY"
+      },
+      {
+        "character": "ᾱ",
+        "name": "GREEK SMALL LETTER ALPHA WITH MACRON"
+      },
+      {
+        "character": "ᾲ",
+        "name": "GREEK SMALL LETTER ALPHA WITH VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾳ",
+        "name": "GREEK SMALL LETTER ALPHA WITH YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾴ",
+        "name": "GREEK SMALL LETTER ALPHA WITH OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ᾶ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PERISPOMENI"
+      },
+      {
+        "character": "ᾷ",
+        "name": "GREEK SMALL LETTER ALPHA WITH PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "Ᾰ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH VRACHY"
+      },
+      {
+        "character": "Ᾱ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH MACRON"
+      },
+      {
+        "character": "Ὰ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH VARIA"
+      },
+      {
+        "character": "Ά",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH OXIA"
+      },
+      {
+        "character": "ᾼ",
+        "name": "GREEK CAPITAL LETTER ALPHA WITH PROSGEGRAMMENI"
+      },
+      {
+        "character": "᾽",
+        "name": "GREEK KORONIS"
+      },
+      {
+        "character": "ι",
+        "name": "GREEK PROSGEGRAMMENI"
+      },
+      {
+        "character": "᾿",
+        "name": "GREEK PSILI"
+      },
+      {
+        "character": "῀",
+        "name": "GREEK PERISPOMENI"
+      },
+      {
+        "character": "῁",
+        "name": "GREEK DIALYTIKA AND PERISPOMENI"
+      },
+      {
+        "character": "ῂ",
+        "name": "GREEK SMALL LETTER ETA WITH VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῃ",
+        "name": "GREEK SMALL LETTER ETA WITH YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῄ",
+        "name": "GREEK SMALL LETTER ETA WITH OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῆ",
+        "name": "GREEK SMALL LETTER ETA WITH PERISPOMENI"
+      },
+      {
+        "character": "ῇ",
+        "name": "GREEK SMALL LETTER ETA WITH PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "Ὲ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH VARIA"
+      },
+      {
+        "character": "Έ",
+        "name": "GREEK CAPITAL LETTER EPSILON WITH OXIA"
+      },
+      {
+        "character": "Ὴ",
+        "name": "GREEK CAPITAL LETTER ETA WITH VARIA"
+      },
+      {
+        "character": "Ή",
+        "name": "GREEK CAPITAL LETTER ETA WITH OXIA"
+      },
+      {
+        "character": "ῌ",
+        "name": "GREEK CAPITAL LETTER ETA WITH PROSGEGRAMMENI"
+      },
+      {
+        "character": "῍",
+        "name": "GREEK PSILI AND VARIA"
+      },
+      {
+        "character": "῎",
+        "name": "GREEK PSILI AND OXIA"
+      },
+      {
+        "character": "῏",
+        "name": "GREEK PSILI AND PERISPOMENI"
+      },
+      {
+        "character": "ῐ",
+        "name": "GREEK SMALL LETTER IOTA WITH VRACHY"
+      },
+      {
+        "character": "ῑ",
+        "name": "GREEK SMALL LETTER IOTA WITH MACRON"
+      },
+      {
+        "character": "ῒ",
+        "name": "GREEK SMALL LETTER IOTA WITH DIALYTIKA AND VARIA"
+      },
+      {
+        "character": "ΐ",
+        "name": "GREEK SMALL LETTER IOTA WITH DIALYTIKA AND OXIA"
+      },
+      {
+        "character": "ῖ",
+        "name": "GREEK SMALL LETTER IOTA WITH PERISPOMENI"
+      },
+      {
+        "character": "ῗ",
+        "name": "GREEK SMALL LETTER IOTA WITH DIALYTIKA AND PERISPOMENI"
+      },
+      {
+        "character": "Ῐ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH VRACHY"
+      },
+      {
+        "character": "Ῑ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH MACRON"
+      },
+      {
+        "character": "Ὶ",
+        "name": "GREEK CAPITAL LETTER IOTA WITH VARIA"
+      },
+      {
+        "character": "Ί",
+        "name": "GREEK CAPITAL LETTER IOTA WITH OXIA"
+      },
+      {
+        "character": "῝",
+        "name": "GREEK DASIA AND VARIA"
+      },
+      {
+        "character": "῞",
+        "name": "GREEK DASIA AND OXIA"
+      },
+      {
+        "character": "῟",
+        "name": "GREEK DASIA AND PERISPOMENI"
+      },
+      {
+        "character": "ῠ",
+        "name": "GREEK SMALL LETTER UPSILON WITH VRACHY"
+      },
+      {
+        "character": "ῡ",
+        "name": "GREEK SMALL LETTER UPSILON WITH MACRON"
+      },
+      {
+        "character": "ῢ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND VARIA"
+      },
+      {
+        "character": "ΰ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND OXIA"
+      },
+      {
+        "character": "ῤ",
+        "name": "GREEK SMALL LETTER RHO WITH PSILI"
+      },
+      {
+        "character": "ῥ",
+        "name": "GREEK SMALL LETTER RHO WITH DASIA"
+      },
+      {
+        "character": "ῦ",
+        "name": "GREEK SMALL LETTER UPSILON WITH PERISPOMENI"
+      },
+      {
+        "character": "ῧ",
+        "name": "GREEK SMALL LETTER UPSILON WITH DIALYTIKA AND PERISPOMENI"
+      },
+      {
+        "character": "Ῠ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH VRACHY"
+      },
+      {
+        "character": "Ῡ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH MACRON"
+      },
+      {
+        "character": "Ὺ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH VARIA"
+      },
+      {
+        "character": "Ύ",
+        "name": "GREEK CAPITAL LETTER UPSILON WITH OXIA"
+      },
+      {
+        "character": "Ῥ",
+        "name": "GREEK CAPITAL LETTER RHO WITH DASIA"
+      },
+      {
+        "character": "῭",
+        "name": "GREEK DIALYTIKA AND VARIA"
+      },
+      {
+        "character": "΅",
+        "name": "GREEK DIALYTIKA AND OXIA"
+      },
+      {
+        "character": "`",
+        "name": "GREEK VARIA"
+      },
+      {
+        "character": "ῲ",
+        "name": "GREEK SMALL LETTER OMEGA WITH VARIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῳ",
+        "name": "GREEK SMALL LETTER OMEGA WITH YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῴ",
+        "name": "GREEK SMALL LETTER OMEGA WITH OXIA AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "ῶ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PERISPOMENI"
+      },
+      {
+        "character": "ῷ",
+        "name": "GREEK SMALL LETTER OMEGA WITH PERISPOMENI AND YPOGEGRAMMENI"
+      },
+      {
+        "character": "Ὸ",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH VARIA"
+      },
+      {
+        "character": "Ό",
+        "name": "GREEK CAPITAL LETTER OMICRON WITH OXIA"
+      },
+      {
+        "character": "Ὼ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH VARIA"
+      },
+      {
+        "character": "Ώ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH OXIA"
+      },
+      {
+        "character": "ῼ",
+        "name": "GREEK CAPITAL LETTER OMEGA WITH PROSGEGRAMMENI"
+      },
+      {
+        "character": "´",
+        "name": "GREEK OXIA"
+      },
+      {
+        "character": "῾",
+        "name": "GREEK DASIA"
+      }
+    ]
+  },
+  {
+    "id": "Hebrew",
+    "label": "Hebrew",
+    "characters": [
+      {
+        "character": "־",
+        "name": "HEBREW PUNCTUATION MAQAF"
+      },
+      {
+        "character": "׀",
+        "name": "HEBREW PUNCTUATION PASEQ"
+      },
+      {
+        "character": "׃",
+        "name": "HEBREW PUNCTUATION SOF PASUQ"
+      },
+      {
+        "character": "׆",
+        "name": "HEBREW PUNCTUATION NUN HAFUKHA"
+      },
+      {
+        "character": "א",
+        "name": "HEBREW LETTER ALEF"
+      },
+      {
+        "character": "ב",
+        "name": "HEBREW LETTER BET"
+      },
+      {
+        "character": "ג",
+        "name": "HEBREW LETTER GIMEL"
+      },
+      {
+        "character": "ד",
+        "name": "HEBREW LETTER DALET"
+      },
+      {
+        "character": "ה",
+        "name": "HEBREW LETTER HE"
+      },
+      {
+        "character": "ו",
+        "name": "HEBREW LETTER VAV"
+      },
+      {
+        "character": "ז",
+        "name": "HEBREW LETTER ZAYIN"
+      },
+      {
+        "character": "ח",
+        "name": "HEBREW LETTER HET"
+      },
+      {
+        "character": "ט",
+        "name": "HEBREW LETTER TET"
+      },
+      {
+        "character": "י",
+        "name": "HEBREW LETTER YOD"
+      },
+      {
+        "character": "ך",
+        "name": "HEBREW LETTER FINAL KAF"
+      },
+      {
+        "character": "כ",
+        "name": "HEBREW LETTER KAF"
+      },
+      {
+        "character": "ל",
+        "name": "HEBREW LETTER LAMED"
+      },
+      {
+        "character": "ם",
+        "name": "HEBREW LETTER FINAL MEM"
+      },
+      {
+        "character": "מ",
+        "name": "HEBREW LETTER MEM"
+      },
+      {
+        "character": "ן",
+        "name": "HEBREW LETTER FINAL NUN"
+      },
+      {
+        "character": "נ",
+        "name": "HEBREW LETTER NUN"
+      },
+      {
+        "character": "ס",
+        "name": "HEBREW LETTER SAMEKH"
+      },
+      {
+        "character": "ע",
+        "name": "HEBREW LETTER AYIN"
+      },
+      {
+        "character": "ף",
+        "name": "HEBREW LETTER FINAL PE"
+      },
+      {
+        "character": "פ",
+        "name": "HEBREW LETTER PE"
+      },
+      {
+        "character": "ץ",
+        "name": "HEBREW LETTER FINAL TSADI"
+      },
+      {
+        "character": "צ",
+        "name": "HEBREW LETTER TSADI"
+      },
+      {
+        "character": "ק",
+        "name": "HEBREW LETTER QOF"
+      },
+      {
+        "character": "ר",
+        "name": "HEBREW LETTER RESH"
+      },
+      {
+        "character": "ש",
+        "name": "HEBREW LETTER SHIN"
+      },
+      {
+        "character": "ת",
+        "name": "HEBREW LETTER TAV"
+      },
+      {
+        "character": "ׯ",
+        "name": "HEBREW YOD TRIANGLE"
+      },
+      {
+        "character": "װ",
+        "name": "HEBREW LIGATURE YIDDISH DOUBLE VAV"
+      },
+      {
+        "character": "ױ",
+        "name": "HEBREW LIGATURE YIDDISH VAV YOD"
+      },
+      {
+        "character": "ײ",
+        "name": "HEBREW LIGATURE YIDDISH DOUBLE YOD"
+      },
+      {
+        "character": "׳",
+        "name": "HEBREW PUNCTUATION GERESH"
+      },
+      {
+        "character": "״",
+        "name": "HEBREW PUNCTUATION GERSHAYIM"
+      }
+    ]
+  },
+  {
+    "id": "General_Punctuation",
+    "label": "General Punctuation",
+    "characters": [
+      {
+        "character": "‐",
+        "name": "HYPHEN"
+      },
+      {
+        "character": "‑",
+        "name": "NON-BREAKING HYPHEN"
+      },
+      {
+        "character": "‒",
+        "name": "FIGURE DASH"
+      },
+      {
+        "character": "–",
+        "name": "EN DASH"
+      },
+      {
+        "character": "—",
+        "name": "EM DASH"
+      },
+      {
+        "character": "―",
+        "name": "HORIZONTAL BAR"
+      },
+      {
+        "character": "‖",
+        "name": "DOUBLE VERTICAL LINE"
+      },
+      {
+        "character": "‗",
+        "name": "DOUBLE LOW LINE"
+      },
+      {
+        "character": "‘",
+        "name": "LEFT SINGLE QUOTATION MARK"
+      },
+      {
+        "character": "’",
+        "name": "RIGHT SINGLE QUOTATION MARK"
+      },
+      {
+        "character": "‚",
+        "name": "SINGLE LOW-9 QUOTATION MARK"
+      },
+      {
+        "character": "‛",
+        "name": "SINGLE HIGH-REVERSED-9 QUOTATION MARK"
+      },
+      {
+        "character": "“",
+        "name": "LEFT DOUBLE QUOTATION MARK"
+      },
+      {
+        "character": "”",
+        "name": "RIGHT DOUBLE QUOTATION MARK"
+      },
+      {
+        "character": "„",
+        "name": "DOUBLE LOW-9 QUOTATION MARK"
+      },
+      {
+        "character": "‟",
+        "name": "DOUBLE HIGH-REVERSED-9 QUOTATION MARK"
+      },
+      {
+        "character": "†",
+        "name": "DAGGER"
+      },
+      {
+        "character": "‡",
+        "name": "DOUBLE DAGGER"
+      },
+      {
+        "character": "•",
+        "name": "BULLET"
+      },
+      {
+        "character": "‣",
+        "name": "TRIANGULAR BULLET"
+      },
+      {
+        "character": "․",
+        "name": "ONE DOT LEADER"
+      },
+      {
+        "character": "‥",
+        "name": "TWO DOT LEADER"
+      },
+      {
+        "character": "…",
+        "name": "HORIZONTAL ELLIPSIS"
+      },
+      {
+        "character": "‧",
+        "name": "HYPHENATION POINT"
+      },
+      {
+        "character": "‰",
+        "name": "PER MILLE SIGN"
+      },
+      {
+        "character": "‱",
+        "name": "PER TEN THOUSAND SIGN"
+      },
+      {
+        "character": "′",
+        "name": "PRIME"
+      },
+      {
+        "character": "″",
+        "name": "DOUBLE PRIME"
+      },
+      {
+        "character": "‴",
+        "name": "TRIPLE PRIME"
+      },
+      {
+        "character": "‵",
+        "name": "REVERSED PRIME"
+      },
+      {
+        "character": "‶",
+        "name": "REVERSED DOUBLE PRIME"
+      },
+      {
+        "character": "‷",
+        "name": "REVERSED TRIPLE PRIME"
+      },
+      {
+        "character": "‸",
+        "name": "CARET"
+      },
+      {
+        "character": "‹",
+        "name": "SINGLE LEFT-POINTING ANGLE QUOTATION MARK"
+      },
+      {
+        "character": "›",
+        "name": "SINGLE RIGHT-POINTING ANGLE QUOTATION MARK"
+      },
+      {
+        "character": "※",
+        "name": "REFERENCE MARK"
+      },
+      {
+        "character": "‼",
+        "name": "DOUBLE EXCLAMATION MARK"
+      },
+      {
+        "character": "‽",
+        "name": "INTERROBANG"
+      },
+      {
+        "character": "‾",
+        "name": "OVERLINE"
+      },
+      {
+        "character": "‿",
+        "name": "UNDERTIE"
+      },
+      {
+        "character": "⁀",
+        "name": "CHARACTER TIE"
+      },
+      {
+        "character": "⁁",
+        "name": "CARET INSERTION POINT"
+      },
+      {
+        "character": "⁂",
+        "name": "ASTERISM"
+      },
+      {
+        "character": "⁃",
+        "name": "HYPHEN BULLET"
+      },
+      {
+        "character": "⁄",
+        "name": "FRACTION SLASH"
+      },
+      {
+        "character": "⁅",
+        "name": "LEFT SQUARE BRACKET WITH QUILL"
+      },
+      {
+        "character": "⁆",
+        "name": "RIGHT SQUARE BRACKET WITH QUILL"
+      },
+      {
+        "character": "⁇",
+        "name": "DOUBLE QUESTION MARK"
+      },
+      {
+        "character": "⁈",
+        "name": "QUESTION EXCLAMATION MARK"
+      },
+      {
+        "character": "⁉",
+        "name": "EXCLAMATION QUESTION MARK"
+      },
+      {
+        "character": "⁊",
+        "name": "TIRONIAN SIGN ET"
+      },
+      {
+        "character": "⁋",
+        "name": "REVERSED PILCROW SIGN"
+      },
+      {
+        "character": "⁌",
+        "name": "BLACK LEFTWARDS BULLET"
+      },
+      {
+        "character": "⁍",
+        "name": "BLACK RIGHTWARDS BULLET"
+      },
+      {
+        "character": "⁎",
+        "name": "LOW ASTERISK"
+      },
+      {
+        "character": "⁏",
+        "name": "REVERSED SEMICOLON"
+      },
+      {
+        "character": "⁐",
+        "name": "CLOSE UP"
+      },
+      {
+        "character": "⁑",
+        "name": "TWO ASTERISKS ALIGNED VERTICALLY"
+      },
+      {
+        "character": "⁒",
+        "name": "COMMERCIAL MINUS SIGN"
+      },
+      {
+        "character": "⁓",
+        "name": "SWUNG DASH"
+      },
+      {
+        "character": "⁔",
+        "name": "INVERTED UNDERTIE"
+      },
+      {
+        "character": "⁕",
+        "name": "FLOWER PUNCTUATION MARK"
+      },
+      {
+        "character": "⁖",
+        "name": "THREE DOT PUNCTUATION"
+      },
+      {
+        "character": "⁗",
+        "name": "QUADRUPLE PRIME"
+      },
+      {
+        "character": "⁘",
+        "name": "FOUR DOT PUNCTUATION"
+      },
+      {
+        "character": "⁙",
+        "name": "FIVE DOT PUNCTUATION"
+      },
+      {
+        "character": "⁚",
+        "name": "TWO DOT PUNCTUATION"
+      },
+      {
+        "character": "⁛",
+        "name": "FOUR DOT MARK"
+      },
+      {
+        "character": "⁜",
+        "name": "DOTTED CROSS"
+      },
+      {
+        "character": "⁝",
+        "name": "TRICOLON"
+      },
+      {
+        "character": "⁞",
+        "name": "VERTICAL FOUR DOTS"
+      }
+    ]
+  }
+]

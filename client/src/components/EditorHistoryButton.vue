@@ -31,11 +31,7 @@ function handleClick(): void {
 </template>
 
 <style scoped>
-.btn-undo {
-  margin-right: 1px;
-}
 .btn-redo {
   transform: scale(-1, 1);
-  margin-right: 5px;
 }
 </style>

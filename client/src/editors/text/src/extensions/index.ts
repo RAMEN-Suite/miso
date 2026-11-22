@@ -14,6 +14,7 @@ import { AnnotationHighlight } from "./annotationHighlight";
 import { AnnotationShortcuts } from "./annotationShortcuts";
 import { BlockDecorations } from "./blockDecorations";
 import { AnnotatedHardBreak } from "./hardBreak";
+import { SpecialCharacters } from "./specialCharacters";
 import { TableRowWithoutHeader } from "./tableRow";
 import { UniqueIDWithDuplicateCheck } from "./uniqueId";
 import { ZeroPointAnnotation } from "./zeroPointAnnotation";
@@ -75,5 +76,6 @@ export function createExtensions(options: ExtensionOptions): Extensions {
     AnnotationAttributes,
     AnnotationHighlight,
     AnnotationShortcuts.configure({ shortcuts: annotationShortcuts ?? {}, onShortcut: onAnnotationShortcut }),
+    SpecialCharacters,
   ];
 }

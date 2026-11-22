@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Attribute, Constraint, RamenModel, RamenFile } from "@ramen-suite/core";
 import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
-import { NativeTypeConfig } from "../editors/text/src/models/types";
+import { NativeTypeConfig, SpecialCharacterGroupConfig } from "../editors/text/src/models/types";
 import {
   annotationEntrySchema,
   builtinStructuralTypeSchema,
@@ -33,10 +33,25 @@ const mappingSchema = z
   })
   .superRefine((mapping, ctx) => checkNativeAttributes(mapping.native, mapping.attributes, ctx));
 
+const specialCharacterGroupConfigSchema: z.ZodType<SpecialCharacterGroupConfig> = z.union([
+  z.string().min(1),
+  z.strictObject({
+    id: z.string().min(1),
+    /** Optional for a group that is merged into an existing one, which keeps its label then */
+    label: z.string().min(1).optional(),
+    characters: z.array(z.strictObject({ character: z.string().min(1), name: z.string() })),
+  }),
+]);
+
 /** Settings only the text editor reads */
 const textEditorConfigSchema = z.strictObject({
   /** The editor's native types and the annotation shapes that implement them */
   mappings: z.array(mappingSchema),
+  /**
+   * The groups of the special characters picker, in the picker's order: ids of built-in groups and groups of the
+   * project's own (see `SpecialCharacterGroupConfig`). Without it, all built-in groups are offered.
+   */
+  specialCharacters: z.array(specialCharacterGroupConfigSchema).optional(),
 });
 
 /** How model elements are shown and edited, by section of element kind and keyed by qualified ref */

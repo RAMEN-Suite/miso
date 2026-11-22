@@ -11,6 +11,7 @@ import { AnnotationAppearance } from "../external";
 import { AnnotationAttributes } from "./annotationAttributes";
 import { AnnotationDecoration } from "./annotationDecoration";
 import { AnnotationHighlight } from "./annotationHighlight";
+import { AnnotationShortcuts } from "./annotationShortcuts";
 import { BlockDecorations } from "./blockDecorations";
 import { AnnotatedHardBreak } from "./hardBreak";
 import { TableRowWithoutHeader } from "./tableRow";
@@ -28,6 +29,10 @@ export interface ExtensionOptions {
    * for required properties first (and insert with `insertAnnotatedHardBreak`). Without it, the shortcuts insert right away.
    */
   onHardBreakShortcut?: () => void;
+  /** Annotation type per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "Person" }`. */
+  annotationShortcuts?: Record<string, string>;
+  /** Called with the annotation type of a pressed annotation shortcut, so the host can annotate the selection. */
+  onAnnotationShortcut?: (type: string) => void;
 }
 
 /**
@@ -37,7 +42,7 @@ export interface ExtensionOptions {
  * @returns {Extensions} The configured extensions.
  */
 export function createExtensions(options: ExtensionOptions): Extensions {
-  const { getAppearance, onHardBreakMarkerClick, onHardBreakShortcut } = options;
+  const { getAppearance, onHardBreakMarkerClick, onHardBreakShortcut, annotationShortcuts, onAnnotationShortcut } = options;
 
   return [
     Document,
@@ -69,5 +74,6 @@ export function createExtensions(options: ExtensionOptions): Extensions {
     }),
     AnnotationAttributes,
     AnnotationHighlight,
+    AnnotationShortcuts.configure({ shortcuts: annotationShortcuts ?? {}, onShortcut: onAnnotationShortcut }),
   ];
 }

@@ -17,7 +17,6 @@ import BlockClassificationLines from "../components/BlockClassificationLines.vue
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
-import { useShortcutsStore } from "../store/shortcuts.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
 import PageOverlay from "../components/PageOverlay.vue";
@@ -30,6 +29,7 @@ import { cloneDeep } from "../utils/helper/helper.ts";
 import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
 import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
+import { useAnnotateSelection } from "../composables/useAnnotateSelection.ts";
 
 interface SidebarConfig {
   isCollapsed: boolean;
@@ -55,6 +55,7 @@ const {
 const { getAnnotationType } = useConfigStore();
 const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 const { insertLineBreak } = useInsertLineBreak();
+const { annotateByType } = useAnnotateSelection();
 
 onUnmounted(() => destroyTiptap());
 
@@ -64,7 +65,6 @@ onBeforeRouteLeave(() => preventUserFromRouteLeaving());
 useEventListener("mouseup", handleMouseUp);
 useEventListener("mousedown", handleMouseDown);
 useEventListener("beforeunload", handleBeforeUnload);
-useEventListener("keydown", handleKeyDown);
 
 // Initial page load
 const isLoading = ref<boolean>(true);
@@ -76,7 +76,6 @@ const asyncOperationRunning = ref<boolean>(false);
 const { api, addToastMessage } = useAppStore();
 
 const { error: textFetchError, text, initialText, fetchAndInitializeText } = useTextStore();
-const { shortcutMap, normalizeKeys } = useShortcutsStore();
 
 useTitle(computed(() => `Text | ${text.value?.nodeLabels.join(", ") ?? ""}`));
 
@@ -300,38 +299,6 @@ function handleMouseDown(event: MouseEvent): void {
   window.addEventListener("mousemove", handleResize);
 }
 
-function handleKeyDown(event: KeyboardEvent): void {
-  const keys: string[] = [];
-
-  if (event.ctrlKey) {
-    keys.push("ctrl");
-  }
-
-  if (event.shiftKey) {
-    keys.push("shift");
-  }
-
-  if (event.altKey) {
-    keys.push("alt");
-  }
-
-  if (event.metaKey) {
-    keys.push("meta");
-  }
-
-  keys.push(event.key.toLowerCase());
-
-  const keyCombo: string = normalizeKeys(keys);
-
-  const executeCallback: (() => void) | undefined = shortcutMap.value.get(keyCombo);
-
-  if (executeCallback) {
-    event.preventDefault();
-
-    executeCallback();
-  }
-}
-
 function handleMouseUp(): void {
   activeResizer.value = "";
   window.removeEventListener("mousemove", handleResize);
@@ -443,6 +410,7 @@ watch(
     const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
       onHardBreakMarkerClick: openStructuralAnnotationEditor,
       onHardBreakShortcut: insertLineBreak,
+      onAnnotationShortcut: annotateByType,
     });
 
     isLoading.value = false;

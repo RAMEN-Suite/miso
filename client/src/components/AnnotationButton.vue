@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { useConfigStore } from "../store/config";
-import { useShortcutsStore } from "../store/shortcuts";
 import Button from "primevue/button";
 import SplitButton from "primevue/splitbutton";
 import { ComponentPublicInstance, onMounted, useTemplateRef } from "vue";
 import { resolveAnnotationIcon } from "../config/icons";
-import { getOptions, getShapeConfig } from "../utils/helper/modelHelper";
+import { getOptions } from "../utils/helper/modelHelper";
 import type { ModelAnnotationShape, ModelAttribute } from "../models/types";
 
 const props = defineProps<{
@@ -19,7 +18,6 @@ const props = defineProps<{
 const emit = defineEmits<(e: "clicked", data: { type: string; subType?: string | number }) => void>();
 
 const { getTextAnnotationProperties, getModelContext } = useConfigStore();
-const { registerShortcut } = useShortcutsStore();
 
 const fields: ModelAttribute[] = getTextAnnotationProperties(props.type);
 const subTypeField: ModelAttribute | undefined = fields.find((field) => field.attribute.name === "subType");
@@ -33,12 +31,6 @@ const dropdownOptions = options.map((option: string | number) => {
 
 const hasIcon: boolean = resolveAnnotationIcon(props.shape) !== undefined;
 const buttonElm = useTemplateRef<ComponentPublicInstance<typeof Button | typeof SplitButton>>("buttonElm");
-
-const shortcut: string | undefined = getShapeConfig(getModelContext(), props.shape)?.controls?.shortcut;
-
-if (shortcut) {
-  registerShortcut(shortcut, handleClick);
-}
 
 // TODO: This is a temporary hack since PrimeVue makes problems with accessing the component's
 // DOM element with the pcButton/pcDropdown pt option...fix maybe later, but works for now

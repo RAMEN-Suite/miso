@@ -168,6 +168,11 @@ const mappingCounts = computed<{ problems: number; warnings: number }>(() => {
   };
 });
 
+/** The native type of each mapped annotation shape */
+const nativeByShapeRef = computed<Map<string, string>>(
+  () => new Map((draft.value?.editors.text.mappings ?? []).map((mapping) => [mapping.annotation, mapping.native])),
+);
+
 function statusOf(row: TreeRow): RowStatus {
   if (row.selection.kind === "textEditor") {
     return { ...mappingCounts.value, configured: true };
@@ -183,6 +188,7 @@ function statusOf(row: TreeRow): RowStatus {
     ...(findingCounts.value.get(row.ref) ?? { problems: 0, warnings: 0 }),
     change: changes.value.get(row.ref),
     configured: entries?.[row.ref] !== undefined,
+    native: row.selection.kind === "annotation" ? nativeByShapeRef.value.get(row.ref) : undefined,
   };
 }
 

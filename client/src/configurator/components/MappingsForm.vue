@@ -6,9 +6,11 @@ import {
   findShape,
   getContentCarrierRefs,
   getShapesForNode,
+  IconView,
   shapeRefOf,
   type ConfigFinding,
   type ConfigMapping,
+  type IconSpecInput,
   type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
@@ -89,6 +91,11 @@ const shapeEntries = computed<SelectEntry<string>[]>(() => {
     [...byRef].map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label)),
   );
 });
+
+/** The icon of a native type */
+function nativeTypeIconOf(native: NativeType): IconSpecInput | undefined {
+  return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.icon;
+}
 
 /** The built-in attributes of a native type */
 function nativeAttributesOf(native: NativeType): string[] {
@@ -193,14 +200,17 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
       class="rounded border p-3 flex flex-col gap-2 transition-colors duration-500"
       :class="
         slot.mapping && highlightedRef === slot.mapping.annotation
-          ? 'border-emerald-500 bg-emerald-50'
+          ? 'border-blue-500 bg-blue-50'
           : slot.mapping
             ? 'border-slate-200'
             : 'border-dashed border-slate-300'
       "
     >
       <div class="flex items-center gap-2">
-        <code class="w-40 shrink-0 text-sm" :class="slot.mapping ? 'font-medium' : 'text-slate-500'">{{ slot.native }}</code>
+        <span class="w-40 shrink-0 flex items-center gap-2" :class="slot.mapping ? 'font-medium' : 'text-slate-500'">
+          <IconView :spec="nativeTypeIconOf(slot.native)" class="text-slate-500" />
+          <code class="text-sm">{{ slot.native }}</code>
+        </span>
         <span class="text-slate-500">is</span>
         <Select
           :model-value="slot.mapping?.annotation"

@@ -47,6 +47,8 @@ export interface RowStatus {
   warnings: number;
   change?: ChangeKind;
   configured: boolean;
+  /** The native type an annotation shape is mapped to */
+  native?: string;
 }
 
 /** Height of a line and of a section header; the sticky offsets are multiples of it */

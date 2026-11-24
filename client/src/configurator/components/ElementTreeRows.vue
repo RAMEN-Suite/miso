@@ -58,10 +58,24 @@ const emit = defineEmits<{
         </template>
         <span class="truncate" :class="{ 'text-slate-400': !statusOf(row).configured }">{{ row.label }}</span>
         <span class="ml-auto flex items-center gap-1 shrink-0 pr-1.5">
+          <!-- The native type of a mapped shape, blue like the mapping info box of the annotation form -->
+          <span
+            v-if="statusOf(row).native"
+            class="text-[10px] px-1 rounded bg-blue-100 text-blue-800"
+            :title="`Mapped to the native type ${statusOf(row).native}`"
+          >
+            {{ statusOf(row).native }}
+          </span>
           <span v-if="statusOf(row).change === 'added'" class="text-[10px] px-1 rounded bg-green-100 text-green-800">new</span>
-          <span v-else-if="statusOf(row).change === 'changed'" class="text-[10px] px-1 rounded bg-blue-100 text-blue-800">changed</span>
-          <span v-if="statusOf(row).problems" class="text-[10px] px-1 rounded bg-red-500 text-white">{{ statusOf(row).problems }}</span>
-          <span v-if="statusOf(row).warnings" class="text-[10px] px-1 rounded bg-amber-400 text-amber-950">{{ statusOf(row).warnings }}</span>
+          <span v-else-if="statusOf(row).change === 'changed'" class="text-[10px] px-1 rounded bg-blue-100 text-blue-800"
+            >changed</span
+          >
+          <span v-if="statusOf(row).problems" class="text-[10px] px-1 rounded bg-red-500 text-white">{{
+            statusOf(row).problems
+          }}</span>
+          <span v-if="statusOf(row).warnings" class="text-[10px] px-1 rounded bg-amber-400 text-amber-950">{{
+            statusOf(row).warnings
+          }}</span>
         </span>
       </div>
       <ElementTreeRows

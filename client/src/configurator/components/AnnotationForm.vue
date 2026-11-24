@@ -34,6 +34,8 @@ import {
   type StyleKind,
 } from "../utils/configUpdate";
 import { shapeIconOf } from "../utils/elementIcons";
+import { useTimedHighlight } from "../state/useTimedHighlight";
+import { isShownAtField, type FindingField } from "../utils/findingFields";
 import { MEDIUM_ICONS } from "../utils/media";
 import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
 import AttributeTable from "./AttributeTable.vue";
@@ -41,6 +43,7 @@ import CopyButton from "./CopyButton.vue";
 import ElementLink from "./ElementLink.vue";
 import FormHeader from "./FormHeader.vue";
 import SectionHeading from "./SectionHeading.vue";
+import FieldFindings from "./FieldFindings.vue";
 import FindingList from "./FindingList.vue";
 import HighlightStyleInput from "./HighlightStyleInput.vue";
 import IconSpecInputField from "./IconSpecInput.vue";
@@ -55,7 +58,7 @@ type Representation = NonNullable<Editing["representation"]>;
 
 const props = defineProps<{ shapeRef: string }>();
 
-const { draft, requiredContext: ctx, findings, setStylesAside, bringBackStyles } = useConfigDraft();
+const { draft, requiredContext: ctx, findings, selection, setStylesAside, bringBackStyles } = useConfigDraft();
 
 /** Typed against the schema's values, so a new extent or representation needs a description */
 const EXTENT_DESCRIPTIONS: Record<Extent, string> = ANNOTATION_EXTENT_DESCRIPTIONS;
@@ -140,6 +143,29 @@ const groupOptions = computed<string[]>(() =>
 const properties = computed<VariantProperty[]>(() => (shape.value ? variantPropertiesOf(ctx.value, shape.value) : []));
 
 const ownFindings = computed<ConfigFinding[]>(() => findings.value.filter((finding) => finding.ref === props.shapeRef));
+
+/** The controls the form shows now, which can show findings */
+const shownFields = computed<Set<FindingField>>(() => {
+  const fields = new Set<FindingField>(["attributes"]);
+
+  if (textCarriers.value.length > 0) {
+    fields.add("shortcut").add("extent").add("representation");
+
+    if (representation.value === "inline") {
+      fields.add("styling").add("variants");
+    }
+  }
+
+  return fields;
+});
+
+/** The findings of the list on top: the ones no control shows */
+const topFindings = computed<ConfigFinding[]>(() =>
+  ownFindings.value.filter((finding) => !isShownAtField(finding, shownFields.value)),
+);
+
+/** The finding selected in the findings panel, highlighted for a moment */
+const highlightedFinding = useTimedHighlight(() => (selection.value.kind === "annotation" ? selection.value.focus : undefined));
 
 const flaggedAttributeRefs = computed<Set<string>>(
   () => new Set(ownFindings.value.flatMap((finding) => (finding.attributeRef ? [finding.attributeRef] : []))),
@@ -237,11 +263,12 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
       </p>
     </div>
 
-    <FindingList :findings="ownFindings" with-path />
+    <FindingList :findings="topFindings" :highlighted="highlightedFinding" with-path />
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium">Properties</SectionHeading>
       <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" />
+      <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="attributes" />
     </section>
 
     <!-- A mapped shape shows the icon of its native type -->
@@ -270,18 +297,21 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
           @update:model-value="setGroup"
         />
 
-        <label class="text-sm text-slate-600 flex items-center gap-1.5">Shortcut <TermHint term="shortcut" /></label>
-        <InputText
-          aria-label="Shortcut"
-          :model-value="entry?.controls?.shortcut ?? ''"
-          size="small"
-          placeholder="e.g. Mod-Shift-e"
-          @update:model-value="setShortcut"
-        />
+        <label class="text-sm text-slate-600 flex items-center gap-1.5"> Shortcut <TermHint term="shortcut" /> </label>
+        <div class="flex flex-col gap-1">
+          <InputText
+            aria-label="Shortcut"
+            :model-value="entry?.controls?.shortcut ?? ''"
+            size="small"
+            placeholder="e.g. Mod-Shift-e"
+            @update:model-value="setShortcut"
+          />
+          <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="shortcut" />
+        </div>
 
-        <label class="text-sm text-slate-600 flex items-center gap-1.5 self-start pt-1.5"
-          >Extent <TermHint term="extent"
-        /></label>
+        <label class="text-sm text-slate-600 flex items-center gap-1.5 self-start pt-1.5">
+          Extent <TermHint term="extent" />
+        </label>
         <div class="flex flex-col gap-1">
           <SelectButton
             :model-value="mapping ? extent : entry?.editing?.extent"
@@ -296,6 +326,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
             </template>
           </SelectButton>
           <small class="text-slate-500">{{ EXTENT_DESCRIPTIONS[extent] }}</small>
+          <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="extent" />
         </div>
 
         <label class="text-sm text-slate-600 flex items-center gap-1.5 self-start pt-1.5">
@@ -320,6 +351,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
             </template>
           </SelectButton>
           <small class="text-slate-500">{{ REPRESENTATION_DESCRIPTIONS[representation] }}</small>
+          <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="representation" />
         </div>
         <!-- eslint-enable vuejs-accessibility/label-has-for -->
       </div>
@@ -329,6 +361,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
           <h4 class="font-medium flex items-center gap-1.5">
             Styling <TermHint :term="extent === 'range' ? 'highlight' : 'marker'" />
           </h4>
+          <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="styling" />
           <div
             v-if="hasInapplicableStyles"
             class="flex items-center gap-2 rounded px-2 py-1 border-l-4 border-amber-500 bg-amber-50 text-sm text-amber-900"
@@ -361,6 +394,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
 
         <div class="flex flex-col gap-2">
           <h4 class="font-medium flex items-center gap-1.5">Variants <TermHint term="variants" /></h4>
+          <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="variants" />
           <VariantsEditor
             :model-value="entry?.appearance?.variants"
             :properties="properties"

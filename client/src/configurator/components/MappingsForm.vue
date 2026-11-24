@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, useTemplateRef, watch } from "vue";
 import Select from "primevue/select";
 import {
   BUILTIN_STRUCTURAL_CONFIGS,
@@ -13,6 +13,7 @@ import {
   type IconSpecInput,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
+import { useTimedHighlight } from "../state/useTimedHighlight";
 import { EMPTY_ENTRY_PT, withEmptyEntry, type SelectEntry } from "../utils/selectEntries";
 import FindingList from "./FindingList.vue";
 import SectionHeading from "./SectionHeading.vue";
@@ -22,39 +23,22 @@ type NativeType = ConfigMapping["native"];
 
 const { draft, requiredContext: ctx, findings, selection } = useConfigDraft();
 
-/** How long the mapping that was jumped to stays highlighted */
-const HIGHLIGHT_MS = 1500;
-
 const root = useTemplateRef<HTMLElement>("root");
 
-/** The shape ref of the highlighted mapping */
-const highlightedRef = ref<string>();
+/** The shape ref of the mapping that was jumped to, highlighted for a moment */
+const highlightedRef = useTimedHighlight(() => (selection.value.kind === "textEditor" ? selection.value.focus : undefined));
 
-/**
- * Scrolls to the mapping of the selection's `focus` shape and highlights it for a moment.
- *
- * @param {string | undefined} shapeRef - The shape ref, nothing happens without one.
- */
-async function focusMapping(shapeRef: string | undefined): Promise<void> {
-  if (!shapeRef) {
-    return;
-  }
-
-  await nextTick();
-  root.value
-    ?.querySelector(`[data-annotation="${CSS.escape(shapeRef)}"]`)
-    ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  highlightedRef.value = shapeRef;
-  setTimeout(() => {
-    if (highlightedRef.value === shapeRef) {
-      highlightedRef.value = undefined;
-    }
-  }, HIGHLIGHT_MS);
-}
-
+// The highlighted mapping is scrolled to
 watch(
-  () => (selection.value.kind === "textEditor" ? selection.value.focus : undefined),
-  (shapeRef) => void focusMapping(shapeRef),
+  highlightedRef,
+  async (shapeRef) => {
+    if (shapeRef) {
+      await nextTick();
+      root.value
+        ?.querySelector(`[data-annotation="${CSS.escape(shapeRef)}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  },
   { immediate: true },
 );
 

@@ -20,7 +20,10 @@ import { MEDIUM_ICONS } from "../utils/media";
 import AttributeTable from "./AttributeTable.vue";
 import CopyButton from "./CopyButton.vue";
 import FormHeader from "./FormHeader.vue";
+import FieldFindings from "./FieldFindings.vue";
 import FindingList from "./FindingList.vue";
+import { useTimedHighlight } from "../state/useTimedHighlight";
+import { isShownAtField, type FindingField } from "../utils/findingFields";
 import SectionHeading from "./SectionHeading.vue";
 import TermHint from "./TermHint.vue";
 
@@ -28,7 +31,7 @@ type Medium = ContentMedium;
 
 const props = defineProps<{ classifierRef: string }>();
 
-const { draft, requiredContext: ctx, findings } = useConfigDraft();
+const { draft, requiredContext: ctx, findings, selection } = useConfigDraft();
 
 /** Media without an editor yet; they can't be chosen, a config that has one still shows it */
 const MEDIA_WITHOUT_EDITOR: readonly Medium[] = ["image"];
@@ -89,6 +92,17 @@ const inheritedMedium = computed<{ value: Medium; from: string } | undefined>(()
 
 const ownFindings = computed<ConfigFinding[]>(() => findings.value.filter((finding) => finding.ref === props.classifierRef));
 
+/** The controls of the form that can show findings */
+const SHOWN_FIELDS: ReadonlySet<FindingField> = new Set<FindingField>(["attributes"]);
+
+/** The findings of the list on top: the ones no control shows */
+const topFindings = computed<ConfigFinding[]>(() =>
+  ownFindings.value.filter((finding) => !isShownAtField(finding, SHOWN_FIELDS)),
+);
+
+/** The finding selected in the findings panel, highlighted for a moment */
+const highlightedFinding = useTimedHighlight(() => (selection.value.kind === "classifier" ? selection.value.focus : undefined));
+
 const flaggedAttributeRefs = computed<Set<string>>(
   () => new Set(ownFindings.value.flatMap((finding) => (finding.attributeRef ? [finding.attributeRef] : []))),
 );
@@ -129,7 +143,7 @@ function setMedium(medium: Medium | null | undefined): void {
       Not configured yet. Changing a setting creates its entry. <TermHint term="entry" />
     </p>
 
-    <FindingList :findings="ownFindings" />
+    <FindingList :findings="topFindings" :highlighted="highlightedFinding" />
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium gap-1.5">Icon <TermHint term="icon" /></SectionHeading>
@@ -173,6 +187,7 @@ function setMedium(medium: Medium | null | undefined): void {
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium">Attributes</SectionHeading>
       <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" />
+      <FieldFindings :findings="ownFindings" :highlighted="highlightedFinding" field="attributes" />
     </section>
   </div>
 </template>

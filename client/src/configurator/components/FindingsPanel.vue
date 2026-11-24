@@ -23,7 +23,7 @@ const sortedFindings = computed<ConfigFinding[]>(() => [
 
 /**
  * Selects the element a finding concerns: the text editor for mapping findings, otherwise the element of its ref (if
- * the model still has it).
+ * the model still has it), whose form flashes the finding's controls.
  *
  * @param {ConfigFinding} finding - The finding.
  */
@@ -31,15 +31,21 @@ function selectFinding(finding: ConfigFinding): void {
   if (finding.path.startsWith("editors.text.mappings") || finding.path.startsWith("Annotation shape")) {
     selection.value = { kind: "textEditor" };
   } else if (finding.ref) {
-    selectRef(finding.ref);
+    selectRef(finding.ref, finding);
   }
 }
 
-function selectRef(ref: string): void {
+/**
+ * Selects the element of a ref, if the model has it.
+ *
+ * @param {string} ref - The element's ref.
+ * @param {ConfigFinding} [focus] - The finding whose controls the form flashes.
+ */
+function selectRef(ref: string, focus?: ConfigFinding): void {
   const kind = elementKindOf(requiredContext.value, ref);
 
   if (kind) {
-    selection.value = { kind, ref };
+    selection.value = { kind, ref, focus };
   }
 }
 

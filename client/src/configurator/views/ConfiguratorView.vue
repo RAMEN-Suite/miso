@@ -190,7 +190,13 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
           <section class="flex flex-col gap-3 rounded border border-slate-200 p-5">
             <h2 class="font-semibold flex items-center gap-2"><i class="icon-folder-open text-slate-500" />Open a config</h2>
             <p class="text-sm text-slate-600 flex-1">Edit the settings of an existing config file, with the model it contains.</p>
-            <Button label="Open config" icon="icon-folder-open" class="self-start" :disabled="isBusy" @click="configInput?.click()" />
+            <Button
+              label="Open config"
+              icon="icon-folder-open"
+              class="self-start"
+              :disabled="isBusy"
+              @click="configInput?.click()"
+            />
           </section>
           <section class="flex flex-col gap-3 rounded border border-slate-200 p-5">
             <h2 class="font-semibold flex items-center gap-2"><i class="icon-file-plus text-slate-500" />New config</h2>

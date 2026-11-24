@@ -25,9 +25,12 @@ import {
   type TakenStyles,
 } from "../utils/configUpdate";
 
-/** What the configurator shows in its form; `focus` of the text editor is the shape ref whose mapping is scrolled to */
+/**
+ * What the configurator shows in its form. `focus` is what the form scrolls to: of an element, the finding whose
+ * controls are flashed; of the text editor, the shape ref whose mapping is flashed.
+ */
 export type Selection =
-  | { kind: "classifier" | "annotation"; ref: string }
+  | { kind: "classifier" | "annotation"; ref: string; focus?: ConfigFinding }
   | { kind: "textEditor"; focus?: string }
   | { kind: "general" };
 

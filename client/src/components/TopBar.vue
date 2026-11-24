@@ -45,6 +45,15 @@ function toggleAppsMenu(event: PointerEvent): void {
           class="w-8! h-8!"
         />
       </RouterLink>
+      <a v-if="isDevelopment" href="/configurator.html" target="_blank">
+        <Button
+          icon="icon-sliders-horizontal"
+          severity="info"
+          aria-label="Configurator"
+          title="Open the config configurator"
+          class="w-8! h-8!"
+        />
+      </a>
       <Button
         icon="icon-grip"
         severity="secondary"

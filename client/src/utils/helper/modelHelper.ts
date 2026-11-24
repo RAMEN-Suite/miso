@@ -9,6 +9,7 @@ import {
   FormatValueType,
 } from "../../config/ramen";
 import type {
+  AnnotationAppearance,
   AnnotationNode,
   AnnotationShapeConfig,
   AttributeConfig,
@@ -19,6 +20,7 @@ import type {
   ContentMedium,
   ContentTypeConfig,
   EntityNode,
+  MarkerStyle,
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
@@ -619,6 +621,68 @@ export function getShapeProperties(shape: ModelAnnotationShape): ModelAttribute[
  */
 export function getShapeConfig(context: ModelContext, shape: ModelAnnotationShape): AnnotationShapeConfig | undefined {
   return context.config.elements.annotations[shapeRefOf(shape)];
+}
+
+/**
+ * Converts the configured appearance of an annotation shape to the one the text editor reads: the attribute refs of
+ * the variants and of a math marker resolved to the property names the annotation data are keyed by. Variants whose
+ * ref can't be resolved are left out (the config check warns about them).
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @param {AnnotationAppearance} appearance - Its configured appearance.
+ * @returns {AnnotationAppearance} The appearance for the editor.
+ */
+export function toEditorAppearance(shape: ModelAnnotationShape, appearance: AnnotationAppearance): AnnotationAppearance {
+  const toPropertyName = (attributeRef: string): string | undefined => findAttribute(shape, attributeRef)?.name;
+  const resolveMarker = (marker: MarkerStyle | undefined): MarkerStyle | undefined => {
+    if (marker?.kind === "math") {
+      return { ...marker, property: toPropertyName(marker.property) ?? marker.property };
+    } else {
+      return marker;
+    }
+  };
+
+  return {
+    ...appearance,
+    marker: resolveMarker(appearance.marker),
+    variants: appearance.variants?.flatMap((variant) => {
+      const property: string | undefined = toPropertyName(variant.property);
+      const values = Object.fromEntries(
+        Object.entries(variant.values).map(([value, override]) => [value, { ...override, marker: resolveMarker(override.marker) }]),
+      );
+
+      return property ? [{ property, values }] : [];
+    }),
+  };
+}
+
+/**
+ * Qualified refs of the RAMEN Content node and its refinements.
+ *
+ * @param {ModelContext} context - The model context.
+ * @returns {string[]} The refs, the base node first.
+ */
+export function getContentCarrierRefs(context: ModelContext): string[] {
+  return [BASE_NODE_REF.Content, ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref)];
+}
+
+/**
+ * The annotation shapes Content nodes may carry, by type. Of several shapes with the same type, the first one wins,
+ * since name matching couldn't tell them apart (`collectConfigWarnings` reports them).
+ *
+ * @param {ModelContext} context - The model context.
+ * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
+ */
+export function getTextShapesByType(context: ModelContext): Map<string, ModelAnnotationShape> {
+  const byType = new Map<string, ModelAnnotationShape>();
+
+  for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
+    if (!byType.has(shape.type)) {
+      byType.set(shape.type, shape);
+    }
+  }
+
+  return byType;
 }
 
 /**

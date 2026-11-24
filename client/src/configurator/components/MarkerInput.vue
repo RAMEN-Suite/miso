@@ -17,7 +17,9 @@ const emit = defineEmits<{ "update:modelValue": [value: MarkerStyle | undefined]
 
 const KIND_LABELS: Record<MarkerKind, string> = { icon: "Icon", math: "Formula (KaTeX)" };
 
-const KIND_OPTIONS: SelectEntry<MarkerKind>[] = withEmptyEntry(MARKER_KINDS.map((value) => ({ label: KIND_LABELS[value], value })));
+const KIND_OPTIONS: SelectEntry<MarkerKind>[] = withEmptyEntry(
+  MARKER_KINDS.map((value) => ({ label: KIND_LABELS[value], value })),
+);
 
 const DISPLAY_OPTIONS: string[] = withEmptySuggestion(["inline-block", "inline", "block"]);
 
@@ -57,7 +59,7 @@ function onMathDisplay(value: string | undefined): void {
   }
 
   // The empty entry is a non-breaking space
-  const display: string | undefined = value?.trim() || undefined;
+  const display: string | undefined = value?.trim();
   const { display: _previous, ...rest } = props.modelValue;
 
   emit("update:modelValue", display ? { ...rest, display } : rest);
@@ -67,6 +69,7 @@ function onMathDisplay(value: string | undefined): void {
 <template>
   <div class="flex flex-col gap-2">
     <Select
+      aria-label="Marker kind"
       :model-value="kind"
       :options="KIND_OPTIONS"
       option-label="label"
@@ -84,6 +87,7 @@ function onMathDisplay(value: string | undefined): void {
     />
     <div v-else-if="kind === 'math'" class="flex items-center gap-2">
       <Select
+        aria-label="Property with the LaTeX notation"
         :model-value="modelValue?.kind === 'math' ? modelValue.property : undefined"
         :options="propertyOptions"
         option-label="label"
@@ -95,6 +99,7 @@ function onMathDisplay(value: string | undefined): void {
         @update:model-value="onMathProperty"
       />
       <Select
+        aria-label="Display"
         :model-value="modelValue?.kind === 'math' ? modelValue.display : undefined"
         :options="DISPLAY_OPTIONS"
         :disabled="modelValue?.kind !== 'math'"

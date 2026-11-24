@@ -25,7 +25,9 @@ const newFindings = computed<ConfigFinding[]>(() =>
   props.pending.findings.filter((finding) => !currentKeys.value.has(formatFinding(finding))),
 );
 
-const resolvedCount = computed<number>(() => findings.value.filter((finding) => !pendingKeys.value.has(formatFinding(finding))).length);
+const resolvedCount = computed<number>(
+  () => findings.value.filter((finding) => !pendingKeys.value.has(formatFinding(finding))).length,
+);
 
 const problemCount = computed<number>(() => props.pending.findings.filter((finding) => finding.severity === "problem").length);
 
@@ -54,8 +56,8 @@ const migrationCount = computed<number>(() => props.pending.changes.filter((chan
       <section>
         <h3 class="font-medium mb-2">What the config needs</h3>
         <p class="text-sm text-slate-600 mb-2">
-          {{ newFindings.length }} new finding(s), {{ resolvedCount }} resolved. Name hints and entries of removed elements
-          can be handled on apply (below); the rest stays in the findings panel.
+          {{ newFindings.length }} new finding(s), {{ resolvedCount }} resolved. Name hints and entries of removed elements can be
+          handled on apply (below); the rest stays in the findings panel.
         </p>
         <div class="max-h-[50vh] overflow-auto pr-1">
           <FindingList :findings="newFindings" with-path />
@@ -65,6 +67,7 @@ const migrationCount = computed<number>(() => props.pending.changes.filter((chan
 
     <template #footer>
       <div class="flex flex-col items-start gap-1 mr-auto text-sm">
+        <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component -->
         <label class="flex items-center gap-2">
           <Checkbox v-model="options.refreshNameHints" binary />
           Update the name hints from the new model
@@ -73,11 +76,14 @@ const migrationCount = computed<number>(() => props.pending.changes.filter((chan
           <Checkbox v-model="options.pruneGoneEntries" binary />
           Remove entries of elements and attributes the new model doesn't have
         </label>
+        <!-- eslint-enable vuejs-accessibility/label-has-for -->
       </div>
       <Button label="Cancel" severity="secondary" @click="emit('cancel')" />
       <Button
         label="Apply"
-        :title="problemCount > 0 ? `${problemCount} problem(s) remain after the update; export stays blocked until they are fixed` : ''"
+        :title="
+          problemCount > 0 ? `${problemCount} problem(s) remain after the update; export stays blocked until they are fixed` : ''
+        "
         @click="emit('apply', options)"
       />
     </template>

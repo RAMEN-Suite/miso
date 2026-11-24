@@ -26,7 +26,10 @@ export function toEditorAppearance(shape: ModelAnnotationShape, appearance: Anno
     variants: appearance.variants?.flatMap((variant) => {
       const property: string | undefined = toPropertyName(variant.property);
       const values = Object.fromEntries(
-        Object.entries(variant.values).map(([value, override]) => [value, { ...override, marker: resolveMarker(override.marker) }]),
+        Object.entries(variant.values).map(([value, override]) => [
+          value,
+          { ...override, marker: resolveMarker(override.marker) },
+        ]),
       );
 
       return property ? [{ property, values }] : [];

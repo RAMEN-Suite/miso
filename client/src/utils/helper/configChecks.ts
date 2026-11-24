@@ -177,7 +177,12 @@ function checkTextShapes(context: ModelContext): ConfigFinding[] {
         ref: mapping.annotation,
       });
     } else if (mappedNativeTypes.has(mapping.native)) {
-      findings.push({ severity: "warning", path, message: `native type "${mapping.native}" is mapped twice`, ref: mapping.annotation });
+      findings.push({
+        severity: "warning",
+        path,
+        message: `native type "${mapping.native}" is mapped twice`,
+        ref: mapping.annotation,
+      });
     } else {
       mappedNativeTypes.add(mapping.native);
     }

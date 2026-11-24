@@ -14,6 +14,7 @@ const emit = defineEmits<{ select: [finding: ConfigFinding] }>();
 
 <template>
   <ul v-if="findings.length > 0" class="flex flex-col gap-1">
+    <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- A mouse shortcut; the elements are reachable by keyboard in the element tree -->
     <li
       v-for="(finding, index) in findings"
       :key="index"

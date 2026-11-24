@@ -35,7 +35,10 @@ const editorAppearance = computed<AnnotationAppearance | undefined>(() =>
 /** The property a math marker reads its notation from, by name */
 const mathProperties = computed<string[]>(() => {
   const appearance: AnnotationAppearance | undefined = editorAppearance.value;
-  const markers = [appearance?.marker, ...(appearance?.variants ?? []).flatMap((v) => Object.values(v.values).map((o) => o.marker))];
+  const markers = [
+    appearance?.marker,
+    ...(appearance?.variants ?? []).flatMap((v) => Object.values(v.values).map((o) => o.marker)),
+  ];
 
   return [...new Set(markers.flatMap((marker) => (marker?.kind === "math" ? [marker.property] : [])))];
 });

@@ -29,7 +29,7 @@ const groups = computed<{ label: string; changes: ElementChange[] }[]>(() =>
 );
 
 function isSelectable(change: ElementChange): boolean {
-  return !!props.selectable && change.change !== "removed" && change.kind !== "relation";
+  return props.selectable && change.change !== "removed" && change.kind !== "relation";
 }
 </script>
 
@@ -38,6 +38,7 @@ function isSelectable(change: ElementChange): boolean {
   <div v-for="group in groups" :key="group.label" class="mb-3">
     <h4 class="text-xs uppercase tracking-wide text-slate-500 mb-1">{{ group.label }} ({{ group.changes.length }})</h4>
     <ul class="flex flex-col gap-1">
+      <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- A mouse shortcut; the elements are reachable by keyboard in the element tree -->
       <li
         v-for="change in group.changes"
         :key="change.ref"
@@ -59,7 +60,8 @@ function isSelectable(change: ElementChange): boolean {
         <ul v-if="change.details.length > 0 || change.attributes.length > 0" class="pl-4 mt-0.5 text-xs text-slate-600 list-disc">
           <li v-for="detail in change.details" :key="detail">{{ detail }}</li>
           <li v-for="attribute in change.attributes" :key="attribute.attributeRef">
-            <span class="font-medium">{{ attribute.name }}</span>: {{ attribute.change }}
+            <span class="font-medium">{{ attribute.name }}</span
+            >: {{ attribute.change }}
             <template v-if="attribute.details.length > 0"> ({{ attribute.details.join("; ") }})</template>
             <span v-if="attribute.needsDataMigration" class="text-amber-700"> · data migration</span>
           </li>

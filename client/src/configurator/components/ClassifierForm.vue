@@ -10,7 +10,6 @@ import {
   type ConfigFinding,
   type ContentMedium,
   type IconSpecInput,
-  type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, type AttributeRow } from "../utils/attributes";
@@ -29,7 +28,7 @@ type Medium = ContentMedium;
 
 const props = defineProps<{ classifierRef: string }>();
 
-const { draft, context, findings } = useConfigDraft();
+const { draft, requiredContext: ctx, findings } = useConfigDraft();
 
 /** Media without an editor yet; they can't be chosen, a config that has one still shows it */
 const MEDIA_WITHOUT_EDITOR: readonly Medium[] = ["image"];
@@ -38,8 +37,6 @@ const MEDIUM_OPTIONS: { value: Medium; disabled: boolean }[] = CONTENT_MEDIA.map
   value,
   disabled: MEDIA_WITHOUT_EDITOR.includes(value),
 }));
-
-const ctx = computed<ModelContext>(() => context.value!);
 
 /** The classifier as an attribute owner; RAMEN base nodes may not be listed in the file, the model has them */
 const owner = computed<(Node & { modelId: string }) | undefined>(() => {
@@ -123,7 +120,9 @@ function setMedium(medium: Medium | null | undefined): void {
       <h2 class="text-xl font-semibold flex items-center gap-2">
         <IconView v-if="icon" :spec="icon" :size="20" class="text-slate-500" />{{ name }}
       </h2>
-      <p class="text-sm text-slate-500"><code class="text-xs">{{ classifierRef }}</code> <CopyButton :text="classifierRef" /></p>
+      <p class="text-sm text-slate-500">
+        <code class="text-xs">{{ classifierRef }}</code> <CopyButton :text="classifierRef" />
+      </p>
     </FormHeader>
 
     <p v-if="!entry" class="text-sm text-slate-500">
@@ -134,7 +133,11 @@ function setMedium(medium: Medium | null | undefined): void {
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium gap-1.5">Icon <TermHint term="icon" /></SectionHeading>
-      <IconSpecInputField :model-value="entry?.appearance?.icon" :inherited-from="inheritedIconFrom" @update:model-value="setIcon" />
+      <IconSpecInputField
+        :model-value="entry?.appearance?.icon"
+        :inherited-from="inheritedIconFrom"
+        @update:model-value="setIcon"
+      />
     </section>
 
     <section v-if="isContent" class="flex flex-col gap-2">

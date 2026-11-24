@@ -42,5 +42,7 @@ function isEmptyEntry(option: unknown): boolean {
 
 /** Pass-through options of the dropdowns: a tooltip on the empty entry */
 export const EMPTY_ENTRY_PT = {
-  option: ({ context }: { context: { option: unknown } }) => ({ title: isEmptyEntry(context.option) ? "Select no value" : undefined }),
+  option: ({ context }: { context: { option: unknown } }) => ({
+    title: isEmptyEntry(context.option) ? "Select no value" : undefined,
+  }),
 };

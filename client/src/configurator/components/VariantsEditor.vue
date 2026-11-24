@@ -72,6 +72,7 @@ function setOverride(index: number, variant: AppearanceVariant, value: string, o
   if (override) {
     values[value] = override;
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- The values are a record keyed by property value
     delete values[value];
   }
 
@@ -99,10 +100,15 @@ function addValue(index: number, variant: AppearanceVariant): void {
 
 <template>
   <div class="flex flex-col gap-3">
-    <div v-for="(variant, index) in modelValue ?? []" :key="index" class="rounded border border-slate-200 p-2 flex flex-col gap-2">
+    <div
+      v-for="(variant, index) in modelValue ?? []"
+      :key="index"
+      class="rounded border border-slate-200 p-2 flex flex-col gap-2"
+    >
       <div class="flex items-center gap-2">
         <span class="text-sm text-slate-600">When</span>
         <Select
+          aria-label="Property"
           :model-value="variant.property"
           :options="properties"
           option-label="name"
@@ -113,7 +119,14 @@ function addValue(index: number, variant: AppearanceVariant): void {
           :invalid="!propertyOf(variant)"
           @update:model-value="setProperty(index, variant, $event)"
         />
-        <Button icon="icon-trash-2" severity="danger" text size="small" title="Remove the variant" @click="update(index, undefined)" />
+        <Button
+          icon="icon-trash-2"
+          severity="danger"
+          text
+          size="small"
+          title="Remove the variant"
+          @click="update(index, undefined)"
+        />
       </div>
       <small v-if="!propertyOf(variant)" class="text-red-600">"{{ variant.property }}" is no property of this shape</small>
 
@@ -148,7 +161,13 @@ function addValue(index: number, variant: AppearanceVariant): void {
       </details>
 
       <div v-if="!propertyOf(variant)?.options" class="flex items-center gap-2">
-        <InputText v-model="newValues[index]" size="small" placeholder="Value" class="flex-1" @keydown.enter="addValue(index, variant)" />
+        <InputText
+          v-model="newValues[index]"
+          size="small"
+          placeholder="Value"
+          class="flex-1"
+          @keydown.enter="addValue(index, variant)"
+        />
         <Button label="Add value" size="small" severity="secondary" @click="addValue(index, variant)" />
       </div>
     </div>

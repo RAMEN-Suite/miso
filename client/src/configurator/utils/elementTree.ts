@@ -55,7 +55,12 @@ export interface RowStatus {
 export const TREE_LINE_HEIGHT_REM = 1.75;
 
 /** The base nodes in the order they are listed */
-const BASE_ORDER: readonly string[] = [BASE_NODE_REF.Collection, BASE_NODE_REF.Content, BASE_NODE_REF.Entity, BASE_NODE_REF.Annotation];
+const BASE_ORDER: readonly string[] = [
+  BASE_NODE_REF.Collection,
+  BASE_NODE_REF.Content,
+  BASE_NODE_REF.Entity,
+  BASE_NODE_REF.Annotation,
+];
 
 /**
  * The node classifiers as trees, one per RAMEN base node: each refinement under the last but one node of its lineage.
@@ -83,15 +88,18 @@ export function buildClassifierTree(context: ModelContext): ClassifierItem[] {
     const lineage = context.model.getNodeLineage(ref);
     const parent = lineage.at(-2);
     const parentItem: ClassifierItem | undefined = parent ? items.get(`${parent.modelId}:${parent.nodeId}`) : undefined;
+    const item: ClassifierItem | undefined = items.get(ref);
 
-    parentItem?.children.push(items.get(ref)!);
+    if (parentItem && item) {
+      parentItem.children.push(item);
+    }
   }
 
   for (const item of items.values()) {
     item.children.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  return BASE_ORDER.map((ref) => items.get(ref)!);
+  return BASE_ORDER.flatMap((ref) => items.get(ref) ?? []);
 }
 
 /**

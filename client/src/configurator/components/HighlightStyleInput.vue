@@ -30,7 +30,10 @@ const FIELD_BY_KEY: Record<StyleKey, StyleField> = {
   fontSize: { label: "Font size", options: ["smaller", "larger", "0.8em", "1.2em"] },
   letterSpacing: { label: "Letter spacing", options: ["normal", "0.1em", "0.2em", "0.3em"] },
   verticalAlign: { label: "Vertical align", options: ["baseline", "super", "sub", "top", "middle"] },
-  textDecorationLine: { label: "Decoration", options: ["none", "underline", "overline", "line-through", "underline line-through"] },
+  textDecorationLine: {
+    label: "Decoration",
+    options: ["none", "underline", "overline", "line-through", "underline line-through"],
+  },
   textDecorationStyle: { label: "Decoration style", options: ["solid", "double", "dotted", "dashed", "wavy"] },
   textDecorationColor: { label: "Decoration color", isColor: true },
   textDecorationThickness: { label: "Decoration thickness", options: ["auto", "from-font", "1px", "2px", "0.1em"] },
@@ -46,7 +49,7 @@ const FIELDS: (StyleField & { key: StyleKey })[] = HIGHLIGHT_STYLE_KEYS.map((key
  * @param {string | undefined} value - The CSS value, empty to remove it.
  */
 function setValue(key: StyleKey, value: string | undefined): void {
-  const next: HighlightTextStyle | undefined = withKey(props.modelValue ?? { kind: "properties" }, key, value?.trim() || undefined);
+  const next: HighlightTextStyle | undefined = withKey(props.modelValue ?? { kind: "properties" }, key, value?.trim());
 
   emit("update:modelValue", next && Object.keys(next).some((k) => k !== "kind") ? next : undefined);
 }
@@ -60,17 +63,20 @@ function toHexColor(value: string | undefined): string {
 <template>
   <div class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1.5 items-center">
     <template v-for="field in FIELDS" :key="field.key">
+      <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's components; the controls have an aria-label -->
       <label class="text-sm text-slate-600">{{ field.label }}</label>
       <div class="flex items-center gap-2">
         <template v-if="field.isColor">
           <input
             type="color"
+            :aria-label="`Pick ${field.label.toLowerCase()}`"
             class="w-8 h-8 shrink-0 cursor-pointer"
             :value="toHexColor(modelValue?.[field.key])"
             :title="`Pick ${field.label.toLowerCase()}`"
             @input="setValue(field.key, ($event.target as HTMLInputElement).value)"
           />
           <InputText
+            :aria-label="field.label"
             :model-value="modelValue?.[field.key] ?? ''"
             size="small"
             class="flex-1"
@@ -80,6 +86,7 @@ function toHexColor(value: string | undefined): string {
         </template>
         <Select
           v-else
+          :aria-label="field.label"
           :model-value="modelValue?.[field.key]"
           :options="withEmptySuggestion(field.options ?? [])"
           :pt="EMPTY_ENTRY_PT"

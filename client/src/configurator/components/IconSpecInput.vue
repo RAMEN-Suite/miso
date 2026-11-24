@@ -12,7 +12,8 @@ type IconKind = (typeof ICON_KINDS)[number];
 const props = defineProps<{
   modelValue: IconSpecInput | undefined;
   /** The name of the element whose icon applies without a value of its own, e.g. from the lineage */
-  inheritedFrom?: string;}>();
+  inheritedFrom?: string;
+}>();
 
 const emit = defineEmits<{ "update:modelValue": [value: IconSpecInput | undefined] }>();
 
@@ -26,6 +27,9 @@ const KIND_LOOKS: Record<IconKind, KindLook> = {
 };
 
 const KIND_OPTIONS: (KindLook & { value: IconKind })[] = ICON_KINDS.map((value) => ({ ...KIND_LOOKS[value], value }));
+
+/** The look of the chosen kind */
+const kindLook = computed<KindLook>(() => KIND_LOOKS[kind.value]);
 
 /** The kind of a value; a string is the shorthand of a Lucide icon */
 function kindOf(value: IconSpecInput | undefined): IconKind | undefined {
@@ -91,6 +95,7 @@ function onText(value: string | undefined): void {
 <template>
   <div class="flex items-start gap-2">
     <Select
+      aria-label="Icon kind"
       :model-value="kind"
       :options="KIND_OPTIONS"
       option-label="label"
@@ -101,9 +106,9 @@ function onText(value: string | undefined): void {
     >
       <template #value>
         <span class="flex items-center gap-2">
-          <img v-if="'image' in KIND_LOOKS[kind]" :src="KIND_LOOKS[kind].image" alt="" class="w-4 h-4" />
-          <i v-else :class="KIND_LOOKS[kind].icon" />
-          {{ KIND_LOOKS[kind].label }}
+          <img v-if="'image' in kindLook" :src="kindLook.image" alt="" class="w-4 h-4" />
+          <i v-else :class="kindLook.icon" />
+          {{ kindLook.label }}
         </span>
       </template>
       <template #option="{ option }">
@@ -116,13 +121,22 @@ function onText(value: string | undefined): void {
     </Select>
     <Textarea
       v-if="kind === 'svg'"
+      aria-label="SVG markup"
       :model-value="text"
       rows="3"
       class="flex-1 font-mono text-xs"
       placeholder="<svg ...>"
       @update:model-value="onText"
     />
-    <InputText v-else-if="kind === 'url'" :model-value="text" size="small" class="flex-1" placeholder="https://..." @update:model-value="onText" />
+    <InputText
+      v-else-if="kind === 'url'"
+      aria-label="Icon URL"
+      :model-value="text"
+      size="small"
+      class="flex-1"
+      placeholder="https://..."
+      @update:model-value="onText"
+    />
     <LucideIconInput
       v-else
       :model-value="text"

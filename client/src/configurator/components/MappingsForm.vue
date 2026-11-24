@@ -11,7 +11,6 @@ import {
   type ConfigFinding,
   type ConfigMapping,
   type IconSpecInput,
-  type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { EMPTY_ENTRY_PT, withEmptyEntry, type SelectEntry } from "../utils/selectEntries";
@@ -21,7 +20,7 @@ import TermHint from "./TermHint.vue";
 
 type NativeType = ConfigMapping["native"];
 
-const { draft, context, findings, selection } = useConfigDraft();
+const { draft, requiredContext: ctx, findings, selection } = useConfigDraft();
 
 /** How long the mapping that was jumped to stays highlighted */
 const HIGHLIGHT_MS = 1500;
@@ -42,7 +41,9 @@ async function focusMapping(shapeRef: string | undefined): Promise<void> {
   }
 
   await nextTick();
-  root.value?.querySelector(`[data-annotation="${CSS.escape(shapeRef)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  root.value
+    ?.querySelector(`[data-annotation="${CSS.escape(shapeRef)}"]`)
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
   highlightedRef.value = shapeRef;
   setTimeout(() => {
     if (highlightedRef.value === shapeRef) {
@@ -56,8 +57,6 @@ watch(
   (shapeRef) => void focusMapping(shapeRef),
   { immediate: true },
 );
-
-const ctx = computed<ModelContext>(() => context.value!);
 
 const NATIVE_TYPES: NativeType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => config.type);
 
@@ -87,9 +86,7 @@ const shapeEntries = computed<SelectEntry<string>[]>(() => {
     byRef.set(shapeRefOf(shape), shape.type);
   }
 
-  return withEmptyEntry(
-    [...byRef].map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label)),
-  );
+  return withEmptyEntry([...byRef].map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label)));
 });
 
 /** The icon of a native type */
@@ -172,13 +169,13 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
     if (attributeRef) {
       attributes[nativeAttribute] = attributeRef;
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- The attributes are a record keyed by attribute name
       delete attributes[nativeAttribute];
     }
 
     mapping.attributes = Object.keys(attributes).length > 0 ? attributes : undefined;
   });
 }
-
 </script>
 
 <template>
@@ -187,8 +184,8 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
     <div class="flex flex-col">
       <SectionHeading class="font-medium gap-1.5">Native mappings <TermHint term="native" /></SectionHeading>
       <p class="text-sm text-slate-500">
-        The editor's native types and the annotation shapes that implement them. A mapped shape must carry the built-in
-        attributes with the built-in types.
+        The editor's native types and the annotation shapes that implement them. A mapped shape must carry the built-in attributes
+        with the built-in types.
       </p>
     </div>
 
@@ -213,6 +210,7 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
         </span>
         <span class="text-slate-500">is</span>
         <Select
+          :aria-label="`Annotation shape of ${slot.native}`"
           :model-value="slot.mapping?.annotation"
           :options="shapeEntries"
           option-label="label"
@@ -228,10 +226,15 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
       </div>
 
       <template v-if="slot.mapping">
-        <div v-if="nativeAttributesOf(slot.native).length > 0" class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 items-center pl-2">
+        <div
+          v-if="nativeAttributesOf(slot.native).length > 0"
+          class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 items-center pl-2"
+        >
           <template v-for="nativeAttribute in nativeAttributesOf(slot.native)" :key="nativeAttribute">
+            <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component; the control has an aria-label -->
             <label class="text-sm text-slate-600">{{ nativeAttribute }}</label>
             <Select
+              :aria-label="`Property for ${nativeAttribute}`"
               :model-value="slot.mapping.attributes?.[nativeAttribute]"
               :options="propertiesOf(slot.mapping)"
               option-label="label"

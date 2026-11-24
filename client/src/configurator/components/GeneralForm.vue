@@ -42,15 +42,25 @@ function setDescription(description: string | undefined): void {
   <div v-if="draft" class="flex flex-col gap-6">
     <FormHeader>
       <h2 class="text-xl font-semibold">General</h2>
-      <p class="text-sm text-slate-500"><code class="text-xs">{{ draft.$schema }}</code></p>
+      <p class="text-sm text-slate-500">
+        <code class="text-xs">{{ draft.$schema }}</code>
+      </p>
     </FormHeader>
 
     <section class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 items-start">
+      <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's components; the controls have an aria-label -->
       <label class="text-sm text-slate-600 pt-1">ID</label>
-      <InputText :model-value="draft.id" size="small" :invalid="draft.id === ''" @update:model-value="setId" />
+      <InputText aria-label="ID" :model-value="draft.id" size="small" :invalid="draft.id === ''" @update:model-value="setId" />
 
       <label class="text-sm text-slate-600 pt-1">Description</label>
-      <Textarea :model-value="draft.meta?.description ?? ''" rows="3" placeholder="What this configuration is for" @update:model-value="setDescription" />
+      <Textarea
+        aria-label="Description"
+        :model-value="draft.meta?.description ?? ''"
+        rows="3"
+        placeholder="What this configuration is for"
+        @update:model-value="setDescription"
+      />
+      <!-- eslint-enable vuejs-accessibility/label-has-for -->
     </section>
 
     <section class="flex flex-col gap-2">

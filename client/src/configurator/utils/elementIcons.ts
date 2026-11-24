@@ -1,4 +1,10 @@
-import { BASE_NODE_ICONS, BUILTIN_STRUCTURAL_CONFIGS, normalizeIconSpec, type IconSpecInput, type ModelContext } from "../external";
+import {
+  BASE_NODE_ICONS,
+  BUILTIN_STRUCTURAL_CONFIGS,
+  normalizeIconSpec,
+  type IconSpecInput,
+  type ModelContext,
+} from "../external";
 
 /**
  * The icon a node classifier shows: the nearest icon along its lineage (itself first), otherwise the default of its

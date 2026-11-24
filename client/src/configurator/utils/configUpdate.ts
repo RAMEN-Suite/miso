@@ -35,10 +35,15 @@ const ENTRY_CONTAINERS = ["controls", "appearance", "editing", "attributes"] as 
  * @param {T[K] | undefined} value - The new value.
  * @returns {T | undefined} The copy, `undefined` if it has no keys left.
  */
-export function withKey<T extends object, K extends keyof T>(object: T | undefined, key: K, value: T[K] | undefined): T | undefined {
+export function withKey<T extends object, K extends keyof T>(
+  object: T | undefined,
+  key: K,
+  value: T[K] | undefined,
+): T | undefined {
   const copy: Partial<T> = { ...object };
 
   if (value === undefined || value === "") {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Removing the key is the point of this function
     delete copy[key];
   } else {
     copy[key] = value;
@@ -56,7 +61,12 @@ export function withKey<T extends object, K extends keyof T>(object: T | undefin
  * @param {string} name - Its name in the model, the hint of a new entry.
  * @param {(entry: ClassifierEntry) => void} change - Changes the entry in place.
  */
-export function editClassifierEntry(config: MisoConfig, ref: string, name: string, change: (entry: ClassifierEntry) => void): void {
+export function editClassifierEntry(
+  config: MisoConfig,
+  ref: string,
+  name: string,
+  change: (entry: ClassifierEntry) => void,
+): void {
   config.elements.classifiers[ref] ??= { name };
   change(config.elements.classifiers[ref]);
 }
@@ -70,7 +80,12 @@ export function editClassifierEntry(config: MisoConfig, ref: string, name: strin
  * @param {string} name - Its `type` in the model, the hint of a new entry.
  * @param {(entry: AnnotationEntry) => void} change - Changes the entry in place.
  */
-export function editAnnotationEntry(config: MisoConfig, ref: string, name: string, change: (entry: AnnotationEntry) => void): void {
+export function editAnnotationEntry(
+  config: MisoConfig,
+  ref: string,
+  name: string,
+  change: (entry: AnnotationEntry) => void,
+): void {
   config.elements.annotations[ref] ??= { name };
   change(config.elements.annotations[ref]);
 }
@@ -162,7 +177,10 @@ export function putStyles(entry: AnnotationEntry, kind: StyleKind, taken: TakenS
     (appearance as Record<StyleKind, unknown>)[kind] = taken.own;
   }
 
-  const variants: AppearanceVariant[] = (appearance.variants ?? []).map((variant) => ({ ...variant, values: { ...variant.values } }));
+  const variants: AppearanceVariant[] = (appearance.variants ?? []).map((variant) => ({
+    ...variant,
+    values: { ...variant.values },
+  }));
 
   for (const { property, value, style } of taken.variants) {
     let variant: AppearanceVariant | undefined = variants.find((candidate) => candidate.property === property);
@@ -213,7 +231,7 @@ export function refreshNameHints(config: MisoConfig): MisoConfig {
 
       entry.name = element.name;
 
-      for (const [attributeRef, attributeEntry] of Object.entries(entry.attributes ?? {})) {
+      for (const [attributeRef, attributeEntry] of Object.entries<{ name: string }>(entry.attributes ?? {})) {
         attributeEntry.name = findAttribute(element.owner, attributeRef)?.name ?? attributeEntry.name;
       }
     }
@@ -238,11 +256,15 @@ export function pruneGoneEntries(config: MisoConfig): MisoConfig {
   const copy: MisoConfig = copyConfig(config);
   const owners: Map<string, { name: string; owner: AttributeOwner }> = ownersByRef(copy.model);
 
-  for (const entries of [copy.elements.classifiers, copy.elements.annotations] as Record<string, ClassifierEntry | AnnotationEntry>[]) {
+  for (const entries of [copy.elements.classifiers, copy.elements.annotations] as Record<
+    string,
+    ClassifierEntry | AnnotationEntry
+  >[]) {
     for (const [ref, entry] of Object.entries(entries)) {
       const element = owners.get(ref);
 
       if (!element) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- The entries are a record keyed by ref
         delete entries[ref];
         continue;
       }
@@ -268,11 +290,15 @@ export function pruneGoneEntries(config: MisoConfig): MisoConfig {
 export function toExportConfig(config: MisoConfig): MisoConfig {
   const copy: MisoConfig = refreshNameHints(config);
 
-  for (const entries of [copy.elements.classifiers, copy.elements.annotations] as Record<string, ClassifierEntry | AnnotationEntry>[]) {
+  for (const entries of [copy.elements.classifiers, copy.elements.annotations] as Record<
+    string,
+    ClassifierEntry | AnnotationEntry
+  >[]) {
     for (const [ref, entry] of Object.entries(entries)) {
       compactEntry(entry);
 
       if (Object.keys(entry).every((key) => key === "name")) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- The entries are a record keyed by ref
         delete entries[ref];
       }
     }
@@ -303,7 +329,7 @@ function compactEntry(entry: ClassifierEntry | AnnotationEntry): void {
     }
   }
 
-  if ("appearance" in entry && entry.appearance?.variants?.length === 0) {
+  if (entry.appearance && "variants" in entry.appearance && entry.appearance.variants?.length === 0) {
     delete entry.appearance.variants;
   }
 
@@ -311,6 +337,7 @@ function compactEntry(entry: ClassifierEntry | AnnotationEntry): void {
     const value: unknown = record[key];
 
     if (value !== null && typeof value === "object" && Object.keys(value).length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- The key is one of the fixed ENTRY_CONTAINERS
       delete record[key];
     }
   }

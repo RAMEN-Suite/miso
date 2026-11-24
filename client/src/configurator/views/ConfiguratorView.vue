@@ -11,7 +11,8 @@ import GeneralForm from "../components/GeneralForm.vue";
 import ModelUpdateDialog from "../components/ModelUpdateDialog.vue";
 import TextEditorForm from "../components/TextEditorForm.vue";
 
-const { draft, context, fileName, findings, isDirty, selection, openConfig, readModel, applyModel, exportConfig } = useConfigDraft();
+const { draft, context, fileName, findings, isDirty, selection, openConfig, readModel, applyModel, exportConfig } =
+  useConfigDraft();
 
 const configInput = useTemplateRef<HTMLInputElement>("configInput");
 const modelInput = useTemplateRef<HTMLInputElement>("modelInput");
@@ -117,9 +118,30 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
       </span>
 
       <div class="ml-auto flex items-center gap-2">
-        <input ref="configInput" type="file" accept=".json,application/json" class="hidden" @change="onConfigFile" />
-        <input ref="modelInput" type="file" accept=".json,application/json" class="hidden" @change="onModelFile" />
-        <Button label="Open config" icon="icon-folder-open" size="small" severity="secondary" :disabled="isBusy" @click="configInput?.click()" />
+        <input
+          ref="configInput"
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          aria-label="Config file"
+          @change="onConfigFile"
+        />
+        <input
+          ref="modelInput"
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          aria-label="Model file"
+          @change="onModelFile"
+        />
+        <Button
+          label="Open config"
+          icon="icon-folder-open"
+          size="small"
+          severity="secondary"
+          :disabled="isBusy"
+          @click="configInput?.click()"
+        />
         <Button
           label="Update model"
           icon="icon-refresh-cw"
@@ -147,8 +169,8 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
     <div v-if="!draft || !context" class="flex-1 flex items-center justify-center">
       <div class="text-center flex flex-col gap-3 items-center max-w-md">
         <p class="text-slate-600">
-          Open a config file to edit the settings of its model elements. Changes stay in this page until you export them;
-          nothing is written to disk or to the server.
+          Open a config file to edit the settings of its model elements. Changes stay in this page until you export them; nothing
+          is written to disk or to the server.
         </p>
         <Button label="Open config" icon="icon-folder-open" :disabled="isBusy" @click="configInput?.click()" />
       </div>

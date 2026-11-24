@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef, type CSSProperties } from "vue";
+import { computed, ref, useTemplateRef, type ComponentPublicInstance, type CSSProperties } from "vue";
 import { useElementSize } from "@vueuse/core";
 import InputText from "primevue/inputtext";
 import Menu from "primevue/menu";
@@ -25,7 +25,9 @@ const TOOLTIP_CLASS = "[&_.p-tooltip-text]:text-xs [&_.p-tooltip-text]:px-1.5 [&
 
 /** The scroller's content width; a ResizeObserver's content box leaves out the scrollbar */
 const scroller = useTemplateRef<InstanceType<typeof VirtualScroller>>("scroller");
-const { width: gridWidth } = useElementSize(scroller);
+const { width: gridWidth } = useElementSize(
+  () => (scroller.value as unknown as ComponentPublicInstance | null)?.$el as HTMLElement | undefined,
+);
 
 /** As many columns of about the target size as fit */
 const columns = computed<number>(() => Math.max(1, Math.floor((gridWidth.value + CELL_GAP_PX) / (TARGET_CELL_PX + CELL_GAP_PX))));
@@ -174,11 +176,18 @@ function choose(name: string): void {
 
         <div class="flex items-center justify-between gap-2 text-xs text-slate-500">
           <span>{{ shownNames.length }} icons</span>
-          <a :href="LUCIDE_ICONS_URL" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-emerald-700 hover:underline">
+          <a
+            :href="LUCIDE_ICONS_URL"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+          >
             Browse all on lucide.dev <i class="icon-external-link" />
           </a>
         </div>
-        <p class="text-xs text-slate-400">On lucide.dev, copy an icon's name into the field. Icons newer than the installed version don't show.</p>
+        <p class="text-xs text-slate-400">
+          On lucide.dev, copy an icon's name into the field. Icons newer than the installed version don't show.
+        </p>
       </div>
     </template>
   </Menu>

@@ -96,10 +96,7 @@ export function renderMarker(
  *   one of them (e.g. a formula).
  * @returns {HTMLElement | null} The marker content, or `null` if the marker is malformed.
  */
-function createMarkerElement(
-  marker: MarkerStyle,
-  properties: Readonly<Record<string, unknown>> | undefined,
-): HTMLElement | null {
+function createMarkerElement(marker: MarkerStyle, properties: Readonly<Record<string, unknown>> | undefined): HTMLElement | null {
   if (marker.kind === "icon") {
     return createIconElement(marker.icon);
   } else if (marker.kind === "math") {

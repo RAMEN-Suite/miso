@@ -10,7 +10,8 @@ const GLOSSARY = {
   findings:
     "What the checks found. Problems make the config unusable and block the export; warnings don't (the setting is ignored where it doesn't apply).",
   dataMigration:
-    "The stored data refers to elements by name (labels, annotation types, relationship types, property names). A rename in the model needs a migration of the database.",} as const;
+    "The stored data refers to elements by name (labels, annotation types, relationship types, property names). A rename in the model needs a migration of the database.",
+} as const;
 
 /** A term with an explanation: a term of the config or of the configurator */
 export type Term = ConfigTerm | keyof typeof GLOSSARY;

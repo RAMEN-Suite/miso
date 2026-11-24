@@ -54,7 +54,7 @@ describe("toExportConfig", () => {
 
   test("writes the top-level keys in a fixed order", () => {
     const config: MisoConfig = copyOfTestConfig();
-    const shuffled = { editors: config.editors, model: config.model, ...config };
+    const shuffled = Object.fromEntries(Object.entries(config).reverse()) as MisoConfig;
 
     expect(Object.keys(toExportConfig(shuffled))).toEqual(["$schema", "id", "model", "general", "elements", "editors"]);
   });

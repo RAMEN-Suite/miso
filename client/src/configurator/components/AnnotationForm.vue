@@ -22,11 +22,17 @@ import {
   type ContentMedium,
   type IconSpecInput,
   type ModelAnnotationShape,
-  type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, variantPropertiesOf, type AttributeRow, type VariantProperty } from "../utils/attributes";
-import { editAnnotationEntry, hasStyles, styleKindOf, withKey, type AnnotationEntry, type StyleKind } from "../utils/configUpdate";
+import {
+  editAnnotationEntry,
+  hasStyles,
+  styleKindOf,
+  withKey,
+  type AnnotationEntry,
+  type StyleKind,
+} from "../utils/configUpdate";
 import { shapeIconOf } from "../utils/elementIcons";
 import { MEDIUM_ICONS } from "../utils/media";
 import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
@@ -49,13 +55,11 @@ type Representation = NonNullable<Editing["representation"]>;
 
 const props = defineProps<{ shapeRef: string }>();
 
-const { draft, context, findings, setStylesAside, bringBackStyles } = useConfigDraft();
+const { draft, requiredContext: ctx, findings, setStylesAside, bringBackStyles } = useConfigDraft();
 
 /** Typed against the schema's values, so a new extent or representation needs a description */
 const EXTENT_DESCRIPTIONS: Record<Extent, string> = ANNOTATION_EXTENT_DESCRIPTIONS;
 const REPRESENTATION_DESCRIPTIONS: Record<Representation, string> = TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS;
-
-const ctx = computed<ModelContext>(() => context.value!);
 
 const shape = computed<ModelAnnotationShape | undefined>(() => findShape(ctx.value, props.shapeRef));
 
@@ -119,7 +123,7 @@ const extent = computed<Extent>(() => {
 });
 
 const representation = computed<Representation>(() =>
-  mapping.value ? "structure" : (entry.value?.editing?.representation ?? "inline"),
+  mapping.value ? "structure" : entry.value?.editing?.representation ?? "inline",
 );
 
 /** The kind of styles that doesn't apply to the current extent */
@@ -129,9 +133,9 @@ const inapplicableStyleKind = computed<StyleKind>(() => styleKindOf(extent.value
 const hasInapplicableStyles = computed<boolean>(() => hasStyles(entry.value, inapplicableStyleKind.value));
 
 /** The groups of all entries, as suggestions */
-const groupOptions = computed<string[]>(() => [
-  ...new Set(Object.values(draft.value?.elements.annotations ?? {}).flatMap((e) => (e.group ? [e.group] : []))),
-].sort());
+const groupOptions = computed<string[]>(() =>
+  [...new Set(Object.values(draft.value?.elements.annotations ?? {}).flatMap((e) => (e.group ? [e.group] : [])))].sort(),
+);
 
 const properties = computed<VariantProperty[]>(() => (shape.value ? variantPropertiesOf(ctx.value, shape.value) : []));
 
@@ -151,7 +155,9 @@ function edit(change: (target: AnnotationEntry) => void): void {
 
 function setGroup(group: string | null | undefined): void {
   edit((target) => {
-    target.group = group?.trim() || undefined;
+    const trimmed: string | undefined = group?.trim();
+
+    target.group = trimmed === "" ? undefined : trimmed;
   });
 }
 
@@ -220,8 +226,9 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
         <i class="icon-info shrink-0" />
         <span class="flex-1">
           Mapped to the native type
-          <ElementLink :to="{ kind: 'textEditor', focus: shapeRef }"><code>{{ mapping.native }}</code></ElementLink>: extent,
-          representation, group and icon come from it.
+          <ElementLink :to="{ kind: 'textEditor', focus: shapeRef }"
+            ><code>{{ mapping.native }}</code></ElementLink
+          >: extent, representation, group and icon come from it.
         </span>
         <TermHint term="native" />
       </div>
@@ -239,6 +246,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
 
     <!-- A mapped shape shows the icon of its native type -->
     <section v-if="!mapping" class="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-2 items-center">
+      <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
       <label class="text-sm text-slate-600 flex items-center gap-1.5">Icon <TermHint term="icon" /></label>
       <IconSpecInputField :model-value="entry?.appearance?.icon" @update:model-value="setAppearance('icon', $event)" />
     </section>
@@ -248,8 +256,10 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
       <SectionHeading class="font-semibold gap-2"><i :class="MEDIUM_ICONS.text" class="text-slate-500" />Text</SectionHeading>
 
       <div class="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-2 items-center">
+        <!-- eslint-disable vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's components; the controls have an aria-label -->
         <label class="text-sm text-slate-600 flex items-center gap-1.5">Group <TermHint term="group" /></label>
         <Select
+          aria-label="Group"
           :model-value="mapping ? undefined : entry?.group"
           :options="withEmptySuggestion(groupOptions)"
           :pt="EMPTY_ENTRY_PT"
@@ -262,13 +272,16 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
 
         <label class="text-sm text-slate-600 flex items-center gap-1.5">Shortcut <TermHint term="shortcut" /></label>
         <InputText
+          aria-label="Shortcut"
           :model-value="entry?.controls?.shortcut ?? ''"
           size="small"
           placeholder="e.g. Mod-Shift-e"
           @update:model-value="setShortcut"
         />
 
-        <label class="text-sm text-slate-600 flex items-center gap-1.5 self-start pt-1.5">Extent <TermHint term="extent" /></label>
+        <label class="text-sm text-slate-600 flex items-center gap-1.5 self-start pt-1.5"
+          >Extent <TermHint term="extent"
+        /></label>
         <div class="flex flex-col gap-1">
           <SelectButton
             :model-value="mapping ? extent : entry?.editing?.extent"
@@ -308,6 +321,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
           </SelectButton>
           <small class="text-slate-500">{{ REPRESENTATION_DESCRIPTIONS[representation] }}</small>
         </div>
+        <!-- eslint-enable vuejs-accessibility/label-has-for -->
       </div>
 
       <template v-if="representation === 'inline'">

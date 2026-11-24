@@ -5,7 +5,7 @@ import TabList from "primevue/tablist";
 import TabPanel from "primevue/tabpanel";
 import TabPanels from "primevue/tabpanels";
 import Tabs from "primevue/tabs";
-import type { ConfigFinding, ModelContext } from "../external";
+import type { ConfigFinding } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { elementKindOf } from "../utils/elementTree";
 import type { ElementChange } from "../utils/modelDiff";
@@ -13,7 +13,7 @@ import FindingList from "./FindingList.vue";
 import ModelChangeList from "./ModelChangeList.vue";
 import TermHint from "./TermHint.vue";
 
-const { context, findings, lastUpdate, selection } = useConfigDraft();
+const { requiredContext, findings, lastUpdate, selection } = useConfigDraft();
 
 /** Problems first, then warnings, each in check order */
 const sortedFindings = computed<ConfigFinding[]>(() => [
@@ -36,7 +36,7 @@ function selectFinding(finding: ConfigFinding): void {
 }
 
 function selectRef(ref: string): void {
-  const kind = elementKindOf(context.value!, ref);
+  const kind = elementKindOf(requiredContext.value, ref);
 
   if (kind) {
     selection.value = { kind, ref };

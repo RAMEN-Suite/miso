@@ -1,11 +1,5 @@
 import type { Attribute, Node } from "@ramen-suite/core";
-import {
-  getOptions,
-  getShapesForNode,
-  shapeRefOf,
-  type AttributeOwner,
-  type ModelContext,
-} from "../external";
+import { getOptions, getShapesForNode, shapeRefOf, type AttributeOwner, type ModelContext } from "../external";
 
 /**
  * The changes between two versions of a model, by qualified ref (`<modelId>:<id>`), as far as they concern the config
@@ -231,7 +225,10 @@ function nodesByRef(context: ModelContext): Map<string, ComparedElement> {
 
 function shapesByRef(context: ModelContext): Map<string, ComparedElement> {
   return new Map(
-    context.config.model.annotations.map((shape): [string, ComparedElement] => [shapeRefOf(shape), { name: shape.type, owner: shape }]),
+    context.config.model.annotations.map((shape): [string, ComparedElement] => [
+      shapeRefOf(shape),
+      { name: shape.type, owner: shape },
+    ]),
   );
 }
 

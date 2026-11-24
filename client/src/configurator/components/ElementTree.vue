@@ -3,7 +3,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import IconField from "primevue/iconfield";
 import InputIcon from "primevue/inputicon";
 import InputText from "primevue/inputtext";
-import type { IconSpecInput, ModelContext } from "../external";
+import type { IconSpecInput } from "../external";
 import { useConfigDraft, type Selection } from "../state/useConfigDraft";
 import { classifierIconOf, shapeIconOf } from "../utils/elementIcons";
 import type { ChangeKind } from "../utils/modelDiff";
@@ -28,7 +28,7 @@ interface Section {
 /** Height of the sticky filter; the section headers stick below it */
 const FILTER_HEIGHT_REM = 3.5;
 
-const { draft, context, findings, lastUpdate, selection } = useConfigDraft();
+const { draft, requiredContext: ctx, findings, lastUpdate, selection } = useConfigDraft();
 
 const tree = useTemplateRef<HTMLElement>("tree");
 
@@ -36,8 +36,6 @@ const filter = ref<string>("");
 
 /** Keys of the collapsed sections and lines; everything is expanded at first */
 const collapsed = ref<Set<string>>(new Set());
-
-const ctx = computed<ModelContext>(() => context.value!);
 
 const isFiltering = computed<boolean>(() => filter.value.trim() !== "");
 

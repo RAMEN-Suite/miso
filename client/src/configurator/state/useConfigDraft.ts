@@ -1,4 +1,4 @@
-import { computed, markRaw, readonly, ref, shallowRef, toRaw, watch, type ComputedRef, type Ref } from "vue";
+import { computed, markRaw, readonly, ref, shallowRef, toRaw, watch, type ComputedRef } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import { RamenModel, type RamenFile } from "@ramen-suite/core";
 import {
@@ -134,7 +134,16 @@ const context: ComputedRef<ModelContext | undefined> = computed(() =>
   draft.value && model.value ? createModelContext(draft.value, model.value) : undefined,
 );
 
-const scheduleChecks: () => void = useDebounceFn(() => {
+/** The context for components that are only shown while a config is open */
+const requiredContext: ComputedRef<ModelContext> = computed(() => {
+  if (!context.value) {
+    throw new Error("No config is open");
+  }
+
+  return context.value;
+});
+
+const scheduleChecks = useDebounceFn(() => {
   findings.value = draft.value ? checkAll(toRaw(draft.value)) : [];
 }, CHECK_DELAY_MS);
 
@@ -146,7 +155,7 @@ watch(
       isDirty.value = true;
     }
 
-    scheduleChecks();
+    void scheduleChecks();
   },
   { deep: true },
 );
@@ -188,7 +197,7 @@ async function readJson(file: File): Promise<unknown> {
   try {
     return JSON.parse(await file.text());
   } catch (error: unknown) {
-    throw new Error(`${file.name} is no valid JSON: ${(error as Error).message}`);
+    throw new Error(`${file.name} is no valid JSON: ${(error as Error).message}`, { cause: error });
   }
 }
 
@@ -239,7 +248,7 @@ export function useConfigDraft() {
     try {
       nextModel = RamenModel.import(structuredClone(next));
     } catch (error: unknown) {
-      throw new Error(`${file.name} is no valid model: ${(error as Error).message}`);
+      throw new Error(`${file.name} is no valid model: ${(error as Error).message}`, { cause: error });
     }
 
     const nextConfig: MisoConfig = withModel(toRaw(draft.value), next);
@@ -341,6 +350,7 @@ export function useConfigDraft() {
   return {
     draft: draft,
     context,
+    requiredContext,
     fileName: readonly(fileName),
     findings: computed<ConfigFinding[]>(() => findings.value),
     isDirty: readonly(isDirty),

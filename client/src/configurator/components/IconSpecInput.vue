@@ -12,8 +12,7 @@ type IconKind = (typeof ICON_KINDS)[number];
 const props = defineProps<{
   modelValue: IconSpecInput | undefined;
   /** The name of the element whose icon applies without a value of its own, e.g. from the lineage */
-  inheritedFrom?: string;
-}>();
+  inheritedFrom?: string;}>();
 
 const emit = defineEmits<{ "update:modelValue": [value: IconSpecInput | undefined] }>();
 

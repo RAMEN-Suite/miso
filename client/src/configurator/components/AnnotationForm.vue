@@ -60,12 +60,13 @@ const shape = computed<ModelAnnotationShape | undefined>(() => findShape(ctx.val
 
 const entry = computed<AnnotationEntry | undefined>(() => draft.value?.elements.annotations[props.shapeRef]);
 
-const icon = computed<IconSpecInput | undefined>(() => shapeIconOf(ctx.value, props.shapeRef));
-
-/** The mapping to a native type of the editor, which brings its own extent and representation */
+/** The mapping to a native type of the editor, which brings its own extent, representation, group and icon */
 const mapping = computed<ConfigMapping | undefined>(() =>
   draft.value?.editors.text.mappings.find((candidate) => candidate.annotation === props.shapeRef),
 );
+
+/** The shape's icon, the native type's when it is mapped */
+const icon = computed<IconSpecInput | undefined>(() => shapeIconOf(ctx.value, props.shapeRef));
 
 /** Whether a node may carry the shape */
 function carries(nodeRef: string): boolean {
@@ -219,7 +220,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
         <span class="flex-1">
           Mapped to the native type
           <ElementLink :to="{ kind: 'textEditor', focus: shapeRef }"><code>{{ mapping.native }}</code></ElementLink>: extent,
-          representation and group come from it.
+          representation, group and icon come from it.
         </span>
         <TermHint term="native" />
       </div>
@@ -235,7 +236,8 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
       <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" />
     </section>
 
-    <section class="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-2 items-center">
+    <!-- A mapped shape shows the icon of its native type -->
+    <section v-if="!mapping" class="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-2 items-center">
       <label class="text-sm text-slate-600 flex items-center gap-1.5">Icon <TermHint term="icon" /></label>
       <IconSpecInputField :model-value="entry?.appearance?.icon" @update:model-value="setAppearance('icon', $event)" />
     </section>

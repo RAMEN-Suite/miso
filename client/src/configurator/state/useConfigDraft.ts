@@ -17,6 +17,7 @@ import {
   refreshNameHints,
   serializeConfig,
   takeStyles,
+  withKey,
   withModel,
   type AnnotationEntry,
   type StyleKind,
@@ -72,33 +73,51 @@ const findings = shallowRef<ConfigFinding[]>([]);
  */
 const setAsideStyles = new Map<string, TakenStyles>();
 
-/**
- * Groups of mapped shapes, set aside like the styles: a mapped shape is always in the structure group, and removing the
- * mapping brings its group back. Keyed by shape ref, with the name hint in case the entry is gone meanwhile.
- */
-const setAsideGroups = new Map<string, { name: string; group: string }>();
+/** The settings of a shape its native type decides while it is mapped */
+interface MappedSettings {
+  group?: AnnotationEntry["group"];
+  icon?: NonNullable<AnnotationEntry["appearance"]>["icon"];
+}
 
 /**
- * Sets the groups of mapped shapes aside and brings back the ones of shapes that aren't mapped anymore. Changes the
- * config in place.
+ * Settings of mapped shapes, set aside like the styles: the native type decides a mapped shape's group and icon, and
+ * removing the mapping brings them back. Keyed by shape ref, with the name hint in case the entry is gone meanwhile.
+ */
+const setAsideMappedSettings = new Map<string, MappedSettings & { name: string }>();
+
+/**
+ * Sets the group and icon of mapped shapes aside and brings back the ones of shapes that aren't mapped anymore. Changes
+ * the config in place.
  *
  * @param {MisoConfig} config - The config.
  */
-function syncMappedGroups(config: MisoConfig): void {
+function syncMappedSettings(config: MisoConfig): void {
   const mappedRefs = new Set<string>(config.editors.text.mappings.map((mapping) => mapping.annotation));
 
   for (const [ref, entry] of Object.entries(config.elements.annotations)) {
-    if (mappedRefs.has(ref) && entry.group !== undefined) {
-      setAsideGroups.set(ref, { name: entry.name, group: entry.group });
+    const group: MappedSettings["group"] = entry.group;
+    const icon: MappedSettings["icon"] = entry.appearance?.icon;
+
+    if (mappedRefs.has(ref) && (group !== undefined || icon !== undefined)) {
+      const earlier = setAsideMappedSettings.get(ref);
+
+      setAsideMappedSettings.set(ref, { name: entry.name, group: group ?? earlier?.group, icon: icon ?? earlier?.icon });
       delete entry.group;
+      entry.appearance = withKey(entry.appearance, "icon", undefined);
     }
   }
 
-  for (const [ref, { name, group }] of setAsideGroups) {
+  for (const [ref, { name, group, icon }] of setAsideMappedSettings) {
     if (!mappedRefs.has(ref)) {
-      config.elements.annotations[ref] ??= { name };
-      config.elements.annotations[ref].group ??= group;
-      setAsideGroups.delete(ref);
+      const entry: AnnotationEntry = (config.elements.annotations[ref] ??= { name });
+
+      entry.group ??= group;
+
+      if (icon !== undefined && entry.appearance?.icon === undefined) {
+        entry.appearance = withKey(entry.appearance, "icon", icon);
+      }
+
+      setAsideMappedSettings.delete(ref);
     }
   }
 }
@@ -132,12 +151,12 @@ watch(
   { deep: true },
 );
 
-// Mapping or unmapping a shape sets its group aside or brings it back (an edit, unlike the sync on open)
+// Mapping or unmapping a shape sets its group and icon aside or brings them back (an edit, unlike the sync on open)
 watch(
   () => draft.value?.editors.text.mappings.map((mapping) => mapping.annotation).join("\n"),
   () => {
     if (draft.value) {
-      syncMappedGroups(draft.value);
+      syncMappedSettings(draft.value);
     }
   },
 );
@@ -179,7 +198,8 @@ async function readJson(file: File): Promise<unknown> {
 export function useConfigDraft() {
   /**
    * Opens a config file. A config with problems (e.g. a broken ref) opens, so they can be fixed; one that doesn't
-   * match the format or has an invalid model doesn't. Groups of mapped shapes are set aside (see `syncMappedGroups`).
+   * match the format or has an invalid model doesn't. Groups and icons of mapped shapes are set aside (see
+   * `syncMappedSettings`).
    *
    * @param {File} file - The config file.
    * @throws {Error} If the file is no JSON, doesn't match the format or its model is invalid.
@@ -192,8 +212,8 @@ export function useConfigDraft() {
     }
 
     setAsideStyles.clear();
-    setAsideGroups.clear();
-    syncMappedGroups(result.config);
+    setAsideMappedSettings.clear();
+    syncMappedSettings(result.config);
     draft.value = { ...result.config, model: markRaw(result.config.model) };
     fileName.value = file.name;
     isDirty.value = false;

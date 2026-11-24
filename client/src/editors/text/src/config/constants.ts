@@ -1,3 +1,4 @@
+import type { BuiltinStructuralType, IconSpecInput } from "../external";
 import type { NativeTypeAttribute, NativeTypeConfig } from "../models/types";
 
 const OPTIONAL = { lowerBound: 0, upperBound: 1 } as const;
@@ -32,10 +33,12 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
     type: "paragraph",
     extent: "range",
     attributes: [],
+    icon: "pilcrow",
   },
   {
     type: "heading",
     extent: "range",
+    icon: "heading",
     attributes: [
       {
         name: "level",
@@ -56,21 +59,25 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
     type: "hardBreak",
     extent: "zeroPoint",
     attributes: [],
+    icon: "text-wrap",
   },
   {
     type: "table",
     extent: "range",
     attributes: [],
+    icon: "table",
   },
   {
     type: "tableRow",
     extent: "range",
+    icon: "rows-3",
     // Only kept from stored data on rows, the editor doesn't set them
     attributes: TABLE_DECORATION_ATTRIBUTES,
   },
   {
     type: "tableCell",
     extent: "range",
+    icon: "square",
     // Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the header toggles (`data` is
     // accepted, but not set)
     attributes: TABLE_DECORATION_ATTRIBUTES,
@@ -79,13 +86,25 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
     type: "bulletList",
     extent: "range",
     attributes: [],
+    icon: "list",
   },
   {
     type: "listItem",
     extent: "range",
     attributes: [],
+    icon: "dot",
   },
 ];
+
+/**
+ * The icon of a built-in type.
+ *
+ * @param {BuiltinStructuralType} type - The built-in type.
+ * @returns {IconSpecInput | undefined} The icon, `undefined` for an unknown type.
+ */
+export function nativeTypeIcon(type: BuiltinStructuralType): IconSpecInput | undefined {
+  return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === type)?.icon;
+}
 
 /**
  * Nesting rules of the editor's built-in structural types, used to build the document tree from standoff annotations.

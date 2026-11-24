@@ -1,6 +1,7 @@
 import { BaseNodeProperties, IconSpec, IconSpecInput, ModelAnnotationShape, ModelContext, Node } from "../models/types";
 import { BASE_NODE_REF } from "./ramen";
-import { getNodeConfig, getShapeConfig, resolveClassifierRef } from "../utils/helper/modelHelper";
+import { getNodeConfig, getShapeConfig, resolveClassifierRef, shapeRefOf } from "../utils/helper/modelHelper";
+import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
 
 /** Used for nodes whose labels can't be resolved to a node type (invalid data). */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
@@ -20,15 +21,25 @@ let iconContext: ModelContext | undefined;
 const nodeIconsByRef = new Map<string, IconSpec>();
 
 /**
- * Resolves the configured icon of an annotation type. The icon identifies the type itself and doesn't depend on the
- * property values of an annotation.
+ * Resolves the icon of an annotation type: the one of its native type when it is mapped, otherwise the configured one.
+ * The icon identifies the type itself and doesn't depend on the property values of an annotation.
  *
  * @param {ModelAnnotationShape | undefined} shape - The annotation shape of the type.
- * @returns {IconSpecInput | undefined} The configured icon, or `undefined` if there is none or the config isn't
- *   initialized yet.
+ * @returns {IconSpecInput | undefined} The icon, or `undefined` if there is none or the config isn't initialized yet.
  */
 export function resolveAnnotationIcon(shape: ModelAnnotationShape | undefined): IconSpecInput | undefined {
-  return shape && iconContext ? getShapeConfig(iconContext, shape)?.appearance?.icon : undefined;
+  if (!shape || !iconContext) {
+    return undefined;
+  }
+
+  const shapeRef: string = shapeRefOf(shape);
+  const native = iconContext.config.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef)?.native;
+
+  if (native) {
+    return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.icon;
+  } else {
+    return getShapeConfig(iconContext, shape)?.appearance?.icon;
+  }
 }
 
 /**

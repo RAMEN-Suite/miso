@@ -2,6 +2,7 @@ import { computed, markRaw, readonly, ref, shallowRef, toRaw, watch, type Comput
 import { useDebounceFn } from "@vueuse/core";
 import { RamenModel, type RamenFile } from "@ramen-suite/core";
 import {
+  CONFIG_SCHEMA_URL,
   checkConfig,
   collectConfigWarnings,
   createModelContext,
@@ -202,7 +203,8 @@ async function readJson(file: File): Promise<unknown> {
 }
 
 /**
- * The draft of the configurator and its actions: open a config, compare and apply a new model, export.
+ * The draft of the configurator and its actions: open a config or start one for a model, compare and apply a new
+ * model, export.
  */
 export function useConfigDraft() {
   /**
@@ -226,6 +228,37 @@ export function useConfigDraft() {
     draft.value = { ...result.config, model: markRaw(result.config.model) };
     fileName.value = file.name;
     isDirty.value = false;
+    lastUpdate.value = undefined;
+    selection.value = { kind: "general" };
+  }
+
+  /**
+   * Starts a new config for a model: no settings yet, the ID from the file name (e.g. `hildegard` from
+   * `hildegard.ramen.json`). Unexported until the first export.
+   *
+   * @param {File} file - The RamenFile, e.g. a Nori export.
+   * @throws {Error} If the file is no JSON or the model is invalid.
+   */
+  async function newConfig(file: File): Promise<void> {
+    const id: string = file.name.replace(/(\.ramen)?\.json$/i, "") || "config";
+    const result = checkConfig({
+      $schema: CONFIG_SCHEMA_URL,
+      id,
+      model: await readJson(file),
+      general: { templates: [] },
+      elements: { classifiers: {}, annotations: {} },
+      editors: { text: { mappings: [] } },
+    });
+
+    if (!result.config) {
+      throw new Error(result.findings.map(formatFinding).join("\n"));
+    }
+
+    setAsideStyles.clear();
+    setAsideMappedSettings.clear();
+    draft.value = { ...result.config, model: markRaw(result.config.model) };
+    fileName.value = `${id}.miso.json (new)`;
+    isDirty.value = true;
     lastUpdate.value = undefined;
     selection.value = { kind: "general" };
   }
@@ -357,6 +390,7 @@ export function useConfigDraft() {
     lastUpdate: computed<AppliedModelUpdate | undefined>(() => lastUpdate.value),
     selection,
     openConfig,
+    newConfig,
     readModel,
     applyModel,
     exportConfig,

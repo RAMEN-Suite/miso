@@ -54,7 +54,7 @@ function toggleAppsMenu(event: PointerEvent): void {
         icon="icon-sliders-horizontal"
         severity="info"
         aria-label="Configurator"
-        title="Open the config configurator"
+        title="Open the Miso configurator"
         class="w-8! h-8!"
       />
       <Button

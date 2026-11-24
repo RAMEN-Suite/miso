@@ -10,7 +10,7 @@ const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-ma
 export const BASE_NODE_ICONS: Readonly<Record<string, IconSpec>> = {
   [BASE_NODE_REF.Collection]: { kind: "lucide", name: "folder" },
   [BASE_NODE_REF.Content]: { kind: "lucide", name: "file-text" },
-  [BASE_NODE_REF.Annotation]: { kind: "lucide", name: "pencil" },
+  [BASE_NODE_REF.Annotation]: { kind: "lucide", name: "highlighter" },
   [BASE_NODE_REF.Entity]: { kind: "lucide", name: "user" },
 };
 

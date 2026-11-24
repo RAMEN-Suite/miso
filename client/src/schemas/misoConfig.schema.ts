@@ -65,6 +65,9 @@ const elementsSchema = z.strictObject({
 /** URL of the config format, with its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
 const CONFIG_SCHEMA_URL_PATTERN: RegExp = /^https:\/\/ramen-schema\.org\/miso\/\d+\.\d+\.\d+\/config\.schema\.json$/;
 
+/** URL of the current version of the config format, for new configs */
+export const CONFIG_SCHEMA_URL = "https://ramen-schema.org/miso/1.0.0/config.schema.json" as const;
+
 const misoConfigSchema = z.strictObject({
   /** The config format and its version */
   $schema: z.string().regex(CONFIG_SCHEMA_URL_PATTERN, "Not a Miso config schema URL"),

@@ -203,8 +203,8 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
             : 'border-dashed border-slate-300'
       "
     >
-      <div class="flex items-center gap-2">
-        <span class="w-40 shrink-0 flex items-center gap-2" :class="slot.mapping ? 'font-medium' : 'text-slate-500'">
+      <div class="grid grid-cols-[10rem_auto_1fr] gap-x-2 gap-y-1 items-center">
+        <span class="flex items-center gap-2" :class="slot.mapping ? 'font-medium' : 'text-slate-500'">
           <IconView :spec="nativeTypeIconOf(slot.native)" class="text-slate-500" />
           <code class="text-sm">{{ slot.native }}</code>
         </span>
@@ -219,20 +219,17 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
           filter
           placeholder="Not mapped"
           size="small"
-          class="flex-1"
           :invalid="!!slot.mapping && !findShape(ctx, slot.mapping.annotation)"
           @update:model-value="setShape(slot, $event)"
         />
-      </div>
 
-      <template v-if="slot.mapping">
-        <div
-          v-if="nativeAttributesOf(slot.native).length > 0"
-          class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 items-center pl-2"
-        >
+        <template v-if="slot.mapping">
           <template v-for="nativeAttribute in nativeAttributesOf(slot.native)" :key="nativeAttribute">
             <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- Eslint config does not recognize PrimeVue's component; the control has an aria-label -->
-            <label class="text-sm text-slate-600">{{ nativeAttribute }}</label>
+            <label class="pl-6 text-sm text-slate-600"
+              ><code>{{ nativeAttribute }}</code></label
+            >
+            <span class="text-slate-500">is</span>
             <Select
               :aria-label="`Property for ${nativeAttribute}`"
               :model-value="slot.mapping.attributes?.[nativeAttribute]"
@@ -245,10 +242,10 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
               @update:model-value="setAttribute(slot.index, nativeAttribute, $event)"
             />
           </template>
-        </div>
+        </template>
+      </div>
 
-        <FindingList :findings="findingsOf(slot.index, slot.mapping)" with-path />
-      </template>
+      <FindingList v-if="slot.mapping" :findings="findingsOf(slot.index, slot.mapping)" with-path />
     </div>
   </section>
 </template>

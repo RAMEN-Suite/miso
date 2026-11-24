@@ -11,11 +11,12 @@ import GeneralForm from "../components/GeneralForm.vue";
 import ModelUpdateDialog from "../components/ModelUpdateDialog.vue";
 import TextEditorForm from "../components/TextEditorForm.vue";
 
-const { draft, context, fileName, findings, isDirty, selection, openConfig, readModel, applyModel, exportConfig } =
+const { draft, context, fileName, findings, isDirty, selection, openConfig, newConfig, readModel, applyModel, exportConfig } =
   useConfigDraft();
 
 const configInput = useTemplateRef<HTMLInputElement>("configInput");
 const modelInput = useTemplateRef<HTMLInputElement>("modelInput");
+const newConfigInput = useTemplateRef<HTMLInputElement>("newConfigInput");
 
 /** The last error of an action, shown until the next one */
 const error = ref<string>();
@@ -71,6 +72,14 @@ function onConfigFile(event: Event): void {
   void run(() => openConfig(file));
 }
 
+function onNewConfigFile(event: Event): void {
+  const file: File | undefined = takeFile(event);
+
+  if (file) {
+    void run(() => newConfig(file));
+  }
+}
+
 function onModelFile(event: Event): void {
   const file: File | undefined = takeFile(event);
 
@@ -107,7 +116,7 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
 <template>
   <div class="h-screen flex flex-col">
     <header class="flex items-center gap-2 px-3 py-2 border-b border-slate-200 shrink-0">
-      <h1 class="font-semibold">Config configurator</h1>
+      <h1 class="font-semibold">Miso configurator</h1>
       <span class="text-xs px-1.5 rounded bg-amber-100 text-amber-900">dev only</span>
       <span v-if="fileName" class="text-sm text-slate-500 truncate" :title="fileName">
         {{ fileName }}<span v-if="isDirty" title="Unexported changes"> ●</span>
@@ -133,6 +142,14 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
           class="hidden"
           aria-label="Model file"
           @change="onModelFile"
+        />
+        <input
+          ref="newConfigInput"
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          aria-label="Model file of a new config"
+          @change="onNewConfigFile"
         />
         <Button
           label="Open config"
@@ -166,13 +183,33 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
       <pre class="whitespace-pre-wrap text-sm font-sans">{{ error }}</pre>
     </Message>
 
-    <div v-if="!draft || !context" class="flex-1 flex items-center justify-center">
-      <div class="text-center flex flex-col gap-3 items-center max-w-md">
-        <p class="text-slate-600">
-          Open a config file to edit the settings of its model elements. Changes stay in this page until you export them; nothing
-          is written to disk or to the server.
+    <!-- Start: open a config, or start one for a model -->
+    <div v-if="!draft || !context" class="flex-1 flex items-center justify-center p-6">
+      <div class="flex flex-col gap-6 items-center max-w-2xl">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <section class="flex flex-col gap-3 rounded border border-slate-200 p-5">
+            <h2 class="font-semibold flex items-center gap-2"><i class="icon-folder-open text-slate-500" />Open a config</h2>
+            <p class="text-sm text-slate-600 flex-1">Edit the settings of an existing config file, with the model it contains.</p>
+            <Button label="Open config" icon="icon-folder-open" class="self-start" :disabled="isBusy" @click="configInput?.click()" />
+          </section>
+          <section class="flex flex-col gap-3 rounded border border-slate-200 p-5">
+            <h2 class="font-semibold flex items-center gap-2"><i class="icon-file-plus text-slate-500" />New config</h2>
+            <p class="text-sm text-slate-600 flex-1">
+              Start a config without settings for a model file (a RamenFile, e.g. a Nori export).
+            </p>
+            <Button
+              label="Choose model"
+              icon="icon-file-plus"
+              severity="secondary"
+              class="self-start"
+              :disabled="isBusy"
+              @click="newConfigInput?.click()"
+            />
+          </section>
+        </div>
+        <p class="text-sm text-slate-500 text-center">
+          Changes stay in this page until you export them; nothing is written to disk or to the server.
         </p>
-        <Button label="Open config" icon="icon-folder-open" :disabled="isBusy" @click="configInput?.click()" />
       </div>
     </div>
 

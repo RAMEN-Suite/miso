@@ -5,6 +5,7 @@
  */
 
 export {
+  CONFIG_SCHEMA_URL,
   checkConfig,
   formatFinding,
   type ConfigFinding,

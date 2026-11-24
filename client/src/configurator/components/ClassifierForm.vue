@@ -12,7 +12,7 @@ import {
   type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
-import { attributeRowsOf, setAttributeFlag, type AttributeRow } from "../utils/attributes";
+import { attributeRowsOf, type AttributeRow } from "../utils/attributes";
 import { editClassifierEntry, withKey, type ClassifierEntry } from "../utils/configUpdate";
 import IconSpecInputField from "./IconSpecInput.vue";
 import { MEDIUM_ICONS } from "../utils/media";
@@ -93,7 +93,7 @@ const flaggedAttributeRefs = computed<Set<string>>(
   () => new Set(ownFindings.value.flatMap((finding) => (finding.attributeRef ? [finding.attributeRef] : []))),
 );
 
-const attributeRows = computed<AttributeRow[]>(() => (owner.value ? attributeRowsOf(ctx.value, owner.value, entry.value) : []));
+const attributeRows = computed<AttributeRow[]>(() => (owner.value ? attributeRowsOf(ctx.value, owner.value) : []));
 
 function edit(change: (target: ClassifierEntry) => void): void {
   if (draft.value) {
@@ -111,10 +111,6 @@ function setMedium(medium: Medium | null | undefined): void {
   edit((target) => {
     target.medium = medium ?? undefined;
   });
-}
-
-function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boolean | undefined): void {
-  edit((target) => setAttributeFlag(target, row, key, value));
 }
 </script>
 
@@ -170,7 +166,7 @@ function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boo
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium">Attributes</SectionHeading>
-      <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" @set="setAttribute" />
+      <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" />
     </section>
   </div>
 </template>

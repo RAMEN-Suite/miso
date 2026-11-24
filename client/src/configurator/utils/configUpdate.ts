@@ -21,9 +21,6 @@ export type ClassifierEntry = MisoConfig["elements"]["classifiers"][string];
 /** An entry of `elements.annotations` */
 export type AnnotationEntry = MisoConfig["elements"]["annotations"][string];
 
-/** An entry of an element's `attributes` */
-export type AttributeEntry = NonNullable<ClassifierEntry["attributes"]>[string];
-
 /** The top-level keys of the config, in the order of the export */
 const CONFIG_KEY_ORDER = ["$schema", "id", "meta", "model", "general", "elements", "editors"] as const;
 

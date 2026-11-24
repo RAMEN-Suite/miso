@@ -407,8 +407,6 @@ const CONFIG_TERM_SCHEMAS = {
   highlight: highlightTextStyleSchema,
   marker: markerStyleSchema,
   variants: appearanceVariantsSchema,
-  visible: visibleSchema,
-  editable: editableSchema,
   nameHint: nameHintSchema,
 } as const;
 

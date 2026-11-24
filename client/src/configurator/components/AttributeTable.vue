@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref, useTemplateRef } from "vue";
-import Checkbox from "primevue/checkbox";
 import Menu from "primevue/menu";
 import type { MenuItem } from "primevue/menuitem";
 import type { AttributeRow } from "../utils/attributes";
-import TermHint from "./TermHint.vue";
 
 /** A flag of an attribute, shown next to its name */
 type FlagKind = "required" | "list" | "readOnly";
@@ -13,11 +11,6 @@ defineProps<{
   rows: AttributeRow[];
   /** Attribute refs with findings, highlighted */
   flaggedRefs?: Set<string>;
-}>();
-
-const emit = defineEmits<{
-  /** `value` is `undefined` for the default (`true`) */
-  set: [row: AttributeRow, key: "visible" | "editable", value: boolean | undefined];
 }>();
 
 const FLAG_ICONS: Record<FlagKind, string> = { required: "icon-asterisk", list: "icon-list", readOnly: "icon-eye-off" };
@@ -45,11 +38,6 @@ function showOptions(event: Event, row: AttributeRow): void {
   ];
   optionsMenu.value?.toggle(event);
 }
-
-function onToggle(row: AttributeRow, key: "visible" | "editable", checked: boolean): void {
-  // Only `false` is written, `true` is the default
-  emit("set", row, key, checked ? undefined : false);
-}
 </script>
 
 <template>
@@ -59,12 +47,6 @@ function onToggle(row: AttributeRow, key: "visible" | "editable", checked: boole
       <tr class="text-left text-slate-500">
         <th class="font-normal py-1">Attribute</th>
         <th class="font-normal py-1">Type</th>
-        <th class="font-normal py-1 w-24">
-          <span class="flex items-center justify-center gap-1">Visible <TermHint term="visible" /></span>
-        </th>
-        <th class="font-normal py-1 w-24">
-          <span class="flex items-center justify-center gap-1">Editable <TermHint term="editable" /></span>
-        </th>
       </tr>
     </thead>
     <tbody>
@@ -94,18 +76,6 @@ function onToggle(row: AttributeRow, key: "visible" | "editable", checked: boole
               <i class="icon-chevron-down text-[10px]" />
             </button>
           </span>
-        </td>
-        <td class="py-1 text-center">
-          <Checkbox :model-value="row.entry?.visible !== false" binary @update:model-value="onToggle(row, 'visible', $event)" />
-        </td>
-        <td class="py-1 text-center">
-          <Checkbox
-            :model-value="!row.isReadOnly && row.entry?.editable !== false"
-            :disabled="row.isReadOnly"
-            :title="row.isReadOnly ? 'Read-only in the model' : ''"
-            binary
-            @update:model-value="onToggle(row, 'editable', $event)"
-          />
         </td>
       </tr>
     </tbody>

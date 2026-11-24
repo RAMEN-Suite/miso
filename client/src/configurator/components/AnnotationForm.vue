@@ -23,7 +23,7 @@ import {
   type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
-import { attributeRowsOf, setAttributeFlag, variantPropertiesOf, type AttributeRow, type VariantProperty } from "../utils/attributes";
+import { attributeRowsOf, variantPropertiesOf, type AttributeRow, type VariantProperty } from "../utils/attributes";
 import { editAnnotationEntry, hasStyles, styleKindOf, withKey, type AnnotationEntry, type StyleKind } from "../utils/configUpdate";
 import { MEDIUM_ICONS } from "../utils/media";
 import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
@@ -134,7 +134,7 @@ const flaggedAttributeRefs = computed<Set<string>>(
   () => new Set(ownFindings.value.flatMap((finding) => (finding.attributeRef ? [finding.attributeRef] : []))),
 );
 
-const attributeRows = computed<AttributeRow[]>(() => (shape.value ? attributeRowsOf(ctx.value, shape.value, entry.value) : []));
+const attributeRows = computed<AttributeRow[]>(() => (shape.value ? attributeRowsOf(ctx.value, shape.value) : []));
 
 function edit(change: (target: AnnotationEntry) => void): void {
   if (draft.value && shape.value) {
@@ -186,10 +186,6 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
     target.appearance = withKey(target.appearance, key, value);
   });
 }
-
-function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boolean | undefined): void {
-  edit((target) => setAttributeFlag(target, row, key, value));
-}
 </script>
 
 <template>
@@ -229,7 +225,7 @@ function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boo
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium">Properties</SectionHeading>
-      <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" @set="setAttribute" />
+      <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" />
     </section>
 
     <section class="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-2 items-center">

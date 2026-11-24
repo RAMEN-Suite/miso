@@ -14,17 +14,20 @@ import {
   getContentCarrierRefs,
   getContentMedium,
   getShapesForNode,
+  IconView,
   shapeRefOf,
   type AnnotationAppearance,
   type ConfigFinding,
   type ConfigMapping,
   type ContentMedium,
+  type IconSpecInput,
   type ModelAnnotationShape,
   type ModelContext,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, variantPropertiesOf, type AttributeRow, type VariantProperty } from "../utils/attributes";
 import { editAnnotationEntry, hasStyles, styleKindOf, withKey, type AnnotationEntry, type StyleKind } from "../utils/configUpdate";
+import { shapeIconOf } from "../utils/elementIcons";
 import { MEDIUM_ICONS } from "../utils/media";
 import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
 import AttributeTable from "./AttributeTable.vue";
@@ -56,6 +59,8 @@ const ctx = computed<ModelContext>(() => context.value as ModelContext);
 const shape = computed<ModelAnnotationShape | undefined>(() => findShape(ctx.value, props.shapeRef));
 
 const entry = computed<AnnotationEntry | undefined>(() => draft.value?.elements.annotations[props.shapeRef]);
+
+const icon = computed<IconSpecInput | undefined>(() => shapeIconOf(ctx.value, props.shapeRef));
 
 /** The mapping to a native type of the editor, which brings its own extent and representation */
 const mapping = computed<ConfigMapping | undefined>(() =>
@@ -191,7 +196,9 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
 <template>
   <div v-if="shape" class="flex flex-col gap-6">
     <FormHeader>
-      <h2 class="text-xl font-semibold">{{ shape.type }}</h2>
+      <h2 class="text-xl font-semibold flex items-center gap-2">
+        <IconView v-if="icon" :spec="icon" :size="20" class="text-slate-500" />{{ shape.type }}
+      </h2>
       <p class="text-sm text-slate-500">
         Annotation shape on
         <template v-for="(carrier, index) in carriers" :key="carrier.ref">

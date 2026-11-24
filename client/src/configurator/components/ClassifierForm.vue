@@ -6,6 +6,7 @@ import {
   BASE_NODE_REF,
   CONTENT_MEDIA,
   getBaseNodeRef,
+  IconView,
   type ConfigFinding,
   type ContentMedium,
   type IconSpecInput,
@@ -14,6 +15,7 @@ import {
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, type AttributeRow } from "../utils/attributes";
 import { editClassifierEntry, withKey, type ClassifierEntry } from "../utils/configUpdate";
+import { classifierIconOf } from "../utils/elementIcons";
 import IconSpecInputField from "./IconSpecInput.vue";
 import { MEDIUM_ICONS } from "../utils/media";
 import AttributeTable from "./AttributeTable.vue";
@@ -79,11 +81,11 @@ function inherited<T>(read: (entry: ClassifierEntry) => T | undefined): { value:
   return undefined;
 }
 
-const inheritedIcon = computed<{ icon: IconSpecInput; from: string } | undefined>(() => {
-  const found = inherited((ancestor) => ancestor.appearance?.icon);
+/** The name of the ancestor whose icon applies without an own one */
+const inheritedIconFrom = computed<string | undefined>(() => inherited((ancestor) => ancestor.appearance?.icon)?.from);
 
-  return found ? { icon: found.value, from: found.from } : undefined;
-});
+/** The icon the classifier shows, own, inherited or its base node's */
+const icon = computed<IconSpecInput | undefined>(() => classifierIconOf(ctx.value, props.classifierRef));
 
 const inheritedMedium = computed<{ value: Medium; from: string } | undefined>(() => inherited((ancestor) => ancestor.medium));
 
@@ -117,10 +119,10 @@ function setMedium(medium: Medium | null | undefined): void {
 <template>
   <div class="flex flex-col gap-6">
     <FormHeader>
-      <h2 class="text-xl font-semibold">{{ name }}</h2>
-      <p class="text-sm text-slate-500">
-        {{ lineage.map((item) => item.name).join(" > ") }} · <code class="text-xs">{{ classifierRef }}</code>
-      </p>
+      <h2 class="text-xl font-semibold flex items-center gap-2">
+        <IconView v-if="icon" :spec="icon" :size="20" class="text-slate-500" />{{ name }}
+      </h2>
+      <p class="text-sm text-slate-500"><code class="text-xs">{{ classifierRef }}</code></p>
     </FormHeader>
 
     <p v-if="!entry" class="text-sm text-slate-500">
@@ -131,7 +133,7 @@ function setMedium(medium: Medium | null | undefined): void {
 
     <section class="flex flex-col gap-2">
       <SectionHeading class="font-medium gap-1.5">Icon <TermHint term="icon" /></SectionHeading>
-      <IconSpecInputField :model-value="entry?.appearance?.icon" :inherited="inheritedIcon" @update:model-value="setIcon" />
+      <IconSpecInputField :model-value="entry?.appearance?.icon" :inherited-from="inheritedIconFrom" @update:model-value="setIcon" />
     </section>
 
     <section v-if="isContent" class="flex flex-col gap-2">

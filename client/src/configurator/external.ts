@@ -43,6 +43,7 @@ export { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants
 export { getHighlightStyle } from "../editors/text/src/rendering/highlight";
 export { renderMarker } from "../editors/text/src/rendering/marker";
 export { default as IconView } from "../components/RAMENNodeIcon.vue";
+export { BASE_NODE_ICONS, normalizeIconSpec } from "../config/icons";
 
 export type {
   AnnotationAppearance,

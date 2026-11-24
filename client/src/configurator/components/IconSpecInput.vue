@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
 import Textarea from "primevue/textarea";
-import { ICON_KINDS, IconView, type IconSpecInput } from "../external";
+import { ICON_KINDS, type IconSpecInput } from "../external";
 import lucideLogoUrl from "../assets/lucide.svg";
 import LucideIconInput from "./LucideIconInput.vue";
 
@@ -11,8 +11,8 @@ type IconKind = (typeof ICON_KINDS)[number];
 
 const props = defineProps<{
   modelValue: IconSpecInput | undefined;
-  /** The icon that applies without a value of its own, e.g. from the lineage */
-  inherited?: { icon: IconSpecInput; from: string };
+  /** The name of the element whose icon applies without a value of its own, e.g. from the lineage */
+  inheritedFrom?: string;
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: IconSpecInput | undefined] }>();
@@ -127,15 +127,8 @@ function onText(value: string | undefined): void {
     <LucideIconInput
       v-else
       :model-value="text"
-      :placeholder="inherited ? `Inherited from ${inherited.from}` : 'Lucide name, e.g. folder-open'"
+      :placeholder="inheritedFrom ? `Inherited from ${inheritedFrom}` : 'Lucide name, e.g. folder-open'"
       @update:model-value="onText"
     />
-    <div
-      class="w-8 h-8 flex items-center justify-center shrink-0 rounded border border-slate-200"
-      :title="modelValue ? '' : inherited ? `Inherited from ${inherited.from}` : 'No icon'"
-    >
-      <IconView v-if="modelValue" :spec="modelValue" :size="18" />
-      <IconView v-else-if="inherited" :spec="inherited.icon" :size="18" class="opacity-40" />
-    </div>
   </div>
 </template>

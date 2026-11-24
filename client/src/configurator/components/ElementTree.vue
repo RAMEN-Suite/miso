@@ -3,8 +3,9 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import IconField from "primevue/iconfield";
 import InputIcon from "primevue/inputicon";
 import InputText from "primevue/inputtext";
-import type { ModelContext } from "../external";
+import type { IconSpecInput, ModelContext } from "../external";
 import { useConfigDraft, type Selection } from "../state/useConfigDraft";
+import { classifierIconOf, shapeIconOf } from "../utils/elementIcons";
 import type { ChangeKind } from "../utils/modelDiff";
 import {
   buildClassifierTree,
@@ -102,7 +103,12 @@ const sections = computed<Section[]>(() => {
       key: `s:${group.label}`,
       label: `Annotations ${group.label.toLowerCase()}`,
       rows: group.shapes.map((shape) =>
-        leaf({ key: `a:${group.label}:${shape.ref}`, label: shape.name, selection: { kind: "annotation", ref: shape.ref }, ref: shape.ref }),
+        leaf({
+          key: `a:${group.label}:${shape.ref}`,
+          label: shape.name,
+          selection: { kind: "annotation", ref: shape.ref },
+          ref: shape.ref,
+        }),
       ),
     })),
   ];
@@ -180,6 +186,16 @@ function statusOf(row: TreeRow): RowStatus {
   };
 }
 
+function iconOf(row: TreeRow): IconSpecInput | undefined {
+  if (!row.ref) {
+    return undefined;
+  } else if (row.selection.kind === "classifier") {
+    return classifierIconOf(ctx.value, row.ref);
+  } else {
+    return shapeIconOf(ctx.value, row.ref);
+  }
+}
+
 /**
  * The keys of the section and lines above the first selected line, `undefined` if no line is selected.
  *
@@ -245,21 +261,28 @@ function isSelected(row: TreeRow): boolean {
     <div class="sticky top-0 z-30 flex items-center px-3 bg-white" :style="{ height: `${FILTER_HEIGHT_REM}rem` }">
       <IconField class="w-full">
         <InputText v-model="filter" size="small" placeholder="Filter by name" class="w-full" />
-        <InputIcon v-if="filter" class="icon-delete cursor-pointer" role="button" aria-label="Clear the filter" title="Clear the filter" @click="filter = ''" />
+        <InputIcon
+          v-if="filter"
+          class="icon-delete cursor-pointer"
+          role="button"
+          aria-label="Clear the filter"
+          title="Clear the filter"
+          @click="filter = ''"
+        />
       </IconField>
     </div>
     <div class="flex flex-col gap-3 px-3 pb-3">
       <div v-for="section in sections" :key="section.key">
         <button
           type="button"
-          class="sticky z-20 w-full flex items-center gap-1 rounded px-1 text-xs uppercase tracking-wide text-slate-500 bg-white cursor-pointer hover:bg-slate-100 hover:text-slate-700"
+          class="sticky z-20 w-full flex items-center gap-1 px-1.5 rounded text-xs uppercase tracking-wide font-semibold text-slate-700 bg-slate-100 cursor-pointer hover:bg-slate-200"
           :style="{ top: `${FILTER_HEIGHT_REM}rem`, height: `${TREE_LINE_HEIGHT_REM}rem` }"
           :aria-expanded="!isCollapsed(section.key)"
           @click="toggle(section.key)"
         >
           <i :class="isCollapsed(section.key) ? 'icon-chevron-right' : 'icon-chevron-down'" class="text-[11px]" />
           {{ section.label }}
-          <span class="ml-auto normal-case tracking-normal text-slate-400">{{ section.count }}</span>
+          <span class="ml-auto normal-case tracking-normal font-normal text-slate-500">{{ section.count }}</span>
         </button>
         <ElementTreeRows
           v-if="!isCollapsed(section.key)"
@@ -268,6 +291,7 @@ function isSelected(row: TreeRow): boolean {
           :is-collapsed="isCollapsed"
           :is-selected="isSelected"
           :status-of="statusOf"
+          :icon-of="iconOf"
           @select="select"
           @toggle="toggle"
         />

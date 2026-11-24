@@ -58,7 +58,7 @@ const ICON_NAMES: string[] = Object.keys(TAGS_BY_NAME).sort();
 
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
 
-/** What the grid is filtered by: the typed text, empty after a click (all icons) */
+/** What the grid is filtered by: the input's text, empty for all icons */
 const query = ref<string>("");
 const isOpen = ref<boolean>(false);
 
@@ -107,9 +107,9 @@ function onShow(): void {
   input?.focus();
 }
 
-/** A click shows all icons */
+/** A click opens the grid filtered by the input's text, all icons when it is empty */
 function onClick(event: MouseEvent): void {
-  query.value = "";
+  query.value = (event.currentTarget as HTMLInputElement).value;
   open(event);
 }
 

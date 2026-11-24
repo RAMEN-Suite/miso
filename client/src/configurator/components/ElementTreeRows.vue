@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IconView, type IconSpecInput } from "../external";
 import { TREE_LINE_HEIGHT_REM, type RowStatus, type TreeRow } from "../utils/elementTree";
 
 defineProps<{
@@ -8,6 +9,8 @@ defineProps<{
   isCollapsed: (key: string) => boolean;
   isSelected: (row: TreeRow) => boolean;
   statusOf: (row: TreeRow) => RowStatus;
+  /** The icon left of an element's name; elements without one keep the space, so the names line up */
+  iconOf: (row: TreeRow) => IconSpecInput | undefined;
 }>();
 
 const emit = defineEmits<{
@@ -49,6 +52,10 @@ const emit = defineEmits<{
           <i :class="isCollapsed(row.key) ? 'icon-chevron-right' : 'icon-chevron-down'" class="text-[11px]" />
         </button>
         <span v-else class="w-5 shrink-0" />
+        <template v-if="row.ref">
+          <IconView v-if="iconOf(row)" :spec="iconOf(row)" :size="14" class="mr-1.5 text-slate-500" />
+          <span v-else class="w-3.5 mr-1.5 shrink-0" />
+        </template>
         <span class="truncate" :class="{ 'text-slate-400': !statusOf(row).configured }">{{ row.label }}</span>
         <span class="ml-auto flex items-center gap-1 shrink-0 pr-1.5">
           <span v-if="statusOf(row).change === 'added'" class="text-[10px] px-1 rounded bg-green-100 text-green-800">new</span>
@@ -64,6 +71,7 @@ const emit = defineEmits<{
         :is-collapsed="isCollapsed"
         :is-selected="isSelected"
         :status-of="statusOf"
+        :icon-of="iconOf"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
       />

@@ -8,8 +8,8 @@ import ClassifierForm from "../components/ClassifierForm.vue";
 import ElementTree from "../components/ElementTree.vue";
 import FindingsPanel from "../components/FindingsPanel.vue";
 import GeneralForm from "../components/GeneralForm.vue";
-import MappingsForm from "../components/MappingsForm.vue";
 import ModelUpdateDialog from "../components/ModelUpdateDialog.vue";
+import TextEditorForm from "../components/TextEditorForm.vue";
 
 const { draft, context, fileName, findings, isDirty, selection, openConfig, readModel, applyModel, exportConfig } = useConfigDraft();
 
@@ -155,16 +155,18 @@ onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload)
     </div>
 
     <div v-else class="flex-1 min-h-0 grid grid-cols-[18rem_1fr_24rem]">
-      <aside class="overflow-auto border-r border-slate-200 p-3">
+      <!-- The columns keep the scrollbar's space, so the content doesn't shift when it appears.
+           No padding on the tree: its sticky lines would stick below it, with lines showing through. -->
+      <aside class="overflow-auto scrollbar-gutter-stable border-r border-slate-200">
         <ElementTree />
       </aside>
-      <main class="overflow-auto p-6">
+      <main class="overflow-auto scrollbar-gutter-stable p-6">
         <GeneralForm v-if="selection.kind === 'general'" />
-        <MappingsForm v-else-if="selection.kind === 'mappings'" />
-        <ClassifierForm v-else-if="selection.kind === 'classifier'" :key="selection.ref" :classifier-ref="selection.ref" />
-        <AnnotationForm v-else :key="selection.ref" :shape-ref="selection.ref" />
+        <TextEditorForm v-else-if="selection.kind === 'textEditor'" />
+        <ClassifierForm v-else-if="selection.kind === 'classifier'" :key="`c:${selection.ref}`" :classifier-ref="selection.ref" />
+        <AnnotationForm v-else :key="`a:${selection.ref}`" :shape-ref="selection.ref" />
       </main>
-      <aside class="overflow-auto border-l border-slate-200">
+      <aside class="overflow-auto scrollbar-gutter-stable border-l border-slate-200">
         <FindingsPanel />
       </aside>
     </div>

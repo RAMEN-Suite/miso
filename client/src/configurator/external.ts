@@ -11,6 +11,18 @@ export {
   type ConfigMapping,
   type MisoConfig,
 } from "../schemas/misoConfig.schema";
+export {
+  ANNOTATION_EXTENT_DESCRIPTIONS,
+  ANNOTATION_EXTENTS,
+  CONTENT_MEDIA,
+  TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS,
+  HIGHLIGHT_STYLE_KEYS,
+  ICON_KINDS,
+  MARKER_KINDS,
+  TEXT_ANNOTATION_REPRESENTATIONS,
+  describeConfigTerm,
+  type ConfigTerm,
+} from "../schemas/configBlocks.schema";
 export { collectConfigWarnings } from "../utils/helper/configChecks";
 export {
   createModelContext,
@@ -18,13 +30,14 @@ export {
   findShape,
   getBaseNodeRef,
   getContentCarrierRefs,
+  getContentMedium,
   getOptions,
   getShapeProperties,
   getShapesForNode,
   getTypeRef,
   shapeRefOf,
-  toEditorAppearance,
 } from "../utils/helper/modelHelper";
+export { toEditorAppearance } from "../utils/helper/appearance";
 export { BASE_NODE_REF, BASE_NODE_REFS } from "../config/ramen";
 export { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
 export { getHighlightStyle } from "../editors/text/src/rendering/highlight";
@@ -36,10 +49,10 @@ export type {
   AppearanceOverride,
   AppearanceVariant,
   AttributeOwner,
+  ContentMedium,
   HighlightTextStyle,
   IconSpecInput,
   MarkerStyle,
   ModelAnnotationShape,
   ModelContext,
-  PropertiesTextStyle,
 } from "../models/types";

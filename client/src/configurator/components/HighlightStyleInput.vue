@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
-import type { HighlightTextStyle, PropertiesTextStyle } from "../external";
+import { HIGHLIGHT_STYLE_KEYS, type HighlightTextStyle } from "../external";
 import { withKey } from "../utils/configUpdate";
+import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
 
 /** The CSS properties of a highlight (all keys but `kind`) */
-type StyleKey = Exclude<keyof PropertiesTextStyle, "kind">;
+type StyleKey = (typeof HIGHLIGHT_STYLE_KEYS)[number];
 
+/** How a CSS property is edited */
 interface StyleField {
-  key: StyleKey;
   label: string;
   /** Suggested values; any CSS value can be typed */
   options?: string[];
@@ -19,25 +20,24 @@ const props = defineProps<{ modelValue: HighlightTextStyle | undefined }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: HighlightTextStyle | undefined] }>();
 
-/** One field per key of `PropertiesTextStyle`, in the order of the schema */
-const FIELDS: StyleField[] = [
-  { key: "color", label: "Color", isColor: true },
-  { key: "backgroundColor", label: "Background", isColor: true },
-  { key: "fontWeight", label: "Font weight", options: ["normal", "bold", "lighter", "bolder", "300", "500", "600"] },
-  { key: "fontStyle", label: "Font style", options: ["normal", "italic", "oblique"] },
-  { key: "fontVariant", label: "Font variant", options: ["normal", "small-caps", "all-small-caps"] },
-  { key: "fontSize", label: "Font size", options: ["smaller", "larger", "0.8em", "1.2em"] },
-  { key: "letterSpacing", label: "Letter spacing", options: ["normal", "0.1em", "0.2em", "0.3em"] },
-  { key: "verticalAlign", label: "Vertical align", options: ["baseline", "super", "sub", "top", "middle"] },
-  {
-    key: "textDecorationLine",
-    label: "Decoration",
-    options: ["none", "underline", "overline", "line-through", "underline line-through"],
-  },
-  { key: "textDecorationStyle", label: "Decoration style", options: ["solid", "double", "dotted", "dashed", "wavy"] },
-  { key: "textDecorationColor", label: "Decoration color", isColor: true },
-  { key: "textDecorationThickness", label: "Decoration thickness", options: ["auto", "from-font", "1px", "2px", "0.1em"] },
-];
+/** The editing of each CSS property; a property added to the schema is a type error here until it gets a field */
+const FIELD_BY_KEY: Record<StyleKey, StyleField> = {
+  color: { label: "Color", isColor: true },
+  backgroundColor: { label: "Background", isColor: true },
+  fontWeight: { label: "Font weight", options: ["normal", "bold", "lighter", "bolder", "300", "500", "600"] },
+  fontStyle: { label: "Font style", options: ["normal", "italic", "oblique"] },
+  fontVariant: { label: "Font variant", options: ["normal", "small-caps", "all-small-caps"] },
+  fontSize: { label: "Font size", options: ["smaller", "larger", "0.8em", "1.2em"] },
+  letterSpacing: { label: "Letter spacing", options: ["normal", "0.1em", "0.2em", "0.3em"] },
+  verticalAlign: { label: "Vertical align", options: ["baseline", "super", "sub", "top", "middle"] },
+  textDecorationLine: { label: "Decoration", options: ["none", "underline", "overline", "line-through", "underline line-through"] },
+  textDecorationStyle: { label: "Decoration style", options: ["solid", "double", "dotted", "dashed", "wavy"] },
+  textDecorationColor: { label: "Decoration color", isColor: true },
+  textDecorationThickness: { label: "Decoration thickness", options: ["auto", "from-font", "1px", "2px", "0.1em"] },
+};
+
+/** One field per CSS property, in the order of the schema */
+const FIELDS: (StyleField & { key: StyleKey })[] = HIGHLIGHT_STYLE_KEYS.map((key) => ({ key, ...FIELD_BY_KEY[key] }));
 
 /**
  * Sets one CSS property. A highlight without properties is left out.
@@ -81,9 +81,9 @@ function toHexColor(value: string | undefined): string {
         <Select
           v-else
           :model-value="modelValue?.[field.key]"
-          :options="field.options"
+          :options="withEmptySuggestion(field.options ?? [])"
+          :pt="EMPTY_ENTRY_PT"
           editable
-          show-clear
           size="small"
           class="flex-1"
           placeholder="CSS value"

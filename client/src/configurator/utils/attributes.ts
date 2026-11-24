@@ -13,8 +13,20 @@ import { withKey, type AnnotationEntry, type AttributeEntry, type ClassifierEntr
 export interface AttributeRow {
   attributeRef: string;
   name: string;
-  /** Type and cardinality, e.g. `String 0..1` */
+  /** The built-in type, e.g. `String` (the base type of a project data type) */
   type: string;
+  /** Name of the project data type, e.g. `SicIsDeleted`; `undefined` for built-in types */
+  dataTypeName?: string;
+  /** The allowed values, `undefined` if the type has no literals */
+  options?: string[];
+  /** Cardinality, e.g. `0..1`, `1..*` */
+  bounds: string;
+  /** At least one value is required */
+  isRequired: boolean;
+  /** More than one value is allowed */
+  isList: boolean;
+  /** Read-only in the model, so never editable */
+  isReadOnly: boolean;
   entry?: AttributeEntry;
 }
 
@@ -41,11 +53,19 @@ export function attributeRowsOf(
       const attributeRef: string = `${owner.modelId}:${attribute.id}`;
       const typeRef: string = getTypeRef({ attribute, ownerRef });
       const upper: string = attribute.bounds.upperBound === -1 ? "*" : String(attribute.bounds.upperBound);
+      const dataType = context.model.getDataType(typeRef);
+      const type: string = dataType?.baseType ?? typeRef;
 
       return {
         attributeRef,
         name: attribute.name,
-        type: `${context.model.getDataType(typeRef)?.name ?? typeRef} ${attribute.bounds.lowerBound}..${upper}`,
+        type,
+        dataTypeName: dataType && dataType.name !== type ? dataType.name : undefined,
+        options: getOptions(context, { attribute, ownerRef })?.map(String),
+        bounds: `${attribute.bounds.lowerBound}..${upper}`,
+        isRequired: attribute.bounds.lowerBound >= 1,
+        isList: attribute.bounds.upperBound !== 1,
+        isReadOnly: attribute.isReadOnly === true,
         entry: entry?.attributes?.[attributeRef],
       };
     });

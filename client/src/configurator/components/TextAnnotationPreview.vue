@@ -20,7 +20,8 @@ const props = defineProps<{
   /** The appearance as configured (attribute refs) */
   appearance: AnnotationAppearance | undefined;
   extent: "range" | "zeroPoint";
-  representation: "structure" | "inline" | "blockClassification";
+  /** Structure annotations have no preview */
+  representation: "inline" | "blockClassification";
 }>();
 
 const annotatedText = ref<string>("dolor sit");
@@ -71,12 +72,8 @@ function mountMarker(element: Element | ComponentPublicInstance | null, properti
 
 <template>
   <div class="flex flex-col gap-2">
-    <p v-if="representation !== 'inline'" class="text-sm text-slate-500">
-      {{
-        representation === "structure"
-          ? "Structure annotations are shown as blocks (paragraphs, headings, tables ...), not with highlights or markers."
-          : "Block classifications are shown as tags and lines next to their blocks, not with highlights or markers."
-      }}
+    <p v-if="representation === 'blockClassification'" class="text-sm text-slate-500">
+      Block classifications are shown as tags and lines next to their blocks, not with highlights or markers.
     </p>
     <template v-else>
       <div class="flex gap-2">

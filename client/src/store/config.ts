@@ -50,8 +50,8 @@ import {
   resolveRelationRef,
   resolveShapeRef,
   shapeRefOf,
-  toEditorAppearance,
 } from "../utils/helper/modelHelper";
+import { toEditorAppearance } from "../utils/helper/appearance";
 import { TEXT_ANNOTATION_EDITOR_FIELDS } from "../utils/helper/instanceMapper";
 
 /** Group for annotation types without a configured `group`.*/
@@ -201,22 +201,16 @@ export function useConfigStore() {
   }
 
   /**
-   * Builds the structural annotation types: every built-in type under its project name (via the active mapping), plus
-   * the project's text annotation types that are represented as structure without a native type.
+   * Builds the structural annotation types: every built-in type under its project name (via the active mapping). Only
+   * mapped shapes may be represented as structure (enforced by `checkConfig`).
    *
    * @returns {StructuralType[]} The structural types.
    */
   function buildStructuralTypes(): StructuralType[] {
-    const builtins: StructuralType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
+    return BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
       type: getAnnotationType(config.type),
       editorRole: config.type,
     }));
-    const custom: StructuralType[] = [...textShapesByType.value.values()]
-      .filter((shape) => !builtins.some((b) => b.type === shape.type))
-      .filter((shape) => getShapeConfig(getModelContext(), shape)?.editing?.representation === "structure")
-      .map((shape) => ({ type: shape.type, editorRole: shape.type }));
-
-    return [...builtins, ...custom];
   }
 
   /**

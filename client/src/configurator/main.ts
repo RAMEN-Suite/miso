@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
+import Tooltip from "primevue/tooltip";
 import ConfiguratorView from "./views/ConfiguratorView.vue";
 import "../styles/style.css";
 import "../styles/variables.css";
@@ -12,4 +13,5 @@ import "../editors/text/src/styles/editor.css";
  */
 createApp(ConfiguratorView)
   .use(PrimeVue, { theme: { preset: Aura } })
+  .directive("tooltip", Tooltip)
   .mount("#configurator");

@@ -11,6 +11,7 @@ import { elementKindOf } from "../utils/elementTree";
 import type { ElementChange } from "../utils/modelDiff";
 import FindingList from "./FindingList.vue";
 import ModelChangeList from "./ModelChangeList.vue";
+import TermHint from "./TermHint.vue";
 
 const { context, findings, lastUpdate, selection } = useConfigDraft();
 
@@ -21,14 +22,14 @@ const sortedFindings = computed<ConfigFinding[]>(() => [
 ]);
 
 /**
- * Selects the element a finding concerns: the mappings for mapping findings, otherwise the element of its ref (if the
- * model still has it).
+ * Selects the element a finding concerns: the text editor for mapping findings, otherwise the element of its ref (if
+ * the model still has it).
  *
  * @param {ConfigFinding} finding - The finding.
  */
 function selectFinding(finding: ConfigFinding): void {
   if (finding.path.startsWith("editors.text.mappings") || finding.path.startsWith("Annotation shape")) {
-    selection.value = { kind: "mappings" };
+    selection.value = { kind: "textEditor" };
   } else if (finding.ref) {
     selectRef(finding.ref);
   }
@@ -55,6 +56,9 @@ function selectChange(change: ElementChange): void {
     </TabList>
     <TabPanels class="p-2!">
       <TabPanel value="findings">
+        <p class="text-xs text-slate-500 mb-2 flex items-center gap-1.5">
+          Problems block the export, warnings don't. <TermHint term="findings" />
+        </p>
         <p v-if="sortedFindings.length === 0" class="text-sm text-slate-500">No problems or warnings.</p>
         <FindingList :findings="sortedFindings" with-path selectable @select="selectFinding" />
       </TabPanel>

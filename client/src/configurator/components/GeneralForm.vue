@@ -4,6 +4,8 @@ import InputText from "primevue/inputtext";
 import Textarea from "primevue/textarea";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { withKey } from "../utils/configUpdate";
+import FormHeader from "./FormHeader.vue";
+import SectionHeading from "./SectionHeading.vue";
 
 const { draft } = useConfigDraft();
 
@@ -38,10 +40,10 @@ function setDescription(description: string | undefined): void {
 
 <template>
   <div v-if="draft" class="flex flex-col gap-6">
-    <header>
+    <FormHeader>
       <h2 class="text-xl font-semibold">General</h2>
       <p class="text-sm text-slate-500"><code class="text-xs">{{ draft.$schema }}</code></p>
-    </header>
+    </FormHeader>
 
     <section class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2 items-start">
       <label class="text-sm text-slate-600 pt-1">ID</label>
@@ -51,8 +53,8 @@ function setDescription(description: string | undefined): void {
       <Textarea :model-value="draft.meta?.description ?? ''" rows="3" placeholder="What this configuration is for" @update:model-value="setDescription" />
     </section>
 
-    <section>
-      <h3 class="font-medium mb-2">Contents</h3>
+    <section class="flex flex-col gap-2">
+      <SectionHeading class="font-medium">Contents</SectionHeading>
       <dl class="grid grid-cols-[16rem_auto] gap-y-1 text-sm">
         <template v-for="count in counts" :key="count.label">
           <dt class="text-slate-600">{{ count.label }}</dt>

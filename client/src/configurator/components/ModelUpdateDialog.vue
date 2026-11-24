@@ -7,6 +7,7 @@ import { formatFinding, type ConfigFinding } from "../external";
 import { useConfigDraft, type ApplyModelOptions, type PendingModel } from "../state/useConfigDraft";
 import FindingList from "./FindingList.vue";
 import ModelChangeList from "./ModelChangeList.vue";
+import TermHint from "./TermHint.vue";
 
 const props = defineProps<{ pending: PendingModel }>();
 
@@ -44,6 +45,7 @@ const migrationCount = computed<number>(() => props.pending.changes.filter((chan
         <h3 class="font-medium mb-2">Changes ({{ pending.changes.length }})</h3>
         <p v-if="migrationCount > 0" class="text-sm text-amber-700 mb-2">
           {{ migrationCount }} change(s) rename stored names: the data in Neo4j has to be migrated.
+          <TermHint term="dataMigration" />
         </p>
         <div class="max-h-[60vh] overflow-auto pr-1">
           <ModelChangeList :changes="pending.changes" />

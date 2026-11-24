@@ -1,5 +1,12 @@
 import type { RamenFile } from "@ramen-suite/core";
-import { findAttribute, shapeRefOf, type AttributeOwner, type MisoConfig } from "../external";
+import {
+  findAttribute,
+  shapeRefOf,
+  type AppearanceOverride,
+  type AppearanceVariant,
+  type AttributeOwner,
+  type MisoConfig,
+} from "../external";
 
 /**
  * Changes of the config as the configurator makes them: entries created on the first edit, name hints from the model,
@@ -69,6 +76,112 @@ export function editClassifierEntry(config: MisoConfig, ref: string, name: strin
 export function editAnnotationEntry(config: MisoConfig, ref: string, name: string, change: (entry: AnnotationEntry) => void): void {
   config.elements.annotations[ref] ??= { name };
   change(config.elements.annotations[ref]);
+}
+
+/** The kinds of styles of an appearance: highlights for range annotations, markers for zero points */
+export type StyleKind = "highlight" | "marker";
+
+/** The styles of one kind taken out of an entry: the type's own and each variant value's */
+export interface TakenStyles {
+  own?: NonNullable<AppearanceOverride[StyleKind]>;
+  variants: { property: string; value: string; style: NonNullable<AppearanceOverride[StyleKind]> }[];
+}
+
+/**
+ * The kind of styles that applies to an extent.
+ *
+ * @param {"range" | "zeroPoint"} extent - The extent.
+ * @returns {StyleKind} `highlight` for range, `marker` for zeroPoint.
+ */
+export function styleKindOf(extent: "range" | "zeroPoint"): StyleKind {
+  return extent === "range" ? "highlight" : "marker";
+}
+
+/**
+ * Whether an entry has styles of a kind (its own or in a variant).
+ *
+ * @param {AnnotationEntry | undefined} entry - The entry.
+ * @param {StyleKind} kind - The kind.
+ * @returns {boolean} `true` if there is at least one.
+ */
+export function hasStyles(entry: AnnotationEntry | undefined, kind: StyleKind): boolean {
+  const appearance = entry?.appearance;
+
+  return (
+    appearance?.[kind] !== undefined ||
+    (appearance?.variants ?? []).some((variant) => Object.values(variant.values).some((override) => override[kind] !== undefined))
+  );
+}
+
+/**
+ * Takes the styles of a kind out of an entry, in place. Variant values left without override and variants left
+ * without values are removed.
+ *
+ * @param {AnnotationEntry} entry - The entry, changed in place.
+ * @param {StyleKind} kind - The kind.
+ * @returns {TakenStyles | undefined} The styles, `undefined` if the entry has none of that kind.
+ */
+export function takeStyles(entry: AnnotationEntry, kind: StyleKind): TakenStyles | undefined {
+  if (!hasStyles(entry, kind) || !entry.appearance) {
+    return undefined;
+  }
+
+  const taken: TakenStyles = { own: entry.appearance[kind], variants: [] };
+  const variants = (entry.appearance.variants ?? []).flatMap((variant) => {
+    const values: Record<string, AppearanceOverride> = {};
+
+    for (const [value, override] of Object.entries(variant.values)) {
+      const style = override[kind];
+      const rest: AppearanceOverride | undefined = withKey(override, kind, undefined);
+
+      if (style) {
+        taken.variants.push({ property: variant.property, value, style });
+      }
+
+      if (rest || !style) {
+        values[value] = rest ?? override;
+      }
+    }
+
+    return Object.keys(values).length > 0 ? [{ ...variant, values }] : [];
+  });
+
+  entry.appearance = withKey(withKey(entry.appearance, kind, undefined), "variants", variants.length > 0 ? variants : undefined);
+
+  return taken;
+}
+
+/**
+ * Puts styles taken with {@linkcode takeStyles} back into an entry, in place. Styles the entry has meanwhile are kept.
+ *
+ * @param {AnnotationEntry} entry - The entry, changed in place.
+ * @param {StyleKind} kind - The kind.
+ * @param {TakenStyles} taken - The styles.
+ */
+export function putStyles(entry: AnnotationEntry, kind: StyleKind, taken: TakenStyles): void {
+  const appearance: NonNullable<AnnotationEntry["appearance"]> = { ...entry.appearance };
+
+  if (taken.own && appearance[kind] === undefined) {
+    (appearance as Record<StyleKind, unknown>)[kind] = taken.own;
+  }
+
+  const variants: AppearanceVariant[] = (appearance.variants ?? []).map((variant) => ({ ...variant, values: { ...variant.values } }));
+
+  for (const { property, value, style } of taken.variants) {
+    let variant: AppearanceVariant | undefined = variants.find((candidate) => candidate.property === property);
+
+    if (!variant) {
+      variant = { property, values: {} };
+      variants.push(variant);
+    }
+
+    if (variant.values[value]?.[kind] === undefined) {
+      variant.values[value] = { ...variant.values[value], [kind]: style } as AppearanceOverride;
+    }
+  }
+
+  appearance.variants = variants.length > 0 ? variants : undefined;
+  entry.appearance = Object.values(appearance).some((value) => value !== undefined) ? appearance : undefined;
 }
 
 /**

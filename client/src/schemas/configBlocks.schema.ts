@@ -29,7 +29,14 @@ const svgIconSpecSchema = z.strictObject({
 
 const iconSpecSchema = z.discriminatedUnion("kind", [lucideIconSpecSchema, urlIconSpecSchema, svgIconSpecSchema]);
 
-const iconSpecInputSchema = z.union([z.string(), iconSpecSchema]);
+const iconSpecInputSchema = z
+  .union([z.string(), iconSpecSchema])
+  .describe(
+    "Icon of the type in the toolbar, lists and the hierarchy: a Lucide icon name (e.g. folder-open), an image URL or raw SVG markup.",
+  );
+
+/** The kinds of icons, from the schema */
+export const ICON_KINDS = iconSpecSchema.options.map((option) => option.shape.kind.value);
 
 /** An icon from the Lucide set. */
 export type LucideIconSpec = z.infer<typeof lucideIconSpecSchema>;
@@ -82,9 +89,23 @@ const mathTextStyleSchema = z.strictObject({
   display: z.string().optional(),
 });
 
-const highlightTextStyleSchema = z.discriminatedUnion("kind", [propertiesTextStyleSchema]);
+const highlightTextStyleSchema = z
+  .discriminatedUnion("kind", [propertiesTextStyleSchema])
+  .describe("How the annotated text looks in the editor (color, font, decoration). Only for annotations with extent range.");
 
-const markerStyleSchema = z.discriminatedUnion("kind", [iconStyleSchema, mathTextStyleSchema]);
+const markerStyleSchema = z
+  .discriminatedUnion("kind", [iconStyleSchema, mathTextStyleSchema])
+  .describe(
+    "What the editor shows at the position of the annotation: an icon, or a formula from one of its properties. Only for annotations with extent zeroPoint; without one, a crossed box is shown.",
+  );
+
+/** The CSS properties a highlight can set (its keys without `kind`), from the schema */
+export const HIGHLIGHT_STYLE_KEYS = propertiesTextStyleSchema
+  .keyof()
+  .options.filter((key): key is Exclude<keyof z.infer<typeof propertiesTextStyleSchema>, "kind"> => key !== "kind");
+
+/** The kinds of markers, from the schema */
+export const MARKER_KINDS = markerStyleSchema.options.map((option) => option.shape.kind.value);
 
 /** Predefined CSS properties. The keys are the camelCase names of the corresponding CSS properties. */
 export type PropertiesTextStyle = z.infer<typeof propertiesTextStyleSchema>;
@@ -115,20 +136,46 @@ export type MarkerStyle = z.infer<typeof markerStyleSchema>;
 
 // ----- Annotation miso configuration -----
 
-const annotationExtentSchema = z.enum(["zeroPoint", "range"]);
+/** What each extent means, for help texts; also the description of the schema */
+export const ANNOTATION_EXTENT_DESCRIPTIONS = {
+  range: "Covers a stretch of text, from a start to an end character.",
+  zeroPoint: "Sits between two characters without covering text, e.g. a line break or a gap marker.",
+} as const;
 
-const textAnnotationRepresentationSchema = z.enum(["structure", "inline", "blockClassification"]);
+/** What each representation means, for help texts; also the description of the schema */
+export const TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS = {
+  inline: "An interpretation of a text range, shown with a highlight or a marker. The default.",
+  structure:
+    "Document scaffolding like paragraphs, headings and tables, shown as blocks. Comes from a mapping to a native type; unmapped shapes can't have it.",
+  blockClassification: "Adds meaning to whole blocks (e.g. opener, closer), shown as tags and lines next to them.",
+} as const;
 
-export const builtinStructuralTypeSchema = z.enum([
-  "paragraph",
-  "heading",
-  "hardBreak",
-  "table",
-  "tableRow",
-  "tableCell",
-  "bulletList",
-  "listItem",
-]);
+/** "value: description" per value, for the description of an enum */
+function describeValues(descriptions: Record<string, string>): string {
+  return Object.entries(descriptions)
+    .map(([value, description]) => `${value}: ${description}`)
+    .join(" ");
+}
+
+const annotationExtentSchema = z
+  .enum(["zeroPoint", "range"])
+  .describe(`How far an annotation extends in the text. ${describeValues(ANNOTATION_EXTENT_DESCRIPTIONS)}`);
+
+const textAnnotationRepresentationSchema = z
+  .enum(["structure", "inline", "blockClassification"])
+  .describe(`How the text editor shows the annotation. ${describeValues(TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS)}`);
+
+export const builtinStructuralTypeSchema = z
+  .enum(["paragraph", "heading", "hardBreak", "table", "tableRow", "tableCell", "bulletList", "listItem"])
+  .describe(
+    "The editor's native types, which it implements itself. A native mapping says which annotation shape of the project stands for one of them.",
+  );
+
+/** The extents of annotations, from the schema */
+export const ANNOTATION_EXTENTS = annotationExtentSchema.options;
+
+/** The representations of text annotations, from the schema */
+export const TEXT_ANNOTATION_REPRESENTATIONS = textAnnotationRepresentationSchema.options;
 
 const appearanceOverrideSchema = z.strictObject({
   highlight: highlightTextStyleSchema.optional(),
@@ -141,6 +188,12 @@ const appearanceVariantSchema = z.strictObject({
   /** Appearance overrides keyed by property value */
   values: z.record(z.string(), appearanceOverrideSchema),
 });
+
+const appearanceVariantsSchema = z
+  .array(appearanceVariantSchema)
+  .describe(
+    "Different highlights or markers for annotations with certain property values, e.g. another color per hand. Later variants win.",
+  );
 
 const annotationAppearanceSchema = z.strictObject({
   /** Icon in the toolbar and in annotation lists */
@@ -158,7 +211,7 @@ const annotationAppearanceSchema = z.strictObject({
    * @example
    * [{ "property": "<modelId>:<attributeId of hand>", "values": { "#author": { "highlight": { "kind": "properties", "backgroundColor": "green" } } } }]
    */
-  variants: z.array(appearanceVariantSchema).optional(),
+  variants: appearanceVariantsSchema.optional(),
 });
 
 /**
@@ -192,14 +245,22 @@ export function checkNativeAttributes(
  * The settings of an annotation shape (without the `name` hint and the attribute settings of its entry, see
  * {@linkcode annotationEntrySchema}). The native mapping lives in `editors.text.mappings`.
  */
+const groupSchema = z
+  .string()
+  .describe("The group the annotation type is listed under in the toolbar and the filter. Without one: other.");
+
+const shortcutSchema = z
+  .string()
+  .describe("Keyboard shortcut that creates the annotation, e.g. Mod-Shift-e. Mod is Cmd on macOS and Ctrl elsewhere.");
+
 const annotationShapeConfigSchema = z.strictObject({
   /** Group the annotation type is listed under in the toolbar and the filter */
-  group: z.string().optional(),
+  group: groupSchema.optional(),
   /** How the user creates and interacts with annotations of this type */
   controls: z
     .strictObject({
       /** Keyboard shortcut in keymap notation, e.g. `Mod-Shift-e`. `Mod` is Cmd on macOS and Ctrl elsewhere. */
-      shortcut: z.string().optional(),
+      shortcut: shortcutSchema.optional(),
     })
     .optional(),
   appearance: annotationAppearanceSchema.optional(),
@@ -260,7 +321,14 @@ const nodeAppearanceSchema = z.strictObject({ icon: iconSpecInputSchema.optional
 
 const nodeConfigSchema = z.strictObject({ appearance: nodeAppearanceSchema.optional() });
 
-const contentMediumSchema = z.enum(["text", "image"]);
+const contentMediumSchema = z
+  .enum(["text", "image"])
+  .describe(
+    "What a Content type holds, which decides its editor and how its annotations are shown. Inherited from the nearest configured type in the lineage; default text.",
+  );
+
+/** The media of Content types, from the schema */
+export const CONTENT_MEDIA = contentMediumSchema.options;
 
 const contentTypeConfigSchema = nodeConfigSchema.extend({ medium: contentMediumSchema.optional() });
 
@@ -282,11 +350,17 @@ export type ContentTypeConfig = z.infer<typeof contentTypeConfigSchema>;
 const classifierConfigSchema = contentTypeConfigSchema;
 
 /** The settings of an attribute (or annotation shape property) */
+const visibleSchema = z.boolean().describe("Whether users see the attribute in forms and cards. Default: yes.");
+
+const editableSchema = z
+  .boolean()
+  .describe("Whether users can change the attribute. Default: yes; never for attributes that are read-only in the model.");
+
 const attributeConfigSchema = z.strictObject({
   /** Visible by user. Defaults to `true`. */
-  visible: z.boolean().optional(),
+  visible: visibleSchema.optional(),
   /** Editable by user. Defaults to `true`; always `false` for attributes that are read-only in the model. */
-  editable: z.boolean().optional(),
+  editable: editableSchema.optional(),
 });
 
 /** Configuration of an attribute */
@@ -295,7 +369,11 @@ export type AttributeConfig = z.infer<typeof attributeConfigSchema>;
 // ----- Entries of `elements` -----
 
 /** Name of the element in the model. A hint for readers, the ref decides; a different name only warns. */
-const nameHintSchema = z.string();
+const nameHintSchema = z
+  .string()
+  .describe(
+    "The element's name in the model, written next to its ref so the file is readable. Only a hint: the ref decides, a different name only warns.",
+  );
 
 /** An entry of an element's `attributes`, keyed by attribute ref (`<modelId>:<attributeId>`) */
 const attributeEntrySchema = attributeConfigSchema.extend({ name: nameHintSchema });
@@ -314,3 +392,35 @@ export const annotationEntrySchema = annotationShapeConfigSchema.extend({
   name: nameHintSchema,
   attributes: attributeEntriesSchema,
 });
+
+// ----- Descriptions -----
+
+/** The schemas whose descriptions explain the terms of the config, e.g. in the configurator's help */
+const CONFIG_TERM_SCHEMAS = {
+  extent: annotationExtentSchema,
+  representation: textAnnotationRepresentationSchema,
+  native: builtinStructuralTypeSchema,
+  medium: contentMediumSchema,
+  group: groupSchema,
+  shortcut: shortcutSchema,
+  icon: iconSpecInputSchema,
+  highlight: highlightTextStyleSchema,
+  marker: markerStyleSchema,
+  variants: appearanceVariantsSchema,
+  visible: visibleSchema,
+  editable: editableSchema,
+  nameHint: nameHintSchema,
+} as const;
+
+/** A term of the config with a description in the schema */
+export type ConfigTerm = keyof typeof CONFIG_TERM_SCHEMAS;
+
+/**
+ * The description of a term of the config, as written in the schema (`.describe()`).
+ *
+ * @param {ConfigTerm} term - The term.
+ * @returns {string} The description.
+ */
+export function describeConfigTerm(term: ConfigTerm): string {
+  return CONFIG_TERM_SCHEMAS[term].description ?? "";
+}

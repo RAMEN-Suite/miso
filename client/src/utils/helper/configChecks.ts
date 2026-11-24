@@ -1,6 +1,4 @@
 import type { Attribute } from "@ramen-suite/core";
-import { STRUCTURE_ANNOTATION_GROUP } from "../../config/annotations";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../../editors/text/src/config/constants";
 import type {
   AnnotationExtent,
   AnnotationShapeConfig,
@@ -24,9 +22,9 @@ import {
  * Checks of the settings that need the imported model, beyond the ref checks of `checkConfig`. All findings are
  * warnings: the affected settings are ignored where they don't apply.
  *
- * - appearance: `marker` on range annotations, `highlight` on zero-point ones, variant properties that aren't
- *   properties of the shape, variant values that aren't options of the property
- * - `group` of shapes mapped to a native type (always in the structure group)
+ * - appearance: `marker` on range annotations, `highlight` on zero-point ones (not for shapes mapped to a native type,
+ *   which are blocks), variant properties that aren't properties of the shape, variant values that aren't options of
+ *   the property
  * - shortcuts used by several text annotation types
  * - a second text annotation shape with the same type (left out by name matching)
  * - text annotation shapes without a configured extent or representation (not mapped to a native type)
@@ -39,7 +37,7 @@ export function collectConfigWarnings(context: ModelContext): ConfigFinding[] {
   return [...checkAppearances(context), ...checkShortcuts(context), ...checkTextShapes(context)];
 }
 
-/** Appearance and `group` of each configured annotation shape */
+/** Appearance of each configured annotation shape */
 function checkAppearances(context: ModelContext): ConfigFinding[] {
   const findings: ConfigFinding[] = [];
 
@@ -54,18 +52,10 @@ function checkAppearances(context: ModelContext): ConfigFinding[] {
     const warn = (path: string, message: string, attributeRef?: string): void => {
       findings.push({ severity: "warning", path, message, ref, attributeRef });
     };
-    const native: string | undefined = context.config.editors.text.mappings.find((m) => m.annotation === ref)?.native;
-    const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
-    const extent: AnnotationExtent = nativeExtent ?? shapeConfig.editing?.extent ?? "range";
+    const isMapped: boolean = context.config.editors.text.mappings.some((m) => m.annotation === ref);
+    const extent: AnnotationExtent = shapeConfig.editing?.extent ?? "range";
     const entryPath: string = `elements.annotations["${ref}"] ("${shape.type}")`;
     const appearances: [string, AppearanceOverride][] = [[`${entryPath}.appearance`, shapeConfig.appearance ?? {}]];
-
-    if (native && shapeConfig.group !== undefined && shapeConfig.group !== STRUCTURE_ANNOTATION_GROUP) {
-      warn(
-        `${entryPath}.group`,
-        `"${shapeConfig.group}" is ignored, types mapped to a built-in are always in "${STRUCTURE_ANNOTATION_GROUP}"`,
-      );
-    }
 
     (shapeConfig.appearance?.variants ?? []).forEach((variant, index) => {
       const variantPath: string = `${entryPath}.appearance.variants[${index}]`;
@@ -88,7 +78,8 @@ function checkAppearances(context: ModelContext): ConfigFinding[] {
       }
     });
 
-    for (const [path, appearance] of appearances) {
+    // Mapped shapes are blocks, their highlights and markers are never drawn
+    for (const [path, appearance] of isMapped ? [] : appearances) {
       if (extent === "range" && appearance.marker) {
         warn(`${path}.marker`, "only applies to zeroPoint annotations");
       }

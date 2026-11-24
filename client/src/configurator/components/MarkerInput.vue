@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import Select from "primevue/select";
-import type { IconSpecInput, MarkerStyle } from "../external";
+import { MARKER_KINDS, type IconSpecInput, type MarkerStyle } from "../external";
+import { EMPTY_ENTRY_PT, withEmptyEntry, withEmptySuggestion, type SelectEntry } from "../utils/selectEntries";
 import IconSpecInputField from "./IconSpecInput.vue";
 
 type MarkerKind = MarkerStyle["kind"];
@@ -14,12 +15,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{ "update:modelValue": [value: MarkerStyle | undefined] }>();
 
-const KIND_OPTIONS: { label: string; value: MarkerKind }[] = [
-  { label: "Icon", value: "icon" },
-  { label: "Formula (KaTeX)", value: "math" },
-];
+const KIND_LABELS: Record<MarkerKind, string> = { icon: "Icon", math: "Formula (KaTeX)" };
 
-const DISPLAY_OPTIONS: string[] = ["inline-block", "inline", "block"];
+const KIND_OPTIONS: SelectEntry<MarkerKind>[] = withEmptyEntry(MARKER_KINDS.map((value) => ({ label: KIND_LABELS[value], value })));
+
+const DISPLAY_OPTIONS: string[] = withEmptySuggestion(["inline-block", "inline", "block"]);
+
+/** The properties as dropdown entries, after the empty one */
+const propertyOptions = computed<SelectEntry<string>[]>(() =>
+  withEmptyEntry(props.properties.map((property) => ({ label: property.name, value: property.attributeRef }))),
+);
 
 /** The chosen kind; kept while the marker is incomplete (the value is `undefined` then) */
 const kind = ref<MarkerKind | undefined>(props.modelValue?.kind);
@@ -31,8 +36,8 @@ watch(
   },
 );
 
-function onKind(value: MarkerKind | undefined): void {
-  kind.value = value;
+function onKind(value: MarkerKind | null | undefined): void {
+  kind.value = value ?? undefined;
   emit("update:modelValue", undefined);
 }
 
@@ -40,17 +45,19 @@ function onIcon(icon: IconSpecInput | undefined): void {
   emit("update:modelValue", icon ? { kind: "icon", icon } : undefined);
 }
 
-function onMathProperty(property: string | undefined): void {
+function onMathProperty(property: string | null | undefined): void {
   const display: string | undefined = props.modelValue?.kind === "math" ? props.modelValue.display : undefined;
 
   emit("update:modelValue", property ? { kind: "math", property, ...(display ? { display } : {}) } : undefined);
 }
 
-function onMathDisplay(display: string | undefined): void {
+function onMathDisplay(value: string | undefined): void {
   if (props.modelValue?.kind !== "math") {
     return;
   }
 
+  // The empty entry is a non-breaking space
+  const display: string | undefined = value?.trim() || undefined;
   const { display: _previous, ...rest } = props.modelValue;
 
   emit("update:modelValue", display ? { ...rest, display } : rest);
@@ -65,7 +72,7 @@ function onMathDisplay(display: string | undefined): void {
       option-label="label"
       option-value="value"
       placeholder="No marker (crossed box)"
-      show-clear
+      :pt="EMPTY_ENTRY_PT"
       size="small"
       class="w-56"
       @update:model-value="onKind"
@@ -78,9 +85,10 @@ function onMathDisplay(display: string | undefined): void {
     <div v-else-if="kind === 'math'" class="flex items-center gap-2">
       <Select
         :model-value="modelValue?.kind === 'math' ? modelValue.property : undefined"
-        :options="properties"
-        option-label="name"
-        option-value="attributeRef"
+        :options="propertyOptions"
+        option-label="label"
+        option-value="value"
+        :pt="EMPTY_ENTRY_PT"
         placeholder="Property with the LaTeX notation"
         size="small"
         class="flex-1"
@@ -91,7 +99,7 @@ function onMathDisplay(display: string | undefined): void {
         :options="DISPLAY_OPTIONS"
         :disabled="modelValue?.kind !== 'math'"
         placeholder="display"
-        show-clear
+        :pt="EMPTY_ENTRY_PT"
         editable
         size="small"
         class="w-40"

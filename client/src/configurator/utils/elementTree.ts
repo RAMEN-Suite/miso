@@ -8,6 +8,8 @@ import {
   shapeRefOf,
   type ModelContext,
 } from "../external";
+import type { Selection } from "../state/useConfigDraft";
+import type { ChangeKind } from "./modelDiff";
 
 /**
  * The model elements as the configurator lists them: classifiers nested by lineage, annotation shapes grouped by the
@@ -28,6 +30,27 @@ export interface ShapeGroup {
   label: string;
   shapes: { ref: string; name: string }[];
 }
+
+/** A line of the element tree, with the lines nested under it (refinements) */
+export interface TreeRow {
+  key: string;
+  label: string;
+  depth: number;
+  selection: Selection;
+  ref?: string;
+  children: TreeRow[];
+}
+
+/** What a line shows next to its label */
+export interface RowStatus {
+  problems: number;
+  warnings: number;
+  change?: ChangeKind;
+  configured: boolean;
+}
+
+/** Height of a line and of a section header; the sticky offsets are multiples of it */
+export const TREE_LINE_HEIGHT_REM = 1.75;
 
 /** The base nodes in the order they are listed */
 const BASE_ORDER: readonly string[] = [BASE_NODE_REF.Collection, BASE_NODE_REF.Content, BASE_NODE_REF.Entity, BASE_NODE_REF.Annotation];

@@ -2,21 +2,39 @@
 import { computed } from "vue";
 import type { Node } from "@ramen-suite/core";
 import SelectButton from "primevue/selectbutton";
-import { BASE_NODE_REF, getBaseNodeRef, type ConfigFinding, type IconSpecInput, type ModelContext } from "../external";
+import {
+  BASE_NODE_REF,
+  CONTENT_MEDIA,
+  getBaseNodeRef,
+  type ConfigFinding,
+  type ContentMedium,
+  type IconSpecInput,
+  type ModelContext,
+} from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, setAttributeFlag, type AttributeRow } from "../utils/attributes";
 import { editClassifierEntry, withKey, type ClassifierEntry } from "../utils/configUpdate";
 import IconSpecInputField from "./IconSpecInput.vue";
+import { MEDIUM_ICONS } from "../utils/media";
 import AttributeTable from "./AttributeTable.vue";
+import FormHeader from "./FormHeader.vue";
 import FindingList from "./FindingList.vue";
+import SectionHeading from "./SectionHeading.vue";
+import TermHint from "./TermHint.vue";
 
-type Medium = NonNullable<ClassifierEntry["medium"]>;
+type Medium = ContentMedium;
 
 const props = defineProps<{ classifierRef: string }>();
 
 const { draft, context, findings } = useConfigDraft();
 
-const MEDIUM_OPTIONS: Medium[] = ["text", "image"];
+/** Media without an editor yet; they can't be chosen, a config that has one still shows it */
+const MEDIA_WITHOUT_EDITOR: readonly Medium[] = ["image"];
+
+const MEDIUM_OPTIONS: { value: Medium; disabled: boolean }[] = CONTENT_MEDIA.map((value) => ({
+  value,
+  disabled: MEDIA_WITHOUT_EDITOR.includes(value),
+}));
 
 const ctx = computed<ModelContext>(() => context.value as ModelContext);
 
@@ -102,25 +120,42 @@ function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boo
 
 <template>
   <div class="flex flex-col gap-6">
-    <header>
+    <FormHeader>
       <h2 class="text-xl font-semibold">{{ name }}</h2>
       <p class="text-sm text-slate-500">
         {{ lineage.map((item) => item.name).join(" > ") }} · <code class="text-xs">{{ classifierRef }}</code>
       </p>
-      <p v-if="!entry" class="text-sm text-slate-500 mt-1">Not configured yet. Changing a setting creates its entry.</p>
-    </header>
+    </FormHeader>
+
+    <p v-if="!entry" class="text-sm text-slate-500">
+      Not configured yet. Changing a setting creates its entry. <TermHint term="entry" />
+    </p>
 
     <FindingList :findings="ownFindings" />
 
     <section class="flex flex-col gap-2">
-      <h3 class="font-medium">Icon</h3>
+      <SectionHeading class="font-medium gap-1.5">Icon <TermHint term="icon" /></SectionHeading>
       <IconSpecInputField :model-value="entry?.appearance?.icon" :inherited="inheritedIcon" @update:model-value="setIcon" />
     </section>
 
     <section v-if="isContent" class="flex flex-col gap-2">
-      <h3 class="font-medium">Medium</h3>
+      <SectionHeading class="font-medium gap-1.5">Medium <TermHint term="medium" /></SectionHeading>
       <div class="flex items-center gap-3">
-        <SelectButton :model-value="entry?.medium" :options="MEDIUM_OPTIONS" size="small" @update:model-value="setMedium" />
+        <SelectButton
+          :model-value="entry?.medium"
+          :options="MEDIUM_OPTIONS"
+          option-label="value"
+          option-value="value"
+          option-disabled="disabled"
+          size="small"
+          @update:model-value="setMedium"
+        >
+          <template #option="{ option }">
+            <span class="flex items-center gap-1.5" :title="option.disabled ? 'No editor for this medium yet' : ''">
+              <i :class="MEDIUM_ICONS[option.value as Medium]" />{{ option.value }}
+            </span>
+          </template>
+        </SelectButton>
         <small class="text-slate-500">
           {{
             entry?.medium
@@ -134,9 +169,8 @@ function setAttribute(row: AttributeRow, key: "visible" | "editable", value: boo
     </section>
 
     <section class="flex flex-col gap-2">
-      <h3 class="font-medium">Attributes</h3>
+      <SectionHeading class="font-medium">Attributes</SectionHeading>
       <AttributeTable :rows="attributeRows" :flagged-refs="flaggedAttributeRefs" @set="setAttribute" />
-      <small class="text-slate-500">Inherited attributes are configured on the classifier that declares them.</small>
     </section>
   </div>
 </template>

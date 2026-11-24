@@ -330,9 +330,35 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
 }
 
 /**
+ * Checks that only shapes mapped to a native type have the representation `structure`: the editor builds blocks only
+ * for its native types.
+ *
+ * @param {ConfigElements} elements - The settings of the model elements.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {ConfigFinding[]} A problem per unmapped shape with `structure`.
+ */
+function checkRepresentations(elements: ConfigElements, mappings: ConfigMapping[]): ConfigFinding[] {
+  const mappedRefs = new Set<string>(mappings.map((mapping) => mapping.annotation));
+
+  return Object.entries(elements.annotations).flatMap(([ref, entry]): ConfigFinding[] =>
+    entry.editing?.representation === "structure" && !mappedRefs.has(ref)
+      ? [
+          {
+            severity: "problem",
+            path: `elements.annotations["${ref}"] ("${entry.name}").editing.representation`,
+            message: `"structure" is only allowed for shapes mapped to a native type`,
+            ref,
+          },
+        ]
+      : [],
+  );
+}
+
+/**
  * Checks the given data like {@linkcode parseMisoConfig}, without throwing: the settings against their schemas (the
- * kind-specific options by the section of `elements`), the model by RAMEN core, and the refs of the settings and the
- * mapped shapes against the model (see `checkElements`, `checkMappings`). A format error or an invalid model stops the
+ * kind-specific options by the section of `elements`), the model by RAMEN core, the refs of the settings and the
+ * mapped shapes against the model (see `checkElements`, `checkMappings`), and that only mapped shapes have the
+ * representation `structure`. A format error or an invalid model stops the
  * checks; there is one problem then, and no `config`/`model`.
  *
  * @param {unknown} data - The config, e.g. the parsed JSON of a file.
@@ -362,6 +388,7 @@ export function checkConfig(data: unknown): ConfigCheckResult {
     findings: [
       ...checkElements(result.data.model, result.data.elements),
       ...checkMappings(result.data.model, result.data.editors.text.mappings),
+      ...checkRepresentations(result.data.elements, result.data.editors.text.mappings),
     ],
   };
 }

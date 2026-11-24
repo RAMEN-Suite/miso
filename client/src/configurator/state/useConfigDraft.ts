@@ -11,10 +11,23 @@ import {
   type ModelContext,
 } from "../external";
 import { diffModels, type ElementChange } from "../utils/modelDiff";
-import { pruneGoneEntries, refreshNameHints, serializeConfig, withModel } from "../utils/configUpdate";
+import {
+  pruneGoneEntries,
+  putStyles,
+  refreshNameHints,
+  serializeConfig,
+  takeStyles,
+  withModel,
+  type AnnotationEntry,
+  type StyleKind,
+  type TakenStyles,
+} from "../utils/configUpdate";
 
-/** What the configurator shows in its form */
-export type Selection = { kind: "classifier" | "annotation"; ref: string } | { kind: "mappings" } | { kind: "general" };
+/** What the configurator shows in its form; `focus` of the text editor is the shape ref whose mapping is scrolled to */
+export type Selection =
+  | { kind: "classifier" | "annotation"; ref: string }
+  | { kind: "textEditor"; focus?: string }
+  | { kind: "general" };
 
 /** A new model, checked and compared with the current one, before it is applied */
 export interface PendingModel {
@@ -53,6 +66,43 @@ const selection = ref<Selection>({ kind: "general" });
 const lastUpdate = shallowRef<AppliedModelUpdate>();
 const findings = shallowRef<ConfigFinding[]>([]);
 
+/**
+ * Styles that don't apply to the current extent of their shape, set aside instead of being deleted: switching the
+ * extent back brings them back. Keyed by `<shapeRef>|<kind>`. Not exported; lost when another config is opened.
+ */
+const setAsideStyles = new Map<string, TakenStyles>();
+
+/**
+ * Groups of mapped shapes, set aside like the styles: a mapped shape is always in the structure group, and removing the
+ * mapping brings its group back. Keyed by shape ref, with the name hint in case the entry is gone meanwhile.
+ */
+const setAsideGroups = new Map<string, { name: string; group: string }>();
+
+/**
+ * Sets the groups of mapped shapes aside and brings back the ones of shapes that aren't mapped anymore. Changes the
+ * config in place.
+ *
+ * @param {MisoConfig} config - The config.
+ */
+function syncMappedGroups(config: MisoConfig): void {
+  const mappedRefs = new Set<string>(config.editors.text.mappings.map((mapping) => mapping.annotation));
+
+  for (const [ref, entry] of Object.entries(config.elements.annotations)) {
+    if (mappedRefs.has(ref) && entry.group !== undefined) {
+      setAsideGroups.set(ref, { name: entry.name, group: entry.group });
+      delete entry.group;
+    }
+  }
+
+  for (const [ref, { name, group }] of setAsideGroups) {
+    if (!mappedRefs.has(ref)) {
+      config.elements.annotations[ref] ??= { name };
+      config.elements.annotations[ref].group ??= group;
+      setAsideGroups.delete(ref);
+    }
+  }
+}
+
 /** The model of the draft, imported by RAMEN core. Recomputed only when the model is replaced. */
 const model: ComputedRef<RamenModel | undefined> = computed(() => {
   const file: RamenFile | undefined = draft.value?.model;
@@ -80,6 +130,16 @@ watch(
     scheduleChecks();
   },
   { deep: true },
+);
+
+// Mapping or unmapping a shape sets its group aside or brings it back (an edit, unlike the sync on open)
+watch(
+  () => draft.value?.editors.text.mappings.map((mapping) => mapping.annotation).join("\n"),
+  () => {
+    if (draft.value) {
+      syncMappedGroups(draft.value);
+    }
+  },
 );
 
 /**
@@ -119,7 +179,7 @@ async function readJson(file: File): Promise<unknown> {
 export function useConfigDraft() {
   /**
    * Opens a config file. A config with problems (e.g. a broken ref) opens, so they can be fixed; one that doesn't
-   * match the format or has an invalid model doesn't.
+   * match the format or has an invalid model doesn't. Groups of mapped shapes are set aside (see `syncMappedGroups`).
    *
    * @param {File} file - The config file.
    * @throws {Error} If the file is no JSON, doesn't match the format or its model is invalid.
@@ -131,6 +191,9 @@ export function useConfigDraft() {
       throw new Error(result.findings.map(formatFinding).join("\n"));
     }
 
+    setAsideStyles.clear();
+    setAsideGroups.clear();
+    syncMappedGroups(result.config);
     draft.value = { ...result.config, model: markRaw(result.config.model) };
     fileName.value = file.name;
     isDirty.value = false;
@@ -196,6 +259,39 @@ export function useConfigDraft() {
   }
 
   /**
+   * Sets the styles of a kind aside: takes them out of the entry, so they don't warn, and keeps them for
+   * {@linkcode bringBackStyles}. Changes the entry in place.
+   *
+   * @param {string} shapeRef - The shape of the entry.
+   * @param {AnnotationEntry} entry - The entry.
+   * @param {StyleKind} kind - The kind that doesn't apply.
+   */
+  function setStylesAside(shapeRef: string, entry: AnnotationEntry, kind: StyleKind): void {
+    const taken: TakenStyles | undefined = takeStyles(entry, kind);
+
+    if (taken) {
+      setAsideStyles.set(`${shapeRef}|${kind}`, taken);
+    }
+  }
+
+  /**
+   * Puts styles set aside with {@linkcode setStylesAside} back into the entry. Changes the entry in place.
+   *
+   * @param {string} shapeRef - The shape of the entry.
+   * @param {AnnotationEntry} entry - The entry.
+   * @param {StyleKind} kind - The kind that applies again.
+   */
+  function bringBackStyles(shapeRef: string, entry: AnnotationEntry, kind: StyleKind): void {
+    const key: string = `${shapeRef}|${kind}`;
+    const taken: TakenStyles | undefined = setAsideStyles.get(key);
+
+    if (taken) {
+      putStyles(entry, kind, taken);
+      setAsideStyles.delete(key);
+    }
+  }
+
+  /**
    * Downloads the draft as JSON (see `serializeConfig`), if it has no problems.
    *
    * @throws {Error} If no config is open or it has problems.
@@ -234,5 +330,7 @@ export function useConfigDraft() {
     readModel,
     applyModel,
     exportConfig,
+    setStylesAside,
+    bringBackStyles,
   };
 }

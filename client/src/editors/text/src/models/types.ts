@@ -27,7 +27,7 @@ export interface NativeTypeConfig {
 export interface StructuralType {
   /** The project's annotation type, e.g. `p` */
   type: string;
-  /** The editor node type, e.g. `paragraph`. The type itself for custom structural types. */
+  /** The editor node type, e.g. `paragraph` */
   editorRole: string;
 }
 

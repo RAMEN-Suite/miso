@@ -3,9 +3,11 @@ import { computed, ref, watch } from "vue";
 import InputText from "primevue/inputtext";
 import Select from "primevue/select";
 import Textarea from "primevue/textarea";
-import { IconView, type IconSpecInput } from "../external";
+import { ICON_KINDS, IconView, type IconSpecInput } from "../external";
+import lucideLogoUrl from "../assets/lucide.svg";
+import LucideIconInput from "./LucideIconInput.vue";
 
-type IconKind = "lucide" | "url" | "svg";
+type IconKind = (typeof ICON_KINDS)[number];
 
 const props = defineProps<{
   modelValue: IconSpecInput | undefined;
@@ -15,11 +17,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{ "update:modelValue": [value: IconSpecInput | undefined] }>();
 
-const KIND_OPTIONS: { label: string; value: IconKind }[] = [
-  { label: "Lucide", value: "lucide" },
-  { label: "URL", value: "url" },
-  { label: "SVG", value: "svg" },
-];
+/** How a kind is shown in the select: an icon class or an image URL in front of its label */
+type KindLook = { label: string } & ({ icon: string } | { image: string });
+
+const KIND_LOOKS: Record<IconKind, KindLook> = {
+  lucide: { label: "Lucide", image: lucideLogoUrl },
+  url: { label: "URL", icon: "icon-link" },
+  svg: { label: "SVG", icon: "icon-code-xml" },
+};
+
+const KIND_OPTIONS: (KindLook & { value: IconKind })[] = ICON_KINDS.map((value) => ({ ...KIND_LOOKS[value], value }));
 
 /** The kind of a value; a string is the shorthand of a Lucide icon */
 function kindOf(value: IconSpecInput | undefined): IconKind | undefined {
@@ -92,7 +99,22 @@ function onText(value: string | undefined): void {
       size="small"
       class="w-28 shrink-0"
       @update:model-value="onKind"
-    />
+    >
+      <template #value>
+        <span class="flex items-center gap-2">
+          <img v-if="'image' in KIND_LOOKS[kind]" :src="KIND_LOOKS[kind].image" alt="" class="w-4 h-4" />
+          <i v-else :class="KIND_LOOKS[kind].icon" />
+          {{ KIND_LOOKS[kind].label }}
+        </span>
+      </template>
+      <template #option="{ option }">
+        <span class="flex items-center gap-2">
+          <img v-if="'image' in option" :src="option.image" alt="" class="w-4 h-4" />
+          <i v-else :class="option.icon" />
+          {{ option.label }}
+        </span>
+      </template>
+    </Select>
     <Textarea
       v-if="kind === 'svg'"
       :model-value="text"
@@ -101,12 +123,11 @@ function onText(value: string | undefined): void {
       placeholder="<svg ...>"
       @update:model-value="onText"
     />
-    <InputText
+    <InputText v-else-if="kind === 'url'" :model-value="text" size="small" class="flex-1" placeholder="https://..." @update:model-value="onText" />
+    <LucideIconInput
       v-else
       :model-value="text"
-      size="small"
-      class="flex-1"
-      :placeholder="kind === 'url' ? 'https://...' : inherited ? `Inherited from ${inherited.from}` : 'Lucide name, e.g. folder-open'"
+      :placeholder="inherited ? `Inherited from ${inherited.from}` : 'Lucide name, e.g. folder-open'"
       @update:model-value="onText"
     />
     <div

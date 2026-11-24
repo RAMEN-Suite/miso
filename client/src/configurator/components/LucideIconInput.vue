@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef, type ComponentPublicInstance, type CSSProperties } from "vue";
+import { computed, ref, useTemplateRef, watch, type ComponentPublicInstance, type CSSProperties } from "vue";
 import { useElementSize } from "@vueuse/core";
 import InputText from "primevue/inputtext";
 import Menu from "primevue/menu";
 import VirtualScroller from "primevue/virtualscroller";
 import lucideTags from "lucide-static/tags.json";
 
-defineProps<{
+const props = defineProps<{
   modelValue: string;
   placeholder?: string;
 }>();
 
+/** Only names of installed icons, or empty to remove the icon */
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 
 /** Size a cell is aimed at; the real size fills the grid's width with whole, square cells */
@@ -59,6 +60,41 @@ const TAGS_BY_NAME = lucideTags as Record<string, string[]>;
 const ICON_NAMES: string[] = Object.keys(TAGS_BY_NAME).sort();
 
 const menu = useTemplateRef<InstanceType<typeof Menu>>("menu");
+
+/**
+ * The text of the input. It only becomes the value while it is an icon name (or empty); other text stays here, marked
+ * invalid, and goes back to the value when the grid closes or the input loses focus.
+ */
+const text = ref<string>(props.modelValue);
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    text.value = value;
+  },
+);
+
+/** Whether the text names no installed icon; an unknown name from the config is marked too */
+const isUnknown = computed<boolean>(() => text.value.trim() !== "" && !(text.value.trim().toLowerCase() in TAGS_BY_NAME));
+
+/** Puts the value back into the input, dropping text that names no icon */
+function revertUnknown(): void {
+  if (isUnknown.value) {
+    text.value = props.modelValue;
+  }
+}
+
+function onHide(): void {
+  isOpen.value = false;
+  revertUnknown();
+}
+
+/** Leaving the input drops unknown text; while the grid is open, it closes it (see `onHide`) */
+function onBlur(): void {
+  if (!isOpen.value) {
+    revertUnknown();
+  }
+}
 
 /** What the grid is filtered by: the input's text, empty for all icons */
 const query = ref<string>("");
@@ -115,12 +151,18 @@ function onClick(event: MouseEvent): void {
   open(event);
 }
 
-/** Typing filters the grid by the text */
+/** Typing filters the grid by the text; the text becomes the value once it names an icon, or is empty */
 function onInput(event: Event): void {
-  const text: string = (event.target as HTMLInputElement).value;
+  const typed: string = (event.target as HTMLInputElement).value;
+  const name: string = typed.trim().toLowerCase();
 
-  query.value = text;
-  emit("update:modelValue", text);
+  text.value = typed;
+  query.value = typed;
+
+  if (name === "" || name in TAGS_BY_NAME) {
+    emit("update:modelValue", name);
+  }
+
   open(event);
 }
 
@@ -132,18 +174,21 @@ function choose(name: string): void {
 
 <template>
   <InputText
-    :model-value="modelValue"
+    :model-value="text"
     size="small"
     class="flex-1"
     :placeholder="placeholder"
+    :invalid="isUnknown"
+    :title="isUnknown ? 'No installed Lucide icon has this name' : ''"
     aria-haspopup="menu"
     :aria-expanded="isOpen"
     @click="onClick"
     @input="onInput"
+    @blur="onBlur"
     @keydown.escape="menu?.hide()"
   />
 
-  <Menu ref="menu" :model="[]" popup :pt="MENU_PT" @show="onShow" @hide="isOpen = false">
+  <Menu ref="menu" :model="[]" popup :pt="MENU_PT" @show="onShow" @hide="onHide">
     <template #start>
       <!-- At least 20rem; as wide as the input (the menu's min width) when that is wider. The cells fill the width. -->
       <div class="flex flex-col gap-2 p-2 min-w-80">

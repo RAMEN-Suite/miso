@@ -173,7 +173,7 @@ export function putStyles(entry: AnnotationEntry, kind: StyleKind, taken: TakenS
     }
 
     if (variant.values[value]?.[kind] === undefined) {
-      variant.values[value] = { ...variant.values[value], [kind]: style } as AppearanceOverride;
+      variant.values[value] = { ...variant.values[value], [kind]: style };
     }
   }
 

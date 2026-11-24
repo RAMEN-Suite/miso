@@ -36,7 +36,7 @@ function selectFinding(finding: ConfigFinding): void {
 }
 
 function selectRef(ref: string): void {
-  const kind = elementKindOf(context.value as ModelContext, ref);
+  const kind = elementKindOf(context.value!, ref);
 
   if (kind) {
     selection.value = { kind, ref };

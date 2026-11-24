@@ -37,7 +37,7 @@ const filter = ref<string>("");
 /** Keys of the collapsed sections and lines; everything is expanded at first */
 const collapsed = ref<Set<string>>(new Set());
 
-const ctx = computed<ModelContext>(() => context.value as ModelContext);
+const ctx = computed<ModelContext>(() => context.value!);
 
 const isFiltering = computed<boolean>(() => filter.value.trim() !== "");
 

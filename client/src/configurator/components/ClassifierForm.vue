@@ -19,6 +19,7 @@ import { classifierIconOf } from "../utils/elementIcons";
 import IconSpecInputField from "./IconSpecInput.vue";
 import { MEDIUM_ICONS } from "../utils/media";
 import AttributeTable from "./AttributeTable.vue";
+import CopyButton from "./CopyButton.vue";
 import FormHeader from "./FormHeader.vue";
 import FindingList from "./FindingList.vue";
 import SectionHeading from "./SectionHeading.vue";
@@ -38,7 +39,7 @@ const MEDIUM_OPTIONS: { value: Medium; disabled: boolean }[] = CONTENT_MEDIA.map
   disabled: MEDIA_WITHOUT_EDITOR.includes(value),
 }));
 
-const ctx = computed<ModelContext>(() => context.value as ModelContext);
+const ctx = computed<ModelContext>(() => context.value!);
 
 /** The classifier as an attribute owner; RAMEN base nodes may not be listed in the file, the model has them */
 const owner = computed<(Node & { modelId: string }) | undefined>(() => {
@@ -122,7 +123,7 @@ function setMedium(medium: Medium | null | undefined): void {
       <h2 class="text-xl font-semibold flex items-center gap-2">
         <IconView v-if="icon" :spec="icon" :size="20" class="text-slate-500" />{{ name }}
       </h2>
-      <p class="text-sm text-slate-500"><code class="text-xs">{{ classifierRef }}</code></p>
+      <p class="text-sm text-slate-500"><code class="text-xs">{{ classifierRef }}</code> <CopyButton :text="classifierRef" /></p>
     </FormHeader>
 
     <p v-if="!entry" class="text-sm text-slate-500">

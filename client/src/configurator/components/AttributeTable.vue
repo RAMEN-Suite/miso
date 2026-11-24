@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue";
-import Menu from "primevue/menu";
-import type { MenuItem } from "primevue/menuitem";
 import type { AttributeRow } from "../utils/attributes";
 
 /** A flag of an attribute, shown next to its name */
@@ -23,72 +20,51 @@ function flagsOf(row: AttributeRow): { kind: FlagKind; icon: string; title: stri
     ...(row.isReadOnly ? [{ kind: "readOnly" as const, title: "Read-only in the model" }] : []),
   ].map((flag) => ({ ...flag, icon: FLAG_ICONS[flag.kind] }));
 }
-
-const optionsMenu = useTemplateRef<InstanceType<typeof Menu>>("optionsMenu");
-
-/** The options of the row the menu is open for, under a header with the data type */
-const menuItems = ref<MenuItem[]>([]);
-
-function showOptions(event: Event, row: AttributeRow): void {
-  menuItems.value = [
-    {
-      label: `${row.dataTypeName ?? row.type} · ${row.options?.length ?? 0} options`,
-      items: (row.options ?? []).map((option) => ({ label: option })),
-    },
-  ];
-  optionsMenu.value?.toggle(event);
-}
 </script>
 
 <template>
   <p v-if="rows.length === 0" class="text-sm text-slate-500">The element declares no attributes of its own.</p>
+  <!-- Name and type keep their width (with space after them); the options take the rest and wrap -->
   <table v-else class="w-full text-sm">
     <thead>
       <tr class="text-left text-slate-500">
-        <th class="font-normal py-1">Attribute</th>
-        <th class="font-normal py-1">Type</th>
+        <th class="font-normal py-1 pr-6 whitespace-nowrap">Attribute</th>
+        <th class="font-normal py-1 pr-6 whitespace-nowrap">Type</th>
+        <th class="font-normal py-1 w-full">Options</th>
       </tr>
     </thead>
     <tbody>
       <tr
         v-for="row in rows"
         :key="row.attributeRef"
-        class="border-t border-slate-100"
+        class="border-t border-slate-100 align-top"
         :class="{ 'bg-amber-50': flaggedRefs?.has(row.attributeRef) }"
       >
-        <td class="py-1" :title="row.attributeRef">
+        <td class="py-1 pr-6 whitespace-nowrap" :title="row.attributeRef">
           <span class="flex items-center gap-1.5 min-h-7">
             {{ row.name }}
-            <i v-for="flag in flagsOf(row)" :key="flag.kind" :class="flag.icon" class="text-xs text-slate-400" :title="flag.title" />
+            <i
+              v-for="flag in flagsOf(row)"
+              :key="flag.kind"
+              :class="flag.icon"
+              class="text-xs text-slate-400"
+              :title="flag.title"
+            />
           </span>
         </td>
-        <td class="py-1 text-slate-500">
-          <span class="flex items-center gap-1.5 min-h-7">
-            <span :title="row.dataTypeName ? `Data type ${row.dataTypeName}` : ''">{{ row.type }}</span>
-            <button
-              v-if="row.options"
-              type="button"
-              class="inline-flex items-center gap-0.5 h-5 text-[10px] leading-none px-1.5 rounded border border-slate-300 text-slate-600 cursor-pointer hover:bg-slate-100"
-              aria-haspopup="menu"
-              @click="showOptions($event, row)"
-            >
-              {{ row.options.length }} options
-              <i class="icon-chevron-down text-[10px]" />
-            </button>
+        <td class="py-1 pr-6 whitespace-nowrap text-slate-500">
+          <span class="flex items-center min-h-7" :title="row.dataTypeName ? `Data type ${row.dataTypeName}` : ''">
+            {{ row.type }}
+          </span>
+        </td>
+        <td class="py-1">
+          <span v-if="row.options" class="flex flex-wrap items-center gap-1 min-h-7 py-0.5">
+            <code v-for="option in row.options" :key="option" class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">
+              {{ option }}
+            </code>
           </span>
         </td>
       </tr>
     </tbody>
   </table>
-  <!-- Only lists the options, its items do nothing -->
-  <Menu ref="optionsMenu" :model="menuItems" popup class="max-h-72 overflow-auto">
-    <template #submenulabel="{ item }">
-      <span class="text-xs font-normal text-slate-500">{{ item.label }}</span>
-    </template>
-    <template #item="{ item }">
-      <span class="flex items-center px-3 py-1 cursor-default">
-        <code class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">{{ item.label }}</code>
-      </span>
-    </template>
-  </Menu>
 </template>

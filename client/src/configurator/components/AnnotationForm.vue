@@ -31,6 +31,7 @@ import { shapeIconOf } from "../utils/elementIcons";
 import { MEDIUM_ICONS } from "../utils/media";
 import { EMPTY_ENTRY_PT, withEmptySuggestion } from "../utils/selectEntries";
 import AttributeTable from "./AttributeTable.vue";
+import CopyButton from "./CopyButton.vue";
 import ElementLink from "./ElementLink.vue";
 import FormHeader from "./FormHeader.vue";
 import SectionHeading from "./SectionHeading.vue";
@@ -54,7 +55,7 @@ const { draft, context, findings, setStylesAside, bringBackStyles } = useConfigD
 const EXTENT_DESCRIPTIONS: Record<Extent, string> = ANNOTATION_EXTENT_DESCRIPTIONS;
 const REPRESENTATION_DESCRIPTIONS: Record<Representation, string> = TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS;
 
-const ctx = computed<ModelContext>(() => context.value as ModelContext);
+const ctx = computed<ModelContext>(() => context.value!);
 
 const shape = computed<ModelAnnotationShape | undefined>(() => findShape(ctx.value, props.shapeRef));
 
@@ -207,7 +208,7 @@ function setAppearance<K extends keyof AnnotationAppearance>(key: K, value: Anno
           >{{ index < carriers.length - 1 ? ", " : "" }}
         </template>
         <template v-if="carriers.length === 0">no node</template>
-        · <code class="text-xs">{{ shapeRef }}</code>
+        · <code class="text-xs">{{ shapeRef }}</code> <CopyButton :text="shapeRef" />
       </p>
     </FormHeader>
 

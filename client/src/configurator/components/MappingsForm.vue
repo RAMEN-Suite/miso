@@ -57,9 +57,9 @@ watch(
   { immediate: true },
 );
 
-const ctx = computed<ModelContext>(() => context.value as ModelContext);
+const ctx = computed<ModelContext>(() => context.value!);
 
-const NATIVE_TYPES: NativeType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => config.type as NativeType);
+const NATIVE_TYPES: NativeType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => config.type);
 
 /** The place of a native type in the form; `index` is the position of its mapping in the config */
 interface MappingSlot {

@@ -84,14 +84,14 @@ export function buildClassifierTree(context: ModelContext): ClassifierItem[] {
     const parent = lineage.at(-2);
     const parentItem: ClassifierItem | undefined = parent ? items.get(`${parent.modelId}:${parent.nodeId}`) : undefined;
 
-    parentItem?.children.push(items.get(ref) as ClassifierItem);
+    parentItem?.children.push(items.get(ref)!);
   }
 
   for (const item of items.values()) {
     item.children.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  return BASE_ORDER.map((ref) => items.get(ref) as ClassifierItem);
+  return BASE_ORDER.map((ref) => items.get(ref)!);
 }
 
 /**

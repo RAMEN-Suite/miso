@@ -339,7 +339,7 @@ export function useConfigDraft() {
   }
 
   return {
-    draft: draft as Ref<MisoConfig | undefined>,
+    draft: draft,
     context,
     fileName: readonly(fileName),
     findings: computed<ConfigFinding[]>(() => findings.value),

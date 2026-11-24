@@ -9,6 +9,8 @@ import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
 import { useTiptapStore } from "../store/tiptap";
 import { HEADING_LEVELS } from "../editors/text/src/config/editor";
+import { nativeTypeIcon } from "../editors/text/src/config/constants";
+import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 import Button from "primevue/button";
 import Divider from "primevue/divider";
 import Select from "primevue/select";
@@ -151,7 +153,8 @@ function buildTableMenuItems(): MenuItem[] {
     {
       label: "Insert table",
       title: "Insert table",
-      icon: "icon-table",
+      // Rendered by the `itemicon` slot, it may be any icon spec
+      iconSpec: nativeTypeIcon("table"),
       command: (e: MenuItemCommandEvent) => tablePopover.value?.toggle(e.originalEvent),
     },
     { label: "Delete table", icon: "icon-trash-2", command: () => runTableCommand((c) => c.deleteTable()) },
@@ -265,25 +268,26 @@ function openTableMenu(event: Event): void {
           <Button
             v-tooltip.hover.top="{ value: 'list', showDelay: 50 }"
             v-bind="structureButtonProps"
-            icon="icon-list"
             :class="{ 'is-active': tiptap?.isActive('bulletList') }"
             @click="tiptap?.chain().focus().toggleBulletList().run()"
-          ></Button>
+          >
+            <template #icon><RAMENNodeIcon :spec="nativeTypeIcon('bulletList')" /></template>
+          </Button>
           <Button
             v-tooltip.hover.top="{ value: 'table', showDelay: 50 }"
             v-bind="structureButtonProps"
-            icon="icon-table"
             aria-haspopup="true"
             :class="{ 'is-active': tiptap?.isActive('table') }"
             @click="openTableMenu($event)"
           >
+            <template #icon><RAMENNodeIcon :spec="nativeTypeIcon('table')" /></template>
           </Button>
           <Button
             v-tooltip.hover.top="{ value: 'line break', showDelay: 50 }"
             v-bind="structureButtonProps"
-            icon="icon-text-wrap"
             @click="insertLineBreak()"
           >
+            <template #icon><RAMENNodeIcon :spec="nativeTypeIcon('hardBreak')" /></template>
           </Button>
           <template v-if="blockClassificationTypes.length > 0">
             <Divider layout="vertical" class="mx-3! self-stretch" />
@@ -337,7 +341,12 @@ function openTableMenu(event: Event): void {
       submenuLabel: { style: { display: 'none' } },
       item: ({ context }) => ({ title: context.item.title }),
     }"
-  />
+  >
+    <template #itemicon="{ item, class: iconClass }">
+      <RAMENNodeIcon v-if="item.iconSpec" :spec="item.iconSpec" :class="iconClass" />
+      <span v-else-if="item.icon" :class="[item.icon, iconClass]" />
+    </template>
+  </TieredMenu>
   <TableInsertPopover ref="table-popover" />
 </template>
 

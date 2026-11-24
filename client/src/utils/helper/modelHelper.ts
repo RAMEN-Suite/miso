@@ -622,6 +622,35 @@ export function getShapeConfig(context: ModelContext, shape: ModelAnnotationShap
 }
 
 /**
+ * Qualified refs of the RAMEN Content node and its refinements.
+ *
+ * @param {ModelContext} context - The model context.
+ * @returns {string[]} The refs, the base node first.
+ */
+export function getContentCarrierRefs(context: ModelContext): string[] {
+  return [BASE_NODE_REF.Content, ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref)];
+}
+
+/**
+ * The annotation shapes Content nodes may carry, by type. Of several shapes with the same type, the first one wins,
+ * since name matching couldn't tell them apart (`collectConfigWarnings` reports them).
+ *
+ * @param {ModelContext} context - The model context.
+ * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
+ */
+export function getTextShapesByType(context: ModelContext): Map<string, ModelAnnotationShape> {
+  const byType = new Map<string, ModelAnnotationShape>();
+
+  for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
+    if (!byType.has(shape.type)) {
+      byType.set(shape.type, shape);
+    }
+  }
+
+  return byType;
+}
+
+/**
  * Whether an annotation shape may refer to an Entity, from the targets of its outgoing relation rules.
  *
  * @param {ModelContext} context - The model context.

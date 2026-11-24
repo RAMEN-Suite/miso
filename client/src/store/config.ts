@@ -1,13 +1,10 @@
 import { computed, readonly, ref, shallowRef } from "vue";
-import type { Attribute } from "@ramen-suite/core";
 import { useFilterStore } from "./filter";
 import {
   AnnotationAppearance,
   AnnotationExtent,
   AnnotationNode,
   AnnotationShapeConfig,
-  AppearanceOverride,
-  MarkerStyle,
   BaseNodeLabel,
   BuiltinStructuralType,
   CollectionNode,
@@ -26,22 +23,22 @@ import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../edito
 import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { initializeNodeIcons } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
-import type { ParsedMisoConfig } from "../schemas/misoConfig.schema";
+import { formatFinding, type ParsedMisoConfig } from "../schemas/misoConfig.schema";
+import { collectConfigWarnings } from "../utils/helper/configChecks";
 import { BASE_NODE_REF } from "../config/ramen";
 import {
   createModelContext,
-  findAttribute,
   findShape,
   getClassifierRef,
   getContentMedium as getContentMediumOfType,
   getMappedAttributeNames,
   getNodeAttributes,
   getNodeTypeOption,
-  getOptions,
   getRefinements,
   getShapeConfig,
   getShapeProperties,
   getShapesForNode,
+  getTextShapesByType,
   isRequired,
   getMissingReferences,
   getReferenceTargetRefs,
@@ -54,6 +51,7 @@ import {
   resolveShapeRef,
   shapeRefOf,
 } from "../utils/helper/modelHelper";
+import { toEditorAppearance } from "../utils/helper/appearance";
 import { TEXT_ANNOTATION_EDITOR_FIELDS } from "../utils/helper/instanceMapper";
 
 /** Group for annotation types without a configured `group`.*/
@@ -203,22 +201,16 @@ export function useConfigStore() {
   }
 
   /**
-   * Builds the structural annotation types: every built-in type under its project name (via the active mapping), plus
-   * the project's text annotation types that are represented as structure without a native type.
+   * Builds the structural annotation types: every built-in type under its project name (via the active mapping). Only
+   * mapped shapes may be represented as structure (enforced by `checkConfig`).
    *
    * @returns {StructuralType[]} The structural types.
    */
   function buildStructuralTypes(): StructuralType[] {
-    const builtins: StructuralType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
+    return BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
       type: getAnnotationType(config.type),
       editorRole: config.type,
     }));
-    const custom: StructuralType[] = [...textShapesByType.value.values()]
-      .filter((shape) => !builtins.some((b) => b.type === shape.type))
-      .filter((shape) => getShapeConfig(getModelContext(), shape)?.editing?.representation === "structure")
-      .map((shape) => ({ type: shape.type, editorRole: shape.type }));
-
-    return [...builtins, ...custom];
   }
 
   /**
@@ -646,42 +638,6 @@ export function useConfigStore() {
   }
 
   /**
-   * Converts the configured appearance of an annotation shape to the one the text editor reads: the attribute refs of
-   * the variants and of a math marker resolved to the property names the annotation data are keyed by. Variants whose
-   * ref can't be resolved are left out (the config check warns about them).
-   *
-   * @param {ModelAnnotationShape} shape - The annotation shape.
-   * @param {AnnotationAppearance} appearance - Its configured appearance.
-   * @returns {AnnotationAppearance} The appearance for the editor.
-   */
-  function toEditorAppearance(shape: ModelAnnotationShape, appearance: AnnotationAppearance): AnnotationAppearance {
-    const toPropertyName = (attributeRef: string): string | undefined => findAttribute(shape, attributeRef)?.name;
-    const resolveMarker = (marker: MarkerStyle | undefined): MarkerStyle | undefined => {
-      if (marker?.kind === "math") {
-        return { ...marker, property: toPropertyName(marker.property) ?? marker.property };
-      } else {
-        return marker;
-      }
-    };
-
-    return {
-      ...appearance,
-      marker: resolveMarker(appearance.marker),
-      variants: appearance.variants?.flatMap((variant) => {
-        const property: string | undefined = toPropertyName(variant.property);
-        const values = Object.fromEntries(
-          Object.entries(variant.values).map(([value, override]) => [
-            value,
-            { ...override, marker: resolveMarker(override.marker) },
-          ]),
-        );
-
-        return property ? [{ property, values }] : [];
-      }),
-    };
-  }
-
-  /**
    * Builds the editor appearances of the text annotation types, see {@linkcode toEditorAppearance}.
    *
    * @param {ModelContext} context - The model context.
@@ -764,33 +720,6 @@ export function useConfigStore() {
   }
 
   /**
-   * Collects the annotation shapes Content nodes may carry, by type. A second shape with the same type is left out,
-   * since name matching couldn't tell them apart.
-   *
-   * @param {ModelContext} context - The model context.
-   * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
-   */
-  function collectTextShapes(context: ModelContext): Map<string, ModelAnnotationShape> {
-    const byType = new Map<string, ModelAnnotationShape>();
-    const carrierRefs: string[] = [
-      BASE_NODE_REF.Content,
-      ...getRefinements(context, BASE_NODE_REF.Content).map(({ ref }) => ref),
-    ];
-
-    for (const shape of carrierRefs.flatMap((ref) => getShapesForNode(context, ref))) {
-      const existing: ModelAnnotationShape | undefined = byType.get(shape.type);
-
-      if (!existing) {
-        byType.set(shape.type, shape);
-      } else if (shapeRefOf(existing) !== shapeRefOf(shape)) {
-        console.warn(`Miso config: a second annotation shape with type "${shape.type}" is left out (${shapeRefOf(shape)})`);
-      }
-    }
-
-    return byType;
-  }
-
-  /**
    * Groups the text annotation types by their configured `group`. Types mapped to a built-in structural type
    * are always in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
    *
@@ -820,11 +749,11 @@ export function useConfigStore() {
     const context: ModelContext = createModelContext(parsed.config, parsed.model);
 
     parsed.warnings.forEach((warning) => console.warn(`Miso config: ${warning}`));
+    collectConfigWarnings(context).forEach((finding) => console.warn(`Miso config: ${formatFinding(finding)}`));
     modelContext.value = context;
-    textShapesByType.value = collectTextShapes(context);
+    textShapesByType.value = getTextShapesByType(context);
     editorAppearancesByType.value = collectEditorAppearances(context);
 
-    validateConfig(context);
     initializeNodeIcons(context);
 
     // Must be set before the structural types are built, since they are keyed by the project's type names
@@ -905,93 +834,6 @@ export function useConfigStore() {
         shapes.toSorted((a, b) => a.type.localeCompare(b.type)),
       ]),
     );
-  }
-
-  /**
-   * Checks the config of all annotation shapes for mistakes and logs a warning for each one found.
-   * Invalid parts are not removed, they are just ignored where they don't apply.
-   *
-   * @param {ModelContext} context - The model context to validate.
-   * @return {void} This function does not return anything.
-   */
-  function validateConfig(context: ModelContext): void {
-    const warn = (type: string, message: string): void => {
-      console.warn(`Invalid configuration for annotation type "${type}": ${message}`);
-    };
-
-    for (const shape of context.config.model.annotations) {
-      const shapeConfig: AnnotationShapeConfig | undefined = getShapeConfig(context, shape);
-
-      if (!shapeConfig) {
-        continue;
-      }
-
-      // The mapping is not built yet, so the extent of a native type is read from its built-in config directly
-      const native: string | undefined = context.config.editors.text.mappings.find(
-        (m) => m.annotation === shapeRefOf(shape),
-      )?.native;
-      const nativeExtent: AnnotationExtent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === native)?.extent;
-      const extent: AnnotationExtent = nativeExtent ?? shapeConfig.editing?.extent ?? "range";
-      const entryPath: string = `elements.annotations["${shapeRefOf(shape)}"]`;
-      const appearances: [string, AppearanceOverride][] = [[`${entryPath}.appearance`, shapeConfig.appearance ?? {}]];
-
-      if (native && shapeConfig.group !== undefined && shapeConfig.group !== STRUCTURE_ANNOTATION_GROUP) {
-        warn(
-          shape.type,
-          `${entryPath}.group "${shapeConfig.group}" is ignored, types mapped to a built-in are always in "${STRUCTURE_ANNOTATION_GROUP}"`,
-        );
-      }
-
-      (shapeConfig.appearance?.variants ?? []).forEach((variant, index) => {
-        const attribute: Attribute | undefined = findAttribute(shape, variant.property);
-        const property: ModelAttribute | undefined = attribute ? { attribute, ownerRef: shapeRefOf(shape) } : undefined;
-        const options: string[] | undefined = property ? getOptions(context, property)?.map(String) : undefined;
-
-        if (!property) {
-          warn(
-            shape.type,
-            `"${variant.property}" in ${entryPath}.appearance.variants[${index}] is no property of the annotation type, the variant is ignored`,
-          );
-        }
-
-        for (const [value, override] of Object.entries(variant.values)) {
-          const path: string = `${entryPath}.appearance.variants[${index}].values.${value}`;
-
-          if (options && !options.includes(value)) {
-            warn(shape.type, `"${value}" in ${path} is not an option of the "${property?.attribute.name}" property`);
-          }
-
-          appearances.push([path, override]);
-        }
-      });
-
-      for (const [path, appearance] of appearances) {
-        if (extent === "range" && appearance.marker) {
-          warn(shape.type, `${path}.marker only applies to zeroPoint annotations`);
-        }
-
-        if (extent === "zeroPoint" && appearance.highlight) {
-          warn(shape.type, `${path}.highlight only applies to range annotations`);
-        }
-      }
-    }
-
-    // Shortcuts are only registered for the editor's annotation types
-    const typesByShortcut = new Map<string, string[]>();
-
-    for (const shape of textShapesByType.value.values()) {
-      const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
-
-      if (shortcut) {
-        typesByShortcut.set(shortcut, [...(typesByShortcut.get(shortcut) ?? []), shape.type]);
-      }
-    }
-
-    for (const [shortcut, types] of typesByShortcut) {
-      if (types.length > 1) {
-        console.warn(`Shortcut "${shortcut}" is configured for multiple annotation types: ${types.join(", ")}`);
-      }
-    }
   }
 
   return {

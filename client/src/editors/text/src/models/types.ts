@@ -1,5 +1,12 @@
 import type { Attribute, Constraint } from "@ramen-suite/core";
-import type { Annotation, AnnotationExtent, BuiltinStructuralType, NodeDto, TextPositionSelector } from "../external";
+import type {
+  Annotation,
+  AnnotationExtent,
+  BuiltinStructuralType,
+  IconSpecInput,
+  NodeDto,
+  TextPositionSelector,
+} from "../external";
 
 /**
  * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
@@ -21,13 +28,15 @@ export interface NativeTypeConfig {
   extent: AnnotationExtent;
   /** The attributes the editor sets itself, in RAMEN terms */
   attributes: NativeTypeAttribute[];
+  /** The icon of the type, e.g. `pilcrow` (Lucide shorthand); a mapped shape shows it instead of an icon of its own */
+  icon: IconSpecInput;
 }
 
 /** A structural annotation type of the project and the editor node type that represents it */
 export interface StructuralType {
   /** The project's annotation type, e.g. `p` */
   type: string;
-  /** The editor node type, e.g. `paragraph`. The type itself for custom structural types. */
+  /** The editor node type, e.g. `paragraph` */
   editorRole: string;
 }
 

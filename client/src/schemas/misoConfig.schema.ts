@@ -65,6 +65,9 @@ const elementsSchema = z.strictObject({
 /** URL of the config format, with its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */
 const CONFIG_SCHEMA_URL_PATTERN: RegExp = /^https:\/\/ramen-schema\.org\/miso\/\d+\.\d+\.\d+\/config\.schema\.json$/;
 
+/** URL of the current version of the config format, for new configs */
+export const CONFIG_SCHEMA_URL = "https://ramen-schema.org/miso/1.0.0/config.schema.json" as const;
+
 const misoConfigSchema = z.strictObject({
   /** The config format and its version */
   $schema: z.string().regex(CONFIG_SCHEMA_URL_PATTERN, "Not a Miso config schema URL"),
@@ -109,10 +112,37 @@ export interface ParsedMisoConfig {
   warnings: string[];
 }
 
-/** What the checks against the model found: `problems` make the config unusable, `warnings` don't */
-interface ConfigFindings {
-  problems: string[];
-  warnings: string[];
+/** Something a config check found: a `problem` makes the config unusable, a `warning` doesn't */
+export interface ConfigFinding {
+  severity: "problem" | "warning";
+  /** Where in the config, e.g. `elements.annotations["<ref>"] ("name")`; empty for the format and the model as a whole */
+  path: string;
+  message: string;
+  /** Qualified ref of the model element the finding concerns (an entry's element, a mapping's shape) */
+  ref?: string;
+  /** Attribute ref, for findings on an attribute entry */
+  attributeRef?: string;
+}
+
+/** The result of {@linkcode checkConfig}: the config and its model, if the format and the model are valid */
+export interface ConfigCheckResult {
+  config?: MisoConfig;
+  model?: RamenModel;
+  findings: ConfigFinding[];
+}
+
+/**
+ * A finding as one line of text.
+ *
+ * @param {ConfigFinding} finding - The finding.
+ * @returns {string} `<path>: <message>`, or the message alone if there is no path.
+ */
+export function formatFinding(finding: ConfigFinding): string {
+  if (finding.path) {
+    return `${finding.path}: ${finding.message}`;
+  } else {
+    return finding.message;
+  }
 }
 
 /**
@@ -125,10 +155,10 @@ interface ConfigFindings {
  *
  * @param {RamenFile} model - The raw model.
  * @param {ConfigElements} elements - The element settings.
- * @returns {ConfigFindings} The problems and warnings, each with the entry it belongs to.
+ * @returns {ConfigFinding[]} The problems and warnings, each with the entry it belongs to.
  */
-function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindings {
-  const findings: ConfigFindings = { problems: [], warnings: [] };
+function checkElements(model: RamenFile, elements: ConfigElements): ConfigFinding[] {
+  const findings: ConfigFinding[] = [];
   const kindByRef = new Map<string, string>([
     ...model.classifiers.map((classifier): [string, string] => [`${classifier.modelId}:${classifier.id}`, classifier.kind]),
     ...model.annotations.map((shape): [string, string] => [`${shape.modelId}:${shape.id}`, "annotation shape"]),
@@ -159,18 +189,21 @@ function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindin
       const kind: string | undefined = kindByRef.get(ref);
 
       if (kind) {
-        findings.problems.push(`${path}: is a ${kind}, not a ${expectedKind}`);
+        findings.push({ severity: "problem", path, ref, message: `is a ${kind}, not a ${expectedKind}` });
       } else {
-        findings.warnings.push(`${path}: no such element in the model, the entry is ignored`);
+        findings.push({ severity: "warning", path, ref, message: "no such element in the model, the entry is ignored" });
       }
 
       return;
     }
 
     if (entry.name !== modelElement.name) {
-      findings.warnings.push(
-        `${path}: name hint "${entry.name}" differs from the model's "${modelElement.name}", the model wins`,
-      );
+      findings.push({
+        severity: "warning",
+        path,
+        ref,
+        message: `name hint "${entry.name}" differs from the model's "${modelElement.name}", the model wins`,
+      });
     }
 
     for (const [attributeRef, attributeEntry] of Object.entries(entry.attributes ?? {})) {
@@ -178,11 +211,21 @@ function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindin
       const attribute: Attribute | undefined = findAttribute(modelElement.owner, attributeRef);
 
       if (!attribute) {
-        findings.warnings.push(`${attributePath}: the element declares no such attribute, the entry is ignored`);
+        findings.push({
+          severity: "warning",
+          path: attributePath,
+          ref,
+          attributeRef,
+          message: "the element declares no such attribute, the entry is ignored",
+        });
       } else if (attributeEntry.name !== attribute.name) {
-        findings.warnings.push(
-          `${attributePath}: name hint "${attributeEntry.name}" differs from the model's "${attribute.name}", the model wins`,
-        );
+        findings.push({
+          severity: "warning",
+          path: attributePath,
+          ref,
+          attributeRef,
+          message: `name hint "${attributeEntry.name}" differs from the model's "${attribute.name}", the model wins`,
+        });
       }
     }
   }
@@ -206,10 +249,10 @@ function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindin
  *
  * @param {RamenFile} model - The raw model.
  * @param {ConfigMapping[]} mappings - The native mappings.
- * @returns {ConfigFindings} The problems and warnings, each with the mapping, shape or attribute it belongs to.
+ * @returns {ConfigFinding[]} The problems and warnings, each with the mapping, shape or attribute it belongs to.
  */
-function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindings {
-  const findings: ConfigFindings = { problems: [], warnings: [] };
+function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFinding[] {
+  const findings: ConfigFinding[] = [];
   const constraintsKey = (constraints: Pick<Constraint, "language" | "expression">[] | undefined): string =>
     (constraints ?? [])
       .map((constraint) => `${constraint.language}:${JSON.stringify(constraint.expression)}`)
@@ -220,14 +263,23 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
     const path: string = `editors.text.mappings[${index}] (${mapping.native})`;
     const shape = model.annotations.find((candidate) => `${candidate.modelId}:${candidate.id}` === mapping.annotation);
     const builtin: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.native);
+    const ref: string = mapping.annotation;
+    const problem = (findingPath: string, message: string, attributeRef?: string): void => {
+      findings.push({ severity: "problem", path: findingPath, message, ref, attributeRef });
+    };
 
     if (!shape) {
-      findings.problems.push(`${path}: the annotation shape "${mapping.annotation}" doesn't exist in the model`);
+      problem(path, `the annotation shape "${mapping.annotation}" doesn't exist in the model`);
       return;
     }
 
     if (mapping.type !== shape.type) {
-      findings.warnings.push(`${path}: type hint "${mapping.type}" differs from the model's "${shape.type}", the model wins`);
+      findings.push({
+        severity: "warning",
+        path,
+        ref,
+        message: `type hint "${mapping.type}" differs from the model's "${shape.type}", the model wins`,
+      });
     }
 
     const mappedNames: Record<string, string> = {};
@@ -238,8 +290,10 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       if (property) {
         mappedNames[nativeAttribute] = property.name;
       } else {
-        findings.problems.push(
-          `${path}.attributes.${nativeAttribute}: "${attributeRef}" is no property of the annotation shape "${shape.type}"`,
+        problem(
+          `${path}.attributes.${nativeAttribute}`,
+          `"${attributeRef}" is no property of the annotation shape "${shape.type}"`,
+          attributeRef,
         );
       }
     }
@@ -248,25 +302,28 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       const name: string = mappedNames[builtinAttribute.name] ?? builtinAttribute.name;
       const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
       const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;
+      const attributeRef: string | undefined = property ? `${shape.modelId}:${property.id}` : undefined;
 
       if (!property) {
-        findings.problems.push(`${label}: missing, the editor sets it`);
+        problem(label, "missing, the editor sets it");
       } else {
         if (property.typeId !== builtinAttribute.typeId) {
-          findings.problems.push(`${label}: type "${property.typeId}" overrides the built-in "${builtinAttribute.typeId}"`);
+          problem(label, `type "${property.typeId}" overrides the built-in "${builtinAttribute.typeId}"`, attributeRef);
         }
 
         if (
           property.bounds.lowerBound !== builtinAttribute.bounds.lowerBound ||
           property.bounds.upperBound !== builtinAttribute.bounds.upperBound
         ) {
-          findings.problems.push(
-            `${label}: bounds ${property.bounds.lowerBound}..${property.bounds.upperBound} override the built-in ${builtinAttribute.bounds.lowerBound}..${builtinAttribute.bounds.upperBound}`,
+          problem(
+            label,
+            `bounds ${property.bounds.lowerBound}..${property.bounds.upperBound} override the built-in ${builtinAttribute.bounds.lowerBound}..${builtinAttribute.bounds.upperBound}`,
+            attributeRef,
           );
         }
 
         if (constraintsKey(property.constraints) !== constraintsKey(builtinAttribute.constraints)) {
-          findings.problems.push(`${label}: constraints differ from the built-in ones`);
+          problem(label, "constraints differ from the built-in ones", attributeRef);
         }
       }
     }
@@ -276,20 +333,46 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
 }
 
 /**
- * Checks that the given data is a config and imports its model. The settings are checked against their schemas (the
- * kind-specific options by the section of `elements`), the model by RAMEN core, and the refs of the settings and the
- * mapped shapes against the model (see `checkElements`, `checkMappings`).
+ * Checks that only shapes mapped to a native type have the representation `structure`: the editor builds blocks only
+ * for its native types.
  *
- * @param {unknown} data - The config as received, e.g. the parsed JSON response of the API.
- * @returns {ParsedMisoConfig} The validated config, its imported model and the warnings.
- * @throws {ConfigValidationError} If the data does not match the format, the model is invalid or a ref is broken
- * (see the checks). The message lists the problems with their paths.
+ * @param {ConfigElements} elements - The settings of the model elements.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {ConfigFinding[]} A problem per unmapped shape with `structure`.
  */
-export function parseMisoConfig(data: unknown): ParsedMisoConfig {
+function checkRepresentations(elements: ConfigElements, mappings: ConfigMapping[]): ConfigFinding[] {
+  const mappedRefs = new Set<string>(mappings.map((mapping) => mapping.annotation));
+
+  return Object.entries(elements.annotations).flatMap(([ref, entry]): ConfigFinding[] =>
+    entry.editing?.representation === "structure" && !mappedRefs.has(ref)
+      ? [
+          {
+            severity: "problem",
+            path: `elements.annotations["${ref}"] ("${entry.name}").editing.representation`,
+            message: `"structure" is only allowed for shapes mapped to a native type`,
+            ref,
+          },
+        ]
+      : [],
+  );
+}
+
+/**
+ * Checks the given data like {@linkcode parseMisoConfig}, without throwing: the settings against their schemas (the
+ * kind-specific options by the section of `elements`), the model by RAMEN core, the refs of the settings and the
+ * mapped shapes against the model (see `checkElements`, `checkMappings`), and that only mapped shapes have the
+ * representation `structure`. A format error or an invalid model stops the
+ * checks; there is one problem then, and no `config`/`model`.
+ *
+ * @param {unknown} data - The config, e.g. the parsed JSON of a file.
+ * @returns {ConfigCheckResult} The validated config and its imported model (if the format and the model are valid), and
+ *   the findings.
+ */
+export function checkConfig(data: unknown): ConfigCheckResult {
   const result = misoConfigSchema.safeParse(data);
 
   if (!result.success) {
-    throw new ConfigValidationError(z.prettifyError(result.error));
+    return { findings: [{ severity: "problem", path: "", message: z.prettifyError(result.error) }] };
   }
 
   let model: RamenModel;
@@ -297,20 +380,41 @@ export function parseMisoConfig(data: unknown): ParsedMisoConfig {
   try {
     model = RamenModel.import(structuredClone(result.data.model));
   } catch (error: unknown) {
-    throw new ConfigValidationError(`The model in the config is invalid: ${(error as Error).message}`);
-  }
-
-  const elementFindings: ConfigFindings = checkElements(result.data.model, result.data.elements);
-  const mappingFindings: ConfigFindings = checkMappings(result.data.model, result.data.editors.text.mappings);
-  const problems: string[] = [...elementFindings.problems, ...mappingFindings.problems];
-
-  if (problems.length > 0) {
-    throw new ConfigValidationError(problems.join("\n"));
+    return {
+      findings: [{ severity: "problem", path: "", message: `The model in the config is invalid: ${(error as Error).message}` }],
+    };
   }
 
   return {
     config: result.data,
     model,
-    warnings: [...elementFindings.warnings, ...mappingFindings.warnings],
+    findings: [
+      ...checkElements(result.data.model, result.data.elements),
+      ...checkMappings(result.data.model, result.data.editors.text.mappings),
+      ...checkRepresentations(result.data.elements, result.data.editors.text.mappings),
+    ],
+  };
+}
+
+/**
+ * Checks that the given data is a config and imports its model, see {@linkcode checkConfig}.
+ *
+ * @param {unknown} data - The config as received, e.g. the parsed JSON response of the API.
+ * @returns {ParsedMisoConfig} The validated config, its imported model and the warnings.
+ * @throws {ConfigValidationError} If the data does not match the format, the model is invalid or a ref is broken
+ * (see the checks). The message lists the problems with their paths.
+ */
+export function parseMisoConfig(data: unknown): ParsedMisoConfig {
+  const { config, model, findings } = checkConfig(data);
+  const problems: ConfigFinding[] = findings.filter((finding) => finding.severity === "problem");
+
+  if (problems.length > 0 || !config || !model) {
+    throw new ConfigValidationError(problems.map(formatFinding).join("\n"));
+  }
+
+  return {
+    config,
+    model,
+    warnings: findings.filter((finding) => finding.severity === "warning").map(formatFinding),
   };
 }

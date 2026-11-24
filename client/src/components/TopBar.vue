@@ -46,6 +46,18 @@ function toggleAppsMenu(event: PointerEvent): void {
         />
       </RouterLink>
       <Button
+        v-if="isDevelopment"
+        as="a"
+        href="/configurator.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        icon="icon-sliders-horizontal"
+        severity="info"
+        aria-label="Configurator"
+        title="Open the Miso configurator"
+        class="w-8! h-8!"
+      />
+      <Button
         icon="icon-grip"
         severity="secondary"
         aria-label="Open apps"

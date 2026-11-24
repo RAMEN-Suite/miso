@@ -4,15 +4,8 @@ import { Extension } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { AddAnnotationStep } from "../steps/addAnnotationStep";
-import {
-  Annotation,
-  AnnotationAppearance,
-  AppearanceOverride,
-  HighlightTextStyle,
-  IAnnotation,
-  cloneDeep,
-  useConfigStore,
-} from "../external";
+import { Annotation, AnnotationAppearance, cloneDeep, useConfigStore } from "../external";
+import { getHighlightStyle } from "../rendering/highlight";
 import { RemoveAnnotationStep } from "../steps/removeAnnotationStep";
 import { UpdateAnnotationStep } from "../steps/updateAnnotationStep";
 import { indexToPosition } from "../utils/helper/positionHelper";
@@ -146,84 +139,6 @@ function createFilteredDecorations(
   );
 
   return DecorationSet.create(doc, filteredDecorations);
-}
-
-/**
- * Returns the inline style of a range annotation's decoration. The highlights of all variants matching the
- * annotation's property values are merged onto the highlight of the annotation type, in config order.
- *
- * @param {AnnotationAppearance | undefined} appearance The configured appearance of the annotation type.
- * @param {IAnnotation} data The annotation's data.
- * @returns {string} The inline style, or an empty string if no highlight is configured.
- *
- * @example
- * const appearance = {
- *   highlight: { kind: "properties", fontWeight: "bold" },
- *   variants: [
- *     {
- *       property: "subType",
- *       values: { i: { highlight: { kind: "properties", fontStyle: "italic" } } },
- *     },
- *   ],
- * };
- *
- * getHighlightStyle(appearance, { subType: "i", ... });
- *
- * // Returns
- *
- * "font-weight: bold; font-style: italic"
- */
-function getHighlightStyle(appearance: AnnotationAppearance | undefined, data: IAnnotation): string {
-  let merged: HighlightTextStyle | undefined = appearance?.highlight;
-
-  for (const variant of appearance?.variants ?? []) {
-    const value: unknown = data[variant.property];
-    const override: AppearanceOverride | undefined =
-      typeof value === "string" || typeof value === "number" || typeof value === "boolean"
-        ? variant.values[String(value)]
-        : undefined;
-
-    if (override?.highlight) {
-      merged = { ...merged, ...override.highlight };
-    }
-  }
-
-  return highlightToDeclarations(merged);
-}
-
-/**
- * Converts a highlight into CSS declarations. Values are not validated, since the configuration is trusted;
- * invalid values are simply ignored by the browser.
- *
- * @param {HighlightTextStyle | undefined} style The highlight to convert.
- * @returns {string} The CSS declarations, or an empty string if there is no highlight.
- *
- * @example
- * highlightToDeclarations({ kind: "properties", fontWeight: "bold", fontStyle: "italic" });
- *
- * // Returns
- *
- * "font-weight: bold; font-style: italic"
- */
-function highlightToDeclarations(style: HighlightTextStyle | undefined): string {
-  if (!style) {
-    return "";
-  }
-
-  return Object.entries(style)
-    .filter(([key, value]) => key !== "kind" && typeof value === "string")
-    .map(([key, value]) => `${toKebabCase(key)}: ${value}`)
-    .join("; ");
-}
-
-/**
- * Converts a camelCase style key into its CSS property name, e.g. `textDecorationColor` -> `text-decoration-color`.
- *
- * @param {string} key The camelCase style key.
- * @returns {string} The CSS property name in kebab-case.
- */
-function toKebabCase(key: string): string {
-  return key.replace(/[A-Z]/g, (char: string) => `-${char.toLowerCase()}`);
 }
 
 export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions>({

@@ -1,6 +1,7 @@
 /**
- * Public entry point of the text editor. Code outside of `editors/text` imports the editor only from here, or from
- * `config/*` (which only holds constants and is safe to import from modules the editor itself depends on).
+ * Public entry point of the text editor. Code outside of `editors/text` imports the editor only from here, from
+ * `config/*` (which only holds constants and is safe to import from modules the editor itself depends on), or from
+ * `rendering/*` (pure rendering of appearances, without the extensions and their store, e.g. for previews).
  *
  * Interim surface: it exports what the app uses today. It gets narrowed down to the editor class, its commands,
  * queries and events once the editor is extracted into its own package.

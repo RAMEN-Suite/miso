@@ -106,9 +106,6 @@ export interface BaseNodeProperties {
   uuid: string;
 }
 
-/** Relationship types in RAMEN */
-export type BaseRelationshipType = "HAS_ANNOTATION" | "PART_OF" | "REFERS_TO";
-
 export type CollectionNode = Node<ICollection>;
 
 /** A parsed hierarchy listing request: which nodes to list, and how to filter/sort/paginate them. */

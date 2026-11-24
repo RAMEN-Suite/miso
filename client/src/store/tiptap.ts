@@ -82,12 +82,6 @@ function handleScroll() {
  * @returns {boolean} `true` if there are unsaved changes, `false` otherwise.
  */
 function hasUnsavedChanges(): boolean {
-  // Compare text labels
-  // TODO: This needs to be adjusted as soon as labels can be edited
-  // if (!areSetsEqual(new Set(initialText.value.nodeLabels), new Set(text.value.nodeLabels))) {
-  //   return true;
-  // }
-
   // TODO: Check if any modal/annotation form is openend or in edit mode. Do later
 
   // Compare plain text

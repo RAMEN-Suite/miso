@@ -204,27 +204,6 @@ export function checkAnnotationValidity(annotation: Annotation, properties: Mode
 }
 
 /**
- * Checks if two sets are equal by comparing their sizes and elements.
- *
- * @param {Set<string>} setA - The first set to compare.
- * @param {Set<string>} setB - The second set to compare.
- * @return {boolean} Returns true if the sets are equal, otherwise false.
- */
-export function areSetsEqual(setA: Set<string>, setB: Set<string>): boolean {
-  if (setA.size !== setB.size) {
-    return false;
-  }
-
-  for (const item of setA) {
-    if (!setB.has(item)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
  * Truncates a string to a maximum length, appending "..." if truncation is needed.
  *
  * @param {string} text - The string to truncate.
@@ -237,26 +216,6 @@ export function areSetsEqual(setA: Set<string>, setB: Set<string>): boolean {
  */
 export function ellipsize(text: string, maxLength: number): string {
   return text.slice(0, maxLength) + (text.length > maxLength ? "..." : "");
-}
-
-/**
- * Format a file size in bytes into a human-readable string.
- *
- * @param {number} bytes The file size in bytes
- * @returns {string} The formatted file size as a string (e.g. "1.23 MB")
- */
-export function formatFileSize(bytes: number): string {
-  const k: number = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
-
-  if (bytes === 0) {
-    return `0 ${sizes[0]}`;
-  }
-
-  const i: number = Math.floor(Math.log(bytes) / Math.log(k));
-  const formattedSize: number = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
-
-  return `${formattedSize} ${sizes[i]}`;
 }
 
 /**
@@ -281,15 +240,4 @@ export function formatPropertyValue(value: unknown, entry?: ModelAttribute): str
   }
 
   return JSON.stringify(value);
-}
-
-/**
- * Removes formatting characters from the input text.
- *
- * @param {string} text - The text containing formatting characters.
- * @return {string} The text with formatting characters removed.
- */
-export function removeFormatting(text: string): string {
-  const plainText: string = text.replace(/\r\n?|\n/g, "");
-  return plainText;
 }

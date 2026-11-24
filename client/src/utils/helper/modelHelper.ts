@@ -942,28 +942,6 @@ export function resolveRelationRef(context: ModelContext, fromRef: string, type:
 // ----- Native mappings -----
 
 /**
- * The mapping of a native editor type, from `editors.text.mappings`.
- *
- * @param {ModelContext} context - The model context.
- * @param {string} native - The native type (e.g. `paragraph`).
- * @returns {ConfigMapping | undefined} The first mapping of that native type.
- */
-export function getNativeMapping(context: ModelContext, native: string): ConfigMapping | undefined {
-  return context.config.editors.text.mappings.find((mapping) => mapping.native === native);
-}
-
-/**
- * The mapping of an annotation shape to a native editor type, from `editors.text.mappings`.
- *
- * @param {ModelContext} context - The model context.
- * @param {string} shapeRef - Qualified ref of the annotation shape.
- * @returns {ConfigMapping | undefined} The mapping, `undefined` if the shape is not mapped.
- */
-export function getMappingForShape(context: ModelContext, shapeRef: string): ConfigMapping | undefined {
-  return context.config.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef);
-}
-
-/**
  * The attribute names of a mapping: native attribute -> name of the shape property its attribute ref points to.
  * Unresolvable refs are left out (the loader rejects them).
  *

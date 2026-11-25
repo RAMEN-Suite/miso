@@ -4,18 +4,7 @@ import ConfigService from "./config.service.js";
 import { toNeo4jTypes } from "../utils/helper.js";
 import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import NotFoundError from "../errors/notFound.error.js";
-import {
-  PaginationResult,
-  NodeSearchParams,
-  NodeUpdateObject,
-  ModelAttribute,
-  ModelContext,
-  ElementGraph,
-  ElementResponse,
-  WriteResponse,
-} from "../models/types.js";
-import { toNodeChanges } from "../utils/nodeUpdate.js";
-import WriteValidationService from "./writeValidation.service.js";
+import { PaginationResult, NodeSearchParams, ModelAttribute, ModelContext, ElementResponse } from "../models/types.js";
 import { getCollectionAttributes, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
 
@@ -118,24 +107,6 @@ export default class CollectionService {
         offset,
       },
     };
-  }
-
-  /**
-   * Updates a Collection subgraph from a write payload, validated with the model in the same transaction.
-   *
-   * @param uuid - UUID of the Collection node to update.
-   * @param payload - The changed nodes (the Collection, its annotations etc.) and relations.
-   * @throws {NotFoundError} If no Collection node with the given UUID exists after the update.
-   * @throws {ValidationError} If the write doesn't match the model, in `enforce` mode.
-   * @returns The updated Collection as the only node, with the findings of the validation as diagnostics and the
-   *   annotations deleted as orphans.
-   */
-  public async updateCollection(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
-    const context: ModelContext = await ConfigService.getModelContext();
-    const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
-
-    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 
   /**

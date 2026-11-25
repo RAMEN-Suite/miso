@@ -1,19 +1,9 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
-import {
-  ElementGraph,
-  ElementResponse,
-  ModelContext,
-  NodeSearchParams,
-  NodeUpdateObject,
-  PaginationResult,
-  WriteResponse,
-} from "../models/types.js";
+import { ElementResponse, ModelContext, NodeSearchParams, PaginationResult } from "../models/types.js";
 import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
-import { toNodeChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
-import WriteValidationService from "./writeValidation.service.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -108,23 +98,5 @@ export default class ContentService {
     }
 
     return toElementResponse(context, [rawText]);
-  }
-
-  /**
-   * Updates a Content and its annotations, validated with the model in the same transaction.
-   *
-   * @param {string} uuid - The UUID of the Content.
-   * @param {ElementGraph} payload - The changed Content and annotations, and their relations.
-   * @throws {NotFoundError} If the Content doesn't exist after the update.
-   * @throws {ValidationError} If the payload is malformed, or the write doesn't match the model in `enforce` mode.
-   * @return {Promise<ElementResponse>} The updated Content as the only node, with the findings of the validation as
-   * diagnostics and the annotations deleted as orphans.
-   */
-  public async updateText(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
-    const context: ModelContext = await ConfigService.getModelContext();
-    const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
-
-    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 }

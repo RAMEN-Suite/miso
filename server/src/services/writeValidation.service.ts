@@ -3,7 +3,7 @@ import Neo4jDriver from "../database/neo4j.js";
 import NotFoundError from "../errors/notFound.error.js";
 import ValidationError from "../errors/validation.error.js";
 import logger from "../logger.js";
-import type { BaseNodeProperties, ElementDiagnostic, ModelContext, NodeUpdateObject } from "../models/types.js";
+import type { BaseNodeProperties, ElementDiagnostic, ModelContext, NodeUpdateObject, WriteResponse } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
 import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
 import {
@@ -30,16 +30,6 @@ const MAX_CARRIER_CHAIN = 5;
  */
 const VALIDATION_MODE: "report" | "enforce" = "report";
 
-/** The result of a validated write */
-export interface ValidatedWrite {
-  /** The root node after the write */
-  node: StoredNodeRecord;
-  /** The findings of the touched nodes */
-  diagnostics: ElementDiagnostic[];
-  /** uuids of the annotations the write deleted because they had no carrier left */
-  deletedOrphans: string[];
-}
-
 /**
  * Writes changes and validates them with the model in one transaction: the write runs first, then the part of the
  * database it touches is read back (with the uncommitted changes) and validated with RAMEN core and the app's own
@@ -48,34 +38,34 @@ export interface ValidatedWrite {
  */
 export default class WriteValidationService {
   /**
-   * Writes the changes of a subgraph and validates the result. `report` mode (`VALIDATION_MODE`) logs and returns
+   * Writes the changes of a graph and validates the result. `report` mode (`VALIDATION_MODE`) logs and returns
    * the findings and commits anyway, `enforce` rolls back writes with errors.
    *
    * @param {ModelContext} context - The model context.
    * @param {NodeUpdateObject} changes - The changes of the write, with the values as sent.
-   * @param {string} uuid - The uuid of the root node (a Content or a Collection).
-   * @returns {Promise<ValidatedWrite>} The root node after the write, the findings and the deleted orphans.
-   * @throws {NotFoundError} If the root node doesn't exist after the write (rolled back).
+   * @returns {Promise<WriteResponse>} The findings and the deleted orphans.
+   * @throws {NotFoundError} If a modified node or the end of an added relation doesn't exist (rolled back).
    * @throws {ValidationError} In `enforce` mode, if there are errors (rolled back).
    */
-  public async write(context: ModelContext, changes: NodeUpdateObject, uuid: string): Promise<ValidatedWrite> {
-    const params = { uuid, ...toNeo4jChanges(changes, context) };
+  public async write(context: ModelContext, changes: NodeUpdateObject): Promise<WriteResponse> {
+    const params = toNeo4jChanges(changes, context);
 
     // Returning from the callback commits the transaction, throwing rolls it back
     return Neo4jDriver.commitOrRollback(async (tx) => {
       const query: string = buildSubgraphUpdateQuery();
       const writeResult: QueryResult = await tx.run(query, params);
       const record = writeResult.records[0];
+      const missing: string[] = (record?.get("missing") ?? []) as string[];
 
-      if (!record) {
-        throw new NotFoundError(`Content or Collection with UUID ${uuid} not found`);
+      if (!record || missing.length > 0) {
+        throw new NotFoundError(`Nodes not found: ${missing.join(", ")}`);
       }
 
       const deletedOrphans: string[] = record.get("deletedOrphans") as string[];
       const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted") as string[], deletedOrphans);
       const diagnostics: ElementDiagnostic[] = await this.validate(tx, context, touched);
 
-      return { node: record.get("node"), diagnostics, deletedOrphans };
+      return { diagnostics, deletedOrphans };
     });
   }
 

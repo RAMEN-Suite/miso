@@ -158,21 +158,6 @@ export function parseWritePayload(raw: unknown): ElementGraph {
 }
 
 /**
- *  Parses the `POST /nodes` request body into the uuid of the created/added node and the write payload.
- *
- * @param {Request} req - The express request object.
- * @returns The parsed uuid and write payload.
- * @throws {ValidationError} If the `uuid` or `data` fields are missing or malformed.
- */
-export function parseCreateNodePayload(req: Request): { uuid: string; data: ElementGraph } {
-  const body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
-  const uuid: string = parseUuidFrom(body, ["uuid"]);
-  const data: ElementGraph = parseWritePayload(body.data);
-
-  return { uuid, data };
-}
-
-/**
  * Parses and validates the `scope` of a hierarchy listing request — which set of nodes is being
  * listed.
  *

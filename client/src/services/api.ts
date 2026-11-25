@@ -331,32 +331,6 @@ export default class ApiService {
   }
 
   /**
-   * Creates a new hierarchy node (Collection or Content).
-   *
-   * @param {string} uuid - UUID of the created node.
-   * @param {EditGraph} graph - The created node and its relation to the parent, sent as write payload.
-   * @returns {Promise<NodeDto<HierarchyNode>>} The created node, with the findings of the server's validation.
-   */
-  public async createHierarchyNode(uuid: string, graph: EditGraph): Promise<NodeDto<HierarchyNode>> {
-    try {
-      const url: string = `${this.hierarchyUrl}/nodes`;
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
-
-      const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data: payload }));
-
-      await this.assertResponseOk(response);
-
-      const created: ElementResponse = await response.json();
-
-      this.reportWriteDiagnostics(created.diagnostics);
-
-      return toNodeDto<HierarchyNode>(created, uuid);
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  /**
    * Fetches the Miso config. It is returned as received and validated by the caller.
    *
    * @returns {Promise<unknown>} The parsed JSON response.
@@ -460,33 +434,6 @@ export default class ApiService {
   }
 
   /**
-   * Saves the changes of a Collection's graph (its annotations and their references).
-   *
-   * @param {string} uuid - UUID of the Collection.
-   * @param {EditGraph} graph - The graph; its elements that aren't `unchanged` are sent.
-   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
-   * @returns {Promise<WriteResponse>} The Collection node, the findings of the server's validation and the deleted orphans.
-   */
-  public async updateCollection(uuid: string, graph: EditGraph, signal?: AbortSignal): Promise<WriteResponse> {
-    const url: string = `${this.baseUrl}/collections/${uuid}`;
-
-    try {
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
-      const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
-
-      await this.assertResponseOk(response);
-
-      const updated: WriteResponse = await response.json();
-
-      this.reportWriteDiagnostics(updated.diagnostics);
-
-      return updated;
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  /**
    * Updates only the given properties of a Collection. `null` removes a property, all others stay untouched.
    *
    * @param {CollectionNode} collection - The Collection. The server checks the properties against its stored type.
@@ -516,26 +463,26 @@ export default class ApiService {
   }
 
   /**
-   * Saves the changes of a Content's graph (its text and its annotations).
+   * Saves the changes of a graph in one write.
    *
-   * @param {string} uuid - UUID of the Content.
    * @param {EditGraph} graph - The graph; its elements that aren't `unchanged` are sent.
-   * @returns {Promise<WriteResponse>} The Content node, the findings of the server's validation and the deleted orphans.
+   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
+   * @returns {Promise<WriteResponse>} The findings of the server's validation and the deleted orphans.
    */
-  public async updateText(uuid: string, graph: EditGraph): Promise<WriteResponse> {
+  public async saveGraph(graph: EditGraph, signal?: AbortSignal): Promise<WriteResponse> {
     try {
-      const url: string = `${this.baseUrl}/contents/${uuid}`;
+      const url: string = `${this.baseUrl}/elements`;
       const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
 
-      const response: Response = await fetch(url, this.jsonBodyRequest(payload));
+      const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
 
       await this.assertResponseOk(response);
 
-      const updated: WriteResponse = await response.json();
+      const result: WriteResponse = await response.json();
 
-      this.reportWriteDiagnostics(updated.diagnostics);
+      this.reportWriteDiagnostics(result.diagnostics);
 
-      return updated;
+      return result;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

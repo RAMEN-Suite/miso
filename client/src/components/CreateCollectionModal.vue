@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, watch, computed, toValue, Ref } from "vue";
+import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
 import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeDto, NodeTypeOption } from "../models/types";
@@ -94,13 +94,11 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const graph: EditGraph = toCreationGraph(collectionNodeToAdd, parentCollection);
+    await api.saveGraph(toCreationGraph(collectionNodeToAdd, parentCollection));
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.properties.uuid, graph);
+    emit("success", { node: collectionNodeToAdd, connectedNodes: [] });
 
-    emit("success", toValue(result));
-
-    dialogRef?.value.close({ collection: result.node });
+    dialogRef?.value.close({ collection: collectionNodeToAdd });
   } catch {
     addToastMessage({
       severity: "error",

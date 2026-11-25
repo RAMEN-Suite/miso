@@ -3,7 +3,7 @@ import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vu
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { AnnotationNode, CollectionNode, EditGraph, EditNode, ModelAttribute, WriteResponse } from "../models/types";
+import { AnnotationNode, EditGraph, EditNode, ModelAttribute, WriteResponse } from "../models/types";
 import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
@@ -34,7 +34,6 @@ const {
   getModelContext,
 } = useConfigStore();
 
-const collection: CollectionNode = dialogRef.value.data.collection;
 const uuid: string = dialogRef.value.data.annotationUuid;
 
 /** A copy of the pane's graph, with the new annotation already in it when creating */
@@ -117,7 +116,7 @@ async function handleSubmit(): Promise<void> {
 
   try {
     const prepared: EditGraph = prepareGraph();
-    const result: WriteResponse = await api.updateCollection(collection.properties.uuid, prepared);
+    const result: WriteResponse = await api.saveGraph(prepared);
 
     emit("saved", prepared, result.deletedOrphans);
     closeModal();

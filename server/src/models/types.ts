@@ -71,8 +71,10 @@ export interface ElementResponse extends ElementGraph {
   diagnostics: ElementDiagnostic[];
 }
 
-/** The response of a write: the root node, the findings of the validation, and the annotations deleted as orphans */
-export interface WriteResponse extends ElementResponse {
+/** The response of a write: the findings of the validation and the annotations deleted as orphans */
+export interface WriteResponse {
+  /** The findings of the validation, for the touched nodes */
+  diagnostics: ElementDiagnostic[];
   /** uuids of the annotations the write deleted because they had no carrier left */
   deletedOrphans: string[];
 }

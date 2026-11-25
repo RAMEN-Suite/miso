@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, watch, computed, toValue, Ref } from "vue";
+import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
@@ -87,13 +87,11 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const graph: EditGraph = toCreationGraph(contentNodeToAdd, parentCollection);
+    await api.saveGraph(toCreationGraph(contentNodeToAdd, parentCollection));
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.properties.uuid, graph);
+    emit("success", { node: contentNodeToAdd, connectedNodes: [] });
 
-    emit("success", toValue(result));
-
-    dialogRef?.value.close({ content: result.node });
+    dialogRef?.value.close({ content: contentNodeToAdd });
   } catch {
     addToastMessage({
       severity: "error",

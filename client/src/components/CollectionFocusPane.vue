@@ -480,10 +480,7 @@ async function saveGraph(changed: EditGraph): Promise<boolean> {
   pendingUpdates.value++;
 
   try {
-    const result: WriteResponse = await api.updateCollection(
-      initialTemporaryWorkData.value.collection.node.properties.uuid,
-      changed,
-    );
+    const result: WriteResponse = await api.saveGraph(changed);
 
     applySavedChanges(target, changed, result.deletedOrphans);
 
@@ -584,7 +581,7 @@ function openAnnotationModal(changed: EditGraph, annotationUuid: string, header:
   createModalInstance(
     dialog.open(CreateCollectionAnnotationModal, {
       props: { ...ANNOTATION_MODAL_PROPS, header },
-      data: { collection: initialTemporaryWorkData.value.collection.node, graph: changed, annotationUuid },
+      data: { graph: changed, annotationUuid },
       emits: { onSaved: handleAnnotationSaved },
       onClose: destroyModalInstance,
     }),

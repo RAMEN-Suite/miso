@@ -236,7 +236,7 @@ async function handleSaveChanges(): Promise<void> {
 
   asyncOperationRunning.value = true;
   try {
-    const result: WriteResponse = await api.updateText(text.value.properties.uuid, graph);
+    const result: WriteResponse = await api.saveGraph(graph);
 
     // Update all initial values: Annotations, structuralAnnotations and text
     cleanUpAfterSave(newTextNode, affectedAnnotations, result.deletedOrphans);

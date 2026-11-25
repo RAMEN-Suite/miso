@@ -191,15 +191,15 @@ export function orphanedAnnotationsCypher(rootsVariable: string, orphansVariable
 }
 
 /**
- * Returns a Cypher query string that executes a full CRUD update cycle for a node subgraph. Returns the root node after
- * all changes are applied (`node`), the uuids of the neighbours the deleted nodes and orphans had (`neighboursOfDeleted`)
- * and the uuids of the deleted orphans (`deletedOrphans`).
+ * Returns a Cypher query string that executes a full CRUD update cycle for a graph. Returns the uuids of the modified
+ * nodes and relation ends that don't exist (`missing`, the caller rolls back), the uuids of the neighbours the deleted
+ * nodes and orphans had (`neighboursOfDeleted`) and the uuids of the deleted orphans (`deletedOrphans`).
  *
  * Orphans are annotations that lost their last carrier in the write, and the annotations below them (see
  * {@link orphanedAnnotationsCypher}). They are deleted last, so an annotation moved to another carrier is kept.
  *
- * Expected parameters: `$uuid`, `$delete`, `$create`, `$update`, `$remove`, `$attach` —
- * as produced by {@link toNodeChanges} and {@link toNeo4jChanges}. The root is a Content or a Collection.
+ * Expected parameters: `$delete`, `$create`, `$update`, `$remove`, `$attach` — as produced by {@link toNodeChanges}
+ * and {@link toNeo4jChanges}.
  */
 export function buildSubgraphUpdateQuery(): string {
   return `
@@ -262,6 +262,16 @@ export function buildSubgraphUpdateQuery(): string {
       RETURN count(rel) AS attached
   }
 
+  // Modified nodes and ends of added relations that don't exist, before the orphans are deleted
+  CALL () {
+      UNWIND [node IN $update | node.properties.uuid] + [edge IN $attach | edge.startUuid] + [edge IN $attach | edge.endUuid] AS expectedUuid
+
+      WITH DISTINCT expectedUuid
+      WHERE NOT EXISTS { MATCH (:Annotation|Content|Collection|Entity {uuid: expectedUuid}) }
+
+      RETURN collect(expectedUuid) AS missing
+  }
+
   // Delete the orphans: candidates are the annotations that lost a carrier in this write
   WITH *, carriedByDeleted + [edge IN $remove WHERE edge.type = '${HAS_ANNOTATION}' | edge.endUuid] AS orphanCandidates
 
@@ -289,12 +299,6 @@ export function buildSubgraphUpdateQuery(): string {
       RETURN deletedOrphanUuids, neighbours AS neighboursOfOrphans
   }
 
-  // Return the root node
-  MATCH (root:Content|Collection {uuid: $uuid})
-
-  RETURN {
-      nodeLabels: labels(root),
-      properties: root {.*}
-  } AS node, neighboursOfDeleted + neighboursOfOrphans AS neighboursOfDeleted, deletedOrphanUuids AS deletedOrphans
+  RETURN missing, neighboursOfDeleted + neighboursOfOrphans AS neighboursOfDeleted, deletedOrphanUuids AS deletedOrphans
   `;
 }

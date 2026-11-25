@@ -1,25 +1,20 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import ValidationError from "../errors/validation.error.js";
 import { orderDirection } from "../utils/cypher.js";
 import { valueToNativeType } from "../utils/helper.js";
 import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
-import { orphanedAnnotationsCypher, toNodeChanges } from "../utils/nodeUpdate.js";
+import { orphanedAnnotationsCypher } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
-import WriteValidationService from "./writeValidation.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
-  ElementGraph,
   ElementResponse,
   FilterSpec,
   FilterTarget,
   HierarchyScope,
-  NodeUpdateObject,
   PaginationResult,
   ModelAttribute,
   ModelContext,
-  WriteResponse,
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
@@ -260,31 +255,6 @@ export default class HierarchyService {
         nextCursor,
       },
     };
-  }
-
-  /**
-   * Creates a new hierarchy node (Collection or Content) and returns it. Whether it is a Collection or a Content comes
-   * from the classifier of the node identified by `uuid` in the payload, so the same endpoint serves both types. The
-   * write is validated with the model in the same transaction.
-   *
-   * @param {string} uuid - UUID of the created node (not of its parent).
-   * @param {ElementGraph} payload - The created node, and its relation to the parent unless it is created at top level.
-   * @return {Promise<WriteResponse>} The created node as the only node, with the findings of the validation as
-   * diagnostics and the annotations deleted as orphans.
-   * @throws {ValidationError} If `uuid` is not a node of the payload.
-   * @throws {NotFoundError} If the node could not be created.
-   */
-  public async createNode(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
-    const context = await ConfigService.getModelContext();
-
-    if (!payload.nodes.some((node) => node.properties?.uuid === uuid)) {
-      throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
-    }
-
-    const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
-
-    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 
   /**

@@ -1,15 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { RAMEN_ELEMENT, RamenModel } from "@ramen-suite/core";
-import type { EditGraph, ElementNode, ElementRelation } from "../../../../src/models/types";
+import type { EditGraph, ElementRelation } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import {
   addExistingNode,
   addRelation,
   annotationsOf,
   applySaveResult,
+  applySavedChanges,
   carriersOf,
   createNode,
   deleteNode,
+  EditNodeData,
   findNode,
   hasChanges,
   partsOf,
@@ -57,16 +59,21 @@ function buildGraphTestModel() {
 
 const { context, refs, relationRefs } = buildGraphTestModel();
 
-const text: ElementNode = { classifierRef: refs.text, properties: { uuid: "t1" } };
-const annotation: ElementNode = { classifierRef: refs.family, properties: { uuid: "a1", type: "persName" } };
-const person: ElementNode = { classifierRef: refs.person, properties: { uuid: "p1", label: "Someone" } };
+/** A node of the given type */
+function node(classifierRef: string, nodeLabels: string[], properties: EditNodeData["properties"]): EditNodeData {
+  return { classifierRef, nodeLabels, properties };
+}
+
+const text: EditNodeData = node(refs.text, ["Content", "Text"], { uuid: "t1" });
+const annotation: EditNodeData = node(refs.family, ["Annotation"], { uuid: "a1", type: "persName" });
+const person: EditNodeData = node(refs.person, ["Entity", "Person"], { uuid: "p1", label: "Someone" });
 const onText: ElementRelation = { relationRef: relationRefs.onText, from: "t1", to: "a1" };
 const refersToPerson: ElementRelation = { relationRef: relationRefs.refersToPerson, from: "a1", to: "p1" };
 
 /** A saved text with an annotation that refers to a person */
 function savedGraph(): EditGraph {
   return {
-    nodes: [text, annotation, person].map((node) => ({ ...structuredClone(node), status: "unchanged" })),
+    nodes: [text, annotation, person].map((entry) => ({ ...structuredClone(entry), status: "unchanged" })),
     relations: [onText, refersToPerson].map((relation) => ({ ...relation, status: "unchanged" })),
   };
 }
@@ -74,9 +81,8 @@ function savedGraph(): EditGraph {
 describe("nodes", () => {
   test("a created node that is deleted again disappears with its relations", () => {
     const graph: EditGraph = savedGraph();
-    const newAnnotation: ElementNode = { classifierRef: refs.family, properties: { uuid: "a2", type: "persName" } };
 
-    createNode(graph, newAnnotation);
+    createNode(graph, node(refs.family, ["Annotation"], { uuid: "a2", type: "persName" }));
     addRelation(graph, { relationRef: relationRefs.onText, from: "t1", to: "a2" });
     addRelation(graph, { relationRef: relationRefs.refersToPerson, from: "a2", to: "p1" });
     deleteNode(graph, "a2");
@@ -101,7 +107,7 @@ describe("nodes", () => {
 
   test("updating a stored node modifies it, a created node stays created", () => {
     const graph: EditGraph = savedGraph();
-    const newAnnotation: ElementNode = { classifierRef: refs.family, properties: { uuid: "a2", type: "persName" } };
+    const newAnnotation: EditNodeData = node(refs.family, ["Annotation"], { uuid: "a2", type: "persName" });
 
     updateNode(graph, { ...person, properties: { uuid: "p1", label: "Someone else" } });
     createNode(graph, newAnnotation);
@@ -113,14 +119,14 @@ describe("nodes", () => {
 
   test("an existing node that is linked and edited at once is modified and its relation added", () => {
     const graph: EditGraph = savedGraph();
-    const otherPerson: ElementNode = { classifierRef: refs.person, properties: { uuid: "p2", label: "Other" } };
+    const otherPerson: EditNodeData = node(refs.person, ["Entity", "Person"], { uuid: "p2", label: "Other" });
 
     addExistingNode(graph, otherPerson);
     addExistingNode(graph, otherPerson);
     addRelation(graph, { relationRef: relationRefs.refersToPerson, from: "a1", to: "p2" });
     updateNode(graph, { ...otherPerson, properties: { uuid: "p2", label: "Renamed" } });
 
-    expect(graph.nodes.filter((node) => node.properties.uuid === "p2")).toEqual([
+    expect(graph.nodes.filter((entry) => entry.properties.uuid === "p2")).toEqual([
       expect.objectContaining({ status: "modified", properties: { uuid: "p2", label: "Renamed" } }),
     ]);
     expect(graph.relations.at(-1)?.status).toBe("added");
@@ -148,10 +154,9 @@ describe("relations", () => {
 
   test("an added relation that is removed again disappears", () => {
     const graph: EditGraph = savedGraph();
-    const otherPerson: ElementNode = { classifierRef: refs.person, properties: { uuid: "p2" } };
     const refersToOther: ElementRelation = { relationRef: relationRefs.refersToPerson, from: "a1", to: "p2" };
 
-    addExistingNode(graph, otherPerson);
+    addExistingNode(graph, node(refs.person, ["Entity", "Person"], { uuid: "p2" }));
     addRelation(graph, refersToOther);
     addRelation(graph, refersToOther);
 
@@ -167,10 +172,10 @@ describe("selectors", () => {
   test("annotations, references, carriers and parts follow the relation types and directions", () => {
     const graph: EditGraph = savedGraph();
 
-    addExistingNode(graph, { classifierRef: refs.letter, properties: { uuid: "l1" } });
+    addExistingNode(graph, node(refs.letter, ["Collection", "Letter"], { uuid: "l1" }));
     addRelation(graph, { relationRef: relationRefs.partOfLetter, from: "t1", to: "l1" });
 
-    const uuids = (nodes: { properties: { uuid: string } }[]): string[] => nodes.map((node) => node.properties.uuid);
+    const uuids = (nodes: { properties: { uuid: string } }[]): string[] => nodes.map((entry) => entry.properties.uuid);
 
     expect(uuids(annotationsOf(context, graph, "t1"))).toEqual(["a1"]);
     expect(uuids(referencesOf(context, graph, "a1"))).toEqual(["p1"]);
@@ -192,18 +197,17 @@ describe("selectors", () => {
 describe("applySaveResult", () => {
   test("drops deleted nodes, orphans, removed relations and relations of dropped nodes, the rest is unchanged", () => {
     const graph: EditGraph = savedGraph();
-    const subAnnotation: ElementNode = { classifierRef: refs.family, properties: { uuid: "s1", type: "note" } };
 
     createNode(graph, { ...person, properties: { uuid: "p2" } });
     addRelation(graph, { relationRef: relationRefs.refersToPerson, from: "a1", to: "p2" });
     removeRelation(graph, refersToPerson);
-    addExistingNode(graph, subAnnotation);
+    addExistingNode(graph, node(refs.family, ["Annotation"], { uuid: "s1", type: "note" }));
     graph.relations.push({ status: "unchanged", relationRef: relationRefs.onText, from: "a1", to: "s1" });
     updateNode(graph, { ...text, properties: { uuid: "t1", text: "Changed" } });
 
     applySaveResult(graph, ["s1", "not-loaded"]);
 
-    expect(graph.nodes.map((node) => [node.properties.uuid, node.status])).toEqual([
+    expect(graph.nodes.map((entry) => [entry.properties.uuid, entry.status])).toEqual([
       ["t1", "unchanged"],
       ["a1", "unchanged"],
       ["p1", "unchanged"],
@@ -222,7 +226,54 @@ describe("applySaveResult", () => {
     deleteNode(graph, "a1");
     applySaveResult(graph, []);
 
-    expect(graph.nodes.map((node) => node.properties.uuid)).toEqual(["t1", "p1"]);
+    expect(graph.nodes.map((entry) => entry.properties.uuid)).toEqual(["t1", "p1"]);
     expect(graph.relations).toEqual([]);
+  });
+});
+
+describe("applySavedChanges", () => {
+  test("takes over the changes of a saved copy and keeps what another save added meanwhile", () => {
+    const target: EditGraph = savedGraph();
+    const copy: EditGraph = savedGraph();
+
+    updateNode(copy, { ...annotation, properties: { uuid: "a1", type: "persName", note: "Edited" } });
+    createNode(copy, { ...person, properties: { uuid: "p2" } });
+    addRelation(copy, { relationRef: relationRefs.refersToPerson, from: "a1", to: "p2" });
+    removeRelation(copy, refersToPerson);
+
+    // Another save that finished in the meantime
+    addExistingNode(target, node(refs.family, ["Annotation"], { uuid: "a3", type: "persName" }));
+    target.relations.push({ status: "unchanged", relationRef: relationRefs.onText, from: "t1", to: "a3" });
+
+    applySavedChanges(target, copy, []);
+
+    expect(findNode(target, "a1")?.properties).toEqual({ uuid: "a1", type: "persName", note: "Edited" });
+    expect(target.nodes.map((entry) => [entry.properties.uuid, entry.status])).toEqual([
+      ["t1", "unchanged"],
+      ["a1", "unchanged"],
+      ["p1", "unchanged"],
+      ["a3", "unchanged"],
+      ["p2", "unchanged"],
+    ]);
+    expect(target.relations.map((relation) => [relation.from, relation.to])).toEqual([
+      ["t1", "a1"],
+      ["t1", "a3"],
+      ["a1", "p2"],
+    ]);
+  });
+
+  test("a deleted annotation and its orphans are dropped with their relations", () => {
+    const target: EditGraph = savedGraph();
+
+    addExistingNode(target, node(refs.family, ["Annotation"], { uuid: "s1", type: "note" }));
+    target.relations.push({ status: "unchanged", relationRef: relationRefs.onText, from: "a1", to: "s1" });
+
+    const copy: EditGraph = structuredClone(target);
+
+    deleteNode(copy, "a1");
+    applySavedChanges(target, copy, ["s1"]);
+
+    expect(target.nodes.map((entry) => entry.properties.uuid)).toEqual(["t1", "p1"]);
+    expect(target.relations).toEqual([]);
   });
 });

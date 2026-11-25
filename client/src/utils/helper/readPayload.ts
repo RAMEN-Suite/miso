@@ -18,7 +18,11 @@ export function toEditGraph(elements: ElementGraph): EditGraph {
 
   for (const element of elements.nodes) {
     if (!nodes.has(element.properties.uuid)) {
-      nodes.set(element.properties.uuid, { ...structuredClone(element), status: "unchanged" });
+      nodes.set(element.properties.uuid, {
+        ...structuredClone(element),
+        nodeLabels: [...(element.nodeLabels ?? [])],
+        status: "unchanged",
+      });
     }
   }
 

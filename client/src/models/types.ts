@@ -152,9 +152,10 @@ export interface WriteResponse extends ElementResponse {
   deletedOrphans: string[];
 }
 
-/** A node of an {@linkcode EditGraph}, always with a status */
+/** A node of an {@linkcode EditGraph}, always with a status and its labels */
 export interface EditNode extends ElementNode {
   status: ElementNodeStatus;
+  nodeLabels: string[];
 }
 
 /** A relation of an {@linkcode EditGraph}, always with a status */
@@ -320,11 +321,12 @@ export type HierarchyScope =
 /** The scopes a {@linkcode SmartView} can search in. The other kinds are bound to navigation or tags. */
 export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendants" }>;
 
-/** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
+/** Focus-pane data for a Collection: the node itself plus the graph of its (editable) annotations. */
 export interface CollectionFocus {
   kind: "collection";
   collection: NodeStatusObject<CollectionNode>;
-  annotations: Annotation[];
+  /** The Collection, its annotations and the nodes they refer to */
+  graph: EditGraph;
 }
 
 /** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */

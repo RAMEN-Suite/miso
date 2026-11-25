@@ -6,6 +6,7 @@ import {
   AnnotationNode,
   AnnotationShapeConfig,
   BaseNodeLabel,
+  BaseNodeProperties,
   BuiltinStructuralType,
   CollectionNode,
   ContentMedium,
@@ -14,7 +15,7 @@ import {
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
-  NodeStatusObject,
+  Node,
   NodeTypeOption,
 } from "../models/types";
 import type { AnnotationMapping } from "../editors/text/src";
@@ -43,7 +44,6 @@ import {
   getMissingReferences,
   getReferenceTargetRefs,
   isAllowedTarget,
-  isAnnotationNode,
   type MissingReference,
   refersToEntities,
   requiresReferences,
@@ -153,10 +153,13 @@ export function useConfigStore() {
    * The required references an annotation is still missing, from the `REFERS_TO` rules of its annotation type.
    *
    * @param {AnnotationNode} annotation - The annotation.
-   * @param {NodeStatusObject[]} connectedNodes - Its connected nodes; removed ones and annotations are not counted.
+   * @param {Node<BaseNodeProperties>[]} references - The nodes it currently refers to.
    * @returns {MissingReference[]} The unfulfilled rules, empty if complete or if the annotation type can't be resolved.
    */
-  function getMissingAnnotationReferences(annotation: AnnotationNode, connectedNodes: NodeStatusObject[]): MissingReference[] {
+  function getMissingAnnotationReferences(
+    annotation: AnnotationNode,
+    references: Node<BaseNodeProperties>[],
+  ): MissingReference[] {
     const context: ModelContext = getModelContext();
     const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation);
 
@@ -164,9 +167,7 @@ export function useConfigStore() {
       return [];
     }
 
-    const referencedRefs: string[] = connectedNodes
-      .filter((node) => node.meta.status !== "deleted" && node.meta.status !== "removed" && !isAnnotationNode(context, node))
-      .flatMap((node) => getClassifierRef(context, node.node) ?? []);
+    const referencedRefs: string[] = references.flatMap((node) => getClassifierRef(context, node) ?? []);
 
     return getMissingReferences(context, shape, referencedRefs);
   }

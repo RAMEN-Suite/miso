@@ -5,7 +5,15 @@ import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import { Annotation, AnnotationNode, NodeStatusObject, ModelAnnotationShape, ModelAttribute } from "../models/types.ts";
+import {
+  Annotation,
+  AnnotationNode,
+  EditGraph,
+  NodeStatusObject,
+  ModelAnnotationShape,
+  ModelAttribute,
+} from "../models/types.ts";
+import { annotationToGraph } from "../utils/helper/annotationGraphAdapter.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
@@ -35,7 +43,10 @@ const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
   initialAnnotations.value?.get(props.annotation.node.properties.uuid),
 );
 
-const { getAnnotationShape, getAnnotationProperties, getAnnotationExtent } = useConfigStore();
+const { getAnnotationShape, getAnnotationProperties, getAnnotationExtent, getModelContext } = useConfigStore();
+
+/** The annotation and its references as graph, for the references section */
+const referenceGraph = computed<EditGraph>(() => annotationToGraph(getModelContext(), props.annotation));
 
 const shape: ModelAnnotationShape | undefined = getAnnotationShape(props.annotation.node);
 
@@ -216,8 +227,8 @@ function updateData(updated: Annotation): void {
     <div v-show="!isCollapsed" class="annotation-card-body">
       <NodePropertiesTable :properties="props.annotation.node.properties" :fields="propertyFields" />
       <AnnotationReferencesSection
-        :model-value="props.annotation.connectedNodes"
-        :annotation="props.annotation.node"
+        :model-value="referenceGraph"
+        :annotation-uuid="props.annotation.node.properties.uuid"
         mode="view"
       />
     </div>

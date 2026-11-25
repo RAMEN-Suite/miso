@@ -1,17 +1,4 @@
-import {
-  NodeDto,
-  TextNode,
-  NodeStatusObject,
-  NodeStatus,
-  AnnotationNode,
-  EntityNode,
-  CollectionNode,
-  Annotation,
-  ModelAttribute,
-  ModelContext,
-  NodeTypeOption,
-} from "../../models/types";
-import { createEntityNode, createTextNode } from "../../config/ramen";
+import { NodeDto, NodeStatusObject, NodeStatus, AnnotationNode, ModelAttribute, ModelContext } from "../../models/types";
 import { isList, validateValue } from "./modelHelper";
 
 /**
@@ -139,67 +126,22 @@ export function pruneUnconfiguredProperties(
 }
 
 /**
- * Creates a new, not yet persisted Entity node wrapped in a node status object, ready to be filled in by the user.
- *
- * The node is marked as "created" so that the backend creates it once the parent node is saved.
- *
- * @param {NodeTypeOption} type - The node type of the new Entity.
- * @return {NodeStatusObject<EntityNode>} A new Entity node status object with default values.
- */
-export function createEntityNodeStatusObject(type: NodeTypeOption): NodeStatusObject<EntityNode> {
-  const entityNode: NodeStatusObject<EntityNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createEntityNode(type)),
-  ) as NodeStatusObject<EntityNode>;
-
-  entityNode.meta.status = "created";
-
-  return entityNode;
-}
-
-/**
- * Creates a new, not yet persisted Content node wrapped in a node status object, ready to be filled in by the user.
- *
- * The node is marked as "created" so that the backend creates it once the parent node is saved.
- *
- * @param {NodeTypeOption} type - The node type of the new Content.
- * @return {NodeStatusObject<TextNode>} A new Content node status object with default values.
- */
-export function createContentNodeStatusObject(type: NodeTypeOption): NodeStatusObject<TextNode> {
-  const contentNode: NodeStatusObject<TextNode> = createNodeStatusObjectFromRawData(
-    createNodeDtoFromNode(createTextNode(type)),
-  ) as NodeStatusObject<TextNode>;
-
-  contentNode.meta.status = "created";
-
-  return contentNode;
-}
-
-/**
- * Creates a valid node DTO object from a given raw node (Annotation, Entity, Collection, Text).
- * This is to match the structure of the generic {@link NodeDto} object used in the API data.
- *
- * @return {NodeDto<T>} A new node DTO without connected nodes.
- */
-export function createNodeDtoFromNode<T extends AnnotationNode | EntityNode | CollectionNode | TextNode>(rawNode: T): NodeDto<T> {
-  return {
-    node: rawNode,
-    connectedNodes: [],
-  };
-}
-
-/**
  * Checks whether the properties of an annotation are valid according to the model (validated by RAMEN core).
  *
  * Currently only properties are validated. Will be extended when rules for connected entities etc. are applied.
  *
- * @param {Annotation} annotation - The annotation whose node data is checked.
+ * @param {AnnotationNode} annotation - The annotation node whose data is checked.
  * @param {ModelAttribute[]} properties - The properties of its annotation shape.
  * @param {ModelContext} context - The model context.
  * @return {boolean} Returns `true` if all properties are valid, `false` otherwise.
  */
-export function checkAnnotationValidity(annotation: Annotation, properties: ModelAttribute[], context: ModelContext): boolean {
+export function checkAnnotationValidity(
+  annotation: AnnotationNode,
+  properties: ModelAttribute[],
+  context: ModelContext,
+): boolean {
   return properties.every(
-    (entry: ModelAttribute) => validateValue(context, entry, annotation.node.properties[entry.attribute.name]).length === 0,
+    (entry: ModelAttribute) => validateValue(context, entry, annotation.properties[entry.attribute.name]).length === 0,
   );
 }
 

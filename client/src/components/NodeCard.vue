@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { IconSpec, NodeStatusObject } from "../models/types";
+import { BaseNodeProperties, IconSpec, Node, NodeStatus } from "../models/types";
 import Button from "primevue/button";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -9,6 +9,9 @@ import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
+    node: Node<BaseNodeProperties>;
+    /** The edit status shown as badge */
+    status?: NodeStatus;
     mode: "edit" | "view";
     /** The URL opened in a new tab when the card is selected. `null` makes the card non-interactive. */
     href: string | null;
@@ -18,35 +21,21 @@ const props = withDefaults(
     disabled?: boolean;
   }>(),
   {
+    status: "unchanged",
     showBadge: true,
     disabled: false,
   },
 );
 
-const node = defineModel<NodeStatusObject>("node", { required: true });
 const emit = defineEmits<(e: "remove-node") => void>();
 
-const icon = computed<IconSpec>(() => resolveNodeIcon(node.value.node));
-const iconTooltip = computed<string>(() => filterBaseNodeLabels(node.value.node.nodeLabels).join(", "));
+const icon = computed<IconSpec>(() => resolveNodeIcon(props.node));
+const iconTooltip = computed<string>(() => filterBaseNodeLabels(props.node.nodeLabels).join(", "));
 
-const hasVisibleBadge = computed<boolean>(() => props.showBadge && node.value.meta.status !== "unchanged");
+const hasVisibleBadge = computed<boolean>(() => props.showBadge && props.status !== "unchanged");
 
 // Only render the header when it actually shows something, so it does not take up space otherwise
 const needsHeader = computed<boolean>(() => props.mode === "edit" || hasVisibleBadge.value);
-
-/**
- * Removes the node from its parent when it was never persisted ("added" or "created"), otherwise marks the existing
- * relationship as "removed" so that the backend detaches it on the next save.
- *
- * @returns {void} This function does not return any value.
- */
-function handleRemoveNode(): void {
-  if (node.value.meta.status === "added" || node.value.meta.status === "created") {
-    emit("remove-node");
-  } else {
-    node.value.meta.status = "removed";
-  }
-}
 
 /**
  * Handles a click event on the card, which will open `href` in a new tab. The event is ignored if the card has no
@@ -81,7 +70,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
     @keydown.space.prevent="handleSelectContainer"
   >
     <div v-if="needsHeader" class="row-slot mb-1">
-      <NodeStatusBadge v-if="hasVisibleBadge" :status="node.meta.status" />
+      <NodeStatusBadge v-if="hasVisibleBadge" :status="props.status" />
       <Button
         v-if="props.mode === 'edit'"
         icon="icon-x"
@@ -90,7 +79,7 @@ function handleSelectContainer(event: PointerEvent | KeyboardEvent): void {
         class="ml-auto"
         title="Remove reference"
         :disabled="props.disabled"
-        @click="handleRemoveNode"
+        @click="emit('remove-node')"
       ></Button>
     </div>
     <div class="flex items-center gap-2">

@@ -155,7 +155,13 @@ describe("toWritePayload", () => {
     const graph: EditGraph = {
       nodes: [
         { status: "unchanged", classifierRef: refs.text, nodeLabels: ["Content", "Text"], properties: { uuid: "t1" } },
-        { status: "created", classifierRef: refs.family, shapeRef: refs.persName, properties: { uuid: "a1", type: "persName" } },
+        {
+          status: "created",
+          classifierRef: refs.family,
+          shapeRef: refs.persName,
+          nodeLabels: ["Annotation"],
+          properties: { uuid: "a1", type: "persName" },
+        },
         { status: "modified", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "New" } },
       ],
       relations: [

@@ -9,24 +9,19 @@ import {
   FormatValueType,
 } from "../../config/ramen";
 import type {
-  AnnotationNode,
   AnnotationShapeConfig,
   AttributeConfig,
   AttributeOwner,
   BaseNodeProperties,
   BaseNodeLabel,
-  CollectionNode,
   ContentMedium,
   ContentTypeConfig,
-  EntityNode,
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
   Node as DataNode,
-  NodeStatusObject,
   NodeTypeOption,
   RefResolution,
-  TextNode,
 } from "../../models/types";
 import type { ConfigMapping, MisoConfig } from "../../schemas/misoConfig.schema";
 
@@ -190,26 +185,6 @@ export function getTypeLabelText(context: ModelContext, node: DataNode<BaseNodeP
     .slice(1)
     .map((item) => item.name)
     .join(" › ");
-}
-
-/** Whether a node is an Annotation, see {@linkcode getBaseNodeLabel} */
-export function isAnnotationNode(context: ModelContext, node: NodeStatusObject): node is NodeStatusObject<AnnotationNode> {
-  return getBaseNodeLabel(context, node.node) === "Annotation";
-}
-
-/** Whether a node is a Collection, see {@linkcode getBaseNodeLabel} */
-export function isCollectionNode(context: ModelContext, node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
-  return getBaseNodeLabel(context, node.node) === "Collection";
-}
-
-/** Whether a node is a Content, see {@linkcode getBaseNodeLabel} */
-export function isContentNode(context: ModelContext, node: NodeStatusObject): node is NodeStatusObject<TextNode> {
-  return getBaseNodeLabel(context, node.node) === "Content";
-}
-
-/** Whether a node is an Entity, see {@linkcode getBaseNodeLabel} */
-export function isEntityNode(context: ModelContext, node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
-  return getBaseNodeLabel(context, node.node) === "Entity";
 }
 
 /**

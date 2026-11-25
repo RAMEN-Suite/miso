@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, Ref, ref, toValue, useTemplateRef, watch } from "vue";
+import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
-import { Annotation, ModelAttribute } from "../models/types";
+import { Annotation, AnnotationNode, EditGraph, ModelAttribute } from "../models/types";
 import { useConfigStore } from "../store/config";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
 import { isVisible } from "../utils/helper/modelHelper";
+import { findNode, referencesOf } from "../utils/helper/editGraph";
+import { annotationToGraph, graphToAnnotation } from "../utils/helper/annotationGraphAdapter";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -26,14 +28,20 @@ const submitButtonConfig = {
   edit: { icon: "icon-check", label: "Update", title: "Update annotation" },
 } as const;
 
-const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
+const original: Annotation = cloneDeep(dialogRef.value.data.annotation);
+const uuid: string = original.node.properties.uuid;
+
+/** The annotation and its references as graph, edited by the form and the references section */
+const graph = ref<EditGraph>(annotationToGraph(getModelContext(), original));
+
+const annotationNode = computed<AnnotationNode>(() => findNode(graph.value, uuid) as unknown as AnnotationNode);
 
 /**
  * The properties edited (and validated) in the form: all properties of the annotation's shape, or the subset the opener
  * passes, e.g. without the editor-owned ones that are taken from the editor on save.
  */
 const editedProperties: ModelAttribute[] =
-  (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ?? getAnnotationProperties(annotation.value.node);
+  (dialogRef.value.data.propertyFields as ModelAttribute[] | undefined) ?? getAnnotationProperties(original.node);
 const propertyFields: ModelAttribute[] = editedProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
@@ -42,8 +50,8 @@ const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReference
 /** Valid properties and no missing required references; the submit button stays disabled until then */
 const inputIsValid = computed<boolean>(
   () =>
-    checkAnnotationValidity(annotation.value, editedProperties, getModelContext()) &&
-    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+    checkAnnotationValidity(annotationNode.value, editedProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotationNode.value, referencesOf(getModelContext(), graph.value, uuid)).length === 0,
 );
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();
@@ -51,11 +59,13 @@ const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 watch(() => route.path, closeModal);
 
 function handleSubmitClick(): void {
-  if (annotation.value.meta.status !== "created") {
-    annotation.value.meta.status = "modified";
+  const updated: Annotation = graphToAnnotation(graph.value, original);
+
+  if (updated.meta.status !== "created") {
+    updated.meta.status = "modified";
   }
 
-  emit("submit", toValue(annotation));
+  emit("submit", updated);
   closeModal();
 }
 
@@ -77,13 +87,8 @@ onMounted(() => focusFirstInput());
 <template>
   <div class="flex flex-col gap-4 annotation-modal">
     <div class="content px-1">
-      <FormPropertiesSection ref="propertiesSection" v-model="annotation.node.properties" :fields="propertyFields" mode="edit" />
-      <AnnotationReferencesSection
-        ref="referencesSection"
-        v-model="annotation.connectedNodes"
-        :annotation="annotation.node"
-        mode="edit"
-      />
+      <FormPropertiesSection ref="propertiesSection" v-model="annotationNode.properties" :fields="propertyFields" mode="edit" />
+      <AnnotationReferencesSection ref="referencesSection" v-model="graph" :annotation-uuid="uuid" mode="edit" />
     </div>
 
     <div class="footer flex justify-center gap-2 w-full shrink-0">

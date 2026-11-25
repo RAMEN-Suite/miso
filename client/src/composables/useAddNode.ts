@@ -1,5 +1,11 @@
 import { ref, readonly, Ref, DeepReadonly } from "vue";
-import { NodeStatusObject } from "../models/types";
+import { CollectionNode, EntityNode, TextNode } from "../models/types";
+
+/** A node picked as reference: a stored one from the search, or a new one (`isNew`) from a draft */
+export interface PickedNode {
+  node: CollectionNode | EntityNode | TextNode;
+  isNew: boolean;
+}
 
 interface ErrorMessage {
   severity: string;
@@ -12,11 +18,11 @@ type PipelineStep = null | "choosing" | "finishing";
 export interface UseAddNodeReturn {
   currentStep: Readonly<Ref<PipelineStep, PipelineStep>>;
   errorMessages: DeepReadonly<Ref<ErrorMessage[], ErrorMessage[]>>;
-  node: Ref<NodeStatusObject | null>;
+  node: Ref<PickedNode | null>;
   addErrorMessage: (error: unknown) => void;
   cancel: () => void;
   finish: () => void;
-  setNode: (node: NodeStatusObject | null) => void;
+  setNode: (node: PickedNode | null) => void;
   setPipelineStep: (step: PipelineStep) => void;
 }
 
@@ -33,7 +39,7 @@ export interface UseAddNodeReturn {
  * @returns {UseAddNodeReturn} An object containing the necessary state variables and functions to control the pipeline.
  */
 export function useAddNode(): UseAddNodeReturn {
-  const node = ref<NodeStatusObject | null>(null);
+  const node = ref<PickedNode | null>(null);
 
   const currentStep = ref<PipelineStep>("choosing");
   const errorMessages = ref<ErrorMessage[]>([]);
@@ -76,7 +82,7 @@ export function useAddNode(): UseAddNodeReturn {
     setPipelineStep(null);
   }
 
-  function setNode(newNode: NodeStatusObject | null): void {
+  function setNode(newNode: PickedNode | null): void {
     node.value = newNode;
   }
 

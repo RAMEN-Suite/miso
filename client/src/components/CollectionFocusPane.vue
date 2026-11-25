@@ -4,15 +4,22 @@ import Button from "primevue/button";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useConfigStore } from "../store/config";
 import {
-  Annotation,
+  AnnotationNode,
   CollectionNode,
   CollectionFocus,
+  EditGraph,
+  EditNode,
+  ElementRelation,
   HierarchyEntry,
   NodeDto,
   ModelAnnotationShape,
   ModelAttribute,
+  WriteResponse,
 } from "../models/types";
-import { camelCaseToTitleCase, cloneDeep, setNodeTreeStatus, pruneDeletedNodes } from "../utils/helper/helper";
+import { camelCaseToTitleCase, cloneDeep } from "../utils/helper/helper";
+import { addRelation, annotationsOf, applySavedChanges, createNode, deleteNode, toGraphNode } from "../utils/helper/editGraph";
+import { relationRefOf } from "../utils/helper/writePayload";
+import { BASE_NODE_REF } from "../config/ramen";
 import {
   getDefaultValue,
   getOptions,
@@ -89,8 +96,12 @@ const initialTemporaryWorkData = ref<CollectionFocus>(cloneDeep(props.focus));
 /** Save state per property name of the shown Collection. Properties without a state are idle. */
 const fieldStates = ref<Record<string, FieldSaveState>>({});
 
-// Annotations are saved directly and are not part of the Collection draft (`temporaryWorkData`)
-const annotations = ref<Annotation[]>(cloneDeep(props.focus.annotations));
+// The saved state of the annotations. Each action saves a copy and applies it on success, so it stays `unchanged`.
+const graph = ref<EditGraph>(cloneDeep(props.focus.graph));
+
+const annotations = computed<EditNode[]>(() =>
+  annotationsOf(getModelContext(), graph.value, temporaryWorkData.value.collection.node.properties.uuid),
+);
 
 // The annotation the removal confirmation is open for, and whether its deletion is running
 const annotationPendingRemoval = ref<string | null>(null);
@@ -170,7 +181,7 @@ watch(
 
     temporaryWorkData.value = cloneDeep(props.focus);
     initialTemporaryWorkData.value = cloneDeep(props.focus);
-    annotations.value = cloneDeep(props.focus.annotations);
+    graph.value = cloneDeep(props.focus.graph);
     fieldStates.value = {};
 
     enrichCollectionData();
@@ -443,8 +454,8 @@ function handleFieldEscape(field: ModelAttribute, event: KeyboardEvent): void {
   (event.target as HTMLElement).blur();
 }
 
-function findAnnotationByUuid(uuid: string): Annotation | undefined {
-  const found: Annotation | undefined = annotations.value.find((a) => a.node.properties.uuid === uuid);
+function findAnnotationByUuid(uuid: string): AnnotationNode | undefined {
+  const found: EditNode | undefined = annotations.value.find((annotation) => annotation.properties.uuid === uuid);
 
   if (!found) {
     console.error(`Annotation with UUID ${uuid} not found in existing annotations.`);
@@ -452,23 +463,29 @@ function findAnnotationByUuid(uuid: string): Annotation | undefined {
     return;
   }
 
-  return found;
+  return found as unknown as AnnotationNode;
 }
 
 /**
- * Saves an annotation without a modal (create or delete by its status) and updates the pane on success.
+ * Saves a changed copy of the graph without a modal and applies it on success.
  * Counts as a pending update, so the Collection can't be deleted meanwhile.
  *
- * @param {Annotation} annotation - The annotation to save.
- * @returns {Promise<boolean>} Whether the annotation was saved.
+ * @param {EditGraph} changed - The copy with the changes to save.
+ * @returns {Promise<boolean>} Whether the changes were saved.
  */
-async function saveAnnotation(annotation: Annotation): Promise<boolean> {
+async function saveGraph(changed: EditGraph): Promise<boolean> {
+  // The pane may show another Collection by the time the save is done
+  const target: EditGraph = graph.value;
+
   pendingUpdates.value++;
 
   try {
-    await api.updateCollectionAnnotation(initialTemporaryWorkData.value.collection.node, annotation);
+    const result: WriteResponse = await api.updateCollection(
+      initialTemporaryWorkData.value.collection.node.properties.uuid,
+      changed,
+    );
 
-    applyPersistedAnnotation(annotation);
+    applySavedChanges(target, changed, result.deletedOrphans);
 
     return true;
   } catch (error: unknown) {
@@ -481,30 +498,35 @@ async function saveAnnotation(annotation: Annotation): Promise<boolean> {
 }
 
 /**
- * Applies a saved annotation to the local list.
+ * Applies a graph the {@linkcode CreateCollectionAnnotationModal} saved.
  *
- * @param {Annotation} annotation - The annotation that was saved.
+ * @param {EditGraph} saved - The graph as it was saved.
+ * @param {string[]} deletedOrphans - uuids of the annotations the server deleted as orphans.
  * @returns {void} This function does not return any value.
  */
-function applyPersistedAnnotation(annotation: Annotation): void {
-  const uuid: string = annotation.node.properties.uuid;
+function handleAnnotationSaved(saved: EditGraph, deletedOrphans: string[]): void {
+  applySavedChanges(graph.value, saved, deletedOrphans);
+}
 
-  if (annotation.meta.status === "deleted") {
-    annotations.value = annotations.value.filter((a) => a.node.properties.uuid !== uuid);
+/**
+ * The relation from the shown Collection to a new annotation.
+ *
+ * @param {AnnotationNode} annotation - The new annotation.
+ * @returns {ElementRelation} The `HAS_ANNOTATION` relation.
+ */
+function carrierRelationOf(annotation: AnnotationNode): ElementRelation {
+  const collection: CollectionNode = initialTemporaryWorkData.value.collection.node;
 
-    return;
-  }
-
-  pruneDeletedNodes(annotation);
-  setNodeTreeStatus(annotation, "unchanged");
-
-  const index: number = annotations.value.findIndex((a) => a.node.properties.uuid === uuid);
-
-  if (index === -1) {
-    annotations.value.push(annotation);
-  } else {
-    annotations.value[index] = annotation;
-  }
+  return {
+    from: collection.properties.uuid,
+    relationRef: relationRefOf(
+      getModelContext(),
+      collection.classifierRef ?? BASE_NODE_REF.Collection,
+      "HAS_ANNOTATION",
+      annotation.classifierRef ?? BASE_NODE_REF.Annotation,
+    ),
+    to: annotation.properties.uuid,
+  };
 }
 
 /**
@@ -528,8 +550,8 @@ function enrichCollectionData(): void {
 
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
   const collection: CollectionNode = temporaryWorkData.value.collection.node;
-  const newAnnotation: Annotation = createAnnotation({ ...data, collection });
-  const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation.node);
+  const newAnnotation: AnnotationNode = createAnnotation({ ...data, collection });
+  const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation);
 
   if (!shape) {
     console.error(
@@ -538,27 +560,32 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
     return;
   }
 
+  const changed: EditGraph = cloneDeep(graph.value);
+
+  createNode(changed, toGraphNode(getModelContext(), newAnnotation));
+  addRelation(changed, carrierRelationOf(newAnnotation));
+
   if (annotationHasConstraints(shape)) {
-    openAnnotationModal(newAnnotation, "create", `Add new ${data.subType ?? data.type} annotation`);
+    openAnnotationModal(changed, newAnnotation.properties.uuid, `Add new ${data.subType ?? data.type} annotation`);
   } else {
-    void saveAnnotation(newAnnotation);
+    void saveGraph(changed);
   }
 }
 
 /**
  * Opens the {@linkcode CreateCollectionAnnotationModal}, which saves the annotation itself.
  *
- * @param {Annotation} annotation - The annotation to edit, or the template of a new one.
- * @param {"create" | "edit"} mode - Whether the annotation is new.
+ * @param {EditGraph} changed - A copy of the graph to edit in, with the new annotation already in it when creating.
+ * @param {string} annotationUuid - UUID of the annotation to edit.
  * @param {string} header - The modal header.
  * @returns {void} This function does not return any value.
  */
-function openAnnotationModal(annotation: Annotation, mode: "create" | "edit", header: string): void {
+function openAnnotationModal(changed: EditGraph, annotationUuid: string, header: string): void {
   createModalInstance(
     dialog.open(CreateCollectionAnnotationModal, {
       props: { ...ANNOTATION_MODAL_PROPS, header },
-      data: { collection: initialTemporaryWorkData.value.collection.node, annotation, mode },
-      emits: { onSaved: applyPersistedAnnotation },
+      data: { collection: initialTemporaryWorkData.value.collection.node, graph: changed, annotationUuid },
+      emits: { onSaved: handleAnnotationSaved },
       onClose: destroyModalInstance,
     }),
   );
@@ -572,7 +599,7 @@ function openAnnotationModal(annotation: Annotation, mode: "create" | "edit", he
  * @returns {void} This function does not return any value.
  */
 function handleRemoveAnnotation(uuid: string, event: Event): void {
-  const annotation: Annotation | undefined = findAnnotationByUuid(uuid);
+  const annotation: AnnotationNode | undefined = findAnnotationByUuid(uuid);
 
   // Don't switch to another annotation while a deletion is running
   if (!annotation || removalRunning.value) {
@@ -584,7 +611,7 @@ function handleRemoveAnnotation(uuid: string, event: Event): void {
   confirm.require({
     group: "annotation-remove",
     target: event.currentTarget as HTMLElement,
-    message: `Remove this “${annotation.node.properties.subType ?? annotation.node.properties.type}” annotation?`,
+    message: `Remove this “${annotation.properties.subType ?? annotation.properties.type}” annotation?`,
   });
 }
 
@@ -596,19 +623,19 @@ function handleRemoveAnnotation(uuid: string, event: Event): void {
  */
 async function handleConfirmRemoval(closePopup: () => void): Promise<void> {
   const uuid: string | null = annotationPendingRemoval.value;
-  const annotation: Annotation | undefined = uuid ? findAnnotationByUuid(uuid) : undefined;
+  const annotation: AnnotationNode | undefined = uuid ? findAnnotationByUuid(uuid) : undefined;
 
-  if (!annotation || removalRunning.value) {
+  if (!uuid || !annotation || removalRunning.value) {
     return;
   }
 
-  const deleted: Annotation = cloneDeep(annotation);
+  const changed: EditGraph = cloneDeep(graph.value);
 
-  deleted.meta.status = "deleted";
+  deleteNode(changed, uuid);
   removalRunning.value = true;
 
   try {
-    if (await saveAnnotation(deleted)) {
+    if (await saveGraph(changed)) {
       annotationPendingRemoval.value = null;
       closePopup();
     }
@@ -624,22 +651,22 @@ async function handleConfirmRemoval(closePopup: () => void): Promise<void> {
  * @returns {void} This function does not return any value.
  */
 function handleEditAnnotation(uuid: string): void {
-  const annotation: Annotation | undefined = findAnnotationByUuid(uuid);
+  const annotation: AnnotationNode | undefined = findAnnotationByUuid(uuid);
 
   if (!annotation) {
     return;
   }
 
-  if (!getAnnotationShape(annotation.node)) {
+  if (!getAnnotationShape(annotation)) {
     addToastMessage({
       severity: "warn",
       summary: "Annotation type not configured",
-      detail: `"${annotation.node.properties.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
+      detail: `"${annotation.properties.type}" annotations can't be edited, since the type is not configured for this ${displayLabel.value}.`,
     });
     return;
   }
 
-  openAnnotationModal(annotation, "edit", `Edit ${annotation.node.properties.type} annotation`);
+  openAnnotationModal(cloneDeep(graph.value), uuid, `Edit ${annotation.properties.type} annotation`);
 }
 
 function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
@@ -705,12 +732,13 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
       <div class="content">
         <div class="annotations-pane flex flex-wrap items-center gap-1 mb-6">
           <CollectionAnnotationNote
-            v-for="(annotation, index) in annotations"
-            :key="annotation.node.properties.uuid"
-            v-model="annotations[index]"
-            :disabled="removalRunning && annotationPendingRemoval === annotation.node.properties.uuid"
-            @edit="handleEditAnnotation(annotation.node.properties.uuid)"
-            @remove="handleRemoveAnnotation(annotation.node.properties.uuid, $event)"
+            v-for="annotation in annotations"
+            :key="annotation.properties.uuid"
+            :graph="graph"
+            :annotation-uuid="annotation.properties.uuid"
+            :disabled="removalRunning && annotationPendingRemoval === annotation.properties.uuid"
+            @edit="handleEditAnnotation(annotation.properties.uuid)"
+            @remove="handleRemoveAnnotation(annotation.properties.uuid, $event)"
           />
           <div v-if="availabeAnnotationTypes.length > 0" class="annotation-button-pane">
             <Button

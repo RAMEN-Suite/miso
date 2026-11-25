@@ -1,6 +1,5 @@
 import { computed, EffectScope, effectScope, readonly, ref, watch } from "vue";
 import {
-  Annotation,
   CollectionNode,
   FilterRule,
   FilterSpec,
@@ -16,12 +15,12 @@ import {
   TextNode,
   NodeDto,
   NodeStatusObject,
-  AnnotationNode,
 } from "../models/types";
 import { useAppStore } from "./app";
 import { useConfigStore } from "./config";
 import { useSmartViewsStore } from "./smartViews";
-import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { cloneDeep, createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { addExistingNode, toGraphNode } from "../utils/helper/editGraph";
 import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import { useTextPreview } from "../composables/useTextPreview";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
@@ -261,8 +260,8 @@ function createStore() {
     }
 
     /**
-     * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and annotations; a
-     * Content loads its node and the annotations its text preview is built from.
+     * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and the graph of its annotations,
+     * with the Collection added as their carrier; a Content loads its node and the annotations its text preview is built from.
      *
      * @param {NodeDto<HierarchyNode>} item - The item to focus.
      * @returns {Promise<FocusData>} The focus data for the pane.
@@ -275,12 +274,14 @@ function createStore() {
 
         try {
           // TODO: Handle errors
-          const [collection, annotations] = await Promise.all([api.getCollection(uuid), api.getAnnotations(uuid)]);
+          const [collection, graph] = await Promise.all([api.getCollection(uuid), api.getAnnotationGraph(uuid)]);
+
+          addExistingNode(graph, toGraphNode(getModelContext(), cloneDeep(collection.node)));
 
           return {
             kind: "collection",
             collection: createNodeStatusObjectFromRawData(collection) as NodeStatusObject<CollectionNode>,
-            annotations: annotations.map((a: NodeDto<AnnotationNode>) => createNodeStatusObjectFromRawData(a) as Annotation),
+            graph,
           };
         } finally {
           isFetchingFocus.value = false;

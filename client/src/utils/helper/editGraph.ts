@@ -1,5 +1,14 @@
-import type { EditGraph, EditNode, EditRelation, ElementNode, ElementRelation, ModelContext } from "../../models/types";
-import { findRelation } from "./modelHelper";
+import type {
+  BaseNodeProperties,
+  EditGraph,
+  EditNode,
+  EditRelation,
+  ElementRelation,
+  ModelContext,
+  Node as DataNode,
+} from "../../models/types";
+import { cloneDeep } from "./helper";
+import { findRelation, getClassifierRef } from "./modelHelper";
 
 /**
  * Operations and selectors on an {@linkcode EditGraph}. Operations change the graph in place and keep the statuses
@@ -7,6 +16,9 @@ import { findRelation } from "./modelHelper";
  *
  * @packageDocumentation
  */
+
+/** A node of an {@linkcode EditGraph} without its status */
+export type EditNodeData = Omit<EditNode, "status">;
 
 /** The relationship types of RAMEN's base relations */
 export type RelationType = "HAS_ANNOTATION" | "REFERS_TO" | "PART_OF";
@@ -18,9 +30,9 @@ type RelationKey = Pick<ElementRelation, "from" | "relationRef" | "to">;
  * Adds a stored node (e.g. one picked in a search) as `unchanged`, unless the graph already contains it.
  *
  * @param {EditGraph} graph - The graph, changed in place.
- * @param {ElementNode} node - The stored node.
+ * @param {EditNodeData} node - The stored node.
  */
-export function addExistingNode(graph: EditGraph, node: ElementNode): void {
+export function addExistingNode(graph: EditGraph, node: EditNodeData): void {
   if (!findNode(graph, node.properties.uuid)) {
     graph.nodes.push({ ...node, status: "unchanged" });
   }
@@ -78,6 +90,44 @@ export function applySaveResult(graph: EditGraph, deletedOrphans: string[]): voi
 }
 
 /**
+ * Applies the changes of a saved copy to the saved state it was copied from, which may have received other saves in the
+ * meantime: changed and new nodes are taken over, deleted nodes and orphans dropped, added and removed relations applied.
+ *
+ * @param {EditGraph} target - The saved state, changed in place. Everything in it stays `unchanged`.
+ * @param {EditGraph} saved - The copy as it was saved, with its statuses.
+ * @param {string[]} deletedOrphans - uuids of the annotations the server deleted as orphans.
+ */
+export function applySavedChanges(target: EditGraph, saved: EditGraph, deletedOrphans: string[]): void {
+  const droppedUuids = new Set<string>([
+    ...saved.nodes.filter((node) => node.status === "deleted").map((node) => node.properties.uuid),
+    ...deletedOrphans,
+  ]);
+
+  for (const node of saved.nodes) {
+    const current: EditNode | undefined = findNode(target, node.properties.uuid);
+
+    if (!current) {
+      target.nodes.push({ ...cloneDeep(node), status: "unchanged" });
+    } else if (node.status === "created" || node.status === "modified") {
+      Object.assign(current, { ...cloneDeep(node), status: "unchanged" });
+    }
+  }
+
+  for (const relation of saved.relations) {
+    const current: EditRelation | undefined = target.relations.find((candidate) => isSameRelation(candidate, relation));
+
+    if (relation.status === "removed" && current) {
+      target.relations.splice(target.relations.indexOf(current), 1);
+    } else if (relation.status === "added" && !current) {
+      target.relations.push({ ...relation, status: "unchanged" });
+    }
+  }
+
+  target.nodes = target.nodes.filter((node) => !droppedUuids.has(node.properties.uuid));
+  target.relations = target.relations.filter((relation) => !droppedUuids.has(relation.from) && !droppedUuids.has(relation.to));
+}
+
+/**
  * The carriers of an annotation (incoming `HAS_ANNOTATION`).
  *
  * @param {ModelContext} context - The model context.
@@ -93,10 +143,10 @@ export function carriersOf(context: ModelContext, graph: EditGraph, uuid: string
  * Adds a new node as `created`.
  *
  * @param {EditGraph} graph - The graph, changed in place.
- * @param {ElementNode} node - The node, with its refs.
+ * @param {EditNodeData} node - The node, with its refs.
  * @throws {Error} If the graph already contains the node.
  */
-export function createNode(graph: EditGraph, node: ElementNode): void {
+export function createNode(graph: EditGraph, node: EditNodeData): void {
   if (findNode(graph, node.properties.uuid)) {
     throw new Error(`The graph already contains the node ${node.properties.uuid}`);
   }
@@ -138,6 +188,18 @@ export function deleteNode(graph: EditGraph, uuid: string): void {
  */
 export function findNode(graph: EditGraph, uuid: string): EditNode | undefined {
   return graph.nodes.find((node) => node.properties.uuid === uuid);
+}
+
+/**
+ * The current relation between two nodes, of any type.
+ *
+ * @param {EditGraph} graph - The graph.
+ * @param {string} from - The uuid of the start node.
+ * @param {string} to - The uuid of the end node.
+ * @returns {EditRelation | undefined} The relation, `undefined` if there is no current one.
+ */
+export function findRelationBetween(graph: EditGraph, from: string, to: string): EditRelation | undefined {
+  return graph.relations.find((relation) => relation.from === from && relation.to === to && isCurrentRelation(graph, relation));
 }
 
 /**
@@ -261,13 +323,29 @@ export function removeRelation(graph: EditGraph, relation: ElementRelation): voi
 }
 
 /**
+ * A client node as graph node, with its classifier resolved from the labels if it has none.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {DataNode<BaseNodeProperties>} node - The node.
+ * @returns {EditNodeData} The graph node, sharing the node's properties.
+ */
+export function toGraphNode(context: ModelContext, node: DataNode<BaseNodeProperties>): EditNodeData {
+  return {
+    classifierRef: getClassifierRef(context, node),
+    ...(node.shapeRef !== undefined ? { shapeRef: node.shapeRef } : {}),
+    nodeLabels: node.nodeLabels,
+    properties: node.properties as EditNode["properties"],
+  };
+}
+
+/**
  * Replaces the data of a node: `unchanged` becomes `modified`, `created` stays `created`.
  *
  * @param {EditGraph} graph - The graph, changed in place.
- * @param {ElementNode} node - The node with its new data.
+ * @param {EditNodeData} node - The node with its new data.
  * @throws {Error} If the graph has no such node or it is deleted.
  */
-export function updateNode(graph: EditGraph, node: ElementNode): void {
+export function updateNode(graph: EditGraph, node: EditNodeData): void {
   const current: EditNode | undefined = findNode(graph, node.properties.uuid);
 
   if (!current || current.status === "deleted") {

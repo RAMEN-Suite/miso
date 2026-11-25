@@ -1,6 +1,6 @@
 import { DeepReadonly } from "vue";
 import {
-  Annotation,
+  EditGraph,
   NodeDto,
   CollectionNode,
   NodeSearchParams,
@@ -11,7 +11,6 @@ import {
   BaseNodeLabel,
   TextUpdateDto,
   AnnotationNode,
-  NodeStatusObject,
   HierarchyNode,
   HierarchyFilters,
   HierarchyScope,
@@ -19,6 +18,7 @@ import {
   ElementDiagnostic,
   ElementGraph,
   ElementResponse,
+  WriteResponse,
 } from "../models/types";
 import DatabaseConnectionError from "../utils/errors/databaseConnection.error";
 import ApiError from "../utils/errors/api.error";
@@ -26,8 +26,8 @@ import NotFoundError from "../utils/errors/notFound.error";
 import ExternalServiceError from "../utils/errors/externalService.error";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
-import { treeToWritePayload } from "../utils/helper/writePayload";
-import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
+import { toWritePayload, treeToWritePayload } from "../utils/helper/writePayload";
+import { toAncestryPaths, toEditGraph, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
 
 /**
  * The ApiService class provides methods for making API requests to the backend server.
@@ -179,6 +179,31 @@ export default class ApiService {
   }
 
   /**
+   * Fetches the annotations of a Content or Collection node as editing graph: the annotations, their nested annotations,
+   * the nodes they refer to and the relations between them, starting with the `HAS_ANNOTATION` relations from the node.
+   * The annotated node itself is only included if an annotation refers to it.
+   *
+   * @param {string} nodeUuid - The UUID of the annotated node.
+   * @returns {Promise<EditGraph>} The graph, everything `unchanged`.
+   */
+  public async getAnnotationGraph(nodeUuid: string): Promise<EditGraph> {
+    try {
+      const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
+      const response: Response = await fetch(`${this.baseUrl}/annotations?${params.toString()}`);
+
+      await this.assertResponseOk(response);
+
+      const elements: ElementResponse = await response.json();
+
+      this.reportReadDiagnostics(`Annotations of ${nodeUuid}`, elements.diagnostics);
+
+      return toEditGraph(elements);
+    } catch (error: unknown) {
+      this.handleApiError(error);
+    }
+  }
+
+  /**
    * Fetches a Collection node.
    *
    * @param {string} collectionUuid - The UUID of the Collection.
@@ -319,16 +344,16 @@ export default class ApiService {
   }
 
   /**
-   * Creates a new hierarchy node (Collection or Content) or attaches an existing one.
+   * Creates a new hierarchy node (Collection or Content).
    *
-   * @param {string} uuid - UUID of the created/added node (the operative node in the tree).
-   * @param {NodeStatusObject} data - The ownership tree to persist, sent as write payload.
-   * @returns {Promise<NodeDto<HierarchyNode>>} The created/added node, with the findings of the server's validation.
+   * @param {string} uuid - UUID of the created node.
+   * @param {EditGraph} graph - The created node and its relation to the parent, sent as write payload.
+   * @returns {Promise<NodeDto<HierarchyNode>>} The created node, with the findings of the server's validation.
    */
-  public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
+  public async createHierarchyNode(uuid: string, graph: EditGraph): Promise<NodeDto<HierarchyNode>> {
     try {
       const url: string = `${this.hierarchyUrl}/nodes`;
-      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), data);
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
 
       const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data: payload }));
 
@@ -448,27 +473,27 @@ export default class ApiService {
   }
 
   /**
-   * Saves a Collection subgraph.
+   * Saves the changes of a Collection's graph (its annotations and their references).
    *
    * @param {string} uuid - UUID of the Collection.
-   * @param {NodeStatusObject} data - The tree rooted at the Collection, sent as write payload.
+   * @param {EditGraph} graph - The graph; its elements that aren't `unchanged` are sent.
    * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node, with the findings of the server's validation.
+   * @returns {Promise<WriteResponse>} The Collection node, the findings of the server's validation and the deleted orphans.
    */
-  public async updateCollection(uuid: string, data: NodeStatusObject, signal?: AbortSignal): Promise<NodeDto<CollectionNode>> {
+  public async updateCollection(uuid: string, graph: EditGraph, signal?: AbortSignal): Promise<WriteResponse> {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), data);
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
       const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
 
       await this.assertResponseOk(response);
 
-      const updated: ElementResponse = await response.json();
+      const updated: WriteResponse = await response.json();
 
       this.reportWriteDiagnostics(updated.diagnostics);
 
-      return toNodeDto<CollectionNode>(updated, uuid);
+      return updated;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -501,22 +526,6 @@ export default class ApiService {
     } catch (error: unknown) {
       this.handleApiError(error);
     }
-  }
-
-  /**
-   * Saves a single annotation of a Collection. Its status (`created`, `modified`, `deleted`) decides the operation,
-   * the Collection node itself is left unchanged.
-   *
-   * @param {CollectionNode} collection - The Collection the annotation belongs to.
-   * @param {Annotation} annotation - The annotation to save.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
-   */
-  public async updateCollectionAnnotation(collection: CollectionNode, annotation: Annotation): Promise<NodeDto<CollectionNode>> {
-    return this.updateCollection(collection.properties.uuid, {
-      node: collection,
-      meta: { status: "unchanged" },
-      connectedNodes: [annotation],
-    });
   }
 
   /**

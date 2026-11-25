@@ -241,7 +241,7 @@ export function toWritePayload(context: ModelContext, graph: EditGraph): Element
         return node;
       }
 
-      const baseLabel: BaseNodeLabel | undefined = getBaseNodeLabel(context, { ...node, nodeLabels: nodeLabels ?? [] });
+      const baseLabel: BaseNodeLabel | undefined = getBaseNodeLabel(context, { ...node, nodeLabels });
 
       if (!baseLabel) {
         throw new Error(`The node ${node.properties.uuid} has no RAMEN base node`);

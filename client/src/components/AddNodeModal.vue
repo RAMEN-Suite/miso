@@ -2,9 +2,9 @@
 import { computed, inject, ref, watch, toValue, Ref } from "vue";
 import Button from "primevue/button";
 import Divider from "primevue/divider";
-import { useAddNode } from "../composables/useAddNode";
+import { PickedNode, useAddNode } from "../composables/useAddNode";
 import { RouteLocationNormalizedLoaded, useRoute } from "vue-router";
-import { NodeStatusObject, CollectionNode, TextNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
+import { CollectionNode, TextNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -32,12 +32,12 @@ if (!nodeType) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "submit", node: NodeStatusObject): void;
+  (e: "submit", node: PickedNode): void;
 }>();
 
-const nodeAsCollection = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<CollectionNode> | undefined);
-const nodeAsText = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<TextNode> | undefined);
-const nodeAsEntity = computed(() => (nodeToAdd.value ?? undefined) as NodeStatusObject<EntityNode> | undefined);
+const nodeAsCollection = computed(() => nodeToAdd.value?.node as CollectionNode | undefined);
+const nodeAsText = computed(() => nodeToAdd.value?.node as TextNode | undefined);
+const nodeAsEntity = computed(() => nodeToAdd.value?.node as EntityNode | undefined);
 
 const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content" || baseNodeLabel === "Entity");
 const isDrafting = ref<boolean>(false);
@@ -56,11 +56,7 @@ function handleFinishClick(): void {
 }
 
 function handleSearchItemSelected(item: CollectionNode | TextNode | EntityNode) {
-  setNode({
-    node: item,
-    connectedNodes: [],
-    meta: { status: "added" },
-  });
+  setNode({ node: item, isNew: false });
 
   setPipelineStep("finishing");
 }
@@ -76,11 +72,11 @@ function handleDiscardDraft(): void {
 /**
  * Takes over the finished draft node as the node to add.
  *
- * @param {NodeStatusObject} newNode - The drafted Content or Entity node.
+ * @param {TextNode | EntityNode} newNode - The drafted Content or Entity node.
  * @returns {void} This function does not return any value.
  */
-function handleDraftConfirmed(newNode: NodeStatusObject): void {
-  setNode(newNode);
+function handleDraftConfirmed(newNode: TextNode | EntityNode): void {
+  setNode({ node: newNode, isNew: true });
   setPipelineStep("finishing");
 
   isDrafting.value = false;
@@ -136,12 +132,12 @@ function closeModal(): void {
     <template v-if="currentStep === 'finishing'">
       <CollectionCard
         v-if="baseNodeLabel === 'Collection' && nodeAsCollection"
-        :model-value="nodeAsCollection"
+        :node="nodeAsCollection"
         mode="view"
         :show-badge="false"
       />
-      <TextCard v-if="baseNodeLabel === 'Content' && nodeAsText" :model-value="nodeAsText" mode="view" :show-badge="false" />
-      <EntityCard v-if="baseNodeLabel === 'Entity' && nodeAsEntity" :model-value="nodeAsEntity" mode="view" :show-badge="false" />
+      <TextCard v-if="baseNodeLabel === 'Content' && nodeAsText" :node="nodeAsText" mode="view" :show-badge="false" />
+      <EntityCard v-if="baseNodeLabel === 'Entity' && nodeAsEntity" :node="nodeAsEntity" mode="view" :show-badge="false" />
       <div class="flex justify-center gap-2 mt-6 w-full">
         <Button label="Add" icon="icon-plus" @click="handleFinishClick" />
         <Button label="Go back" icon="icon-arrow-left" severity="secondary" @click="handleGoBack" />

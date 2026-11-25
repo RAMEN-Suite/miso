@@ -5,16 +5,34 @@ import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
 import {
   AnnotationNode,
+  BaseNodeLabel,
   CollectionNode,
+  EditGraph,
+  EditNode,
+  EditRelation,
   EntityNode,
   IconSpec,
-  NodeStatusObject,
+  NodeStatus,
   NodeTypeOption,
   ReferenceNodeLabel,
   TextNode,
 } from "../models/types";
 import { BASE_NODE_REF } from "../config/ramen";
-import { getClassifierRef, getNodeTypeOption, isCollectionNode, isContentNode, isEntityNode } from "../utils/helper/modelHelper";
+import { getBaseNodeLabel, getClassifierRef, getNodeTypeOption } from "../utils/helper/modelHelper";
+import {
+  addExistingNode,
+  addRelation,
+  createNode,
+  deleteNode,
+  EditNodeData,
+  findNode,
+  findRelationBetween,
+  referencesOf,
+  removeRelation,
+  toGraphNode,
+} from "../utils/helper/editGraph";
+import { relationRefOf } from "../utils/helper/writePayload";
+import { PickedNode } from "../composables/useAddNode";
 import Button from "primevue/button";
 import FilterableMenu from "./FilterableMenu.vue";
 import { MenuItem } from "primevue/menuitem";
@@ -34,11 +52,12 @@ interface NodeMenuItem extends Omit<MenuItem, "icon" | "items"> {
   items?: NodeMenuItem[];
 }
 
-const nodes = defineModel<NodeStatusObject[]>({ required: true });
+/** The graph that contains the annotation; adding and removing references changes it in place */
+const graph = defineModel<EditGraph>({ required: true });
 
 const props = defineProps<{
   /** The annotation whose references these are. Its annotation type decides which node types can be added. */
-  annotation: AnnotationNode;
+  annotationUuid: string;
   mode: "edit" | "view";
   /** Locks adding and removing references temporarily, e.g. while a request is pending */
   disabled?: boolean;
@@ -71,11 +90,23 @@ function createAddMenuGroup(baseNodeLabel: ReferenceNodeLabel, nodeTypes: NodeTy
   };
 }
 
-/** Classifier refs of the current (not removed) references, one per reference; unresolvable nodes are left out */
+/** The annotation node in the graph */
+const annotation = computed<AnnotationNode>(() => {
+  const node: EditNode | undefined = findNode(graph.value, props.annotationUuid);
+
+  if (!node) {
+    throw new Error(`The graph has no annotation ${props.annotationUuid}`);
+  }
+
+  return node as unknown as AnnotationNode;
+});
+
+/** The current references of the annotation */
+const references = computed<EditNode[]>(() => referencesOf(getModelContext(), graph.value, props.annotationUuid));
+
+/** Classifier refs of the current references, one per reference; unresolvable nodes are left out */
 const referencedRefs = computed<string[]>(() =>
-  nodes.value
-    .filter((node) => isNotDeleted(node) && isReference(node))
-    .flatMap((node) => getClassifierRef(getModelContext(), node.node) ?? []),
+  references.value.flatMap((node) => getClassifierRef(getModelContext(), node) ?? []),
 );
 
 /**
@@ -84,9 +115,9 @@ const referencedRefs = computed<string[]>(() =>
  */
 const addMenuItems = computed<NodeMenuItem[]>(() =>
   [
-    createAddMenuGroup("Collection", getReferenceTypeOptions(BASE_NODE_REF.Collection, props.annotation, referencedRefs.value)),
-    createAddMenuGroup("Content", getReferenceTypeOptions(BASE_NODE_REF.Content, props.annotation, referencedRefs.value)),
-    createAddMenuGroup("Entity", getReferenceTypeOptions(BASE_NODE_REF.Entity, props.annotation, referencedRefs.value)),
+    createAddMenuGroup("Collection", getReferenceTypeOptions(BASE_NODE_REF.Collection, annotation.value, referencedRefs.value)),
+    createAddMenuGroup("Content", getReferenceTypeOptions(BASE_NODE_REF.Content, annotation.value, referencedRefs.value)),
+    createAddMenuGroup("Entity", getReferenceTypeOptions(BASE_NODE_REF.Entity, annotation.value, referencedRefs.value)),
   ].filter((group) => (group.items?.length ?? 0) > 0),
 );
 
@@ -95,7 +126,7 @@ const addMenuItems = computed<NodeMenuItem[]>(() =>
  * modals don't let the annotation through while any are missing.
  */
 const missingReferenceHints = computed<string[]>(() =>
-  getMissingAnnotationReferences(props.annotation, nodes.value).map(({ targetRefs, missing }) => {
+  getMissingAnnotationReferences(annotation.value, references.value).map(({ targetRefs, missing }) => {
     const names: string = targetRefs.map((ref) => getNodeTypeOption(getModelContext(), ref).name).join(" or ");
 
     return `${missing} more ${names} required`;
@@ -108,7 +139,7 @@ const missingReferenceHints = computed<string[]>(() =>
  */
 const canHaveReferences = computed<boolean>(() =>
   [BASE_NODE_REF.Collection, BASE_NODE_REF.Content, BASE_NODE_REF.Entity].some(
-    (baseNodeRef) => getReferenceTypeOptions(baseNodeRef, props.annotation).length > 0,
+    (baseNodeRef) => getReferenceTypeOptions(baseNodeRef, annotation.value).length > 0,
   ),
 );
 
@@ -142,8 +173,8 @@ function startAddingNode(baseNodeLabel: ReferenceNodeLabel, nodeType: NodeTypeOp
         nodeType,
       },
       emits: {
-        onSubmit: (node: NodeStatusObject) => {
-          addNode(node);
+        onSubmit: (picked: PickedNode) => {
+          addReference(picked, baseNodeLabel);
           destroyModalInstance();
         },
       },
@@ -152,41 +183,69 @@ function startAddingNode(baseNodeLabel: ReferenceNodeLabel, nodeType: NodeTypeOp
   );
 }
 
-function addNode(node: NodeStatusObject): void {
-  nodes.value.push(node);
-}
+/**
+ * Adds a picked node to the graph (as new or existing node) and links the annotation to it.
+ *
+ * @param {PickedNode} picked - The node picked in the {@linkcode AddNodeModal}.
+ * @param {ReferenceNodeLabel} baseNodeLabel - The base node of the picked node, used if its classifier is unknown.
+ * @returns {void} This function does not return any value.
+ */
+function addReference(picked: PickedNode, baseNodeLabel: ReferenceNodeLabel): void {
+  const node: EditNodeData = toGraphNode(getModelContext(), picked.node);
+  const annotationRef: string = annotation.value.classifierRef ?? BASE_NODE_REF.Annotation;
+  const nodeRef: string = node.classifierRef ?? BASE_NODE_REF[baseNodeLabel];
 
-function handleRemoveNode(node: NodeStatusObject<CollectionNode | EntityNode | TextNode>): void {
-  nodes.value = nodes.value.filter((n) => n.node.properties.uuid !== node.node.properties.uuid);
+  if (picked.isNew) {
+    createNode(graph.value, node);
+  } else {
+    addExistingNode(graph.value, node);
+  }
+
+  addRelation(graph.value, {
+    from: props.annotationUuid,
+    relationRef: relationRefOf(getModelContext(), annotationRef, "REFERS_TO", nodeRef),
+    to: node.properties.uuid,
+  });
 }
 
 /**
- * Checks if the passed node is a reference node (Entity/Collection/Content) and not an Annotation node.
+ * Unlinks a referenced node. A node created for this annotation and linked nowhere else is dropped.
  *
- * @param node - The node to check.
- * @returns `True` if the node is a reference node, `false` otherwise.
+ * @param {EditNode} node - The referenced node.
+ * @returns {void} This function does not return any value.
  */
-function isReference(node: NodeStatusObject): boolean {
-  return isEntity(node) || isCollection(node) || isContent(node);
+function removeReference(node: EditNode): void {
+  const uuid: string = node.properties.uuid;
+  const relation: EditRelation | undefined = findRelationBetween(graph.value, props.annotationUuid, uuid);
+
+  if (relation) {
+    removeRelation(graph.value, relation);
+  }
+
+  const isLinkedElsewhere: boolean = graph.value.relations.some((candidate) => candidate.from === uuid || candidate.to === uuid);
+
+  if (node.status === "created" && !isLinkedElsewhere) {
+    deleteNode(graph.value, uuid);
+  }
 }
 
-/** Whether a reference is an Entity, from its node type */
-function isEntity(node: NodeStatusObject): node is NodeStatusObject<EntityNode> {
-  return isEntityNode(getModelContext(), node);
+/**
+ * The badge status of a reference: the node's own change (e.g. `created`) before the change of its link (`added`).
+ *
+ * @param {EditNode} node - The referenced node.
+ * @returns {NodeStatus} The status.
+ */
+function referenceStatusOf(node: EditNode): NodeStatus {
+  if (node.status !== "unchanged") {
+    return node.status;
+  } else {
+    return findRelationBetween(graph.value, props.annotationUuid, node.properties.uuid)?.status ?? "unchanged";
+  }
 }
 
-/** Whether a reference is a Content, from its node type */
-function isContent(node: NodeStatusObject): node is NodeStatusObject<TextNode> {
-  return isContentNode(getModelContext(), node);
-}
-
-/** Whether a reference is a Collection, from its node type */
-function isCollection(node: NodeStatusObject): node is NodeStatusObject<CollectionNode> {
-  return isCollectionNode(getModelContext(), node);
-}
-
-function isNotDeleted(node: NodeStatusObject): boolean {
-  return node.meta.status !== "deleted" && node.meta.status !== "removed";
+/** The base node of a reference, which decides its card */
+function baseLabelOf(node: EditNode): BaseNodeLabel | undefined {
+  return getBaseNodeLabel(getModelContext(), node);
 }
 
 /**
@@ -207,30 +266,31 @@ function handleAddNodeClick(event: PointerEvent): void {
 </script>
 
 <template>
-  <template v-for="(node, index) in nodes" :key="node.node.properties.uuid">
-    <template v-if="isNotDeleted(node) && isReference(node)">
-      <EntityCard
-        v-if="isEntity(node)"
-        v-model="nodes![index] as NodeStatusObject<EntityNode>"
-        :mode="props.mode"
-        :disabled="props.disabled"
-        @remove-node="handleRemoveNode(node)"
-      />
-      <TextCard
-        v-else-if="isContent(node)"
-        v-model="nodes![index] as NodeStatusObject<TextNode>"
-        :mode="props.mode"
-        :disabled="props.disabled"
-        @remove-node="handleRemoveNode(node)"
-      />
-      <CollectionCard
-        v-else-if="isCollection(node)"
-        v-model="nodes![index] as NodeStatusObject<CollectionNode>"
-        :mode="props.mode"
-        :disabled="props.disabled"
-        @remove-node="handleRemoveNode(node)"
-      />
-    </template>
+  <template v-for="node in references" :key="node.properties.uuid">
+    <EntityCard
+      v-if="baseLabelOf(node) === 'Entity'"
+      :node="node as unknown as EntityNode"
+      :status="referenceStatusOf(node)"
+      :mode="props.mode"
+      :disabled="props.disabled"
+      @remove-node="removeReference(node)"
+    />
+    <TextCard
+      v-else-if="baseLabelOf(node) === 'Content'"
+      :node="node as unknown as TextNode"
+      :status="referenceStatusOf(node)"
+      :mode="props.mode"
+      :disabled="props.disabled"
+      @remove-node="removeReference(node)"
+    />
+    <CollectionCard
+      v-else-if="baseLabelOf(node) === 'Collection'"
+      :node="node as unknown as CollectionNode"
+      :status="referenceStatusOf(node)"
+      :mode="props.mode"
+      :disabled="props.disabled"
+      @remove-node="removeReference(node)"
+    />
   </template>
 
   <Button

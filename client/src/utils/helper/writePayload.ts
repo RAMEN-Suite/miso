@@ -1,7 +1,9 @@
 import type {
+  Annotation,
   BaseNodeProperties,
   BaseNodeLabel,
   EditGraph,
+  EditNode,
   ElementGraph,
   ElementNode,
   ElementNodeStatus,
@@ -24,12 +26,13 @@ import {
   resolveRelationRef,
   resolveShapeRef,
 } from "./modelHelper";
-import type { RelationType } from "./editGraph";
+import { findNode, type RelationType } from "./editGraph";
 
 /**
  * Converts the client's editing state into the flat write payload (`ElementGraph` with statuses): nodes with
  * `classifierRef`/`shapeRef`, relations with `relationRef`. {@linkcode toWritePayload} takes an `EditGraph`,
- * {@linkcode treeToWritePayload} a `NodeStatusObject` tree, where parent/child pairs become relations.
+ * {@linkcode toContentSaveGraph} builds one from the text editor's annotations, {@linkcode treeToWritePayload} takes a
+ * `NodeStatusObject` tree, where parent/child pairs become relations.
  *
  * @packageDocumentation
  */
@@ -222,6 +225,71 @@ export function treeToWritePayload(context: ModelContext, root: NodeStatusObject
   visit(root, null);
 
   return { nodes, relations };
+}
+
+/**
+ * The graph of a Content's save: the Content as `modified` and the text editor's annotations. The Content's annotations
+ * get their refs from the Content's classifier and their type, created ones a `HAS_ANNOTATION` relation from the Content.
+ * A node in several annotations is taken once, a changed copy over an unchanged one.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {DataNode<BaseNodeProperties>} content - The Content with its current text.
+ * @param {Annotation[]} annotations - The annotations to save, deleted ones included.
+ * @returns {EditGraph} The graph.
+ */
+export function toContentSaveGraph(
+  context: ModelContext,
+  content: DataNode<BaseNodeProperties>,
+  annotations: Annotation[],
+): EditGraph {
+  const contentRef: string = getClassifierRef(context, content) ?? BASE_NODE_REF.Content;
+  const graph: EditGraph = {
+    nodes: [
+      {
+        status: "modified",
+        classifierRef: contentRef,
+        nodeLabels: [...content.nodeLabels],
+        properties: content.properties as EditNode["properties"],
+      },
+    ],
+    relations: [],
+  };
+
+  /** Adds a node, or replaces an unchanged copy of it with a changed one */
+  function addNode(node: EditNode): void {
+    const current: EditNode | undefined = findNode(graph, node.properties.uuid);
+
+    if (!current) {
+      graph.nodes.push(node);
+    } else if (current.status === "unchanged" && node.status !== "unchanged") {
+      graph.nodes[graph.nodes.indexOf(current)] = node;
+    }
+  }
+
+  for (const annotation of annotations) {
+    const refs = resolveNodeRefs(context, annotation.node, "Annotation", contentRef);
+
+    addNode({
+      status: annotation.status,
+      ...refs,
+      nodeLabels: [...annotation.node.nodeLabels],
+      properties: annotation.node.properties,
+    });
+
+    if (annotation.status === "created") {
+      graph.relations.push({
+        status: "added",
+        relationRef: relationRefOf(context, contentRef, "HAS_ANNOTATION", refs.classifierRef),
+        from: content.properties.uuid,
+        to: annotation.node.properties.uuid,
+      });
+    }
+
+    annotation.nodes.forEach(addNode);
+    graph.relations.push(...annotation.relations);
+  }
+
+  return graph;
 }
 
 /**

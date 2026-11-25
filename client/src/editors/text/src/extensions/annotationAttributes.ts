@@ -43,13 +43,14 @@ declare module "@tiptap/core" {
       updateStructuralAnnotation: (uuid: string, annotation: Annotation) => ReturnType;
       /**
        * Brings the node attributes (`_annotation`, `_blockClassifications`) in line with the database after a save:
-       * structural annotations and block classifications are replaced by their saved version, deleted/removed connectedNodes
-       * are dropped and all statuses are set to "unchanged". Not added to the undo history.
+       * structural annotations and block classifications are replaced by their saved version, and every stored
+       * annotation is normalized (see `normalizeAnnotation`). Not added to the undo history.
        *
        * @param {Map<string, Annotation>} savedStructuralAnnotations - The saved structural annotations and block
        *   classifications, keyed by uuid.
+       * @param {string[]} deletedOrphans - uuids of the annotations the server deleted as orphans.
        */
-      applySavedDocAnnotations: (savedStructuralAnnotations: Map<string, Annotation>) => ReturnType;
+      applySavedDocAnnotations: (savedStructuralAnnotations: Map<string, Annotation>, deletedOrphans: string[]) => ReturnType;
     };
   }
 }
@@ -64,7 +65,7 @@ const { getStructuralTypes } = useConfigStore();
  * - `_blockClassifications`: the block classifications covering the node (e.g. an `opener`), sorted outermost-first.
  *   Only created for {@link VALID_BLOCK_CLASSIFICATION_TARGETS}.
  *
- * Only properties and connected nodes are kept up to date during editing. Type, uuid, indices, text and editor-owned
+ * Only properties, nodes and relations are kept up to date during editing. Type, uuid, indices, text and editor-owned
  * properties come from the document on save and are stale until the saved version is written back
  * (command applySavedDocAnnotations).
  *
@@ -212,13 +213,13 @@ export const AnnotationAttributes = Extension.create({
           return isFound;
         },
       applySavedDocAnnotations:
-        (savedStructuralAnnotations: Map<string, Annotation>) =>
+        (savedStructuralAnnotations: Map<string, Annotation>, deletedOrphans: string[]) =>
         ({ tr, dispatch }) => {
           // Saved version if there is one, else the stored one; normalized either way
           const toSaved = (docAnnotation: DocAnnotation, uuid: string): DocAnnotation => {
             const saved: Annotation | undefined = savedStructuralAnnotations.get(uuid);
 
-            return normalizeDocAnnotation(saved ? toDocAnnotation(saved) : docAnnotation);
+            return normalizeDocAnnotation(saved ? toDocAnnotation(saved) : docAnnotation, deletedOrphans);
           };
 
           tr.doc.descendants((node, pos) => {
@@ -230,8 +231,8 @@ export const AnnotationAttributes = Extension.create({
             if (node.type.name === "zeroPointAnnotation") {
               const annotation: Annotation | null = node.attrs._annotation ?? null;
 
-              if (annotation && (annotation.meta.status !== "unchanged" || annotation.connectedNodes.length > 0)) {
-                tr.setNodeAttribute(pos, "_annotation", normalizeAnnotation(annotation));
+              if (annotation && (annotation.status !== "unchanged" || annotation.relations.length > 0)) {
+                tr.setNodeAttribute(pos, "_annotation", normalizeAnnotation(annotation, deletedOrphans));
               }
 
               return;

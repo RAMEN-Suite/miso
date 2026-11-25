@@ -36,8 +36,8 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   /**
    * Creates an annotation object with the given parameters.
    *
-   * The annotation object contains the annotation node (with its properties created from the fields), no connected
-   * nodes yet and the status `created`.
+   * The annotation object contains the annotation node (with its properties created from the fields), no nodes or
+   * relations below it yet and the status `created`.
    *
    * @param {Object} params - The parameters object. Contains the properties of the shape, subType (optional) and type of the annotation.
    * @returns {Annotation} The new annotation.
@@ -51,10 +51,9 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
 
     const newAnnotation: Annotation = {
       node,
-      connectedNodes: [],
-      meta: {
-        status: "created",
-      },
+      status: "created",
+      nodes: [],
+      relations: [],
     };
 
     return newAnnotation;

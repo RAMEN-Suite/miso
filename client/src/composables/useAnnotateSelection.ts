@@ -1,6 +1,6 @@
 import { useDialog } from "primevue";
 import { Selection } from "@tiptap/pm/state";
-import { NodeStatusObject, AnnotationNode, Annotation, ModelAnnotationShape } from "../models/types";
+import { Annotation, ModelAnnotationShape } from "../models/types";
 import { useTiptapStore } from "../store/tiptap";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
@@ -98,7 +98,7 @@ export function useAnnotateSelection() {
 
       const textInSelection: string = tiptap.value?.state.doc.textBetween(selection.from, selection.to) ?? "";
 
-      const newAnnotationTemplate: NodeStatusObject<AnnotationNode> = createAnnotation({
+      const newAnnotationTemplate: Annotation = createAnnotation({
         ...data,
         selectedText: textInSelection,
       });
@@ -187,7 +187,7 @@ export function useAnnotateSelection() {
 
       const textInSelection: string = tiptap.value?.state.doc.textBetween(capturedSelection.from, capturedSelection.to) ?? "";
 
-      const newAnnotationTemplate: NodeStatusObject<AnnotationNode> = createAnnotation({
+      const newAnnotationTemplate: Annotation = createAnnotation({
         ...data,
         selectedText: textInSelection,
       });

@@ -9,7 +9,7 @@ import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import { checkAnnotationValidity, cloneDeep } from "../utils/helper/helper.ts";
 import { isVisible } from "../utils/helper/modelHelper";
 import { findNode, referencesOf } from "../utils/helper/editGraph";
-import { annotationToGraph, graphToAnnotation } from "../utils/helper/annotationGraphAdapter";
+import { annotationToGraph, graphToAnnotation } from "../editors/text/src";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -32,7 +32,7 @@ const original: Annotation = cloneDeep(dialogRef.value.data.annotation);
 const uuid: string = original.node.properties.uuid;
 
 /** The annotation and its references as graph, edited by the form and the references section */
-const graph = ref<EditGraph>(annotationToGraph(getModelContext(), original));
+const graph = ref<EditGraph>(annotationToGraph(original));
 
 const annotationNode = computed<AnnotationNode>(() => findNode(graph.value, uuid) as unknown as AnnotationNode);
 
@@ -59,10 +59,10 @@ const emit = defineEmits<(e: "submit", data: Annotation) => void>();
 watch(() => route.path, closeModal);
 
 function handleSubmitClick(): void {
-  const updated: Annotation = graphToAnnotation(graph.value, original);
+  const updated: Annotation = graphToAnnotation(graph.value, uuid);
 
-  if (updated.meta.status !== "created") {
-    updated.meta.status = "modified";
+  if (updated.status !== "created") {
+    updated.status = "modified";
   }
 
   emit("submit", updated);

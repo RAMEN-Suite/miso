@@ -1,4 +1,17 @@
-import type { CollectionNode, EditGraph, EditNode, ElementGraph, ElementNode, NodeAncestry, NodeDto } from "../../models/types";
+import type {
+  Annotation,
+  AnnotationNode,
+  CollectionNode,
+  EditGraph,
+  EditNode,
+  EditRelation,
+  ElementGraph,
+  ElementNode,
+  ModelContext,
+  NodeAncestry,
+  NodeDto,
+} from "../../models/types";
+import { getBaseNodeLabel } from "./modelHelper";
 
 /**
  * Turns reads in the element format (every read that returns nodes) into the client's formats: the editing graph, plain
@@ -6,6 +19,62 @@ import type { CollectionNode, EditGraph, EditNode, ElementGraph, ElementNode, No
  *
  * @packageDocumentation
  */
+
+/**
+ * The annotations of a Content from its annotation graph, each with the nodes below it along outgoing relations and
+ * these relations. Only annotations are followed further, referenced nodes are leaves.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {EditGraph} graph - The annotation graph of the Content, as read.
+ * @param {string} carrierUuid - The uuid of the annotated Content.
+ * @returns {Annotation[]} The annotations, in the order of the relations from the Content, values copied.
+ */
+export function toAnnotations(context: ModelContext, graph: EditGraph, carrierUuid: string): Annotation[] {
+  const nodesByUuid = new Map<string, EditNode>(graph.nodes.map((node) => [node.properties.uuid, node]));
+  const isAnnotation = (node: EditNode): boolean => getBaseNodeLabel(context, node) === "Annotation";
+
+  return graph.relations
+    .filter((relation) => relation.from === carrierUuid)
+    .flatMap((carrierRelation) => {
+      const root: EditNode | undefined = nodesByUuid.get(carrierRelation.to);
+
+      if (!root || !isAnnotation(root)) {
+        return [];
+      }
+
+      const visited = new Set<string>([root.properties.uuid]);
+      const queue: string[] = [root.properties.uuid];
+      const nodes: EditNode[] = [];
+      const relations: EditRelation[] = [];
+
+      for (let from: string | undefined = queue.shift(); from !== undefined; from = queue.shift()) {
+        for (const relation of graph.relations.filter((candidate) => candidate.from === from)) {
+          const target: EditNode | undefined = nodesByUuid.get(relation.to);
+
+          if (!target) {
+            continue;
+          }
+
+          relations.push(structuredClone(relation));
+
+          if (visited.has(target.properties.uuid)) {
+            continue;
+          }
+
+          visited.add(target.properties.uuid);
+          nodes.push(structuredClone(target));
+
+          if (isAnnotation(target)) {
+            queue.push(target.properties.uuid);
+          }
+        }
+      }
+
+      const { status, ...rootNode } = structuredClone(root);
+
+      return [{ node: rootNode as unknown as AnnotationNode, status, nodes, relations }];
+    });
+}
 
 /**
  * The editing graph of a read: every node once, everything `unchanged`, values copied.

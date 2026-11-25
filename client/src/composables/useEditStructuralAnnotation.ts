@@ -1,6 +1,6 @@
 import { useDialog } from "primevue";
 import { Node as PmNode } from "@tiptap/pm/model";
-import { Annotation, ModelAttribute, NodeStatus } from "../models/types";
+import { Annotation, ElementNodeStatus, ModelAttribute } from "../models/types";
 import { type DocAnnotation, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useTiptapStore } from "../store/tiptap";
 import { useConfigStore } from "../store/config";
@@ -59,7 +59,7 @@ export function useEditStructuralAnnotation() {
     const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
     const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
 
-    const status: NodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "unchanged" : "created";
+    const status: ElementNodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "unchanged" : "created";
     const annotation: Annotation = toAnnotation(node.attrs._annotation as DocAnnotation, status);
 
     createModalInstance(

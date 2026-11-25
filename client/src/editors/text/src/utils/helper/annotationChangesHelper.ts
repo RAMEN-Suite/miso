@@ -4,8 +4,8 @@ import { DocAnnotation, IndexMap, TextRange } from "../../models/types";
 import {
   Annotation,
   BuiltinStructuralType,
+  ElementNodeStatus,
   IAnnotation,
-  NodeStatus,
   PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
   createTextPositionSelector,
@@ -132,7 +132,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
     initialMap?.forEach((annotation: Annotation, uuid: string) => {
       if (!liveUuids.has(uuid) && belongs(annotation)) {
-        deleted.push({ ...cloneDeep(annotation), meta: { status: "deleted" } });
+        deleted.push({ ...cloneDeep(annotation), status: "deleted" });
       }
     });
 
@@ -162,9 +162,9 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   /**
    * Collects the changed inline annotations (range decorations and zero-points) from the editor state.
    *
-   * An annotation is affected if its range or text differs from the last saved state or if it was
-   * created/modified intentionally by the user. The status stored in the editor only reflects the latter: range and text
-   * changes are detected here and only set on the returned clones.
+   * An annotation is affected if its range or text differs from the last saved state, if it was created/modified
+   * intentionally by the user, or if a node or relation below it changed (e.g. a reference). The status stored in the
+   * editor only reflects the user's changes: range and text changes are detected here and only set on the returned clones.
    *
    * @param {IndexMap} indexMap - The live ranges of all inline annotations in the editor.
    * @param {string} plainText - The plain text of the whole document.
@@ -190,9 +190,12 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       const hasNewRange: boolean =
         initialEntry?.node.properties.selector?.start !== start || initialEntry?.node.properties.selector?.end !== end;
       const hasChangedText: boolean = !isZeroPointAnno && initialEntry?.node.properties.text !== plainText.slice(start, end + 1);
-      const isEditedOrDeleted: boolean = ["created", "deleted", "modified"].includes(currentEntry.meta.status);
+      const isEdited: boolean =
+        currentEntry.status !== "unchanged" ||
+        currentEntry.nodes.some((node) => node.status !== "unchanged") ||
+        currentEntry.relations.some((relation) => relation.status !== "unchanged");
 
-      if (!hasNewRange && !hasChangedText && !isEditedOrDeleted) {
+      if (!hasNewRange && !hasChangedText && !isEdited) {
         return;
       }
 
@@ -208,8 +211,8 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       pruneAnnotationData(cloned);
 
-      if (cloned.meta.status !== "created" && (hasNewRange || hasChangedText)) {
-        cloned.meta.status = "modified";
+      if (cloned.status !== "created" && (hasNewRange || hasChangedText)) {
+        cloned.status = "modified";
       }
 
       affected.push(cloned);
@@ -237,7 +240,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
         return;
       }
 
-      const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
+      const status: ElementNodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
       const annotation: Annotation = toAnnotation(entry, status);
 
       stampSelector(annotation, range, plainText);
@@ -283,15 +286,16 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       const docAnnotation: DocAnnotation | null | undefined = docNode.attrs._annotation;
 
       // Always "modified" (not worth to fine-tune an it is likely anyway (text changes all the time))
-      const status: NodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
+      const status: ElementNodeStatus = initial.structuralAnnotations?.has(uuid) ? "modified" : "created";
 
       const annotation: Annotation = {
         node: {
           properties: assembleStructuralAnnotationData(docNode) as IAnnotation,
           nodeLabels: [...(docAnnotation?.node.nodeLabels ?? ["Annotation"])],
         },
-        connectedNodes: cloneDeep(docAnnotation?.connectedNodes ?? []),
-        meta: { status },
+        status,
+        nodes: cloneDeep(docAnnotation?.nodes ?? []),
+        relations: cloneDeep(docAnnotation?.relations ?? []),
       };
 
       // Structural zero-points (hardBreaks) are treated like any other zero-point annotation

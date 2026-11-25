@@ -1,12 +1,5 @@
 import type { Attribute, Constraint } from "@ramen-suite/core";
-import type {
-  Annotation,
-  AnnotationExtent,
-  BuiltinStructuralType,
-  IconSpecInput,
-  NodeDto,
-  TextPositionSelector,
-} from "../external";
+import type { Annotation, AnnotationExtent, BuiltinStructuralType, IconSpecInput, TextPositionSelector } from "../external";
 
 /**
  * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
@@ -47,15 +40,15 @@ type DeepReadonly<T> = { readonly [K in keyof T]: T[K] extends object ? DeepRead
  * An annotation as stored in the tiptap document's node attributes: `_annotation` on structural nodes
  * and each entry of `_blockClassifications`.
  *
- * The `meta` field that contains the status is omitted since it gets recalculated before save
- * for every block of the document.
+ * The annotation's own status is omitted since it gets recalculated before save for every block of the document.
+ * The statuses of the nodes and relations below it are kept.
  */
-export type DocAnnotation = Omit<Annotation, "meta">;
+export type DocAnnotation = Omit<Annotation, "status">;
 
 /** A standoff document as fetched from the API: the plain text and its annotations. */
 export interface ApiJson {
   text: string;
-  annotations: NodeDto[];
+  annotations: Annotation[];
 }
 
 /**

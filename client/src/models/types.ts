@@ -21,8 +21,18 @@ export interface NodeStatusObject<T extends Node<BaseNodeProperties> = Annotatio
  */
 export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
-/** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
-export type Annotation = NodeStatusObject<AnnotationNode>;
+/**
+ * A text annotation in the editor: the annotation node with its status, and every node
+ * reached via its outgoing relations (sub-annotations, referenced nodes) with these relations, each with its own status.
+ */
+export interface Annotation {
+  node: AnnotationNode;
+  status: ElementNodeStatus;
+  /** The nodes below the annotation, without the annotation itself */
+  nodes: EditNode[];
+  /** The relations from the annotation and from the nodes below it */
+  relations: EditRelation[];
+}
 
 export type AnnotationNode = Node<IAnnotation>;
 
@@ -333,7 +343,7 @@ export interface CollectionFocus {
 export interface ContentFocus {
   kind: "content";
   content: NodeStatusObject<TextNode>;
-  annotations: NodeDto<AnnotationNode>[];
+  annotations: Annotation[];
 }
 
 export type FilterComparator =
@@ -471,14 +481,6 @@ export interface SmartView {
 export type TextNode = Node<IText>;
 // TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
-
-/**
- * Type for updating text + annotations.
- */
-export interface TextUpdateDto {
-  text: NodeStatusObject<TextNode>;
-  annotations: Annotation[];
-}
 
 /**
  * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text

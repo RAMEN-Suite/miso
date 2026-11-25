@@ -14,9 +14,11 @@ export { default as StandoffConverter } from "./services/standoffConverter";
 export { default as AnnotationRangeError } from "./utils/errors/annotationRange.error";
 
 export {
+  annotationToGraph,
   collectBlockClassifications,
   collectInlineAnnotations,
   getAnnotationRevision,
+  graphToAnnotation,
   normalizeAnnotation,
   toAnnotation,
 } from "./utils/helper/annotationHelper";

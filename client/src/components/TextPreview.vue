@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 import { useResizeObserver } from "@vueuse/core";
-import { AnnotationNode, NodeDto } from "../models/types";
+import { Annotation } from "../models/types";
 import { TextPreview, useTextPreview } from "../composables/useTextPreview";
 import TextPreviewNode from "./TextPreviewNode.vue";
 
@@ -14,7 +14,7 @@ const props = withDefaults(
   defineProps<{
     text: string;
     /** All annotations of the text, the structural ones are picked from them. */
-    annotations: NodeDto<AnnotationNode>[];
+    annotations: Annotation[];
     /**
      * Number of characters to show at most (roughly). The cut is moved to the end of the paragraph or heading it
      * falls into, but never beyond twice this length.

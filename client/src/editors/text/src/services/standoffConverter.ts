@@ -3,19 +3,16 @@ import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
 import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
+  Annotation,
   AnnotationNode,
   BuiltinStructuralType,
   IAnnotation,
-  NodeStatusObject,
   TextAnnotationRepresentation,
   cloneDeep,
-  createNodeStatusObjectFromRawData,
   createTextPositionSelector,
   useConfigStore,
 } from "../external";
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
-
-type Anno = NodeStatusObject<AnnotationNode>;
 
 const {
   isZeroPoint,
@@ -30,12 +27,12 @@ const {
 
 export default class StandoffConverter {
   // Built-in structural annotations (paragraph, heading, table, ...) — form the TipTap tree.
-  private structuralAnnotations = new Map<string, Anno>();
+  private structuralAnnotations = new Map<string, Annotation>();
   // Custom structural annotations (closer, address, addrLine, ...) — attached as _blockClassifications
   // Block classifications on the built-in nodes that contain them (e.g. closer, div, ...), never form tree nodes.
-  private blockClassificationAnnotations = new Map<string, Anno>();
+  private blockClassificationAnnotations = new Map<string, Annotation>();
   // Content annotations (person, place, ...) — rendered as decorations.
-  private inlineAnnotations = new Map<string, Anno>();
+  private inlineAnnotations = new Map<string, Annotation>();
 
   private standoffJson: ApiJson;
   // Schema of the editor the document is built for. Tells which node types hold text and which are inline.
@@ -53,14 +50,14 @@ export default class StandoffConverter {
   }
 
   public getData(): {
-    annotations: Map<string, Anno>;
+    annotations: Map<string, Annotation>;
     issues: StandoffParseIssue[];
-    structuralAnnotations: Map<string, Anno>;
+    structuralAnnotations: Map<string, Annotation>;
     tipTapJson: TiptapJson;
   } {
     // Merge built-in structural + label annotations so the annotation panel can display and
     // edit all structural annotations regardless of whether they form tree nodes or labels.
-    const allStructural = new Map<string, Anno>([...this.structuralAnnotations, ...this.blockClassificationAnnotations]);
+    const allStructural = new Map<string, Annotation>([...this.structuralAnnotations, ...this.blockClassificationAnnotations]);
 
     // Set by the conversion in the constructor, so this only guards against a conversion that ended early
     if (!this.tiptapJson) {
@@ -84,10 +81,10 @@ export default class StandoffConverter {
    * @returns {void} - This function does not return a value. All the data are set directly into the variables.
    */
   private createAnnotationUuidMaps(): void {
-    const statusObjects: Anno[] = this.standoffJson.annotations.map((a) => createNodeStatusObjectFromRawData(a) as Anno);
+    const annotations: Annotation[] = cloneDeep(this.standoffJson.annotations);
     const unconfiguredTypes = new Map<string, number>();
 
-    for (const a of statusObjects) {
+    for (const a of annotations) {
       const representation: TextAnnotationRepresentation = getAnnotationRepresentation(a.node.properties.type);
 
       if (!isConfiguredAnnotationType(a.node.properties.type)) {
@@ -140,11 +137,11 @@ export default class StandoffConverter {
    * as a final tiebreak so identical-range duplicates resolve to exactly one survivor instead of mutually annihilating.
    * The uuid tie break also ensures that the same document is created every time the same standoff is parsed.
    *
-   * @param {Anno} outer: The Annotation whose node might contain `inner`
-   * @param {Anno} inner: The Annotation whose node might be contained by `outer`
+   * @param {Annotation} outer: The Annotation whose node might contain `inner`
+   * @param {Annotation} inner: The Annotation whose node might be contained by `outer`
    * @returns {boolean}: `true` if `outer` contains `inner`, `false` otherwise
    */
-  private contains(outer: Anno, inner: Anno): boolean {
+  private contains(outer: Annotation, inner: Annotation): boolean {
     if (outer.node.properties.uuid === inner.node.properties.uuid) {
       return false;
     }
@@ -188,13 +185,13 @@ export default class StandoffConverter {
    * @param {string} parentType Type of the parent annotation
    * @param {number} start The start index of the parent annotation's range
    * @param {number} end The end index of the parent annotation's range
-   * @param {Anno[]} allStructural The list of all structural annotations
-   * @returns {Anno[]} The immediate structural children, sorted by start index
+   * @param {Annotation[]} allStructural The list of all structural annotations
+   * @returns {Annotation[]} The immediate structural children, sorted by start index
    */
-  private findDirectChildren(parentType: string, start: number, end: number, allStructural: Anno[]): Anno[] {
+  private findDirectChildren(parentType: string, start: number, end: number, allStructural: Annotation[]): Annotation[] {
     const containsList: readonly string[] | null = this.getContainsList(parentType);
 
-    const candidates: Anno[] = allStructural.filter(
+    const candidates: Annotation[] = allStructural.filter(
       (a) =>
         !this.usedUuids.has(a.node.properties.uuid) &&
         !this.isStructuralZeroPoint(a.node.properties.type) &&
@@ -226,11 +223,11 @@ export default class StandoffConverter {
    * Whether a zero-point annotation lies in a leaf's range. A zero point stands before the char at `start`
    * (`start === end`), so one at the end of the text (offset `text.length`) belongs to the last leaf.
    *
-   * @param {Anno} a The zero-point (including hardBreak) annotation.
+   * @param {Annotation} a The zero-point (including hardBreak) annotation.
    * @param {TextRange} range The leaf's inclusive char range.
    * @returns {boolean} `true` if the annotation's offset belongs to this leaf.
    */
-  private inRange(a: Anno, range: TextRange): boolean {
+  private inRange(a: Annotation, range: TextRange): boolean {
     const rangeEnd: number = range.end === this.standoffJson.text.length - 1 ? range.end + 1 : range.end;
 
     return a.node.properties.selector.start >= range.start && a.node.properties.selector.start <= rangeEnd;
@@ -347,7 +344,8 @@ export default class StandoffConverter {
         } as AnnotationNode["properties"],
         nodeLabels: ["Annotation"],
       },
-      connectedNodes: [],
+      nodes: [],
+      relations: [],
     };
 
     return {
@@ -588,11 +586,11 @@ export default class StandoffConverter {
    * and ensures a valid tiptap/prosemirror document is created by creating synthetic paragraph nodes or merging orphaned
    * text into their previous/next neighbour.
    *
-   * @param {Anno} annotation The annotation that should be converted into a tiptap node
-   * @param {Anno[]} allStructural Annotations that need to be considered for all operations)
+   * @param {Annotation} annotation The annotation that should be converted into a tiptap node
+   * @param {Annotation[]} allStructural Annotations that need to be considered for all operations)
    * @returns {TiptapNode} The built tiptap node
    */
-  private buildStructuralNode(annotation: Anno, allStructural: Anno[]): TiptapNode {
+  private buildStructuralNode(annotation: Annotation, allStructural: Annotation[]): TiptapNode {
     const { type } = annotation.node.properties;
     const { start, end } = annotation.node.properties.selector;
     const editorRole: string = getEditorRole(type);
@@ -617,7 +615,7 @@ export default class StandoffConverter {
       return { type: editorRole, attrs, content: this.createLeafContent(start, end) };
     }
 
-    const directChildren: Anno[] = this.findDirectChildren(type, start, end, allStructural);
+    const directChildren: Annotation[] = this.findDirectChildren(type, start, end, allStructural);
 
     directChildren.forEach((c) => this.usedUuids.add(c.node.properties.uuid));
 
@@ -732,10 +730,10 @@ export default class StandoffConverter {
    * Used for creating the top document level from where the recursive children creation will start.
    *
    * @param allStructural - All built-in structural annotations
-   * @returns {Anno[]} Top-level built-in structural annotations, sorted by their start index
+   * @returns {Annotation[]} Top-level built-in structural annotations, sorted by their start index
    */
-  private findTopLevelAnnotations(allStructural: Anno[]): Anno[] {
-    const topLevelBlocks: Anno[] = allStructural.filter(
+  private findTopLevelAnnotations(allStructural: Annotation[]): Annotation[] {
+    const topLevelBlocks: Annotation[] = allStructural.filter(
       (a) => this.isAllowedAtTopLevel(a.node.properties.type) && !allStructural.some((b) => this.contains(b, a)),
     );
 
@@ -751,7 +749,7 @@ export default class StandoffConverter {
    * @returns {void} This function does not return any value.
    */
   private attachBlockClassificationLabels(nodes: TiptapNode[]): void {
-    const blockClassificationAnnotations: Anno[] = [...this.blockClassificationAnnotations.values()];
+    const blockClassificationAnnotations: Annotation[] = [...this.blockClassificationAnnotations.values()];
 
     if (blockClassificationAnnotations.length === 0) {
       return;
@@ -767,9 +765,9 @@ export default class StandoffConverter {
    * Performs the operation for every node in the given list and all of its children.
    *
    * @param {TiptapNode[]} nodes Sibling nodes of the tiptap document
-   * @param {Anno[]} annotations All block classification annotations
+   * @param {Annotation[]} annotations All block classification annotations
    */
-  private attachLabelsToNodes(nodes: TiptapNode[], annotations: Anno[]): void {
+  private attachLabelsToNodes(nodes: TiptapNode[], annotations: Annotation[]): void {
     for (const node of nodes) {
       const docAnnotation: DocAnnotation | undefined = node.attrs?._annotation;
       const nodeStart: number | undefined = docAnnotation?.node.properties.selector?.start;
@@ -860,8 +858,8 @@ export default class StandoffConverter {
   public convertStandoffToTipTap(): void {
     this.createAnnotationUuidMaps();
 
-    const allStructural: Anno[] = [...this.structuralAnnotations.values()];
-    const topLevelAnnos: Anno[] = this.findTopLevelAnnotations(allStructural);
+    const allStructural: Annotation[] = [...this.structuralAnnotations.values()];
+    const topLevelAnnos: Annotation[] = this.findTopLevelAnnotations(allStructural);
 
     topLevelAnnos.forEach((a) => this.usedUuids.add(a.node.properties.uuid));
 

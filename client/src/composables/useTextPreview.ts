@@ -1,5 +1,5 @@
 import { Schema } from "@tiptap/pm/model";
-import { AnnotationNode, NodeDto } from "../models/types";
+import { Annotation } from "../models/types";
 import { StandoffConverter, type TiptapJson } from "../editors/text/src";
 import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
@@ -14,7 +14,7 @@ export interface TextPreview {
 }
 
 interface UseTextPreviewReturnType {
-  createTextPreview: (text: string, annotations: NodeDto<AnnotationNode>[], maxLength: number) => TextPreview;
+  createTextPreview: (text: string, annotations: Annotation[], maxLength: number) => TextPreview;
   getTextPreviewAnnotationTypes: () => string[];
 }
 
@@ -45,13 +45,13 @@ export function useTextPreview(): UseTextPreviewReturnType {
    * Long texts are cut after about `maxLength` characters, see {@linkcode findCutIndex}.
    *
    * @param {string} text The full text
-   * @param {NodeDto<AnnotationNode>[]} annotations All annotations of the text
+   * @param {Annotation[]} annotations All annotations of the text
    * @param {number} maxLength Number of characters to show at most (roughly)
    * @returns {TextPreview} The preview document and whether the text was cut
    */
-  function createTextPreview(text: string, annotations: NodeDto<AnnotationNode>[], maxLength: number): TextPreview {
+  function createTextPreview(text: string, annotations: Annotation[], maxLength: number): TextPreview {
     const schema: Schema = getEditorSchema();
-    const structural: NodeDto<AnnotationNode>[] = annotations.filter(
+    const structural: Annotation[] = annotations.filter(
       (a) => getAnnotationRepresentation(a.node.properties.type) === "structure",
     );
 
@@ -73,18 +73,18 @@ export function useTextPreview(): UseTextPreviewReturnType {
    * complete. A very long block is still cut at twice `maxLength`.
    *
    * @param {string} text The full text
-   * @param {NodeDto<AnnotationNode>[]} structural The structural annotations of the text
+   * @param {Annotation[]} structural The structural annotations of the text
    * @param {number} maxLength Number of characters to show at most (roughly)
    * @param {Schema} schema The editor schema, tells which types are text blocks
    * @returns {number} The exclusive end index of the shown text
    */
-  function findCutIndex(text: string, structural: NodeDto<AnnotationNode>[], maxLength: number, schema: Schema): number {
+  function findCutIndex(text: string, structural: Annotation[], maxLength: number, schema: Schema): number {
     if (text.length <= maxLength) {
       return text.length;
     }
 
     const lastIndex: number = maxLength - 1;
-    const textBlock: NodeDto<AnnotationNode> | undefined = structural.find(
+    const textBlock: Annotation | undefined = structural.find(
       (a) =>
         schema.nodes[getEditorRole(a.node.properties.type)]?.isTextblock &&
         a.node.properties.selector.start <= lastIndex &&
@@ -100,11 +100,11 @@ export function useTextPreview(): UseTextPreviewReturnType {
    * Fits the annotations into a text cut at `cut`: annotations starting after it are dropped, annotations reaching
    * beyond it are shortened (as copies, the given ones are left untouched).
    *
-   * @param {NodeDto<AnnotationNode>[]} annotations The annotations of the full text
+   * @param {Annotation[]} annotations The annotations of the full text
    * @param {number} cut The exclusive end index of the cut text
-   * @returns {NodeDto<AnnotationNode>[]} The annotations within the cut text
+   * @returns {Annotation[]} The annotations within the cut text
    */
-  function clipAnnotations(annotations: NodeDto<AnnotationNode>[], cut: number): NodeDto<AnnotationNode>[] {
+  function clipAnnotations(annotations: Annotation[], cut: number): Annotation[] {
     return annotations
       .filter((a) => a.node.properties.selector.start < cut)
       .map((a) => {

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, nextTick, useTemplateRef } from "vue";
 import { useEventListener } from "@vueuse/core";
 import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
-import type { Annotation, NodeStatus } from "../models/types";
+import type { Annotation, ElementNodeStatus } from "../models/types";
 import { MenuItem } from "primevue/menuitem";
 import { useAppStore } from "../store/app";
 import { useDialog } from "primevue";
@@ -239,7 +239,7 @@ function handleDetailsClick(line: PositionedLine): void {
     return;
   }
 
-  const status: NodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
+  const status: ElementNodeStatus = initialStructuralAnnotations.value?.has(line.uuid) ? "unchanged" : "created";
   const annotation: Annotation = toAnnotation(docAnnotation, status);
 
   if (!getAnnotationShape(annotation.node)) {

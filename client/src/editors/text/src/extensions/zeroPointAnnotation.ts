@@ -55,7 +55,7 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
 
   addAttributes() {
     return {
-      // The annotation itself (data, status and connected nodes). The attribute is its source of truth while it
+      // The annotation itself (data, status, nodes and relations). The attribute is its source of truth while it
       // is in the editor. Unlike on structural nodes and in `_blockClassifications`, the status is included, since
       // zero-point annotations are only saved when they were created or changed.
       _annotation: {

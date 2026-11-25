@@ -9,8 +9,7 @@ import {
   PaginationResult,
   TextNode,
   BaseNodeLabel,
-  TextUpdateDto,
-  AnnotationNode,
+  Annotation,
   HierarchyNode,
   HierarchyFilters,
   HierarchyScope,
@@ -26,8 +25,8 @@ import NotFoundError from "../utils/errors/notFound.error";
 import ExternalServiceError from "../utils/errors/externalService.error";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
-import { toWritePayload, treeToWritePayload } from "../utils/helper/writePayload";
-import { toAncestryPaths, toEditGraph, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
+import { toWritePayload } from "../utils/helper/writePayload";
+import { toAncestryPaths, toAnnotations, toEditGraph, toNodeDto, toNodes } from "../utils/helper/readPayload";
 
 /**
  * The ApiService class provides methods for making API requests to the backend server.
@@ -146,15 +145,16 @@ export default class ApiService {
   }
 
   /**
-   * Fetches the annotations of a Collection or Content, each with its nested annotations and referenced nodes. They
-   * are read in the element format and rebuilt into trees.
+   * Fetches the annotations of a Content or Collection node as editing graph: the annotations, their nested annotations,
+   * the nodes they refer to and the relations between them, starting with the `HAS_ANNOTATION` relations from the node.
+   * The annotated node itself is only included if an annotation refers to it.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
    * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
-   * @returns {Promise<NodeDto<AnnotationNode>[]>} The annotation trees.
+   * @returns {Promise<EditGraph>} The graph, everything `unchanged`.
    */
-  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<NodeDto<AnnotationNode>[]> {
+  public async getAnnotationGraph(nodeUuid: string, options: { types?: string[] } = {}): Promise<EditGraph> {
     try {
       const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
 
@@ -162,33 +162,6 @@ export default class ApiService {
         params.set("types", options.types.join(","));
       }
 
-      const url: string = `${this.baseUrl}/annotations?${params.toString()}`;
-
-      const response: Response = await fetch(url);
-
-      await this.assertResponseOk(response);
-
-      const elements: ElementResponse = await response.json();
-
-      this.reportReadDiagnostics(`Annotations of ${nodeUuid}`, elements.diagnostics);
-
-      return toNodeDtoTrees(elements, nodeUuid) as NodeDto<AnnotationNode>[];
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  /**
-   * Fetches the annotations of a Content or Collection node as editing graph: the annotations, their nested annotations,
-   * the nodes they refer to and the relations between them, starting with the `HAS_ANNOTATION` relations from the node.
-   * The annotated node itself is only included if an annotation refers to it.
-   *
-   * @param {string} nodeUuid - The UUID of the annotated node.
-   * @returns {Promise<EditGraph>} The graph, everything `unchanged`.
-   */
-  public async getAnnotationGraph(nodeUuid: string): Promise<EditGraph> {
-    try {
-      const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
       const response: Response = await fetch(`${this.baseUrl}/annotations?${params.toString()}`);
 
       await this.assertResponseOk(response);
@@ -201,6 +174,20 @@ export default class ApiService {
     } catch (error: unknown) {
       this.handleApiError(error);
     }
+  }
+
+  /**
+   * Fetches the annotations of a Content, each with the nodes and relations below it (the format of the text editor).
+   *
+   * @param {string} contentUuid - The UUID of the Content.
+   * @param {object} [options] - Optional filters.
+   * @param {string[]} [options.types] - Only annotations of these types. All types if omitted.
+   * @returns {Promise<Annotation[]>} The annotations, everything `unchanged`.
+   */
+  public async getAnnotations(contentUuid: string, options: { types?: string[] } = {}): Promise<Annotation[]> {
+    const graph: EditGraph = await this.getAnnotationGraph(contentUuid, options);
+
+    return toAnnotations(useConfigStore().getModelContext(), graph, contentUuid);
   }
 
   /**
@@ -529,27 +516,26 @@ export default class ApiService {
   }
 
   /**
-   * Saves a Content and its annotations.
+   * Saves the changes of a Content's graph (its text and its annotations).
    *
    * @param {string} uuid - UUID of the Content.
-   * @param {TextUpdateDto} text - The Content and its changed annotations, sent as write payload.
-   * @returns {Promise<void>}
+   * @param {EditGraph} graph - The graph; its elements that aren't `unchanged` are sent.
+   * @returns {Promise<WriteResponse>} The Content node, the findings of the server's validation and the deleted orphans.
    */
-  public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
+  public async updateText(uuid: string, graph: EditGraph): Promise<WriteResponse> {
     try {
       const url: string = `${this.baseUrl}/contents/${uuid}`;
-      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), {
-        ...text.text,
-        connectedNodes: text.annotations,
-      });
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
 
       const response: Response = await fetch(url, this.jsonBodyRequest(payload));
 
       await this.assertResponseOk(response);
 
-      const updated: ElementResponse = await response.json();
+      const updated: WriteResponse = await response.json();
 
       this.reportWriteDiagnostics(updated.diagnostics);
+
+      return updated;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

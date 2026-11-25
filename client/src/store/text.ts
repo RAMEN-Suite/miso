@@ -1,6 +1,6 @@
 import { readonly, ref } from "vue";
 import { useAppStore } from "./app";
-import { NodeDto, TextNode } from "../models/types";
+import { TextNode } from "../models/types";
 import { cloneDeep } from "../utils/helper/helper";
 
 const { api } = useAppStore();
@@ -20,9 +20,9 @@ export function useTextStore() {
     error.value = null;
 
     try {
-      const content: NodeDto<TextNode> = await api.getContent(uuid);
+      const content: TextNode = await api.getContent(uuid);
 
-      initializeText(content.node);
+      initializeText(content);
     } catch (e: unknown) {
       error.value = e as Error;
       console.error("Error fetching text:", e);

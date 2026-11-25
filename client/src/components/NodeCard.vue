@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { BaseNodeProperties, IconSpec, Node, NodeStatus } from "../models/types";
+import { BaseNodeProperties, ElementStatus, IconSpec, Node } from "../models/types";
 import Button from "primevue/button";
 import NodeStatusBadge from "./NodeStatusBadge.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
@@ -11,7 +11,7 @@ const props = withDefaults(
   defineProps<{
     node: Node<BaseNodeProperties>;
     /** The edit status shown as badge */
-    status?: NodeStatus;
+    status?: ElementStatus;
     mode: "edit" | "view";
     /** The URL opened in a new tab when the card is selected. `null` makes the card non-interactive. */
     href: string | null;

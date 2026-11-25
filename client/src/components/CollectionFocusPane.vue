@@ -11,7 +11,6 @@ import {
   EditNode,
   ElementRelation,
   HierarchyEntry,
-  NodeDto,
   ModelAnnotationShape,
   ModelAttribute,
   WriteResponse,
@@ -100,7 +99,7 @@ const fieldStates = ref<Record<string, FieldSaveState>>({});
 const graph = ref<EditGraph>(cloneDeep(props.focus.graph));
 
 const annotations = computed<EditNode[]>(() =>
-  annotationsOf(getModelContext(), graph.value, temporaryWorkData.value.collection.node.properties.uuid),
+  annotationsOf(getModelContext(), graph.value, temporaryWorkData.value.collection.properties.uuid),
 );
 
 // The annotation the removal confirmation is open for, and whether its deletion is running
@@ -109,17 +108,17 @@ const removalRunning = ref<boolean>(false);
 
 const collectionFields: ComputedRef<ModelAttribute[]> = computed(() => {
   return isConfigInitialized.value
-    ? getCollectionAttributes(temporaryWorkData.value.collection.node).filter((field) => isVisible(getModelContext(), field))
+    ? getCollectionAttributes(temporaryWorkData.value.collection).filter((field) => isVisible(getModelContext(), field))
     : [];
 });
 
 /** The Collection's type label shown in UI texts (e.g. "Letter"), "entry" if it has none. */
 const displayLabel = computed<string>(
-  () => filterBaseNodeLabels(temporaryWorkData.value.collection.node.nodeLabels).join(", ") || "entry",
+  () => filterBaseNodeLabels(temporaryWorkData.value.collection.nodeLabels).join(", ") || "entry",
 );
 
 const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
-  getCollectionAnnotationShapes(temporaryWorkData.value.collection.node),
+  getCollectionAnnotationShapes(temporaryWorkData.value.collection),
 );
 
 const SHOW_ANNOTATION_SUBTYPES: boolean = true;
@@ -174,7 +173,7 @@ function handleAddAnnotationClick(event: Event): void {
 enrichCollectionData();
 
 watch(
-  () => props.focus.collection.node.properties.uuid,
+  () => props.focus.collection.properties.uuid,
   () => {
     // Runs before the DOM switches, so a field that is still being edited is saved to the previous Collection
     commitActiveField();
@@ -261,9 +260,9 @@ function getErrorMessage(error: unknown): string {
  */
 async function commitProperty(name: string, validate: (value: unknown) => string | null): Promise<void> {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
-  const collectionUuid: string = saved.collection.node.properties.uuid;
-  const value: unknown = cloneDeep(temporaryWorkData.value.collection.node.properties[name]);
-  const previous: unknown = saved.collection.node.properties[name];
+  const collectionUuid: string = saved.collection.properties.uuid;
+  const value: unknown = cloneDeep(temporaryWorkData.value.collection.properties[name]);
+  const previous: unknown = saved.collection.properties[name];
 
   if (isSameValue(value, previous)) {
     setFieldState(saved, name, null);
@@ -280,13 +279,13 @@ async function commitProperty(name: string, validate: (value: unknown) => string
   }
 
   const pathIndex: number = path.value.length - 1;
-  saved.collection.node.properties[name] = value;
+  saved.collection.properties[name] = value;
   setFieldState(saved, name, { state: "saving" });
   pendingUpdates.value++;
 
   try {
-    const result: NodeDto<CollectionNode> = await api.patchCollection(
-      saved.collection.node,
+    const result: CollectionNode = await api.patchCollection(
+      saved.collection,
       { [name]: value ?? null },
       AbortSignal.timeout(SAVE_TIMEOUT_MS),
     );
@@ -294,14 +293,14 @@ async function commitProperty(name: string, validate: (value: unknown) => string
     transferDataToListItem(collectionUuid, pathIndex, result);
 
     // A newer value of the same property might be on its way already
-    if (saved.collection.node.properties[name] === value) {
+    if (saved.collection.properties[name] === value) {
       setFieldState(saved, name, null);
     }
   } catch (error: unknown) {
     const message: string = getErrorMessage(error);
 
-    if (saved.collection.node.properties[name] === value) {
-      saved.collection.node.properties[name] = previous;
+    if (saved.collection.properties[name] === value) {
+      saved.collection.properties[name] = previous;
     }
 
     setFieldState(saved, name, { state: "error", message });
@@ -376,7 +375,7 @@ function commitField(field: ModelAttribute, row: HTMLElement | null): void {
  * @returns {void} This function does not return any value.
  */
 function handleFieldInput(field: ModelAttribute, value: unknown): void {
-  temporaryWorkData.value.collection.node.properties[field.attribute.name] = value;
+  temporaryWorkData.value.collection.properties[field.attribute.name] = value;
 
   // Picked values have no native constraints to check, so no row is needed for validation
   if (savesOnChange(field)) {
@@ -438,7 +437,7 @@ function handleFieldEnter(event: KeyboardEvent): void {
 function revertProperty(name: string): void {
   const saved: CollectionFocus = initialTemporaryWorkData.value;
 
-  temporaryWorkData.value.collection.node.properties[name] = cloneDeep(saved.collection.node.properties[name] ?? null);
+  temporaryWorkData.value.collection.properties[name] = cloneDeep(saved.collection.properties[name] ?? null);
   setFieldState(saved, name, null);
 }
 
@@ -512,7 +511,7 @@ function handleAnnotationSaved(saved: EditGraph, deletedOrphans: string[]): void
  * @returns {ElementRelation} The `HAS_ANNOTATION` relation.
  */
 function carrierRelationOf(annotation: AnnotationNode): ElementRelation {
-  const collection: CollectionNode = initialTemporaryWorkData.value.collection.node;
+  const collection: CollectionNode = initialTemporaryWorkData.value.collection;
 
   return {
     from: collection.properties.uuid,
@@ -537,16 +536,14 @@ function enrichCollectionData(): void {
   allPossibleFields.forEach((field) => {
     const name: string = field.attribute.name;
 
-    if (!(name in temporaryWorkData.value.collection.node.properties)) {
-      temporaryWorkData.value.collection.node.properties[name] = isRequired(field)
-        ? getDefaultValue(getModelContext(), field)
-        : null;
+    if (!(name in temporaryWorkData.value.collection.properties)) {
+      temporaryWorkData.value.collection.properties[name] = isRequired(field) ? getDefaultValue(getModelContext(), field) : null;
     }
   });
 }
 
 function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
-  const collection: CollectionNode = temporaryWorkData.value.collection.node;
+  const collection: CollectionNode = temporaryWorkData.value.collection;
   const newAnnotation: AnnotationNode = createAnnotation({ ...data, collection });
   const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation);
 
@@ -666,13 +663,13 @@ function handleEditAnnotation(uuid: string): void {
   openAnnotationModal(cloneDeep(graph.value), uuid, `Edit ${annotation.properties.type} annotation`);
 }
 
-function transferDataToListItem(uuid: string, index: number, data: NodeDto<CollectionNode>): void {
+function transferDataToListItem(uuid: string, index: number, data: CollectionNode): void {
   const entry: HierarchyEntry | null = findEntryInHierarchy(uuid, index);
 
   if (entry) {
-    entry.data.node.properties = data.node.properties;
-    entry.data.node.nodeLabels = data.node.nodeLabels;
-    entry.data.node.classifierRef = data.node.classifierRef;
+    entry.node.properties = data.properties;
+    entry.node.nodeLabels = data.nodeLabels;
+    entry.node.classifierRef = data.classifierRef;
   }
 }
 </script>
@@ -682,12 +679,12 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
     <div class="main grow flex flex-col gap-1 w-full">
       <div class="buttons flex justify-between items-center gap-1">
         <div class="buttons-start flex flex-wrap justify-start gap-1 min-w-0">
-          <TagAssignment :nodes="[temporaryWorkData.collection.node]" />
+          <TagAssignment :nodes="[temporaryWorkData.collection]" />
         </div>
         <div class="buttons-end flex justify-end gap-1">
           <Button
             as="a"
-            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.node.properties.uuid}`"
+            :href="`/api/tools/shoyu/collections/${temporaryWorkData.collection.properties.uuid}`"
             target="_blank"
             rel="noopener"
             severity="secondary"
@@ -700,18 +697,18 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
 
       <div class="label-section">
         <h3 class="label-heading">
-          <span class="sr-only">{{ temporaryWorkData.collection.node.properties.label }}</span>
+          <span class="sr-only">{{ temporaryWorkData.collection.properties.label }}</span>
           <RAMENNodeIcon
             v-tooltip.hover.top="{
-              value: filterBaseNodeLabels(temporaryWorkData.collection.node.nodeLabels).join(', '),
+              value: filterBaseNodeLabels(temporaryWorkData.collection.nodeLabels).join(', '),
               showDelay: 50,
             }"
-            :spec="resolveNodeIcon(temporaryWorkData.collection.node)"
+            :spec="resolveNodeIcon(temporaryWorkData.collection)"
             :size="30"
           />
           <span class="label-input-wrapper">
             <CollectionLabelInput
-              v-model:label="temporaryWorkData.collection.node.properties.label"
+              v-model:label="temporaryWorkData.collection.properties.label"
               subtle
               :disabled="fieldStates.label?.state === 'saving'"
               @commit="commitProperty('label', validateLabel)"
@@ -804,14 +801,14 @@ function transferDataToListItem(uuid: string, index: number, data: NodeDto<Colle
                 ></span>
                 <DataInputGroup
                   v-if="isList(field)"
-                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name] as ArrayPropertyValue"
+                  :model-value="temporaryWorkData.collection.properties[field.attribute.name] as ArrayPropertyValue"
                   :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"
                 />
                 <DataInputComponent
                   v-else
-                  :model-value="temporaryWorkData.collection.node.properties[field.attribute.name]"
+                  :model-value="temporaryWorkData.collection.properties[field.attribute.name]"
                   :attribute="field"
                   mode="edit"
                   @update:model-value="(value) => handleFieldInput(field, value)"

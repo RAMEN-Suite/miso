@@ -107,12 +107,6 @@ export type ContentMedium = "text" | "image";
 
 export type AnnotationNode = Node<IAnnotation>;
 
-/**
- * A status field for nodes in the frontend and for API requests. Is accessed during editing
- * (to display the current edit state) and before saving to tell the backend how to process the data.
- */
-export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
-
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
 
@@ -240,16 +234,6 @@ export interface NodeSearchParams {
   offset?: number;
   limit?: number;
   search?: string;
-}
-
-/** A status object for incoming API requests that should update a subgraph */
-export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeStatusObject<T>[];
-  meta: {
-    status: NodeStatus;
-    [key: string]: unknown;
-  };
 }
 
 export interface PaginationData {

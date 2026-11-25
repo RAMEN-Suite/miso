@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from "vue";
 import SelectButton from "primevue/selectbutton";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
-import { CollectionNode, NodeDto, SmartViewScope } from "../models/types";
+import { CollectionNode, SmartViewScope } from "../models/types";
 import SmartViewCollectionPicker from "./SmartViewCollectionPicker.vue";
 
 const props = defineProps<{
@@ -96,9 +96,7 @@ async function loadAncestor(): Promise<void> {
   }
 
   try {
-    const collection: NodeDto<CollectionNode> = await api.getCollection(props.scope.ancestorUuid);
-
-    ancestor.value = collection.node;
+    ancestor.value = await api.getCollection(props.scope.ancestorUuid);
   } catch {
     isAncestorMissing.value = true;
 

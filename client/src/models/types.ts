@@ -5,22 +5,6 @@ import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
 
-/** A status object for nodes in the frontend and for API requests */
-export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeStatusObject<T>[];
-  meta: {
-    status: NodeStatus;
-    [key: string]: unknown;
-  };
-}
-
-/**
- * A status field for nodes in the frontend and for API requests. Is accessed during editing
- * (to display the current edit state) and before saving to tell the backend how to process the data.
- */
-export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
-
 /**
  * A text annotation in the editor: the annotation node with its status, and every node
  * reached via its outgoing relations (sub-annotations, referenced nodes) with these relations, each with its own status.
@@ -35,12 +19,6 @@ export interface Annotation {
 }
 
 export type AnnotationNode = Node<IAnnotation>;
-
-/** A node object for retrieving data */
-export interface NodeDto<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeDto[];
-}
 
 // Types of the settings of model elements (entries of `elements`), inferred from their schemas
 export type {
@@ -119,6 +97,9 @@ export type ElementNodeStatus = "created" | "modified" | "deleted" | "unchanged"
 
 /** The status of a relation: what a write does with it, or `unchanged` */
 export type ElementRelationStatus = "added" | "removed" | "unchanged";
+
+/** The status shown on a node: its own, or that of the relation leading to it */
+export type ElementStatus = ElementNodeStatus | ElementRelationStatus;
 
 /** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
@@ -225,11 +206,11 @@ export type HierarchyNode = CollectionNode | TextNode;
 
 /**
  * An ordered path of hierarchy nodes, root first, focused node last. */
-export type HierarchyPath = NodeDto<HierarchyNode>[];
+export type HierarchyPath = HierarchyNode[];
 
 /** A single item in a hierarchy listing (column / directory / tree). */
 export interface HierarchyEntry {
-  data: NodeDto<HierarchyNode>;
+  node: HierarchyNode;
   meta: {
     /**
      * Derived from the node type via `getBaseNodeLabel`. Cached here because it is read
@@ -246,12 +227,12 @@ export interface HierarchyEntry {
 export interface MultiSelection {
   /** The level index (column) the selection lives in. */
   depth: number;
-  /** The selected items, in the order they were added. Whole DTOs, since an item might not be in the column's loaded entries. */
-  items: NodeDto<HierarchyNode>[];
+  /** The selected items, in the order they were added. Whole nodes, since an item might not be in the column's loaded entries. */
+  items: HierarchyNode[];
   /** Where a range selection starts. */
-  anchor: NodeDto<HierarchyNode>;
+  anchor: HierarchyNode;
   /** The selection at the time the anchor was set. A range is always added to this base, not to the previous range. */
-  baseItems: NodeDto<HierarchyNode>[];
+  baseItems: HierarchyNode[];
 }
 
 /** The modifier keys held while selecting an item. */
@@ -265,7 +246,7 @@ export interface SelectionModifiers {
 export interface Level {
   entries: HierarchyEntry[];
   /** The item selected in this level — the one whose children the next level shows. */
-  activeItem: NodeDto<HierarchyNode> | null;
+  activeItem: HierarchyNode | null;
   parentUuid: string | null;
   query: LevelQuery;
   state: LevelState;
@@ -336,7 +317,7 @@ export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendant
 /** Focus-pane data for a Collection: the node itself plus the graph of its (editable) annotations. */
 export interface CollectionFocus {
   kind: "collection";
-  collection: NodeStatusObject<CollectionNode>;
+  collection: CollectionNode;
   /** The Collection, its annotations and the nodes they refer to */
   graph: EditGraph;
 }
@@ -344,7 +325,7 @@ export interface CollectionFocus {
 /** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */
 export interface ContentFocus {
   kind: "content";
-  content: NodeStatusObject<TextNode>;
+  content: TextNode;
   annotations: Annotation[];
 }
 
@@ -439,7 +420,7 @@ export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNod
   shapeRef?: string | null;
 }
 
-export type NodeAncestry = NodeDto<CollectionNode>[];
+export type NodeAncestry = CollectionNode[];
 
 export interface PaginationData {
   limit: number;

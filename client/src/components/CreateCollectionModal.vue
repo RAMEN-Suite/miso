@@ -2,7 +2,7 @@
 import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeDto, NodeTypeOption } from "../models/types";
+import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
@@ -21,7 +21,7 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", collection: NodeDto<HierarchyNode>): void;
+  (e: "success", collection: HierarchyNode): void;
 }>();
 
 const route = useRoute();
@@ -96,7 +96,7 @@ async function handleSubmit() {
   try {
     await api.saveGraph(toCreationGraph(collectionNodeToAdd, parentCollection));
 
-    emit("success", { node: collectionNodeToAdd, connectedNodes: [] });
+    emit("success", collectionNodeToAdd);
 
     dialogRef?.value.close({ collection: collectionNodeToAdd });
   } catch {

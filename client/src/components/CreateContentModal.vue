@@ -3,7 +3,7 @@ import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeDto, NodeTypeOption, TextNode } from "../models/types";
+import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption, TextNode } from "../models/types";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
 import { BASE_NODE_REF, createTextNode } from "../config/ramen";
@@ -19,7 +19,7 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", content: NodeDto<HierarchyNode>): void;
+  (e: "success", content: HierarchyNode): void;
 }>();
 
 const route = useRoute();
@@ -89,7 +89,7 @@ async function handleSubmit() {
   try {
     await api.saveGraph(toCreationGraph(contentNodeToAdd, parentCollection));
 
-    emit("success", { node: contentNodeToAdd, connectedNodes: [] });
+    emit("success", contentNodeToAdd);
 
     dialogRef?.value.close({ content: contentNodeToAdd });
   } catch {

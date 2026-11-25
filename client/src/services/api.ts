@@ -1,7 +1,6 @@
 import { DeepReadonly } from "vue";
 import {
   EditGraph,
-  NodeDto,
   CollectionNode,
   NodeSearchParams,
   EntityNode,
@@ -26,7 +25,7 @@ import ExternalServiceError from "../utils/errors/externalService.error";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
 import { toWritePayload } from "../utils/helper/writePayload";
-import { toAncestryPaths, toAnnotations, toEditGraph, toNodeDto, toNodes } from "../utils/helper/readPayload";
+import { toAncestryPaths, toAnnotations, toEditGraph, toNode, toNodes } from "../utils/helper/readPayload";
 
 /**
  * The ApiService class provides methods for making API requests to the backend server.
@@ -194,9 +193,9 @@ export default class ApiService {
    * Fetches a Collection node.
    *
    * @param {string} collectionUuid - The UUID of the Collection.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   * @returns {Promise<CollectionNode>} The Collection node.
    */
-  public async getCollection(collectionUuid: string): Promise<NodeDto<CollectionNode>> {
+  public async getCollection(collectionUuid: string): Promise<CollectionNode> {
     try {
       const url: string = `${this.baseUrl}/collections/${collectionUuid}`;
 
@@ -208,7 +207,7 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Collection ${collectionUuid}`, elements.diagnostics);
 
-      return toNodeDto<CollectionNode>(elements, collectionUuid);
+      return toNode(elements, collectionUuid) as CollectionNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -290,7 +289,7 @@ export default class ApiService {
    *
    * @param {HierarchyScope} scope - Which set of nodes to list.
    * @param {Object} params - Filters, sort and the opaque cursor string.
-   * @returns {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of nodes plus pagination.
+   * @returns {Promise<PaginationResult<HierarchyNode[]>>} A page of nodes plus pagination.
    */
   public async listHierarchyNodes(
     scope: HierarchyScope,
@@ -299,7 +298,7 @@ export default class ApiService {
       sort: DeepReadonly<HierarchySort> | HierarchySort;
       cursor: string | null;
     },
-  ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
+  ): Promise<PaginationResult<HierarchyNode[]>> {
     const { filters, sort, cursor } = params;
 
     const url: string = `${this.hierarchyUrl}/query`;
@@ -322,7 +321,7 @@ export default class ApiService {
       this.reportReadDiagnostics("Hierarchy listing", result.data.diagnostics);
 
       return {
-        data: toNodes<HierarchyNode>(result.data).map((node) => ({ node, connectedNodes: [] })),
+        data: toNodes<HierarchyNode>(result.data),
         pagination: result.pagination,
       };
     } catch (error: unknown) {
@@ -353,9 +352,9 @@ export default class ApiService {
    * Fetches a Content node.
    *
    * @param {string} contentUuid - The UUID of the Content.
-   * @returns {Promise<NodeDto<TextNode>>} The Content node.
+   * @returns {Promise<TextNode>} The Content node.
    */
-  public async getContent(contentUuid: string): Promise<NodeDto<TextNode>> {
+  public async getContent(contentUuid: string): Promise<TextNode> {
     try {
       const url: string = `${this.baseUrl}/contents/${contentUuid}`;
 
@@ -367,7 +366,7 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Content ${contentUuid}`, elements.diagnostics);
 
-      return toNodeDto<TextNode>(elements, contentUuid);
+      return toNode(elements, contentUuid) as TextNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -439,13 +438,13 @@ export default class ApiService {
    * @param {CollectionNode} collection - The Collection. The server checks the properties against its stored type.
    * @param {Record<string, unknown>} properties - The changed properties.
    * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
-   * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
+   * @returns {Promise<CollectionNode>} The updated Collection node.
    */
   public async patchCollection(
     collection: CollectionNode,
     properties: Record<string, unknown>,
     signal?: AbortSignal,
-  ): Promise<NodeDto<CollectionNode>> {
+  ): Promise<CollectionNode> {
     const uuid: string = collection.properties.uuid;
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
@@ -456,7 +455,7 @@ export default class ApiService {
 
       const updated: ElementResponse = await response.json();
 
-      return toNodeDto<CollectionNode>(updated, uuid);
+      return toNode(updated, uuid) as CollectionNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

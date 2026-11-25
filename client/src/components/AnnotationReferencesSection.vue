@@ -11,8 +11,8 @@ import {
   EditNode,
   EditRelation,
   EntityNode,
+  ElementStatus,
   IconSpec,
-  NodeStatus,
   NodeTypeOption,
   ReferenceNodeLabel,
   TextNode,
@@ -233,9 +233,9 @@ function removeReference(node: EditNode): void {
  * The badge status of a reference: the node's own change (e.g. `created`) before the change of its link (`added`).
  *
  * @param {EditNode} node - The referenced node.
- * @returns {NodeStatus} The status.
+ * @returns {ElementStatus} The status.
  */
-function referenceStatusOf(node: EditNode): NodeStatus {
+function referenceStatusOf(node: EditNode): ElementStatus {
   if (node.status !== "unchanged") {
     return node.status;
   } else {

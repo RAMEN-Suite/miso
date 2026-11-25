@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NodeStatus } from "../models/types";
+import { ElementStatus } from "../models/types";
 import { Tag } from "primevue";
 import { capitalize } from "../utils/helper/helper";
 
 const props = withDefaults(
   defineProps<{
-    status: NodeStatus;
+    status: ElementStatus;
     badgeStyle?: "character" | "dot";
   }>(),
   {

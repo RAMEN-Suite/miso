@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EntityNode, NodeStatus } from "../models/types";
+import { ElementStatus, EntityNode } from "../models/types";
 import Button from "primevue/button";
 import NodeCard from "./NodeCard.vue";
 import NodePreviewPopover from "./NodePreviewPopover.vue";
@@ -11,7 +11,7 @@ const props = withDefaults(
   defineProps<{
     node: EntityNode;
     /** The edit status shown as badge */
-    status?: NodeStatus;
+    status?: ElementStatus;
     mode: "edit" | "view";
     showBadge?: boolean;
     /** Locks the remove button temporarily, e.g. while a request is pending */

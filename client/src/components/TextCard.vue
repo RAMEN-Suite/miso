@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import NodeCard from "./NodeCard.vue";
-import { NodeStatus, TextNode } from "../models/types";
+import { ElementStatus, TextNode } from "../models/types";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
     node: TextNode;
     /** The edit status shown as badge */
-    status?: NodeStatus;
+    status?: ElementStatus;
     mode: "edit" | "view";
     showBadge?: boolean;
     /** Locks the remove button temporarily, e.g. while a request is pending */

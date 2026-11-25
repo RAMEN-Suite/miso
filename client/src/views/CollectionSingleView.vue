@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, Ref } from "vue";
 import { useRouter } from "vue-router";
-import { CollectionNode, HierarchyPath, NodeAncestry, NodeDto } from "../models/types";
+import { CollectionNode, HierarchyPath, NodeAncestry } from "../models/types";
 import HierarchyBreadcrumbs from "../components/HierarchyBreadcrumbs.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import Card from "primevue/card";
@@ -17,7 +17,7 @@ const router = useRouter();
 const { addToastMessage, api } = useAppStore();
 const { setRoot, updatePath } = useHierarchyStore();
 
-const collection: Ref<NodeDto<CollectionNode> | null> = ref(null);
+const collection: Ref<CollectionNode | null> = ref(null);
 const ancestryPaths = ref<NodeAncestry[]>([]);
 
 const hasChoice = computed<boolean>(() => collection.value !== null && ancestryPaths.value.length > 1);
@@ -77,7 +77,7 @@ async function openInHierarchy(hierarchyPath: HierarchyPath): Promise<void> {
 </script>
 <template>
   <div v-if="hasChoice" class="page-container text-center">
-    <h2>Collection "{{ collection?.node.properties.label }}"</h2>
+    <h2>Collection "{{ collection?.properties.label }}"</h2>
 
     <p>This collection is part of {{ ancestryPaths.length }} hierarchies. Select one of them:</p>
 

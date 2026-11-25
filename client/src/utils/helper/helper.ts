@@ -1,4 +1,4 @@
-import { NodeDto, NodeStatusObject, NodeStatus, AnnotationNode, ModelAttribute, ModelContext } from "../../models/types";
+import { AnnotationNode, ModelAttribute, ModelContext } from "../../models/types";
 import { isList, validateValue } from "./modelHelper";
 
 /**
@@ -51,53 +51,6 @@ export function cloneDeep<T>(input: T): T {
 
   // Default for primitive types like string, number, boolean, etc.
   return input;
-}
-
-/**
- * Creates a a valid node status object from a given {@link NodeDto} by adding
- * a `meta` key to the node DTO which makes it editable in the frontend.
- *
- * @return {NodeStatusObject} A new node statsu object.
- */
-export function createNodeStatusObjectFromRawData(rawNode: NodeDto): NodeStatusObject {
-  return {
-    node: rawNode.node,
-    connectedNodes: rawNode.connectedNodes.map((n) => createNodeStatusObjectFromRawData(n)),
-    meta: {
-      status: "unchanged",
-    },
-  };
-}
-
-/**
- * Recursively sets the status of a node and all its connected nodes, in place.
- *
- * Mainly used as post-request cleanup: once the backend has persisted the changes, the whole tree
- * is "unchanged" again, so the next save does not re-announce nodes as created/modified/deleted.
- *
- * @param {NodeStatusObject} node - The root node of the tree. Is mutated in place.
- * @param {NodeStatus} status - The status to apply to every node in the tree.
- * @returns {void} This function does not return any value.
- */
-export function setNodeTreeStatus(node: NodeStatusObject, status: NodeStatus): void {
-  node.meta.status = status;
-
-  node.connectedNodes.forEach((child) => setNodeTreeStatus(child, status));
-}
-
-/**
- * Recursively removes all connected nodes that were deleted or detached during editing, in place.
- *
- * Used as post-request cleanup, together with {@link setNodeTreeStatus}, to match the database state
- * after a successful operation.
- *
- * @param {NodeStatusObject} node - The root node of the tree. Is mutated in place.
- * @returns {void} This function does not return any value.
- */
-export function pruneDeletedNodes(node: NodeStatusObject): void {
-  node.connectedNodes = node.connectedNodes.filter((c) => c.meta.status !== "deleted" && c.meta.status !== "removed");
-
-  node.connectedNodes.forEach((child) => pruneDeletedNodes(child));
 }
 
 /**

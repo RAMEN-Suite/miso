@@ -7,7 +7,6 @@ import {
   HierarchyScope,
   HierarchySort,
   LevelState,
-  NodeDto,
   PaginationResult,
 } from "../models/types";
 import { useConfigStore } from "../store/config";
@@ -47,20 +46,17 @@ export function useHierarchyChildren(
   const hasMore = computed<boolean>(() => state.value.initialized && state.value.cursor !== null);
 
   /**
-   * Maps a raw node DTO from the API into a column entry, deriving the cached base label.
+   * Maps a node from the API into a column entry, deriving the cached base label.
    *
-   * @param {NodeDto<HierarchyNode>} dto - A single node from the API.
+   * @param {HierarchyNode} node - A single node from the API.
    * @returns {HierarchyEntry} The column entry.
    */
-  function createEntryFromNode(dto: NodeDto<HierarchyNode>): HierarchyEntry {
+  function createEntryFromNode(node: HierarchyNode): HierarchyEntry {
     // Listings only hold Collections and Contents
     const baseLabel: "Collection" | "Content" =
-      getBaseNodeLabel(getModelContext(), dto.node) === "Collection" ? "Collection" : "Content";
+      getBaseNodeLabel(getModelContext(), node) === "Collection" ? "Collection" : "Content";
 
-    return {
-      data: { node: dto.node, connectedNodes: [] },
-      meta: { baseLabel },
-    };
+    return { node, meta: { baseLabel } };
   }
 
   /**
@@ -78,20 +74,20 @@ export function useHierarchyChildren(
     const { replace } = fetchOptions;
 
     try {
-      const result: PaginationResult<NodeDto<HierarchyNode>[]> = await api.listHierarchyNodes(toValue(scope), {
+      const result: PaginationResult<HierarchyNode[]> = await api.listHierarchyNodes(toValue(scope), {
         filters: toValue(options.filters),
         sort: toValue(options.sort),
         cursor: toValue(state.value.cursor),
       });
 
-      const fetched: HierarchyEntry[] = result.data.map((n: NodeDto<HierarchyNode>) => createEntryFromNode(n));
+      const fetched: HierarchyEntry[] = result.data.map((n: HierarchyNode) => createEntryFromNode(n));
 
       if (replace) {
         entries.value = fetched;
       } else {
-        const existingUuids = new Set<string>(entries.value.map((e) => e.data.node.properties.uuid));
+        const existingUuids = new Set<string>(entries.value.map((e) => e.node.properties.uuid));
 
-        entries.value.push(...fetched.filter((e) => !existingUuids.has(e.data.node.properties.uuid)));
+        entries.value.push(...fetched.filter((e) => !existingUuids.has(e.node.properties.uuid)));
       }
 
       state.value.pagination = result.pagination;

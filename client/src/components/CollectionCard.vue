@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CollectionNode, NodeStatusObject } from "../models/types";
+import { CollectionNode, ElementStatus } from "../models/types";
 import Button from "primevue/button";
 import NodeCard from "./NodeCard.vue";
 import NodePreviewPopover from "./NodePreviewPopover.vue";
@@ -9,12 +9,16 @@ import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
+    node: CollectionNode;
+    /** The edit status shown as badge */
+    status?: ElementStatus;
     mode: "edit" | "view";
     showBadge?: boolean;
     /** Locks the remove button temporarily, e.g. while a request is pending */
     disabled?: boolean;
   }>(),
   {
+    status: "unchanged",
     showBadge: true,
     disabled: false,
   },
@@ -22,12 +26,10 @@ const props = withDefaults(
 
 const emit = defineEmits<(e: "remove-node") => void>();
 
-const node = defineModel<NodeStatusObject<CollectionNode>>({ required: true });
-
 const infoIcon = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("info-icon");
 
 const htmlTitle = computed<string>(() => {
-  return `Open ${filterBaseNodeLabels(node.value.node.nodeLabels).join(",")} in Editor`;
+  return `Open ${filterBaseNodeLabels(props.node.nodeLabels).join(",")} in Editor`;
 });
 
 function togglePopover(event: MouseEvent): void {
@@ -37,16 +39,17 @@ function togglePopover(event: MouseEvent): void {
 
 <template>
   <NodeCard
-    v-model:node="node"
+    :node="props.node"
+    :status="props.status"
     :mode="props.mode"
     :show-badge="props.showBadge"
     :disabled="props.disabled"
-    :href="`/collections/${node.node.properties.uuid}`"
+    :href="`/collections/${props.node.properties.uuid}`"
     :title="htmlTitle"
     @remove-node="emit('remove-node')"
   >
     <span class="wrap-break-word min-w-0">
-      {{ node.node.properties.label }}
+      {{ props.node.properties.label }}
     </span>
     <Button
       icon="icon-info"
@@ -58,7 +61,7 @@ function togglePopover(event: MouseEvent): void {
     ></Button>
 
     <NodePreviewPopover ref="info-icon">
-      <NodePropertiesTable :properties="node.node.properties" />
+      <NodePropertiesTable :properties="props.node.properties" />
     </NodePreviewPopover>
   </NodeCard>
 </template>

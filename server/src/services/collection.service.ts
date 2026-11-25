@@ -1,20 +1,10 @@
-import { int, QueryResult } from "neo4j-driver";
+import { QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
 import ConfigService from "./config.service.js";
 import { toNeo4jTypes } from "../utils/helper.js";
 import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import NotFoundError from "../errors/notFound.error.js";
-import {
-  PaginationResult,
-  NodeSearchParams,
-  NodeUpdateObject,
-  ModelAttribute,
-  ModelContext,
-  ElementGraph,
-  ElementResponse,
-} from "../models/types.js";
-import { toNodeChanges } from "../utils/nodeUpdate.js";
-import WriteValidationService from "./writeValidation.service.js";
+import { ModelAttribute, ModelContext, ElementResponse } from "../models/types.js";
 import { getCollectionAttributes, isEditable, validateValue } from "../utils/modelHelper.js";
 import ValidationError from "../errors/validation.error.js";
 
@@ -49,91 +39,6 @@ export default class CollectionService {
     }
 
     return toElementResponse(context, [rawCollection]);
-  }
-
-  /**
-   * Retrieves a page of Collections whose `label` contains the search string.
-   *
-   * @param {Required<NodeSearchParams>} options - Pagination and filter options (search, nodeLabels, order, limit, offset).
-   * @return {Promise<PaginationResult<ElementResponse>>} The page, nodes in listing order.
-   */
-  public async search(options: Required<NodeSearchParams>): Promise<PaginationResult<ElementResponse>> {
-    const { nodeLabels, limit, order, offset, search } = options;
-
-    const baseQuery: string = `
-    MATCH (n:Collection)
-    WHERE toLower(n.label) CONTAINS toLower($search)
-    AND (size($nodeLabels) = 0 OR size(apoc.coll.intersection($nodeLabels, labels(n))) > 0)
-
-    WITH n 
-    ORDER BY n.label ASC 
-    `;
-
-    // Count query: Get the total number of records matching the filters
-    const countQuery: string = baseQuery + `RETURN count(n) AS totalRecords`;
-
-    const dataQuery: string =
-      baseQuery +
-      `
-      SKIP $offset
-      LIMIT $limit
-
-      RETURN collect({
-        nodeLabels: labels(n),
-        properties: n {.*}
-      }) as collections
-      
-    `;
-
-    const [countResult, dataResult, context] = await Promise.all([
-      Neo4jDriver.runQuery(countQuery, {
-        order,
-        search,
-        nodeLabels,
-        offset: int(offset),
-        limit: int(limit),
-      }),
-      Neo4jDriver.runQuery(dataQuery, {
-        order,
-        search,
-        nodeLabels,
-        offset: int(offset),
-        limit: int(limit),
-      }),
-      ConfigService.getModelContext(),
-    ]);
-
-    const totalRecords: number = countResult.records[0]?.get("totalRecords") ?? 0;
-
-    const rawData: StoredNodeRecord[] = dataResult.records[0]?.get("collections") ?? [];
-
-    return {
-      data: toElementResponse(context, rawData),
-      pagination: {
-        limit,
-        order,
-        search,
-        totalRecords,
-        offset,
-      },
-    };
-  }
-
-  /**
-   * Updates a Collection subgraph from a write payload, validated with the model in the same transaction.
-   *
-   * @param uuid - UUID of the Collection node to update.
-   * @param payload - The changed nodes (the Collection, its annotations etc.) and relations.
-   * @throws {NotFoundError} If no Collection node with the given UUID exists after the update.
-   * @throws {ValidationError} If the write doesn't match the model, in `enforce` mode.
-   * @returns The updated Collection as the only node, with the findings of the validation as diagnostics.
-   */
-  public async updateCollection(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const context: ModelContext = await ConfigService.getModelContext();
-    const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
-
-    return { ...toElementResponse(context, [node]), diagnostics };
   }
 
   /**

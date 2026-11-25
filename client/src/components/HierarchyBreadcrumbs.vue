@@ -39,18 +39,18 @@ const home = computed<BreadcrumbMenuItem>(() => ({
 
 const breadcrumbItems = computed<BreadcrumbMenuItem[]>(() =>
   props.path.map((item, index) => {
-    const isContent: boolean = getBaseNodeLabel(getModelContext(), item.node) === "Content";
+    const isContent: boolean = getBaseNodeLabel(getModelContext(), item) === "Content";
     const itemLabel: string = isContent
-      ? getTypeLabelText(getModelContext(), item.node)
-      : (item.node.properties as { label?: string }).label ?? "";
+      ? getTypeLabelText(getModelContext(), item)
+      : (item.properties as { label?: string }).label ?? "";
     const shortened: string = ellipsize(itemLabel, LABEL_MAX_LENGTH);
 
     return {
       index,
       label: shortened,
-      icon: resolveNodeIcon(item.node),
+      icon: resolveNodeIcon(item),
       title: itemLabel,
-      command: () => emit("itemClicked", { index, uuid: item.node.properties.uuid }),
+      command: () => emit("itemClicked", { index, uuid: item.properties.uuid }),
     };
   }),
 );

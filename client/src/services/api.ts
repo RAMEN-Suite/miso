@@ -1,17 +1,13 @@
 import { DeepReadonly } from "vue";
 import {
-  Annotation,
-  NodeDto,
+  EditGraph,
   CollectionNode,
+  ContentNode,
   NodeSearchParams,
   EntityNode,
   NodeAncestry,
   PaginationResult,
-  TextNode,
-  BaseNodeLabel,
-  TextUpdateDto,
-  AnnotationNode,
-  NodeStatusObject,
+  Annotation,
   HierarchyNode,
   HierarchyFilters,
   HierarchyScope,
@@ -19,6 +15,7 @@ import {
   ElementDiagnostic,
   ElementGraph,
   ElementResponse,
+  WriteResponse,
 } from "../models/types";
 import DatabaseConnectionError from "../utils/errors/databaseConnection.error";
 import ApiError from "../utils/errors/api.error";
@@ -27,7 +24,7 @@ import ExternalServiceError from "../utils/errors/externalService.error";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
 import { toWritePayload } from "../utils/helper/writePayload";
-import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
+import { toAncestryPaths, toAnnotations, toEditGraph, toNode, toNodes } from "../utils/helper/readPayload";
 
 /**
  * The ApiService class provides methods for making API requests to the backend server.
@@ -146,15 +143,16 @@ export default class ApiService {
   }
 
   /**
-   * Fetches the annotations of a Collection or Content, each with its nested annotations and referenced nodes. They
-   * are read in the element format and rebuilt into trees.
+   * Fetches the annotations of a Content or Collection node as editing graph: the annotations, their nested annotations,
+   * the nodes they refer to and the relations between them, starting with the `HAS_ANNOTATION` relations from the node.
+   * The annotated node itself is only included if an annotation refers to it.
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
    * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
-   * @returns {Promise<NodeDto<AnnotationNode>[]>} The annotation trees.
+   * @returns {Promise<EditGraph>} The graph, everything `unchanged`.
    */
-  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<NodeDto<AnnotationNode>[]> {
+  public async getAnnotationGraph(nodeUuid: string, options: { types?: string[] } = {}): Promise<EditGraph> {
     try {
       const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
 
@@ -162,9 +160,7 @@ export default class ApiService {
         params.set("types", options.types.join(","));
       }
 
-      const url: string = `${this.baseUrl}/annotations?${params.toString()}`;
-
-      const response: Response = await fetch(url);
+      const response: Response = await fetch(`${this.baseUrl}/annotations?${params.toString()}`);
 
       await this.assertResponseOk(response);
 
@@ -172,19 +168,33 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Annotations of ${nodeUuid}`, elements.diagnostics);
 
-      return toNodeDtoTrees(elements, nodeUuid) as NodeDto<AnnotationNode>[];
+      return toEditGraph(elements);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
   }
 
   /**
+   * Fetches the annotations of a Content, each with the nodes and relations below it (the format of the text editor).
+   *
+   * @param {string} contentUuid - The UUID of the Content.
+   * @param {object} [options] - Optional filters.
+   * @param {string[]} [options.types] - Only annotations of these types. All types if omitted.
+   * @returns {Promise<Annotation[]>} The annotations, everything `unchanged`.
+   */
+  public async getAnnotations(contentUuid: string, options: { types?: string[] } = {}): Promise<Annotation[]> {
+    const graph: EditGraph = await this.getAnnotationGraph(contentUuid, options);
+
+    return toAnnotations(graph, contentUuid);
+  }
+
+  /**
    * Fetches a Collection node.
    *
    * @param {string} collectionUuid - The UUID of the Collection.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   * @returns {Promise<CollectionNode>} The Collection node.
    */
-  public async getCollection(collectionUuid: string): Promise<NodeDto<CollectionNode>> {
+  public async getCollection(collectionUuid: string): Promise<CollectionNode> {
     try {
       const url: string = `${this.baseUrl}/collections/${collectionUuid}`;
 
@@ -196,7 +206,7 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Collection ${collectionUuid}`, elements.diagnostics);
 
-      return toNodeDto<CollectionNode>(elements, collectionUuid);
+      return toNode(elements, collectionUuid) as CollectionNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -226,24 +236,30 @@ export default class ApiService {
     }
   }
 
+  /**
+   * Fetches one page of the nodes of a type (refinements included) whose label or text contains the search input.
+   *
+   * @param {string} classifierRef - Qualified ref of the node type.
+   * @param {{ filters: NodeSearchParams }} params - The search input and pagination.
+   * @returns {Promise<PaginationResult<(CollectionNode | EntityNode | ContentNode)[]>>} The page.
+   */
   public async searchNodes(
-    baseNodeLabel: BaseNodeLabel,
+    classifierRef: string,
     params: {
       filters: DeepReadonly<NodeSearchParams> | NodeSearchParams;
     },
-  ): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
+  ): Promise<PaginationResult<(CollectionNode | EntityNode | ContentNode)[]>> {
     const DEFAULT_ROW_COUNT: number | null = 10;
 
     const path: string = `${this.baseUrl}/search`;
 
-    const { sortDirection, searchInput, nodeLabels, rowCount, offset } = params.filters;
+    const { sortDirection, searchInput, rowCount, offset } = params.filters;
 
     const urlParams: URLSearchParams = new URLSearchParams();
 
-    urlParams.set("scope", baseNodeLabel);
+    urlParams.set("classifier", classifierRef);
     urlParams.set("order", sortDirection ?? "asc");
     urlParams.set("search", searchInput ?? "");
-    urlParams.set("nodeLabels", (nodeLabels ?? []).join(","));
     urlParams.set("limit", rowCount?.toString() ?? DEFAULT_ROW_COUNT.toString());
 
     if (offset) {
@@ -259,9 +275,9 @@ export default class ApiService {
 
       const result: PaginationResult<ElementResponse> = await response.json();
 
-      this.reportReadDiagnostics(`Search results (${baseNodeLabel})`, result.data.diagnostics);
+      this.reportReadDiagnostics(`Search results (${classifierRef})`, result.data.diagnostics);
 
-      return { data: toNodes<CollectionNode | EntityNode | TextNode>(result.data), pagination: result.pagination };
+      return { data: toNodes<CollectionNode | EntityNode | ContentNode>(result.data), pagination: result.pagination };
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -278,7 +294,7 @@ export default class ApiService {
    *
    * @param {HierarchyScope} scope - Which set of nodes to list.
    * @param {Object} params - Filters, sort and the opaque cursor string.
-   * @returns {Promise<PaginationResult<NodeDto<HierarchyNode>[]>>} A page of nodes plus pagination.
+   * @returns {Promise<PaginationResult<HierarchyNode[]>>} A page of nodes plus pagination.
    */
   public async listHierarchyNodes(
     scope: HierarchyScope,
@@ -287,7 +303,7 @@ export default class ApiService {
       sort: DeepReadonly<HierarchySort> | HierarchySort;
       cursor: string | null;
     },
-  ): Promise<PaginationResult<NodeDto<HierarchyNode>[]>> {
+  ): Promise<PaginationResult<HierarchyNode[]>> {
     const { filters, sort, cursor } = params;
 
     const url: string = `${this.hierarchyUrl}/query`;
@@ -310,35 +326,9 @@ export default class ApiService {
       this.reportReadDiagnostics("Hierarchy listing", result.data.diagnostics);
 
       return {
-        data: toNodes<HierarchyNode>(result.data).map((node) => ({ node, connectedNodes: [] })),
+        data: toNodes<HierarchyNode>(result.data),
         pagination: result.pagination,
       };
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  /**
-   * Creates a new hierarchy node (Collection or Content) or attaches an existing one.
-   *
-   * @param {string} uuid - UUID of the created/added node (the operative node in the tree).
-   * @param {NodeStatusObject} data - The ownership tree to persist, sent as write payload.
-   * @returns {Promise<NodeDto<HierarchyNode>>} The created/added node, with the findings of the server's validation.
-   */
-  public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
-    try {
-      const url: string = `${this.hierarchyUrl}/nodes`;
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
-
-      const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data: payload }));
-
-      await this.assertResponseOk(response);
-
-      const created: ElementResponse = await response.json();
-
-      this.reportWriteDiagnostics(created.diagnostics);
-
-      return toNodeDto<HierarchyNode>(created, uuid);
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -367,9 +357,9 @@ export default class ApiService {
    * Fetches a Content node.
    *
    * @param {string} contentUuid - The UUID of the Content.
-   * @returns {Promise<NodeDto<TextNode>>} The Content node.
+   * @returns {Promise<ContentNode>} The Content node.
    */
-  public async getContent(contentUuid: string): Promise<NodeDto<TextNode>> {
+  public async getContent(contentUuid: string): Promise<ContentNode> {
     try {
       const url: string = `${this.baseUrl}/contents/${contentUuid}`;
 
@@ -381,7 +371,7 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Content ${contentUuid}`, elements.diagnostics);
 
-      return toNodeDto<TextNode>(elements, contentUuid);
+      return toNode(elements, contentUuid) as ContentNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -448,45 +438,18 @@ export default class ApiService {
   }
 
   /**
-   * Saves a Collection subgraph.
-   *
-   * @param {string} uuid - UUID of the Collection.
-   * @param {NodeStatusObject} data - The tree rooted at the Collection, sent as write payload.
-   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node, with the findings of the server's validation.
-   */
-  public async updateCollection(uuid: string, data: NodeStatusObject, signal?: AbortSignal): Promise<NodeDto<CollectionNode>> {
-    const url: string = `${this.baseUrl}/collections/${uuid}`;
-
-    try {
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
-      const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
-
-      await this.assertResponseOk(response);
-
-      const updated: ElementResponse = await response.json();
-
-      this.reportWriteDiagnostics(updated.diagnostics);
-
-      return toNodeDto<CollectionNode>(updated, uuid);
-    } catch (error: unknown) {
-      this.handleApiError(error);
-    }
-  }
-
-  /**
    * Updates only the given properties of a Collection. `null` removes a property, all others stay untouched.
    *
    * @param {CollectionNode} collection - The Collection. The server checks the properties against its stored type.
    * @param {Record<string, unknown>} properties - The changed properties.
    * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
-   * @returns {Promise<NodeDto<CollectionNode>>} The updated Collection node.
+   * @returns {Promise<CollectionNode>} The updated Collection node.
    */
   public async patchCollection(
     collection: CollectionNode,
     properties: Record<string, unknown>,
     signal?: AbortSignal,
-  ): Promise<NodeDto<CollectionNode>> {
+  ): Promise<CollectionNode> {
     const uuid: string = collection.properties.uuid;
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
@@ -497,50 +460,33 @@ export default class ApiService {
 
       const updated: ElementResponse = await response.json();
 
-      return toNodeDto<CollectionNode>(updated, uuid);
+      return toNode(updated, uuid) as CollectionNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }
   }
 
   /**
-   * Saves a single annotation of a Collection. Its status (`created`, `modified`, `deleted`) decides the operation,
-   * the Collection node itself is left unchanged.
+   * Saves the changes of a graph in one write.
    *
-   * @param {CollectionNode} collection - The Collection the annotation belongs to.
-   * @param {Annotation} annotation - The annotation to save.
-   * @returns {Promise<NodeDto<CollectionNode>>} The Collection node.
+   * @param {EditGraph} graph - The graph; its elements that aren't `unchanged` are sent.
+   * @param {AbortSignal} [signal] - Aborts the request, e.g. after a timeout.
+   * @returns {Promise<WriteResponse>} The findings of the server's validation and the deleted orphans.
    */
-  public async updateCollectionAnnotation(collection: CollectionNode, annotation: Annotation): Promise<NodeDto<CollectionNode>> {
-    return this.updateCollection(collection.properties.uuid, {
-      node: collection,
-      meta: { status: "unchanged" },
-      connectedNodes: [annotation],
-    });
-  }
-
-  /**
-   * Saves a Content and its annotations.
-   *
-   * @param {string} uuid - UUID of the Content.
-   * @param {TextUpdateDto} text - The Content and its changed annotations, sent as write payload.
-   * @returns {Promise<void>}
-   */
-  public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
+  public async saveGraph(graph: EditGraph, signal?: AbortSignal): Promise<WriteResponse> {
     try {
-      const url: string = `${this.baseUrl}/contents/${uuid}`;
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), {
-        ...text.text,
-        connectedNodes: text.annotations,
-      });
+      const url: string = `${this.baseUrl}/elements`;
+      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), graph);
 
-      const response: Response = await fetch(url, this.jsonBodyRequest(payload));
+      const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
 
       await this.assertResponseOk(response);
 
-      const updated: ElementResponse = await response.json();
+      const result: WriteResponse = await response.json();
 
-      this.reportWriteDiagnostics(updated.diagnostics);
+      this.reportWriteDiagnostics(result.diagnostics);
+
+      return result;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

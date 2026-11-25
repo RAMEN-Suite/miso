@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import NodeCard from "./NodeCard.vue";
-import { TextNode, NodeStatusObject } from "../models/types";
+import { ContentNode, ElementStatus } from "../models/types";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
+    node: ContentNode;
+    /** The edit status shown as badge */
+    status?: ElementStatus;
     mode: "edit" | "view";
     showBadge?: boolean;
     /** Locks the remove button temporarily, e.g. while a request is pending */
     disabled?: boolean;
   }>(),
   {
+    status: "unchanged",
     showBadge: true,
     disabled: false,
   },
@@ -19,29 +23,26 @@ const props = withDefaults(
 
 const emit = defineEmits<(e: "remove-node") => void>();
 
-const node = defineModel<NodeStatusObject<TextNode>>({ required: true });
-
 const PREVIEW_LENGTH = 100 as const;
 
 const displayedText = computed<string>(
-  () =>
-    node.value.node.properties.text.slice(0, PREVIEW_LENGTH) +
-    (node.value.node.properties.text.length > PREVIEW_LENGTH ? "..." : ""),
+  () => props.node.properties.text.slice(0, PREVIEW_LENGTH) + (props.node.properties.text.length > PREVIEW_LENGTH ? "..." : ""),
 );
 
 const htmlTitle = computed<string>(() => {
-  return `Open ${filterBaseNodeLabels(node.value.node.nodeLabels).join(", ")} in Editor`;
+  return `Open ${filterBaseNodeLabels(props.node.nodeLabels).join(", ")} in Editor`;
 });
 
 // A created node does not exist in the database yet, so there is nothing to open in the Editor
-const isCreated = computed<boolean>(() => node.value.meta.status === "created");
+const isCreated = computed<boolean>(() => props.status === "created");
 
-const href = computed<string | null>(() => (isCreated.value ? null : `/contents/${node.value.node.properties.uuid}`));
+const href = computed<string | null>(() => (isCreated.value ? null : `/contents/${props.node.properties.uuid}`));
 </script>
 
 <template>
   <NodeCard
-    v-model:node="node"
+    :node="props.node"
+    :status="props.status"
     :mode="props.mode"
     :show-badge="props.showBadge"
     :disabled="props.disabled"

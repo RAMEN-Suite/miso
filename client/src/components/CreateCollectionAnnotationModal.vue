@@ -3,12 +3,13 @@ import { computed, inject, onMounted, Ref, ref, useTemplateRef, watch } from "vu
 import { useRoute } from "vue-router";
 import Button from "primevue/button";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
-import { Annotation, CollectionNode, ModelAttribute } from "../models/types";
+import { AnnotationNode, EditGraph, EditNode, ModelAttribute, WriteResponse } from "../models/types";
 import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
 import { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
+import { findNode, referencesOf, updateNode } from "../utils/helper/editGraph";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 
@@ -19,7 +20,8 @@ if (!dialogRef) {
 }
 
 const emit = defineEmits<{
-  saved: [annotation: Annotation];
+  /** The graph as it was saved, with its statuses, and the annotations the server deleted as orphans */
+  saved: [graph: EditGraph, deletedOrphans: string[]];
 }>();
 
 const route = useRoute();
@@ -32,12 +34,14 @@ const {
   getModelContext,
 } = useConfigStore();
 
-const collection: CollectionNode = dialogRef.value.data.collection;
-const mode: "create" | "edit" = dialogRef.value.data.mode;
+const uuid: string = dialogRef.value.data.annotationUuid;
 
-const annotation = ref<Annotation>(cloneDeep(dialogRef.value.data.annotation));
+/** A copy of the pane's graph, with the new annotation already in it when creating */
+const graph = ref<EditGraph>(cloneDeep(dialogRef.value.data.graph));
 
-const allProperties: ModelAttribute[] = getAnnotationProperties(annotation.value.node);
+const annotationNode = computed<AnnotationNode>(() => findNode(graph.value, uuid) as unknown as AnnotationNode);
+
+const allProperties: ModelAttribute[] = getAnnotationProperties(annotationNode.value);
 const propertyFields: ModelAttribute[] = allProperties.filter((field) => isVisible(getModelContext(), field));
 
 const propertiesSection = useTemplateRef<InstanceType<typeof FormPropertiesSection>>("propertiesSection");
@@ -48,8 +52,8 @@ const isLoading = ref<boolean>(false);
 /** Valid properties and no missing required references; the save button stays disabled until then */
 const inputIsValid = computed<boolean>(
   () =>
-    checkAnnotationValidity(annotation.value, allProperties, getModelContext()) &&
-    getMissingAnnotationReferences(annotation.value.node, annotation.value.connectedNodes).length === 0,
+    checkAnnotationValidity(annotationNode.value, allProperties, getModelContext()) &&
+    getMissingAnnotationReferences(annotationNode.value, referencesOf(graph.value, uuid)).length === 0,
 );
 
 watch(() => route.path, closeModal);
@@ -69,28 +73,37 @@ function focusFirstInput(): void {
 }
 
 /**
- * Returns a copy of the annotation, ready to send: status set and pruned to the configured properties.
+ * Returns a copy of the graph, ready to send: the annotation marked as changed and pruned to the configured properties.
  *
- * @returns {Annotation} The annotation to save.
+ * @returns {EditGraph} The graph to save.
+ * @throws {Error} If the annotation is missing from the graph.
  */
-function prepareAnnotation(): Annotation {
-  const prepared: Annotation = cloneDeep(annotation.value);
+function prepareGraph(): EditGraph {
+  const prepared: EditGraph = cloneDeep(graph.value);
+  const found: EditNode | undefined = findNode(prepared, uuid);
 
-  prepared.meta.status = mode === "create" ? "created" : "modified";
+  if (!found) {
+    throw new Error(`Annotation ${uuid} not found in graph.`);
+  }
 
-  if (getAnnotationShape(prepared.node) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
+  const node: EditNode = cloneDeep(found);
+  const annotation: AnnotationNode = node as unknown as AnnotationNode;
+
+  if (getAnnotationShape(annotation) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
     pruneUnconfiguredProperties(
-      prepared.node.properties,
-      getAnnotationProperties(prepared.node).map((field) => field.attribute.name),
-      getAnnotationNodeProperties(prepared.node),
+      node.properties,
+      getAnnotationProperties(annotation).map((field) => field.attribute.name),
+      getAnnotationNodeProperties(annotation),
     );
   }
+
+  updateNode(prepared, node);
 
   return prepared;
 }
 
 /**
- * Saves the annotation, emits `saved` and closes the modal. Stays open on failure.
+ * Saves the graph, emits `saved` and closes the modal. Stays open on failure.
  *
  * @returns {Promise<void>} Resolves when the save is done.
  */
@@ -99,14 +112,13 @@ async function handleSubmit(): Promise<void> {
     return;
   }
 
-  const prepared: Annotation = prepareAnnotation();
-
   isLoading.value = true;
 
   try {
-    await api.updateCollectionAnnotation(collection, prepared);
+    const prepared: EditGraph = prepareGraph();
+    const result: WriteResponse = await api.saveGraph(prepared);
 
-    emit("saved", prepared);
+    emit("saved", prepared, result.deletedOrphans);
     closeModal();
   } catch (error: unknown) {
     addToastMessage({ severity: "error", summary: "Not saved", detail: (error as Error).message, life: 4000 });
@@ -121,15 +133,15 @@ async function handleSubmit(): Promise<void> {
     <div class="content px-1">
       <FormPropertiesSection
         ref="propertiesSection"
-        v-model="annotation.node.properties"
+        v-model="annotationNode.properties"
         :fields="propertyFields"
         mode="edit"
         :disabled="isLoading"
       />
       <AnnotationReferencesSection
         ref="referencesSection"
-        v-model="annotation.connectedNodes"
-        :annotation="annotation.node"
+        v-model="graph"
+        :annotation-uuid="uuid"
         mode="edit"
         :disabled="isLoading"
       />

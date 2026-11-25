@@ -16,7 +16,7 @@ import { createTextPositionSelector } from "../utils/helper/selector";
  * Provides factory functions for creating different types of annotations.
  */
 interface UseCreateAnnotationReturnType {
-  createCollectionAnnotation: (params: { collection: CollectionNode; subType?: string | number; type: string }) => Annotation;
+  createCollectionAnnotation: (params: { collection: CollectionNode; subType?: string | number; type: string }) => AnnotationNode;
   createTextAnnotation: (params: { selectedText: string; subType?: string | number; type: string }) => Annotation;
 }
 
@@ -36,8 +36,8 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
   /**
    * Creates an annotation object with the given parameters.
    *
-   * The annotation object contains the annotation node (with its properties created from the fields), no connected
-   * nodes yet and the status `created`.
+   * The annotation object contains the annotation node (with its properties created from the fields), no nodes or
+   * relations below it yet and the status `created`.
    *
    * @param {Object} params - The parameters object. Contains the properties of the shape, subType (optional) and type of the annotation.
    * @returns {Annotation} The new annotation.
@@ -51,10 +51,9 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
 
     const newAnnotation: Annotation = {
       node,
-      connectedNodes: [],
-      meta: {
-        status: "created",
-      },
+      status: "created",
+      nodes: [],
+      relations: [],
     };
 
     return newAnnotation;
@@ -99,23 +98,23 @@ export function useCreateAnnotation(scope: "Content" | "Collection"): UseCreateA
    * The subType is optional and will default to the first option if not provided.
    *
    * @param {Object} params - The parameters object. Contains the type, subType (optional) and the collection.
-   * @returns {Annotation} An object containing the properties, entities and additional texts of the annotation.
+   * @returns {AnnotationNode} The annotation node.
    */
   function createCollectionAnnotation(params: {
     type: string;
     subType?: string | number;
     collection: CollectionNode;
-  }): Annotation {
+  }): AnnotationNode {
     const { type, subType, collection } = params;
     const shape: ModelAnnotationShape | undefined = findCollectionAnnotationShape(collection, type);
     const fields: ModelAttribute[] = shape ? getShapeProperties(shape) : [];
 
-    const annotationObject: Annotation = createAnnotationObject({ type, subType, fields });
+    const { node } = createAnnotationObject({ type, subType, fields });
 
-    annotationObject.node.shapeRef = shape ? shapeRefOf(shape) : null;
-    annotationObject.node.classifierRef = shape ? familyRefOf(shape) : null;
+    node.shapeRef = shape ? shapeRefOf(shape) : null;
+    node.classifierRef = shape ? familyRefOf(shape) : null;
 
-    return annotationObject;
+    return node;
   }
 
   /**

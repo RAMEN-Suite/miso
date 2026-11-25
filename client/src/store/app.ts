@@ -6,7 +6,7 @@ import { ToastMessageOptions, ToastServiceMethods } from "primevue";
 import AppError from "../utils/errors/app.error";
 import { ParsedMisoConfig, parseMisoConfig } from "../schemas/misoConfig.schema";
 
-const { error: configError, initializeConfig } = useConfigStore();
+const { initializeConfig } = useConfigStore();
 
 // Data
 const api: ApiService = new ApiService();
@@ -108,10 +108,6 @@ export function useAppStore() {
     try {
       await checkDatabaseStatus();
       await fetchAndInitializeConfig();
-
-      if (configError.value) {
-        throw configError.value;
-      }
     } catch (e: unknown) {
       console.error("Error initializing the app:", e);
       error.value = e as AppError;

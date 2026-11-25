@@ -1,26 +1,21 @@
 import { int, QueryResult } from "neo4j-driver";
 import Neo4jDriver from "../database/neo4j.js";
-import ValidationError from "../errors/validation.error.js";
 import { orderDirection } from "../utils/cypher.js";
 import { valueToNativeType } from "../utils/helper.js";
 import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
-import { toNodeChanges } from "../utils/nodeUpdate.js";
+import { orphanedAnnotationsCypher } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
-import WriteValidationService from "./writeValidation.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
 import {
-  ElementGraph,
   ElementResponse,
   FilterSpec,
   FilterTarget,
   HierarchyScope,
-  NodeUpdateObject,
   PaginationResult,
   ModelAttribute,
   ModelContext,
 } from "../models/types.js";
-import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -143,16 +138,11 @@ export default class HierarchyService {
   public async listNodes(scope: HierarchyScope, options: HierarchyListOptions): Promise<PaginationResult<ElementResponse>> {
     const { filters, sort, order, limit, cursor, signature, properties, context } = options;
 
-    // `search` in the pagination payload is a legacy field the client does not read for hierarchy
-    // listings; the free-text rule (if any) is the `distinct` one
-    // TODO: Remove search legacy from here and all pagination data occurences
-    const search: string = JSON.stringify(filters.find((rule) => rule.target.kind === "distinct")?.conditions[0]?.value ?? "");
-
     // An empty uuid scope can only ever yield an empty page -> skip db query
     if (scope.kind === "uuids" && scope.uuids.length === 0) {
       return {
         data: { nodes: [], relations: [], diagnostics: [] },
-        pagination: { limit, order, search, totalRecords: 0, nextCursor: null },
+        pagination: { limit, order, totalRecords: 0, nextCursor: null },
       };
     }
 
@@ -203,7 +193,6 @@ export default class HierarchyService {
       ...(scope.kind === "descendants" && { ancestorUuid: scope.ancestorUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       ...filterParams,
-      baseLabels: BASE_NODE_LABELS,
       previewLength: int(SORT_KEY_MAX_LENGTH),
       limit: int(limit + 1),
       ...(cursor && {
@@ -254,36 +243,10 @@ export default class HierarchyService {
       pagination: {
         limit,
         order,
-        search,
         totalRecords,
         nextCursor,
       },
     };
-  }
-
-  /**
-   * Creates a new hierarchy node (Collection or Content) and returns it. Whether it is a Collection or a Content comes
-   * from the classifier of the node identified by `uuid` in the payload, so the same endpoint serves both types. The
-   * write is validated with the model in the same transaction.
-   *
-   * @param {string} uuid - UUID of the created node (not of its parent).
-   * @param {ElementGraph} payload - The created node, and its relation to the parent unless it is created at top level.
-   * @return {Promise<ElementResponse>} The created node as the only node, with the findings of the validation as
-   * diagnostics.
-   * @throws {ValidationError} If `uuid` is not a node of the payload.
-   * @throws {NotFoundError} If the node could not be created.
-   */
-  public async createNode(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
-    const context = await ConfigService.getModelContext();
-
-    if (!payload.nodes.some((node) => node.properties?.uuid === uuid)) {
-      throw new ValidationError(`Node with UUID ${uuid} not found in the payload.`);
-    }
-
-    const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
-
-    return { ...toElementResponse(context, [node]), diagnostics };
   }
 
   /**
@@ -310,42 +273,8 @@ export default class HierarchyService {
       }) YIELD node AS hierarchyNode
 
       WITH collect(DISTINCT hierarchyNode) AS hierarchyNodes
-
-      // Candidates: all annotations owned by the hierarchy nodes, including sub-annotations
-      CALL (hierarchyNodes) {
-        UNWIND hierarchyNodes AS owner
-
-        CALL apoc.path.subgraphNodes(owner, {
-          relationshipFilter: 'HAS_ANNOTATION>',
-          labelFilter: '+Annotation',
-          minLevel: 1,
-          maxLevel: -1
-        }) YIELD node
-
-        RETURN collect(DISTINCT node) AS candidates
-      }
-
-      // Shared roots: candidates that also have an owner which is not marked as deleted
-      WITH hierarchyNodes, candidates, hierarchyNodes + candidates AS deletionSet
-      WITH hierarchyNodes, candidates, [a IN candidates WHERE EXISTS {
-        MATCH (owner)-[:HAS_ANNOTATION]->(a)
-        WHERE NOT owner IN deletionSet
-      }] AS sharedRoots
-
-      // Shared roots and everything below them are kept
-      CALL (sharedRoots) {
-        UNWIND sharedRoots AS sharedRoot
-
-        CALL apoc.path.subgraphNodes(sharedRoot, {
-          relationshipFilter: 'HAS_ANNOTATION>',
-          labelFilter: '+Annotation',
-          maxLevel: -1
-        }) YIELD node
-
-        RETURN collect(DISTINCT node) AS kept
-      }
-
-      WITH hierarchyNodes, [a IN candidates WHERE NOT a IN kept] AS annotations, [n IN hierarchyNodes | n.uuid] AS deleted
+      ${orphanedAnnotationsCypher("hierarchyNodes", "annotations")}
+      WITH hierarchyNodes, annotations, [n IN hierarchyNodes | n.uuid] AS deleted
 
       FOREACH (annotation IN annotations | DETACH DELETE annotation)
       FOREACH (node IN hierarchyNodes | DETACH DELETE node)

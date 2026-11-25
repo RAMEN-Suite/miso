@@ -3,7 +3,7 @@ import { computed, ComputedRef, ref, shallowRef, watch } from "vue";
 import { useDebounceFn } from "@vueuse/core";
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
-import { NodeStatusObject, AnnotationNode, ModelAnnotationShape } from "../models/types";
+import { Annotation, ModelAnnotationShape } from "../models/types";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -13,7 +13,7 @@ import { collectInlineAnnotations, getAnnotationRevision } from "../editors/text
 export interface TreeNode {
   annotationCount?: number;
   children?: TreeNode[];
-  data?: NodeStatusObject;
+  data?: Annotation;
   /** Annotation shape of the annotation type, only set on nodes of type `type` */
   shape?: ModelAnnotationShape;
   key: string;
@@ -27,7 +27,7 @@ const { tiptap } = useTiptapStore();
 /** Delay in ms before the list is rebuilt after a change in the editor. */
 const UPDATE_DELAY: number = 300;
 
-const displayedAnnotations = shallowRef<NodeStatusObject<AnnotationNode>[]>([]);
+const displayedAnnotations = shallowRef<Annotation[]>([]);
 
 const expandedKeys = ref<Record<string, boolean>>({});
 
@@ -35,9 +35,7 @@ const expandedKeys = ref<Record<string, boolean>>({});
 const knownCategoryKeys = new Set<string>();
 
 function updateDisplayedAnnotations(): void {
-  const current: NodeStatusObject<AnnotationNode>[] = tiptap.value
-    ? [...collectInlineAnnotations(tiptap.value.state).values()]
-    : [];
+  const current: Annotation[] = tiptap.value ? [...collectInlineAnnotations(tiptap.value.state).values()] : [];
 
   const hasChanged: boolean =
     current.length !== displayedAnnotations.value.length || current.some((a, i) => a !== displayedAnnotations.value[i]);
@@ -75,11 +73,9 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
         children: [] as TreeNode[],
       } satisfies TreeNode;
 
-      const annos: NodeStatusObject<AnnotationNode>[] = displayedAnnotations.value.filter(
-        (a) => a.node.properties.type === annoType.type,
-      );
+      const annos: Annotation[] = displayedAnnotations.value.filter((a) => a.node.properties.type === annoType.type);
 
-      annos.forEach((anno: NodeStatusObject<AnnotationNode>, k: number) => {
+      annos.forEach((anno: Annotation, k: number) => {
         const newAnnotation: TreeNode = {
           key: i.toString() + "-" + j.toString() + "-" + k.toString(),
           label: anno.node.properties.text,
@@ -121,11 +117,11 @@ watch(
 /**
  * Highlights the annotation in the editor while its list entry is hovered or focused.
  *
- * @param {NodeStatusObject<AnnotationNode>} annotation - The annotation of the list entry.
+ * @param {Annotation} annotation - The annotation of the list entry.
  * @param {"on" | "off"} direction - Whether to add or remove the highlight.
  * @returns {void} This function does not return any value.
  */
-function toggleEditorHighlight(annotation: NodeStatusObject<AnnotationNode>, direction: "on" | "off"): void {
+function toggleEditorHighlight(annotation: Annotation, direction: "on" | "off"): void {
   const renderType: "range" | "zeroPoint" = isZeroPoint(annotation.node) ? "zeroPoint" : "range";
 
   tiptap.value?.commands.toggleAnnotationHighlight(direction, annotation.node.properties.uuid, { renderType });

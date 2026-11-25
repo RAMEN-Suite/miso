@@ -1,16 +1,16 @@
 import { ref, shallowRef, watch } from "vue";
-import { NodeDto, Annotation } from "../models/types";
+import { Annotation } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node, Schema } from "@tiptap/pm/model";
 import { cloneDeep } from "../utils/helper/helper";
 import { useFilterStore } from "./filter";
 import { useEventListener } from "@vueuse/core";
-import { history } from "prosemirror-history";
 import { type Extensions, getSchema } from "@tiptap/core";
 import { useEditorSettingsStore } from "./editorSettings";
 import { Slice } from "@tiptap/pm/model";
 import { EditorView } from "@tiptap/pm/view";
+import { history } from "prosemirror-history";
 import {
   type BlockClassificationRange,
   type ExtensionOptions,
@@ -105,7 +105,16 @@ function hasUnsavedChanges(): boolean {
   }
 
   // Compare annotations status (modified -> something has been changed, not need to deep compare)
-  if (annotations.values().some((a) => a.meta.status !== "unchanged")) {
+  if (
+    annotations
+      .values()
+      .some(
+        (a) =>
+          a.status !== "unchanged" ||
+          a.nodes.some((node) => node.status !== "unchanged") ||
+          a.relations.some((relation) => relation.status !== "unchanged"),
+      )
+  ) {
     console.log("Some annotations were modified");
     return true;
   }
@@ -116,14 +125,14 @@ function hasUnsavedChanges(): boolean {
 /**
  * Parses the given standoff document and creates the tiptap editor from it.
  *
- * @param {{ text: string; annotations: NodeDto[] }} standoffObject - The text and its annotations as fetched from the API.
+ * @param {{ text: string; annotations: Annotation[] }} standoffObject - The text and its annotations as fetched from the API.
  * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut">} editorHandlers -
  *   What happens on a click on a line break's `¬`, on the line break shortcuts and on the configured annotation
  *   shortcuts. Passed in since they open modals, which needs a component's setup.
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(
-  standoffObject: { text: string; annotations: NodeDto[] },
+  standoffObject: { text: string; annotations: Annotation[] },
   editorHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut"> = {},
 ): StandoffParseIssue[] {
   const extensions: Extensions = createExtensions({
@@ -259,36 +268,38 @@ function resetToInitialState(): void {
 
   initializeDecorationView(cloneDeep(initialAnnotations.value));
 
-  resetHistory();
+  resetHistory(tiptap.value);
 }
 
+/**
+ * Resets the undo history of the editor.
+ *
+ * Done by unregistering and registering the history plugin. The easiest option, since recreating
+ * the editor state is too expensive and accessing the history state directly is neither type-safe nor reliable.
+ *
+ * @param {TiptapEditor} editor - The editor.
+ * @returns {void} This function does not return any value.
+ */
+function resetHistory(editor: TiptapEditor): void {
+  editor.unregisterPlugin("history");
+  editor.registerPlugin(history());
+}
+
+/**
+ * Makes the editor's current document the last saved one and resets the undo history, so undo can't bring back the
+ * statuses from before the save.
+ *
+ * @returns {void} This function does not return any value.
+ */
 function setNewInitialDocState() {
   if (!tiptap.value) {
     return;
   }
 
-  // Annotations and structural annotations are already reset in the editor's cleanup function
   initialDoc = tiptap.value.getJSON();
   initialPlainText = tiptap.value.state.doc.textContent;
 
-  // Currently important because undo could silently revert status attributes of connected nodes e.g.
-  // which would invalidate the doc state vs db state comparison. Not very user-friendly, might be updated in the future.
-  resetHistory();
-}
-
-/**
- * Reset editor history by unregistering and registering the history plugin. This was the easiest option since
- * recreating editor state/instance is too expensive and directly accessing the history state is neither type-safe
- * nor reliable. Might be updated in the future.
- *
- * Called when the editor is reset to initial state and after a successful save, which makes the saved
- * state the new initial state.
- *
- * @returns {void} This function does not return any value.
- */
-function resetHistory(): void {
-  tiptap.value?.unregisterPlugin("history");
-  tiptap.value?.registerPlugin(history());
+  resetHistory(tiptap.value);
 }
 
 function destroyTiptap(): void {

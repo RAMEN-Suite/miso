@@ -1,36 +1,25 @@
 import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
+import type { RelationType } from "../config/ramen";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
 import { IText } from "./IText";
 
-/** A status object for nodes in the frontend and for API requests */
-export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeStatusObject<T>[];
-  meta: {
-    status: NodeStatus;
-    [key: string]: unknown;
-  };
-}
-
 /**
- * A status field for nodes in the frontend and for API requests. Is accessed during editing
- * (to display the current edit state) and before saving to tell the backend how to process the data.
+ * A text annotation in the editor: the annotation node with its status, and every node
+ * reached via its outgoing relations (sub-annotations, referenced nodes) with these relations, each with its own status.
  */
-export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
-
-/** A helper type for a {@linkcode NodeStatusObject} status object. Used for Annotations in the frontend an API requests. */
-export type Annotation = NodeStatusObject<AnnotationNode>;
+export interface Annotation {
+  node: AnnotationNode;
+  status: ElementNodeStatus;
+  /** The nodes below the annotation, without the annotation itself */
+  nodes: EditNode[];
+  /** The relations from the annotation and from the nodes below it */
+  relations: EditRelation[];
+}
 
 export type AnnotationNode = Node<IAnnotation>;
-
-/** A node object for retrieving data */
-export interface NodeDto<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeDto[];
-}
 
 // Types of the settings of model elements (entries of `elements`), inferred from their schemas
 export type {
@@ -104,10 +93,19 @@ export interface NodeTypeOption {
  */
 export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
 
+/** The status of a node: what a write does with it, or `unchanged`. Unlinking is a status of the relation. */
+export type ElementNodeStatus = "created" | "modified" | "deleted" | "unchanged";
+
+/** The status of a relation: what a write does with it, or `unchanged` */
+export type ElementRelationStatus = "added" | "removed" | "unchanged";
+
+/** The status shown on a node: its own, or that of the relation leading to it */
+export type ElementStatus = ElementNodeStatus | ElementRelationStatus;
+
 /** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
   /** What a write does with the node. Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementNodeStatus;
   /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
   classifierRef: string | null;
   /** Annotations only: qualified ref of the annotation shape */
@@ -120,9 +118,14 @@ export interface ElementNode {
 /** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
 export interface ElementRelation {
   /** What a write does with the relation (`added`/`removed`). Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementRelationStatus;
   /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
   relationRef: string | null;
+  /**
+   * The relationship type as stored. Writes take it from `relationRef` and use it only for removing a relation without
+   * one.
+   */
+  type: RelationType;
   /** uuid of the start node */
   from: string;
   /** uuid of the end node */
@@ -138,6 +141,31 @@ export interface ElementGraph {
 /** A read in the element format: the stored nodes and relations, and the problems of resolving them to the model */
 export interface ElementResponse extends ElementGraph {
   diagnostics: ElementDiagnostic[];
+}
+
+/** The response of a write: the findings of the validation and the annotations deleted as orphans */
+export interface WriteResponse {
+  /** The findings of the validation, for the touched nodes */
+  diagnostics: ElementDiagnostic[];
+  /** uuids of the annotations the write deleted because they had no carrier left */
+  deletedOrphans: string[];
+}
+
+/** A node of an {@linkcode EditGraph}, always with a status and its labels */
+export interface EditNode extends ElementNode {
+  status: ElementNodeStatus;
+  nodeLabels: string[];
+}
+
+/** A relation of an {@linkcode EditGraph}, always with a status */
+export interface EditRelation extends ElementRelation {
+  status: ElementRelationStatus;
+}
+
+/** The editing state of a subgraph: every node once and the relations between them, each with a status */
+export interface EditGraph {
+  nodes: EditNode[];
+  relations: EditRelation[];
 }
 
 /** A validation finding, mapped back to the element it belongs to */
@@ -171,7 +199,6 @@ export type CollectionNode = Node<ICollection>;
 
 export interface NodeSearchParams {
   searchInput?: string;
-  nodeLabels?: string[];
   offset?: number;
   rowCount?: number;
   sortDirection?: "asc" | "desc";
@@ -180,15 +207,15 @@ export interface NodeSearchParams {
 export type EntityNode = Node<IEntity>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
-export type HierarchyNode = CollectionNode | TextNode;
+export type HierarchyNode = CollectionNode | ContentNode;
 
 /**
  * An ordered path of hierarchy nodes, root first, focused node last. */
-export type HierarchyPath = NodeDto<HierarchyNode>[];
+export type HierarchyPath = HierarchyNode[];
 
 /** A single item in a hierarchy listing (column / directory / tree). */
 export interface HierarchyEntry {
-  data: NodeDto<HierarchyNode>;
+  node: HierarchyNode;
   meta: {
     /**
      * Derived from the node type via `getBaseNodeLabel`. Cached here because it is read
@@ -205,12 +232,12 @@ export interface HierarchyEntry {
 export interface MultiSelection {
   /** The level index (column) the selection lives in. */
   depth: number;
-  /** The selected items, in the order they were added. Whole DTOs, since an item might not be in the column's loaded entries. */
-  items: NodeDto<HierarchyNode>[];
+  /** The selected items, in the order they were added. Whole nodes, since an item might not be in the column's loaded entries. */
+  items: HierarchyNode[];
   /** Where a range selection starts. */
-  anchor: NodeDto<HierarchyNode>;
+  anchor: HierarchyNode;
   /** The selection at the time the anchor was set. A range is always added to this base, not to the previous range. */
-  baseItems: NodeDto<HierarchyNode>[];
+  baseItems: HierarchyNode[];
 }
 
 /** The modifier keys held while selecting an item. */
@@ -224,7 +251,7 @@ export interface SelectionModifiers {
 export interface Level {
   entries: HierarchyEntry[];
   /** The item selected in this level — the one whose children the next level shows. */
-  activeItem: NodeDto<HierarchyNode> | null;
+  activeItem: HierarchyNode | null;
   parentUuid: string | null;
   query: LevelQuery;
   state: LevelState;
@@ -292,18 +319,19 @@ export type HierarchyScope =
 /** The scopes a {@linkcode SmartView} can search in. The other kinds are bound to navigation or tags. */
 export type SmartViewScope = Extract<HierarchyScope, { kind: "all" | "descendants" }>;
 
-/** Focus-pane data for a Collection: the node itself plus its (editable) annotations. */
+/** Focus-pane data for a Collection: the node itself plus the graph of its (editable) annotations. */
 export interface CollectionFocus {
   kind: "collection";
-  collection: NodeStatusObject<CollectionNode>;
-  annotations: Annotation[];
+  collection: CollectionNode;
+  /** The Collection, its annotations and the nodes they refer to */
+  graph: EditGraph;
 }
 
 /** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */
 export interface ContentFocus {
   kind: "content";
-  content: NodeStatusObject<TextNode>;
-  annotations: NodeDto<AnnotationNode>[];
+  content: ContentNode;
+  annotations: Annotation[];
 }
 
 export type FilterComparator =
@@ -384,7 +412,7 @@ export interface HierarchySort {
 /** Filter state for a hierarchy listing: the rules are ANDed with each other. */
 export type HierarchyFilters = FilterSpec;
 
-export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
+export interface Node<T = AnnotationNode | CollectionNode | EntityNode | ContentNode> {
   properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
@@ -397,21 +425,15 @@ export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNod
   shapeRef?: string | null;
 }
 
-export type NodeAncestry = NodeDto<CollectionNode>[];
+export type NodeAncestry = CollectionNode[];
 
 export interface PaginationData {
   limit: number;
   offset?: number | null;
   order: string;
-  search: string;
   totalRecords: number;
-  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
-  nextCursor?: CursorData | string | null;
-}
-
-export interface CursorData {
-  label: string;
-  uuid: string;
+  /** The opaque cursor of the next hierarchy page, `null` on the last one */
+  nextCursor?: string | null;
 }
 
 export interface PaginationResult<T> {
@@ -438,17 +460,7 @@ export interface SmartView {
   };
 }
 
-export type TextNode = Node<IText>;
-// TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
-
-/**
- * Type for updating text + annotations.
- */
-export interface TextUpdateDto {
-  text: NodeStatusObject<TextNode>;
-  annotations: Annotation[];
-}
 
 /**
  * A user-defined tag: a named set of hierarchy nodes, held in the browser. The label is free text

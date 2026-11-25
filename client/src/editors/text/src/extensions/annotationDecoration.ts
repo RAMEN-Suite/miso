@@ -102,7 +102,7 @@ export interface AnnotationDecorationSpec {
   _type: string;
   _uuid: string;
   /**
-   * The annotation itself (data, status and connected nodes). The decoration is its source of truth while it
+   * The annotation itself (data, status, nodes and relations). The decoration is its source of truth while it
    * is in the editor. Must be treated as immutable; changes replace the whole decoration.
    */
   _annotation: Annotation;

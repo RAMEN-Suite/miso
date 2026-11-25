@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { RAMEN_ELEMENT, RAMEN_MODEL, RamenModel, Relation } from "@ramen-suite/core";
-import type { ElementGraph, NodeStatusObject } from "../../../../src/models/types";
+import type { Annotation, EditGraph, EditNode, ElementGraph } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
-import { toWritePayload } from "../../../../src/utils/helper/writePayload";
+import { relationRefOf, toContentSaveGraph, toWritePayload } from "../../../../src/utils/helper/writePayload";
 
 /**
  * A model for the write payload: a Letter (Collection), a Text (Content), a Person (Entity) and the text annotation
@@ -53,99 +53,100 @@ function buildPayloadTestModel() {
 
 const { context, refs } = buildPayloadTestModel();
 
-// The trees below only carry the fields the conversion reads, hence the casts via `unknown`
+describe("relationRefOf", () => {
+  test("the relation between the classifiers", () => {
+    expect(relationRefOf(context, refs.family, "REFERS_TO", refs.person)).toBe(refs.refersToPerson);
+  });
+
+  test("a relation the model doesn't allow gets RAMEN's base relation", () => {
+    expect(relationRefOf(context, refs.text, "PART_OF", refs.letter)).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
+  });
+});
+
+describe("toContentSaveGraph", () => {
+  test("refs from the Content and the type, a carrier relation for created annotations, a shared node once", () => {
+    const content = { classifierRef: refs.text, nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } };
+    const person: EditNode = { status: "unchanged", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1" } };
+    // Annotations rebuilt by the editor carry no refs: they are resolved from the Content and their type
+    const created: Annotation = {
+      node: { nodeLabels: ["Annotation"], properties: { uuid: "a1", type: "persName" } } as unknown as Annotation["node"],
+      status: "created",
+      nodes: [{ ...person }],
+      relations: [{ status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" }],
+    };
+    const withEditedPerson: Annotation = {
+      node: { nodeLabels: ["Annotation"], properties: { uuid: "a2", type: "persName" } } as unknown as Annotation["node"],
+      status: "unchanged",
+      nodes: [{ ...person, status: "modified", properties: { uuid: "p1", label: "New" } }],
+      relations: [{ status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a2", to: "p1" }],
+    };
+
+    const graph: EditGraph = toContentSaveGraph(context, content, [created, withEditedPerson]);
+
+    expect(graph.nodes.map((node) => [node.properties.uuid, node.status, node.classifierRef, node.shapeRef])).toEqual([
+      ["t1", "modified", refs.text, undefined],
+      ["a1", "created", refs.family, refs.persName],
+      ["p1", "modified", refs.person, undefined],
+      ["a2", "unchanged", refs.family, refs.persName],
+    ]);
+    expect(graph.relations).toEqual([
+      { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+      { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
+      { status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a2", to: "p1" },
+    ]);
+  });
+});
 
 describe("toWritePayload", () => {
-  test("a text with a new annotation that refers to an existing person", () => {
-    const root: NodeStatusObject = {
-      node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
-      meta: { status: "modified" },
-      connectedNodes: [
+  test("only changed nodes and relations are sent, without the stored labels", () => {
+    const graph: EditGraph = {
+      nodes: [
+        { status: "unchanged", classifierRef: refs.text, nodeLabels: ["Content", "Text"], properties: { uuid: "t1" } },
         {
-          // Structural annotations rebuilt by the editor carry no refs: they are resolved from the carrier and type
-          node: {
-            nodeLabels: ["Annotation"],
-            properties: { uuid: "a1", type: "persName", selector: { type: "TextPositionSelector", start: 0, end: 3 }, text: "Abcd" },
-          },
-          meta: { status: "created" },
-          connectedNodes: [
-            {
-              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "Someone" } },
-              meta: { status: "added" },
-              connectedNodes: [],
-            },
-          ],
+          status: "created",
+          classifierRef: refs.family,
+          shapeRef: refs.persName,
+          nodeLabels: ["Annotation"],
+          properties: { uuid: "a1", type: "persName" },
         },
+        { status: "modified", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "New" } },
       ],
-    } as unknown as NodeStatusObject;
+      relations: [
+        { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
+        { status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a0", to: "p1" },
+      ],
+    };
 
-    const payload: ElementGraph = toWritePayload(context, root);
+    const payload: ElementGraph = toWritePayload(context, graph);
 
     expect(payload.nodes).toEqual([
-      expect.objectContaining({ status: "modified", classifierRef: refs.text, properties: expect.objectContaining({ uuid: "t1" }) }),
-      expect.objectContaining({ status: "created", classifierRef: refs.family, shapeRef: refs.persName }),
+      { status: "created", classifierRef: refs.family, shapeRef: refs.persName, properties: { uuid: "a1", type: "persName" } },
+      { status: "modified", classifierRef: refs.person, properties: { uuid: "p1", label: "New" } },
     ]);
     expect(payload.relations).toEqual([
-      { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
-      { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
+      { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+      { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
     ]);
   });
 
-  test("a removed child removes its relation, unless its parent is deleted", () => {
-    const root: NodeStatusObject = {
-      node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
-      meta: { status: "unchanged" },
-      connectedNodes: [
-        {
-          node: { nodeLabels: ["Annotation"], properties: { uuid: "a1", type: "persName" } },
-          meta: { status: "modified" },
-          connectedNodes: [
-            {
-              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p1" } },
-              meta: { status: "removed" },
-              connectedNodes: [],
-            },
-          ],
-        },
-        {
-          node: { nodeLabels: ["Annotation"], properties: { uuid: "a2", type: "persName" } },
-          meta: { status: "deleted" },
-          connectedNodes: [
-            {
-              node: { nodeLabels: ["Entity", "Person"], properties: { uuid: "p2" } },
-              meta: { status: "removed" },
-              connectedNodes: [],
-            },
-          ],
-        },
-      ],
-    } as unknown as NodeStatusObject;
+  test("a node whose classifier couldn't be resolved gets its RAMEN base node", () => {
+    const graph: EditGraph = {
+      nodes: [{ status: "modified", classifierRef: null, nodeLabels: ["Entity", "Unknown"], properties: { uuid: "e1" } }],
+      relations: [],
+    };
 
-    const payload: ElementGraph = toWritePayload(context, root);
-
-    expect(payload.nodes.map((node) => [node.status, node.properties.uuid])).toEqual([
-      ["modified", "a1"],
-      ["deleted", "a2"],
-    ]);
-    expect(payload.relations).toEqual([{ status: "removed", relationRef: refs.refersToPerson, from: "a1", to: "p1" }]);
+    expect(toWritePayload(context, graph).nodes[0].classifierRef).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
   });
 
-  test("a part the model doesn't allow gets RAMEN's base relation, PART_OF points from the child to the parent", () => {
-    const root: NodeStatusObject = {
-      node: { nodeLabels: ["Collection", "Letter"], properties: { uuid: "l1", label: "A letter" } },
-      meta: { status: "unchanged" },
-      connectedNodes: [
-        {
-          node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
-          meta: { status: "created" },
-          connectedNodes: [],
-        },
-      ],
-    } as unknown as NodeStatusObject;
+  test("a removed relation without a relation definition keeps its stored type", () => {
+    const graph: EditGraph = {
+      nodes: [],
+      relations: [{ status: "removed", relationRef: null, type: "REFERS_TO", from: "a1", to: "e1" }],
+    };
 
-    const [relation] = toWritePayload(context, root).relations;
-
-    expect(relation).toEqual(expect.objectContaining({ status: "added", from: "t1", to: "l1" }));
-    expect(relation.relationRef).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
+    expect(toWritePayload(context, graph).relations).toEqual([
+      { status: "removed", relationRef: null, type: "REFERS_TO", from: "a1", to: "e1" },
+    ]);
   });
 });

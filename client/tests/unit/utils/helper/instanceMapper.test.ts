@@ -72,7 +72,7 @@ function buildValidGraph(): { nodes: ElementNode[]; relations: ElementRelation[]
         },
       },
     ],
-    relations: [{ relationRef: refs.onText, from: T1, to: A1 }],
+    relations: [{ relationRef: refs.onText, type: "HAS_ANNOTATION", from: T1, to: A1 }],
   };
 }
 
@@ -221,11 +221,11 @@ describe("validateElements", () => {
 
 describe("relationInstanceId", () => {
   test("derives the id from the ends and the relation definition's id", () => {
-    expect(relationInstanceId({ relationRef: "M:rel1", from: L1, to: A1 })).toBe(`${L1}_rel1_${A1}`);
+    expect(relationInstanceId({ relationRef: "M:rel1", type: "HAS_ANNOTATION", from: L1, to: A1 })).toBe(`${L1}_rel1_${A1}`);
   });
 
   test("uses the instance ids of ends with legacy uuids", () => {
     // "a.b" hex-encoded
-    expect(relationInstanceId({ relationRef: "M:rel1", from: "a.b", to: A1 })).toBe(`miso-instance-id-612e62_rel1_${A1}`);
+    expect(relationInstanceId({ relationRef: "M:rel1", type: "HAS_ANNOTATION", from: "a.b", to: A1 })).toBe(`miso-instance-id-612e62_rel1_${A1}`);
   });
 });

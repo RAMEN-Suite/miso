@@ -5,13 +5,8 @@
  */
 
 export { useConfigStore } from "../../../store/config";
-export {
-  cloneDeep,
-  createNodeStatusObjectFromRawData,
-  pruneDeletedNodes,
-  pruneUnconfiguredProperties,
-  setNodeTreeStatus,
-} from "../../../utils/helper/helper";
+export { cloneDeep, pruneUnconfiguredProperties } from "../../../utils/helper/helper";
+export { applySaveResult, findNode } from "../../../utils/helper/editGraph";
 export { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
 export { createTextPositionSelector } from "../../../utils/helper/selector";
 
@@ -24,12 +19,13 @@ export type {
   AnnotationNode,
   AppearanceOverride,
   BuiltinStructuralType,
+  EditGraph,
+  EditNode,
+  EditRelation,
+  ElementNodeStatus,
   HighlightTextStyle,
   IconSpecInput,
   MarkerStyle,
   MathTextStyle,
-  NodeDto,
-  NodeStatus,
-  NodeStatusObject,
   TextAnnotationRepresentation,
 } from "../../../models/types";

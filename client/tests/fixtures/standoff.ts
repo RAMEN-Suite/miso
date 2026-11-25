@@ -35,7 +35,9 @@ function standoff(text: string, annotations: AnnotationSpec[]): ApiJson {
           },
           nodeLabels: ["Annotation"],
         },
-        connectedNodes: [],
+        status: "unchanged" as const,
+        nodes: [],
+        relations: [],
       };
     }),
   };

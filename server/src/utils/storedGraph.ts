@@ -71,14 +71,15 @@ export function relationKey(relation: StoredGraphRelation): string {
 
 /**
  * The nodes a write touches: created and updated nodes, both ends of removed and attached relationships, and the
- * former neighbours of deleted nodes (they lose a relationship), except deleted nodes.
+ * former neighbours of deleted nodes and deleted orphans (they lose a relationship), except deleted nodes and orphans.
  *
  * @param {NodeUpdateObject} changes - The changes of the write.
- * @param {string[]} neighboursOfDeleted - uuids of the nodes the deleted nodes were connected to.
+ * @param {string[]} neighboursOfDeleted - uuids of the nodes the deleted nodes and orphans were connected to.
+ * @param {string[]} deletedOrphans - uuids of the annotations the write deleted because they had no carrier left.
  * @returns {Set<string>} The uuids.
  */
-export function touchedUuids(changes: NodeUpdateObject, neighboursOfDeleted: string[]): Set<string> {
-  const deletedUuids = new Set<string>(changes.delete.map((node) => uuidOf(node.properties)));
+export function touchedUuids(changes: NodeUpdateObject, neighboursOfDeleted: string[], deletedOrphans: string[]): Set<string> {
+  const deletedUuids = new Set<string>([...changes.delete.map((node) => uuidOf(node.properties)), ...deletedOrphans]);
   const uuids = new Set<string>([
     ...[...changes.create, ...changes.update].map((node) => uuidOf(node.properties)),
     ...[...changes.remove, ...changes.attach].flatMap((edge) => [edge.startUuid, edge.endUuid]),
@@ -231,13 +232,13 @@ export function toElementGraph(
 
     // An end that couldn't be resolved already has its finding
     if (!fromRef || !toRef) {
-      relations.push({ relationRef: null, from: relation.from, to: relation.to });
+      relations.push({ relationRef: null, type: relation.type, from: relation.from, to: relation.to });
       continue;
     }
 
     const resolution: RefResolution = resolveRelationRef(context, fromRef, relation.type, toRef);
 
-    relations.push({ relationRef: resolution.ref, from: relation.from, to: relation.to });
+    relations.push({ relationRef: resolution.ref, type: relation.type, from: relation.from, to: relation.to });
 
     if (!resolution.ref) {
       findings.push({

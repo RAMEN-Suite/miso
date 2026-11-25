@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, inject, watch, computed, toValue, Ref } from "vue";
+import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption, TextNode } from "../models/types";
+import { CollectionNode, ContentNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption } from "../models/types";
 import { useAppStore } from "../store/app";
-import { createTextNode } from "../config/ramen";
+import { useConfigStore } from "../store/config";
+import { BASE_NODE_REF, createContentNode } from "../config/ramen";
+import { addExistingNode, addRelation, createNode, toGraphNode } from "../utils/helper/editGraph";
+import { relationRefOf } from "../utils/helper/writePayload";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -16,18 +19,19 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", content: NodeDto<HierarchyNode>): void;
+  (e: "success", content: HierarchyNode): void;
 }>();
 
 const route = useRoute();
 
 const { api, addToastMessage } = useAppStore();
+const { getModelContext } = useConfigStore();
 
 const parentCollection: CollectionNode | null = dialogRef.value.data.parentCollection;
 const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newContentNode = ref<TextNode>(createTextNode(nodeType));
+const newContentNode = ref<ContentNode>(createContentNode(nodeType));
 
 const inputIsValid = computed<boolean>(() => newContentNode.value.properties.text.trim().length > 0);
 
@@ -38,29 +42,35 @@ function closeModal() {
 }
 
 /**
- * Wraps the new Content node in an ownership tree for the create endpoint: the parent as root with
- * the Content attached, or the Content alone when created at top level.
+ * The graph for the create endpoint: the new Content, and its `PART_OF` relation to the parent unless it is created at
+ * top level.
  *
- * @param {TextNode} contentNode - The new content node.
+ * @param {ContentNode} contentNode - The new content node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
- * @returns {NodeStatusObject} The ownership tree to persist.
+ * @returns {EditGraph} The graph to save.
  */
-function wrapDataForCreation(contentNode: TextNode, parent: CollectionNode | null): NodeStatusObject {
-  const nodeStatusObject: NodeStatusObject<TextNode> = {
-    node: contentNode,
-    connectedNodes: [],
-    meta: { status: "created" },
-  };
+function toCreationGraph(contentNode: ContentNode, parent: CollectionNode | null): EditGraph {
+  const context: ModelContext = getModelContext();
+  const graph: EditGraph = { nodes: [], relations: [] };
 
-  if (!parent) {
-    return nodeStatusObject;
+  createNode(graph, toGraphNode(context, contentNode));
+
+  if (parent) {
+    addExistingNode(graph, toGraphNode(context, parent));
+    addRelation(graph, {
+      from: contentNode.properties.uuid,
+      relationRef: relationRefOf(
+        context,
+        contentNode.classifierRef ?? BASE_NODE_REF.Content,
+        "PART_OF",
+        parent.classifierRef ?? BASE_NODE_REF.Collection,
+      ),
+      type: "PART_OF",
+      to: parent.properties.uuid,
+    });
   }
 
-  return {
-    node: parent,
-    connectedNodes: [nodeStatusObject],
-    meta: { status: "unchanged" },
-  };
+  return graph;
 }
 
 async function handleSubmit() {
@@ -70,7 +80,7 @@ async function handleSubmit() {
 
   const text: string = newContentNode.value.properties.text.replace(/(\r\n|\n|\r)/g, " ");
 
-  const contentNodeToAdd: TextNode = {
+  const contentNodeToAdd: ContentNode = {
     ...newContentNode.value,
     properties: { ...newContentNode.value.properties, text },
   };
@@ -78,13 +88,11 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(contentNodeToAdd, parentCollection);
+    await api.saveGraph(toCreationGraph(contentNodeToAdd, parentCollection));
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(contentNodeToAdd.properties.uuid, updateObj);
+    emit("success", contentNodeToAdd);
 
-    emit("success", toValue(result));
-
-    dialogRef?.value.close({ content: result.node });
+    dialogRef?.value.close({ content: contentNodeToAdd });
   } catch {
     addToastMessage({
       severity: "error",

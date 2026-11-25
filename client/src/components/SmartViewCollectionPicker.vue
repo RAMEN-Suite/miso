@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import { nextTick, ref, useTemplateRef, watch } from "vue";
 import { useConfigStore } from "../store/config";
-import { CollectionNode, EntityNode, TextNode } from "../models/types";
+import { CollectionNode, ContentNode, EntityNode } from "../models/types";
 import { resolveNodeIcon } from "../config/icons";
+import { BASE_NODE_REF } from "../config/ramen";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import RAMENNodeIcon from "./RAMENNodeIcon.vue";
 
 const collectionInScope = defineModel<CollectionNode | null>({ required: true });
 
-const { getAvailableCollectionLabels } = useConfigStore();
+const { getNodeTypeOptions } = useConfigStore();
 
-const collectionLabels: string[] = getAvailableCollectionLabels().toSorted();
+/** Classifier refs of the Collection types, sorted by name */
+const collectionRefs: string[] = getNodeTypeOptions(BASE_NODE_REF.Collection).map((option) => option.classifierRef);
 
-/** The kind of Collection the searchbar looks for, selectable in front of it. */
-const searchedLabel = ref<string>(collectionLabels[0] ?? "");
+/** Classifier ref of the kind of Collection the searchbar looks for, selectable in front of it. */
+const searchedRef = ref<string>(collectionRefs[0] ?? BASE_NODE_REF.Collection);
 
 const searchbar = useTemplateRef<InstanceType<typeof NodeSearchbar>>("searchbar");
 
-watch(searchedLabel, () => focus("input"));
+watch(searchedRef, () => focus("input"));
 
 defineExpose({ focus });
 
@@ -46,7 +48,7 @@ async function handleRemove(): Promise<void> {
   await focus();
 }
 
-function handleSelect(item: CollectionNode | TextNode | EntityNode): void {
+function handleSelect(item: CollectionNode | ContentNode | EntityNode): void {
   collectionInScope.value = item as CollectionNode;
 }
 </script>
@@ -73,10 +75,9 @@ function handleSelect(item: CollectionNode | TextNode | EntityNode): void {
   <NodeSearchbar
     v-else
     ref="searchbar"
-    :key="searchedLabel"
-    v-model:additional-node-label="searchedLabel"
-    base-node-label="Collection"
-    :additional-node-label-options="collectionLabels"
+    :key="searchedRef"
+    v-model:classifier-ref="searchedRef"
+    :classifier-options="collectionRefs"
     variant="outlined"
     size="small"
     @item-selected="handleSelect"

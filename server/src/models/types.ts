@@ -38,7 +38,7 @@ export type RefResolution = { ref: string; problem?: undefined } | { ref: null; 
 /** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
   /** What a write does with the node. Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementNodeStatus;
   /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
   classifierRef: string | null;
   /** Annotations only: qualified ref of the annotation shape */
@@ -51,9 +51,14 @@ export interface ElementNode {
 /** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
 export interface ElementRelation {
   /** What a write does with the relation (`added`/`removed`). Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementRelationStatus;
   /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
   relationRef: string | null;
+  /**
+   * The relationship type as stored (`HAS_ANNOTATION`, `REFERS_TO`, `PART_OF`). Writes take it from `relationRef` and use
+   * it only for removing a relation without one.
+   */
+  type: string;
   /** uuid of the start node */
   from: string;
   /** uuid of the end node */
@@ -70,6 +75,20 @@ export interface ElementGraph {
 export interface ElementResponse extends ElementGraph {
   diagnostics: ElementDiagnostic[];
 }
+
+/** The response of a write: the findings of the validation and the annotations deleted as orphans */
+export interface WriteResponse {
+  /** The findings of the validation, for the touched nodes */
+  diagnostics: ElementDiagnostic[];
+  /** uuids of the annotations the write deleted because they had no carrier left */
+  deletedOrphans: string[];
+}
+
+/** The status of a node: what a write does with it, or `unchanged`. Unlinking is a status of the relation. */
+export type ElementNodeStatus = "created" | "modified" | "deleted" | "unchanged";
+
+/** The status of a relation: what a write does with it, or `unchanged` */
+export type ElementRelationStatus = "added" | "removed" | "unchanged";
 
 /** A validation finding, mapped back to the element it belongs to */
 export interface ElementDiagnostic {
@@ -92,12 +111,6 @@ export type ConfigBlock = Record<string, unknown> | undefined;
 export type ContentMedium = "text" | "image";
 
 export type AnnotationNode = Node<IAnnotation>;
-
-/**
- * A status field for nodes in the frontend and for API requests. Is accessed during editing
- * (to display the current edit state) and before saving to tell the backend how to process the data.
- */
-export type NodeStatus = "added" | "removed" | "created" | "deleted" | "modified" | "unchanged";
 
 /** Base node labels in RAMEN */
 export type BaseNodeLabel = "Annotation" | "Collection" | "Entity" | "Content";
@@ -206,7 +219,7 @@ export interface FaviconResponse {
   data: Buffer;
 }
 
-export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
+export interface Node<T = AnnotationNode | CollectionNode | EntityNode | ContentNode> {
   properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
@@ -220,37 +233,24 @@ export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNod
   shapeRef?: string | null;
 }
 
+/** A node search, see `SearchService` */
 export interface NodeSearchParams {
-  nodeLabels?: string[];
-  order?: "asc" | "desc";
-  offset?: number;
-  limit?: number;
-  search?: string;
-}
-
-/** A status object for incoming API requests that should update a subgraph */
-export interface NodeStatusObject<T extends Node<BaseNodeProperties> = AnnotationNode | EntityNode | CollectionNode | TextNode> {
-  node: T;
-  connectedNodes: NodeStatusObject<T>[];
-  meta: {
-    status: NodeStatus;
-    [key: string]: unknown;
-  };
+  /** Qualified ref of the node type to search, refinements included */
+  classifierRef: string;
+  order: string;
+  offset: number;
+  limit: number;
+  /** The text the node's label (Contents: text) must contain, case-insensitive */
+  search: string;
 }
 
 export interface PaginationData {
   limit: number;
   offset?: number | null;
   order: string;
-  search: string;
   totalRecords: number;
-  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
-  nextCursor?: CursorData | string | null;
-}
-
-export interface CursorData {
-  label: string;
-  uuid: string;
+  /** The opaque cursor of the next hierarchy page, `null` on the last one */
+  nextCursor?: string | null;
 }
 
 export interface PaginationResult<T> {
@@ -258,8 +258,6 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export type TextNode = Node<IText>;
-// TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
 /** The changes of a write, grouped by operation, as the write query takes them (see `buildSubgraphUpdateQuery`) */

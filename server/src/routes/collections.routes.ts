@@ -1,7 +1,7 @@
 import express, { Request, Response, Router, NextFunction } from "express";
 import CollectionService from "../services/collection.service.js";
-import { ElementGraph, ElementResponse } from "../models/types.js";
-import { parseUuidFrom, parseWritePayload } from "../utils/helper.js";
+import { ElementResponse } from "../models/types.js";
+import { parseUuidFrom } from "../utils/helper.js";
 import ValidationError from "../errors/validation.error.js";
 
 const router: Router = express.Router({ mergeParams: true });
@@ -15,18 +15,6 @@ router.get("/:uuid", async (req: Request, res: Response, next: NextFunction) => 
     const collection: ElementResponse = await collectionService.getCollection(uuid);
 
     res.status(200).json(collection);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.post("/:uuid", async (req: Request, res: Response, next: NextFunction) => {
-  const uuid: string = parseUuidFrom(req.params, ["uuid"]);
-  try {
-    const data: ElementGraph = parseWritePayload(req.body);
-    const updatedCollection: ElementResponse = await collectionService.updateCollection(uuid, data);
-
-    res.status(200).json(updatedCollection);
   } catch (error: unknown) {
     next(error);
   }

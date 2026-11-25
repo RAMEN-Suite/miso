@@ -1,104 +1,95 @@
 import { describe, expect, test } from "vitest";
-import type { ElementGraph, ElementNode, NodeDto } from "../../../../src/models/types";
-import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../../../../src/utils/helper/readPayload";
+import type { Annotation, EditGraph, ElementGraph, ElementNode } from "../../../../src/models/types";
+import {
+  toAncestryPaths,
+  toAnnotations,
+  toEditGraph,
+  toNode,
+  toNodes,
+} from "../../../../src/utils/helper/readPayload";
 
 /** An element with the given uuid and labels */
 function element(uuid: string, nodeLabels: string[], extra: Partial<ElementNode> = {}): ElementNode {
   return { classifierRef: `M:${nodeLabels.at(-1)}`, nodeLabels, properties: { uuid }, ...extra };
 }
 
-/** The uuids of a tree, nested like the tree */
-type UuidTree = [string, UuidTree[]];
-
-function uuidsOf(tree: NodeDto): UuidTree {
-  return [tree.node.properties.uuid, tree.connectedNodes.map(uuidsOf)];
-}
-
-describe("toNodeDtoTrees", () => {
-  test("nested annotations, referenced nodes, and a person shared by two annotations", () => {
+describe("toEditGraph", () => {
+  test("every node once, everything unchanged, values copied", () => {
     const elements: ElementGraph = {
-      nodes: [
-        element("a1", ["Annotation"], { shapeRef: "M:place" }),
-        element("a2", ["Annotation"], { shapeRef: "M:commentary" }),
-        element("a3", ["Annotation"], { shapeRef: "M:persName" }),
-        element("e1", ["Entity", "Place"]),
-        element("p1", ["Entity", "Person"]),
-        element("t2", ["Content", "Text"]),
-      ],
-      relations: [
-        { relationRef: "M:onText", from: "t1", to: "a1" },
-        { relationRef: "M:onText", from: "t1", to: "a3" },
-        { relationRef: "M:refersToPlace", from: "a1", to: "e1" },
-        { relationRef: "M:refersToPerson", from: "a1", to: "p1" },
-        { relationRef: "M:refersToPerson", from: "a3", to: "p1" },
-        { relationRef: "M:refersToText", from: "a2", to: "t2" },
-        { relationRef: "M:onAnnotation", from: "a1", to: "a2" },
-      ],
+      nodes: [element("a1", ["Annotation"]), element("p1", ["Entity", "Person"]), element("p1", ["Entity", "Person"])],
+      relations: [{ relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1" }],
     };
 
-    const trees: NodeDto[] = toNodeDtoTrees(elements, "t1");
+    const graph: EditGraph = toEditGraph(elements);
 
-    expect(trees.map(uuidsOf)).toEqual([
-      [
-        "a1",
-        [
-          ["e1", []],
-          ["p1", []],
-          ["a2", [["t2", []]]],
-        ],
-      ],
-      ["a3", [["p1", []]]],
+    expect(graph.nodes.map((node) => [node.properties.uuid, node.status])).toEqual([
+      ["a1", "unchanged"],
+      ["p1", "unchanged"],
     ]);
-    expect(trees[0].node).toEqual(
-      expect.objectContaining({ classifierRef: "M:Annotation", shapeRef: "M:place", nodeLabels: ["Annotation"] }),
-    );
-  });
+    expect(graph.relations).toEqual([{ relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1", status: "unchanged" }]);
 
-  test("a shared node is copied, so editing one copy leaves the other unchanged", () => {
-    const elements: ElementGraph = {
-      nodes: [element("a1", ["Annotation"]), element("a2", ["Annotation"]), element("p1", ["Entity", "Person"])],
-      relations: [
-        { relationRef: "M:onText", from: "t1", to: "a1" },
-        { relationRef: "M:onText", from: "t1", to: "a2" },
-        { relationRef: "M:refersToPerson", from: "a1", to: "p1" },
-        { relationRef: "M:refersToPerson", from: "a2", to: "p1" },
-      ],
-    };
+    graph.nodes[1].properties.label = "Changed";
 
-    const [first, second] = toNodeDtoTrees(elements, "t1");
-
-    first.connectedNodes[0].node.properties.uuid = "changed";
-
-    expect(second.connectedNodes[0].node.properties.uuid).toBe("p1");
-  });
-
-  test("an annotation that refers to its own carrier ends the tree there", () => {
-    const elements: ElementGraph = {
-      nodes: [element("a1", ["Annotation"]), element("t1", ["Content", "Text"])],
-      relations: [
-        { relationRef: "M:onText", from: "t1", to: "a1" },
-        { relationRef: "M:refersToText", from: "a1", to: "t1" },
-      ],
-    };
-
-    expect(toNodeDtoTrees(elements, "t1").map(uuidsOf)).toEqual([["a1", [["t1", []]]]]);
-  });
-
-  test("relations to nodes that are not part of the read are skipped, unresolved relations are kept", () => {
-    const elements: ElementGraph = {
-      nodes: [element("a1", ["Annotation"], { classifierRef: null }), element("e1", ["Entity"])],
-      relations: [
-        { relationRef: null, from: "t1", to: "a1" },
-        { relationRef: null, from: "a1", to: "e1" },
-        { relationRef: "M:refersTo", from: "a1", to: "missing" },
-      ],
-    };
-
-    expect(toNodeDtoTrees(elements, "t1").map(uuidsOf)).toEqual([["a1", [["e1", []]]]]);
+    expect(elements.nodes[1].properties).toEqual({ uuid: "p1" });
   });
 });
 
-describe("toNodes, toNodeDto", () => {
+describe("toAnnotations", () => {
+  test("each annotation of the Content with everything below it; referenced nodes are leaves", () => {
+    const graph: EditGraph = toEditGraph({
+      nodes: [
+        element("t1", ["Content", "Text"]),
+        element("a1", ["Annotation"]),
+        element("a2", ["Annotation"]),
+        element("a3", ["Annotation"]),
+        element("p1", ["Entity", "Person"]),
+      ],
+      relations: [
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a3" },
+        { relationRef: "M:onAnnotation", type: "HAS_ANNOTATION", from: "a1", to: "a2" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a2", to: "p1" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a3", to: "p1" },
+        { relationRef: "M:refersToText", type: "REFERS_TO", from: "a3", to: "t1" },
+      ],
+    });
+
+    const annotations: Annotation[] = toAnnotations(graph, "t1");
+    const shape = (annotation: Annotation) => ({
+      uuid: annotation.node.properties.uuid,
+      status: annotation.status,
+      nodes: annotation.nodes.map((node) => node.properties.uuid),
+      relations: annotation.relations.map((relation) => `${relation.from}>${relation.to}`),
+    });
+
+    expect(annotations.map(shape)).toEqual([
+      { uuid: "a1", status: "unchanged", nodes: ["a2", "p1"], relations: ["a1>a2", "a2>p1"] },
+      // The Content is referenced, but not followed: its other annotations don't end up below a3
+      { uuid: "a3", status: "unchanged", nodes: ["p1", "t1"], relations: ["a3>p1", "a3>t1"] },
+    ]);
+    expect(annotations[0].node).not.toHaveProperty("status");
+  });
+
+  test("a node below two annotations is copied", () => {
+    const graph: EditGraph = toEditGraph({
+      nodes: [element("a1", ["Annotation"]), element("a2", ["Annotation"]), element("p1", ["Entity", "Person"])],
+      relations: [
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a2" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a2", to: "p1" },
+      ],
+    });
+
+    const [first, second] = toAnnotations(graph, "t1");
+
+    first.nodes[0].properties.label = "Changed";
+
+    expect(second.nodes[0].properties).toEqual({ uuid: "p1" });
+  });
+});
+
+describe("toNodes, toNode", () => {
   const listing: ElementGraph = {
     nodes: [element("c2", ["Collection", "Letter"]), element("c1", ["Collection", "Letter"]), element("t1", ["Content", "Text"])],
     relations: [],
@@ -108,22 +99,19 @@ describe("toNodes, toNodeDto", () => {
     expect(toNodes(listing).map((node) => node.properties.uuid)).toEqual(["c2", "c1", "t1"]);
   });
 
-  test("gives one node without connected nodes", () => {
-    expect(toNodeDto(listing, "c1")).toEqual({
-      node: expect.objectContaining({ classifierRef: "M:Letter", properties: { uuid: "c1" } }),
-      connectedNodes: [],
-    });
+  test("gives one node", () => {
+    expect(toNode(listing, "c1")).toEqual(expect.objectContaining({ classifierRef: "M:Letter", properties: { uuid: "c1" } }));
   });
 
   test("throws if the response doesn't contain the node", () => {
-    expect(() => toNodeDto(listing, "missing")).toThrow("missing");
+    expect(() => toNode(listing, "missing")).toThrow("missing");
   });
 });
 
 describe("toAncestryPaths", () => {
   /** The uuids of each path */
   function uuidPaths(elements: ElementGraph, uuid: string): string[][] {
-    return toAncestryPaths(elements, uuid).map((path) => path.map((entry) => entry.node.properties.uuid));
+    return toAncestryPaths(elements, uuid).map((path) => path.map((node) => node.properties.uuid));
   }
 
   test("one path per way up, top-level Collection first, without the node itself", () => {
@@ -131,11 +119,11 @@ describe("toAncestryPaths", () => {
     const elements: ElementGraph = {
       nodes: ["t1", "v1", "v2", "l1", "l2"].map((uuid) => element(uuid, ["Collection"])),
       relations: [
-        { relationRef: "M:partOf", from: "t1", to: "v1" },
-        { relationRef: "M:partOf", from: "t1", to: "v2" },
-        { relationRef: "M:partOf", from: "v1", to: "l1" },
-        { relationRef: "M:partOf", from: "v2", to: "l1" },
-        { relationRef: "M:partOf", from: "v2", to: "l2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "v1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "v2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v1", to: "l1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v2", to: "l1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v2", to: "l2" },
       ],
     };
 
@@ -157,9 +145,9 @@ describe("toAncestryPaths", () => {
     const elements: ElementGraph = {
       nodes: ["t1", "c1", "c2"].map((uuid) => element(uuid, ["Collection"])),
       relations: [
-        { relationRef: "M:partOf", from: "t1", to: "c1" },
-        { relationRef: "M:partOf", from: "c1", to: "c2" },
-        { relationRef: "M:partOf", from: "c2", to: "c1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "c1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "c1", to: "c2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "c2", to: "c1" },
       ],
     };
 

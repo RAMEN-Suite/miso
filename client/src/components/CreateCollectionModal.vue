@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, inject, watch, computed, toValue, Ref } from "vue";
+import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import { useRoute } from "vue-router";
-import { CollectionNode, HierarchyNode, NodeDto, NodeStatusObject, NodeTypeOption } from "../models/types";
+import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption } from "../models/types";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
 import CollectionLabelInput from "./CollectionLabelInput.vue";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
-import { createCollectionNode } from "../config/ramen";
+import { BASE_NODE_REF, createCollectionNode } from "../config/ramen";
 import { validateValue } from "../utils/helper/modelHelper";
+import { addExistingNode, addRelation, createNode, toGraphNode } from "../utils/helper/editGraph";
+import { relationRefOf } from "../utils/helper/writePayload";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
 
 const dialogRef = inject<Ref<DynamicDialogInstance>>("dialogRef");
@@ -19,7 +21,7 @@ if (!dialogRef) {
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "success", collection: NodeDto<HierarchyNode>): void;
+  (e: "success", collection: HierarchyNode): void;
 }>();
 
 const route = useRoute();
@@ -52,29 +54,35 @@ function closeModal() {
 }
 
 /**
- * Wraps the new node in an ownership tree for the create endpoint: the parent as root with the new
- * node attached, or the new node alone when created at top level.
+ * The graph for the create endpoint: the new node, and its `PART_OF` relation to the parent unless it is created at
+ * top level.
  *
  * @param {CollectionNode} collectionNode - The new collection node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
- * @returns {NodeStatusObject} The ownership tree to persist.
+ * @returns {EditGraph} The graph to save.
  */
-function wrapDataForCreation(collectionNode: CollectionNode, parent: CollectionNode | null): NodeStatusObject {
-  const nodeStatusObject: NodeStatusObject<CollectionNode> = {
-    node: collectionNode,
-    connectedNodes: [],
-    meta: { status: "created" },
-  };
+function toCreationGraph(collectionNode: CollectionNode, parent: CollectionNode | null): EditGraph {
+  const context: ModelContext = getModelContext();
+  const graph: EditGraph = { nodes: [], relations: [] };
 
-  if (!parent) {
-    return nodeStatusObject;
+  createNode(graph, toGraphNode(context, collectionNode));
+
+  if (parent) {
+    addExistingNode(graph, toGraphNode(context, parent));
+    addRelation(graph, {
+      from: collectionNode.properties.uuid,
+      relationRef: relationRefOf(
+        context,
+        collectionNode.classifierRef ?? BASE_NODE_REF.Collection,
+        "PART_OF",
+        parent.classifierRef ?? BASE_NODE_REF.Collection,
+      ),
+      type: "PART_OF",
+      to: parent.properties.uuid,
+    });
   }
 
-  return {
-    node: parent,
-    connectedNodes: [nodeStatusObject],
-    meta: { status: "unchanged" },
-  };
+  return graph;
 }
 
 async function handleSubmit() {
@@ -87,13 +95,11 @@ async function handleSubmit() {
   isLoading.value = true;
 
   try {
-    const updateObj: NodeStatusObject = wrapDataForCreation(collectionNodeToAdd, parentCollection);
+    await api.saveGraph(toCreationGraph(collectionNodeToAdd, parentCollection));
 
-    const result: NodeDto<HierarchyNode> = await api.createHierarchyNode(collectionNodeToAdd.properties.uuid, updateObj);
+    emit("success", collectionNodeToAdd);
 
-    emit("success", toValue(result));
-
-    dialogRef?.value.close({ collection: result.node });
+    dialogRef?.value.close({ collection: collectionNodeToAdd });
   } catch {
     addToastMessage({
       severity: "error",

@@ -3,13 +3,13 @@ import { useAppStore } from "../store/app";
 import { useHierarchyStore } from "../store/hierarchy";
 import { useTagsStore } from "../store/tags";
 import { BASE_MODAL_PROPS } from "../config/modals";
-import { HierarchyNode, NodeDto } from "../models/types";
+import { HierarchyNode } from "../models/types";
 import NodeDeleteModal from "../components/NodeDeleteModal.vue";
 
 /** The items to delete and the column they live in. */
 interface DeletionTarget {
   depth: number;
-  items: NodeDto<HierarchyNode>[];
+  items: HierarchyNode[];
 }
 
 /**
@@ -46,7 +46,7 @@ export function useDeleteHierarchySelection() {
           style: { width: "25rem" },
         },
         data: {
-          nodes: target.items.map((item: NodeDto<HierarchyNode>) => item.node),
+          nodes: target.items,
         },
         emits: {
           onDeleted: (deletedUuids: string[]) => handleSuccessfulDeletion(target, deletedUuids),
@@ -66,7 +66,7 @@ export function useDeleteHierarchySelection() {
       return { depth: multiSelection.value.depth, items: multiSelection.value.items };
     }
 
-    const focusedItem: NodeDto<HierarchyNode> | undefined = path.value[path.value.length - 1];
+    const focusedItem: HierarchyNode | undefined = path.value[path.value.length - 1];
 
     if (!focusedItem) {
       return null;

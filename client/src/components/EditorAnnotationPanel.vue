@@ -128,7 +128,6 @@ function setCardCollapsed(uuid: string, value: boolean): void {
           :collapsed="isCardCollapsed(annotation.node.properties.uuid)"
           @update:collapsed="setCardCollapsed(annotation.node.properties.uuid, $event)"
         />
-        <div v-if="annotation.node.properties.type === 'paragraph'">Paragraph</div>
       </template>
     </div>
   </div>

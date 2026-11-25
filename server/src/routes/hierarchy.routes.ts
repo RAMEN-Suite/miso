@@ -2,7 +2,7 @@ import express, { Request, Response, Router, NextFunction } from "express";
 import HierarchyService from "../services/hierarchy.service.js";
 import ConfigService from "../services/config.service.js";
 import { ElementResponse, PaginationResult, ModelAttribute, ModelContext } from "../models/types.js";
-import { parseCreateNodePayload, parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
+import { parseHierarchyQuery, parseUuidFrom, parseUuidListFrom } from "../utils/helper.js";
 import { filterableProperties } from "../utils/filter.js";
 import { decodeCursor, HierarchyCursor, querySignature as createQuerySignature } from "../utils/cursor.js";
 
@@ -40,18 +40,6 @@ router.post("/query", async (req: Request, res: Response, next: NextFunction) =>
     });
 
     res.status(200).set("Cache-Control", "no-store").json(nodes);
-  } catch (error: unknown) {
-    next(error);
-  }
-});
-
-router.post("/nodes", async (req: Request, res: Response, next: NextFunction) => {
-  const { uuid, data } = parseCreateNodePayload(req);
-
-  try {
-    const node: ElementResponse = await hierarchyService.createNode(uuid, data);
-
-    res.status(201).json(node);
   } catch (error: unknown) {
     next(error);
   }

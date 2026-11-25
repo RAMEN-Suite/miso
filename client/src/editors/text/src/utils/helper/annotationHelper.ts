@@ -2,8 +2,35 @@ import { Decoration } from "@tiptap/pm/view";
 import { Node } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { DocAnnotation, Range } from "../../models/types";
-import { Annotation, NodeStatus, cloneDeep, pruneDeletedNodes, setNodeTreeStatus } from "../../external";
+import {
+  Annotation,
+  AnnotationNode,
+  EditGraph,
+  EditNode,
+  ElementNodeStatus,
+  applySaveResult,
+  cloneDeep,
+  findNode,
+} from "../../external";
 import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../extensions/annotationDecoration";
+
+/**
+ * The graph of an annotation: its node with its status, the nodes below it and all relations. Values copied.
+ *
+ * @param {Annotation} annotation - The annotation.
+ * @returns {EditGraph} The graph.
+ */
+export function annotationToGraph(annotation: Annotation): EditGraph {
+  const { node, status, nodes, relations } = cloneDeep(annotation);
+  const root: EditNode = {
+    ...node,
+    classifierRef: node.classifierRef ?? null,
+    properties: node.properties,
+    status,
+  };
+
+  return { nodes: [root, ...nodes], relations };
+}
 
 /**
  * Creates the annotation of a structural node that is new in the editor (stored in its `_annotation` attribute). It
@@ -15,68 +42,111 @@ import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../
 export function createDefaultDocAnnotation(type: string): DocAnnotation {
   return {
     node: { properties: { type }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
-    connectedNodes: [],
+    nodes: [],
+    relations: [],
   };
 }
 
 /**
- * Converts an annotation into the object that is stored in tiptap node attributes
- * (`_annotation`, entries of `_blockClassifications`) by dropping its top-level status.
+ * The annotation of a graph made by {@linkcode annotationToGraph}. Values copied.
  *
- * Deep cloneed, so the document never shares object references with the caller.
- *
- * @param {Annotation} annotation - The annotation to convert.
- * @returns {DocAnnotation} The annotation to store in the node attributes.
+ * @param {EditGraph} graph - The graph.
+ * @param {string} uuid - The uuid of the annotation.
+ * @returns {Annotation} The annotation.
+ * @throws {Error} If the graph doesn't contain the annotation.
  */
-export function toDocAnnotation(annotation: Annotation): DocAnnotation {
-  const { node, connectedNodes } = cloneDeep(annotation);
+export function graphToAnnotation(graph: EditGraph, uuid: string): Annotation {
+  const root: EditNode | undefined = findNode(graph, uuid);
 
-  return { node, connectedNodes };
+  if (!root) {
+    throw new Error(`The graph has no annotation ${uuid}`);
+  }
+
+  const { status, ...node } = cloneDeep(root);
+
+  return {
+    node: node as unknown as AnnotationNode,
+    status,
+    nodes: cloneDeep(graph.nodes.filter((candidate) => candidate.properties.uuid !== uuid)),
+    relations: cloneDeep(graph.relations),
+  };
+}
+
+/**
+ * Brings an annotation in line with the database after a successful save: deleted nodes, the orphans the server
+ * deleted, removed relations and nodes no longer reached from the annotation are dropped, everything else becomes
+ * `unchanged`.
+ *
+ * @param {Annotation} annotation - The annotation as stored in the editor or as sent to the backend. Is not mutated.
+ * @param {string[]} [deletedOrphans] - uuids of the annotations the server deleted as orphans.
+ * @returns {Annotation} A cleaned deep clone of the annotation.
+ */
+export function normalizeAnnotation(annotation: Annotation, deletedOrphans: string[] = []): Annotation {
+  const normalized: Annotation = cloneDeep(annotation);
+  const below: EditGraph = { nodes: normalized.nodes, relations: normalized.relations };
+
+  applySaveResult(below, deletedOrphans);
+
+  const reachable = new Set<string>([normalized.node.properties.uuid]);
+  let added: boolean = true;
+
+  while (added) {
+    added = false;
+
+    for (const relation of below.relations) {
+      if (reachable.has(relation.from) && !reachable.has(relation.to)) {
+        reachable.add(relation.to);
+        added = true;
+      }
+    }
+  }
+
+  return {
+    node: normalized.node,
+    status: "unchanged",
+    nodes: below.nodes.filter((node) => reachable.has(node.properties.uuid)),
+    relations: below.relations.filter((relation) => reachable.has(relation.from)),
+  };
+}
+
+/**
+ * Brings an annotation from the node attributes in line with the database after a successful save, see
+ * {@link normalizeAnnotation}.
+ *
+ * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
+ * @param {string[]} [deletedOrphans] - uuids of the annotations the server deleted as orphans.
+ * @returns {DocAnnotation} A cleaned deep clone of the annotation.
+ */
+export function normalizeDocAnnotation(docAnnotation: DocAnnotation, deletedOrphans: string[] = []): DocAnnotation {
+  return toDocAnnotation(normalizeAnnotation({ ...docAnnotation, status: "unchanged" }, deletedOrphans));
 }
 
 /**
  * Converts an annotation read from tiptap node attributes back into a full annotation with the given status.
  *
  * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
- * @param {NodeStatus} status - The status of the annotation.
+ * @param {ElementNodeStatus} status - The status of the annotation.
  * @returns {Annotation} A deep-cloned annotation with the given status.
  */
-export function toAnnotation(docAnnotation: DocAnnotation, status: NodeStatus): Annotation {
-  const { node, connectedNodes } = cloneDeep(docAnnotation);
+export function toAnnotation(docAnnotation: DocAnnotation, status: ElementNodeStatus): Annotation {
+  const { node, nodes, relations } = cloneDeep(docAnnotation);
 
-  return { node, connectedNodes, meta: { status } };
+  return { node, status, nodes, relations };
 }
 
 /**
- * Brings an annotation in line with the database state after a successful save:
- * connected nodes that were deleted or removed are dropped, the annotation and all remaining
- * connected nodes are set to "unchanged".
+ * Converts an annotation into the object that is stored in tiptap node attributes
+ * (`_annotation`, entries of `_blockClassifications`) by dropping its own status.
  *
- * @param {Annotation} annotation - The annotation as stored in the editor or as sent to the backend. Is not mutated.
- * @returns {Annotation} A cleaned deep clone of the annotation.
+ * Deep cloned, so the document never shares object references with the caller.
+ *
+ * @param {Annotation} annotation - The annotation to convert.
+ * @returns {DocAnnotation} The annotation to store in the node attributes.
  */
-export function normalizeAnnotation(annotation: Annotation): Annotation {
-  const normalized: Annotation = cloneDeep(annotation);
+export function toDocAnnotation(annotation: Annotation): DocAnnotation {
+  const { node, nodes, relations } = cloneDeep(annotation);
 
-  pruneDeletedNodes(normalized);
-  setNodeTreeStatus(normalized, "unchanged");
-
-  return normalized;
-}
-
-/**
- * Brings an annotation from the node attributes in line with the database state after a successful save:
- * connected nodes that were deleted or removed are dropped, all remaining ones are set to "unchanged".
- *
- * Same as {@link normalizeAnnotation}, for annotations that are stored without their top-level status.
- *
- * @param {DocAnnotation} docAnnotation - The annotation read from the node attributes.
- * @returns {DocAnnotation} A cleaned deep clone of the annotation.
- */
-export function normalizeDocAnnotation(docAnnotation: DocAnnotation): DocAnnotation {
-  const { node, connectedNodes } = normalizeAnnotation({ ...docAnnotation, meta: { status: "unchanged" } });
-
-  return { node, connectedNodes };
+  return { node, nodes, relations };
 }
 
 /**

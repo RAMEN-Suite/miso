@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, ComputedRef, useTemplateRef } from "vue";
 import Button from "primevue/button";
-import { Annotation, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import { AnnotationNode, EditGraph, ModelAnnotationShape, ModelAttribute } from "../models/types";
 import { useConfigStore } from "../store/config";
+import { findNode } from "../utils/helper/editGraph";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationReferencesSection from "./AnnotationReferencesSection.vue";
 import NodePreviewPopover from "./NodePreviewPopover.vue";
 
-const annotation = defineModel<Annotation>({ required: true });
-
 const props = defineProps<{
+  /** The graph that contains the annotation and its references */
+  graph: EditGraph;
+  annotationUuid: string;
   /** Blocks all interaction with the note, e.g. while it is being deleted. */
   disabled?: boolean;
 }>();
+
+const annotation = computed<AnnotationNode>(() => findNode(props.graph, props.annotationUuid) as unknown as AnnotationNode);
 
 const emit = defineEmits<{
   edit: [];
@@ -25,12 +29,12 @@ const { getAnnotationShape, getAnnotationProperties } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof NodePreviewPopover>>("popover");
 
-const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotationProperties(annotation.value.node));
+const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotationProperties(annotation.value));
 
-const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value.node));
+const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value));
 
 const label: ComputedRef<string> = computed(() =>
-  String(annotation.value.node.properties.subType ?? annotation.value.node.properties.type),
+  String(annotation.value.properties.subType ?? annotation.value.properties.type),
 );
 
 /**
@@ -67,7 +71,7 @@ function handleEditFromPopover(event: MouseEvent): void {
     tabindex="0"
     :aria-disabled="props.disabled"
     :title="`Show ${label} details`"
-    :data-annotation-uuid="annotation.node.properties.uuid"
+    :data-annotation-uuid="props.annotationUuid"
     @click="handleTogglePopover"
     @keydown.enter.self.prevent="handleTogglePopover"
     @keydown.space.self.prevent="handleTogglePopover"
@@ -89,8 +93,8 @@ function handleEditFromPopover(event: MouseEvent): void {
     />
 
     <NodePreviewPopover ref="popover">
-      <NodePropertiesTable :properties="annotation.node.properties" :fields="propertyFields" />
-      <AnnotationReferencesSection v-model="annotation.connectedNodes" :annotation="annotation.node" mode="view" />
+      <NodePropertiesTable :properties="annotation.properties" :fields="propertyFields" />
+      <AnnotationReferencesSection :model-value="props.graph" :annotation-uuid="props.annotationUuid" mode="view" />
       <div class="flex justify-center">
         <Button
           icon="icon-pencil"

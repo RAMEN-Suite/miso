@@ -5,7 +5,7 @@ import Button from "primevue/button";
 import ConfirmPopup from "primevue/confirmpopup";
 import { useDialog } from "primevue/usedialog";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
-import { Annotation, AnnotationNode, NodeStatusObject, ModelAnnotationShape, ModelAttribute } from "../models/types.ts";
+import { Annotation, EditGraph, ModelAnnotationShape, ModelAttribute } from "../models/types.ts";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import NodePropertiesTable from "./NodePropertiesTable.vue";
 import AnnotationDetailsModal from "./AnnotationDetailsModal.vue";
@@ -16,13 +16,14 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import {
   type Range,
   ANNOTATION_DECORATION_KEY,
+  annotationToGraph,
   findDecorationBoundariesByUuid,
   findNodeBoundariesByUuid,
 } from "../editors/text/src";
 import { useAppStore } from "../store/app.ts";
 
 const props = defineProps<{
-  annotation: NodeStatusObject<AnnotationNode>;
+  annotation: Annotation;
 }>();
 
 const dialog = useDialog();
@@ -31,11 +32,12 @@ const { createModalInstance, destroyModalInstance } = useAppStore();
 const { tiptap, initialAnnotations } = useTiptapStore();
 
 /** Last saved state of the annotation. `undefined` if the annotation was not saved yet. */
-const initialData = computed<NodeStatusObject<AnnotationNode> | undefined>(() =>
-  initialAnnotations.value?.get(props.annotation.node.properties.uuid),
-);
+const initialData = computed<Annotation | undefined>(() => initialAnnotations.value?.get(props.annotation.node.properties.uuid));
 
 const { getAnnotationShape, getAnnotationProperties, getAnnotationExtent } = useConfigStore();
+
+/** The annotation and its references as graph, for the references section */
+const referenceGraph = computed<EditGraph>(() => annotationToGraph(props.annotation));
 
 const shape: ModelAnnotationShape | undefined = getAnnotationShape(props.annotation.node);
 
@@ -156,13 +158,13 @@ function toggleCollapsed(newState?: boolean): void {
  * @returns {void} This function does not return any value.
  */
 function updateData(updated: Annotation): void {
-  const newData: NodeStatusObject<AnnotationNode> = cloneDeep(updated);
+  const newData: Annotation = cloneDeep(updated);
 
   // Annotations which are not part of the last saved state are not persisted yet and therefore still "created"
   if (!initialData.value) {
-    newData.meta.status = "created";
+    newData.status = "created";
   } else {
-    newData.meta.status = "modified";
+    newData.status = "modified";
   }
 
   if (isZeroPointAnnotation) {
@@ -216,8 +218,8 @@ function updateData(updated: Annotation): void {
     <div v-show="!isCollapsed" class="annotation-card-body">
       <NodePropertiesTable :properties="props.annotation.node.properties" :fields="propertyFields" />
       <AnnotationReferencesSection
-        :model-value="props.annotation.connectedNodes"
-        :annotation="props.annotation.node"
+        :model-value="referenceGraph"
+        :annotation-uuid="props.annotation.node.properties.uuid"
         mode="view"
       />
     </div>

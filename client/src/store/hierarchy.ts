@@ -1,7 +1,5 @@
 import { computed, EffectScope, effectScope, readonly, ref, watch } from "vue";
 import {
-  Annotation,
-  CollectionNode,
   FilterRule,
   FilterSpec,
   HierarchyEntry,
@@ -13,15 +11,12 @@ import {
   LevelState,
   FocusData,
   MultiSelection,
-  TextNode,
-  NodeDto,
-  NodeStatusObject,
-  AnnotationNode,
 } from "../models/types";
 import { useAppStore } from "./app";
 import { useConfigStore } from "./config";
 import { useSmartViewsStore } from "./smartViews";
-import { createNodeStatusObjectFromRawData } from "../utils/helper/helper";
+import { cloneDeep } from "../utils/helper/helper";
+import { addExistingNode, toGraphNode } from "../utils/helper/editGraph";
 import { getBaseNodeLabel } from "../utils/helper/modelHelper";
 import { useTextPreview } from "../composables/useTextPreview";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- This is used in the TSDoc as reference, so keep it
@@ -73,7 +68,7 @@ function createStore() {
 
     /** UUIDs of the multiselected items, for fast lookups. */
     const selectedUuids = computed<Set<string>>(
-      () => new Set<string>(multiSelection.value?.items.map((item: NodeDto<HierarchyNode>) => item.node.properties.uuid) ?? []),
+      () => new Set<string>(multiSelection.value?.items.map((item: HierarchyNode) => item.properties.uuid) ?? []),
     );
 
     /**
@@ -87,20 +82,20 @@ function createStore() {
      * The path (and with it the nested columns) is kept while its item in this column stays selected.
      *
      * @param {number} depth - The level index.
-     * @param {NodeDto<HierarchyNode>[]} items - The selected items.
-     * @param {NodeDto<HierarchyNode> | null} anchor - Where the next range selection starts.
-     * @param {NodeDto<HierarchyNode>[]} baseItems - The selection a range is added to.
+     * @param {HierarchyNode[]} items - The selected items.
+     * @param {HierarchyNode | null} anchor - Where the next range selection starts.
+     * @param {HierarchyNode[]} baseItems - The selection a range is added to.
      * @returns {void} This function does not return a value.
      */
     function applySelection(
       depth: number,
-      items: NodeDto<HierarchyNode>[],
-      anchor: NodeDto<HierarchyNode> | null,
-      baseItems: NodeDto<HierarchyNode>[],
+      items: HierarchyNode[],
+      anchor: HierarchyNode | null,
+      baseItems: HierarchyNode[],
     ): void {
       const parentPath: HierarchyPath = path.value.slice(0, depth);
-      const pathItemUuid: string | undefined = path.value[depth]?.node.properties.uuid;
-      const keepsPath: boolean = items.some((item: NodeDto<HierarchyNode>) => item.node.properties.uuid === pathItemUuid);
+      const pathItemUuid: string | undefined = path.value[depth]?.properties.uuid;
+      const keepsPath: boolean = items.some((item: HierarchyNode) => item.properties.uuid === pathItemUuid);
 
       let newPath: HierarchyPath;
 
@@ -261,26 +256,28 @@ function createStore() {
     }
 
     /**
-     * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and annotations; a
-     * Content loads its node and the annotations its text preview is built from.
+     * Fetches the focus-pane data for a hierarchy item. A Collection loads its node and the graph of its annotations,
+     * with the Collection added as their carrier; a Content loads its node and the annotations its text preview is built from.
      *
-     * @param {NodeDto<HierarchyNode>} item - The item to focus.
+     * @param {HierarchyNode} item - The item to focus.
      * @returns {Promise<FocusData>} The focus data for the pane.
      */
-    async function fetchFocusData(item: NodeDto<HierarchyNode>): Promise<FocusData> {
-      const uuid: string = item.node.properties.uuid;
+    async function fetchFocusData(item: HierarchyNode): Promise<FocusData> {
+      const uuid: string = item.properties.uuid;
 
-      if (getBaseNodeLabel(getModelContext(), item.node) === "Collection") {
+      if (getBaseNodeLabel(getModelContext(), item) === "Collection") {
         isFetchingFocus.value = true;
 
         try {
           // TODO: Handle errors
-          const [collection, annotations] = await Promise.all([api.getCollection(uuid), api.getAnnotations(uuid)]);
+          const [collection, graph] = await Promise.all([api.getCollection(uuid), api.getAnnotationGraph(uuid)]);
+
+          addExistingNode(graph, toGraphNode(getModelContext(), cloneDeep(collection)));
 
           return {
             kind: "collection",
-            collection: createNodeStatusObjectFromRawData(collection) as NodeStatusObject<CollectionNode>,
-            annotations: annotations.map((a: NodeDto<AnnotationNode>) => createNodeStatusObjectFromRawData(a) as Annotation),
+            collection,
+            graph,
           };
         } finally {
           isFetchingFocus.value = false;
@@ -298,7 +295,7 @@ function createStore() {
 
         return {
           kind: "content",
-          content: createNodeStatusObjectFromRawData(content) as NodeStatusObject<TextNode>,
+          content,
           annotations,
         };
       } finally {
@@ -314,16 +311,16 @@ function createStore() {
      * @returns {HierarchyEntry | null} The entry if found, or null.
      */
     function findEntryInHierarchy(uuid: string, index: number): HierarchyEntry | null {
-      return levels.value[index]?.entries.find((e) => e.data.node.properties.uuid === uuid) ?? null;
+      return levels.value[index]?.entries.find((e) => e.node.properties.uuid === uuid) ?? null;
     }
 
     /**
      * Where a range selection in a column starts: its multiselection's anchor, or else its active item.
      *
      * @param {number} depth - The level index.
-     * @returns {NodeDto<HierarchyNode> | null} The anchor, or null if nothing is selected.
+     * @returns {HierarchyNode | null} The anchor, or null if nothing is selected.
      */
-    function getColumnAnchor(depth: number): NodeDto<HierarchyNode> | null {
+    function getColumnAnchor(depth: number): HierarchyNode | null {
       if (multiSelection.value?.depth === depth) {
         return multiSelection.value.anchor;
       }
@@ -335,14 +332,14 @@ function createStore() {
      * The items selected in a column: its multiselection, or else its active item.
      *
      * @param {number} depth - The level index.
-     * @returns {NodeDto<HierarchyNode>[]} The selected items, possibly empty.
+     * @returns {HierarchyNode[]} The selected items, possibly empty.
      */
-    function getColumnSelection(depth: number): NodeDto<HierarchyNode>[] {
+    function getColumnSelection(depth: number): HierarchyNode[] {
       if (multiSelection.value?.depth === depth) {
         return multiSelection.value.items;
       }
 
-      const activeItem: NodeDto<HierarchyNode> | null = levels.value[depth]?.activeItem ?? null;
+      const activeItem: HierarchyNode | null = levels.value[depth]?.activeItem ?? null;
 
       return activeItem ? [activeItem] : [];
     }
@@ -400,9 +397,7 @@ function createStore() {
       }
 
       const removable = new Set<string>(uuids);
-      const remaining: HierarchyEntry[] = level.entries.filter(
-        (e: HierarchyEntry) => !removable.has(e.data.node.properties.uuid),
-      );
+      const remaining: HierarchyEntry[] = level.entries.filter((e: HierarchyEntry) => !removable.has(e.node.properties.uuid));
 
       if (level.state.pagination) {
         level.state.pagination.totalRecords = Math.max(
@@ -437,16 +432,14 @@ function createStore() {
      * @returns {void} This function does not return a value.
      */
     function selectAll(depth: number): void {
-      const items: NodeDto<HierarchyNode>[] = (levels.value[depth]?.entries ?? []).map((e: HierarchyEntry) => e.data);
+      const items: HierarchyNode[] = (levels.value[depth]?.entries ?? []).map((e: HierarchyEntry) => e.node);
 
       if (items.length === 0) {
         return;
       }
 
-      const anchor: NodeDto<HierarchyNode> | null = getColumnAnchor(depth);
-      const anchorIsListed: boolean = items.some(
-        (i: NodeDto<HierarchyNode>) => i.node.properties.uuid === anchor?.node.properties.uuid,
-      );
+      const anchor: HierarchyNode | null = getColumnAnchor(depth);
+      const anchorIsListed: boolean = items.some((i: HierarchyNode) => i.properties.uuid === anchor?.properties.uuid);
 
       applySelection(depth, items, anchorIsListed ? anchor : items[0], items);
     }
@@ -455,11 +448,11 @@ function createStore() {
      * Selects an item at a given depth, dropping everything selected below it. The item is passed in
      * whole because the caller (e.g. {@linkcode HierarchyColumn}) already holds it.
      *
-     * @param {NodeDto<HierarchyNode>} item - The item that was selected.
+     * @param {HierarchyNode} item - The item that was selected.
      * @param {number} depth - The depth the item sits at (the level index it was selected in).
      * @returns {void} This function does not return a value.
      */
-    function selectItem(item: NodeDto<HierarchyNode>, depth: number): void {
+    function selectItem(item: HierarchyNode, depth: number): void {
       updatePath([...path.value.slice(0, depth), item]);
     }
 
@@ -468,12 +461,12 @@ function createStore() {
      * was set, so a new range replaces the previous one. Falls back to a plain click without an anchor, and to
      * a toggle if the anchor is not loaded.
      *
-     * @param {NodeDto<HierarchyNode>} item - The clicked item.
+     * @param {HierarchyNode} item - The clicked item.
      * @param {number} depth - The level index.
      * @returns {void} This function does not return a value.
      */
-    function selectRange(item: NodeDto<HierarchyNode>, depth: number): void {
-      const anchor: NodeDto<HierarchyNode> | null = getColumnAnchor(depth);
+    function selectRange(item: HierarchyNode, depth: number): void {
+      const anchor: HierarchyNode | null = getColumnAnchor(depth);
 
       if (!anchor) {
         selectItem(item, depth);
@@ -481,27 +474,23 @@ function createStore() {
       }
 
       const entries: HierarchyEntry[] = levels.value[depth]?.entries ?? [];
-      const anchorIndex: number = entries.findIndex(
-        (e: HierarchyEntry) => e.data.node.properties.uuid === anchor.node.properties.uuid,
-      );
-      const targetIndex: number = entries.findIndex(
-        (e: HierarchyEntry) => e.data.node.properties.uuid === item.node.properties.uuid,
-      );
+      const anchorIndex: number = entries.findIndex((e: HierarchyEntry) => e.node.properties.uuid === anchor.properties.uuid);
+      const targetIndex: number = entries.findIndex((e: HierarchyEntry) => e.node.properties.uuid === item.properties.uuid);
 
       if (anchorIndex === -1 || targetIndex === -1) {
         toggleItem(item, depth);
         return;
       }
 
-      const range: NodeDto<HierarchyNode>[] = entries
+      const range: HierarchyNode[] = entries
         .slice(Math.min(anchorIndex, targetIndex), Math.max(anchorIndex, targetIndex) + 1)
-        .map((e: HierarchyEntry) => e.data);
+        .map((e: HierarchyEntry) => e.node);
 
-      const baseItems: NodeDto<HierarchyNode>[] = multiSelection.value?.depth === depth ? multiSelection.value.baseItems : [];
-      const baseUuids = new Set<string>(baseItems.map((base: NodeDto<HierarchyNode>) => base.node.properties.uuid));
-      const items: NodeDto<HierarchyNode>[] = [
+      const baseItems: HierarchyNode[] = multiSelection.value?.depth === depth ? multiSelection.value.baseItems : [];
+      const baseUuids = new Set<string>(baseItems.map((base: HierarchyNode) => base.properties.uuid));
+      const items: HierarchyNode[] = [
         ...baseItems,
-        ...range.filter((rangeItem: NodeDto<HierarchyNode>) => !baseUuids.has(rangeItem.node.properties.uuid)),
+        ...range.filter((rangeItem: HierarchyNode) => !baseUuids.has(rangeItem.properties.uuid)),
       ];
 
       applySelection(depth, items, anchor, baseItems);
@@ -527,23 +516,21 @@ function createStore() {
     /**
      * Adds an item to its column's selection or removes it (Cmd/Ctrl + click). An added item becomes the anchor.
      *
-     * @param {NodeDto<HierarchyNode>} item - The clicked item.
+     * @param {HierarchyNode} item - The clicked item.
      * @param {number} depth - The level index.
      * @returns {void} This function does not return a value.
      */
-    function toggleItem(item: NodeDto<HierarchyNode>, depth: number): void {
-      const uuid: string = item.node.properties.uuid;
-      const current: NodeDto<HierarchyNode>[] = getColumnSelection(depth);
-      const isSelected: boolean = current.some((selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid === uuid);
+    function toggleItem(item: HierarchyNode, depth: number): void {
+      const uuid: string = item.properties.uuid;
+      const current: HierarchyNode[] = getColumnSelection(depth);
+      const isSelected: boolean = current.some((selected: HierarchyNode) => selected.properties.uuid === uuid);
 
       if (isSelected) {
-        const remaining: NodeDto<HierarchyNode>[] = current.filter(
-          (selected: NodeDto<HierarchyNode>) => selected.node.properties.uuid !== uuid,
-        );
+        const remaining: HierarchyNode[] = current.filter((selected: HierarchyNode) => selected.properties.uuid !== uuid);
 
         applySelection(depth, remaining, remaining[remaining.length - 1] ?? null, remaining);
       } else {
-        const items: NodeDto<HierarchyNode>[] = [...current, item];
+        const items: HierarchyNode[] = [...current, item];
 
         applySelection(depth, items, item, items);
       }
@@ -566,12 +553,10 @@ function createStore() {
      */
     function updateLevels(): void {
       const newPathLength: number = path.value.length;
-      const lastItem: NodeDto<HierarchyNode> | null = path.value[newPathLength - 1] ?? null;
+      const lastItem: HierarchyNode | null = path.value[newPathLength - 1] ?? null;
 
       // Empty path (root) behaves like a collection: it still gets a top-level child column
-      const lastItemCanHaveChildren: boolean = lastItem
-        ? getBaseNodeLabel(getModelContext(), lastItem.node) === "Collection"
-        : true;
+      const lastItemCanHaveChildren: boolean = lastItem ? getBaseNodeLabel(getModelContext(), lastItem) === "Collection" : true;
 
       // Column that would show the focused item's children — captured before resizing, for reuse
       const currentChildColumn: Level | undefined = levels.value[newPathLength];
@@ -598,7 +583,7 @@ function createStore() {
       // decided by `root`, not by a parent uuid.
       levels.value.forEach((level: Level, index: number) => {
         level.activeItem = path.value[index];
-        level.parentUuid = levels.value[index - 1]?.activeItem?.node.properties.uuid ?? null;
+        level.parentUuid = levels.value[index - 1]?.activeItem?.properties.uuid ?? null;
       });
 
       // A focused Content is a leaf — no child column to append
@@ -606,7 +591,7 @@ function createStore() {
         return;
       }
 
-      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.node.properties.uuid ?? null;
+      const childParentUuid: string | null = levels.value[levels.value.length - 1]?.activeItem?.properties.uuid ?? null;
       const canReuse: boolean = !!currentChildColumn && currentChildColumn.parentUuid === childParentUuid;
 
       if (canReuse) {

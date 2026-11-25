@@ -1,19 +1,49 @@
 import { DataTypes, RAMEN_ELEMENT, RAMEN_MODEL, BuiltinType } from "@ramen-suite/core";
-import { BaseNodeLabel, CollectionNode, EntityNode, NodeTypeOption, TextNode } from "../models/types";
+import { BaseNodeLabel, CollectionNode, ContentNode, EntityNode, NodeTypeOption } from "../models/types";
 
-/** The RAMEN base node labels. */
-const BASE_NODE_LABELS: readonly BaseNodeLabel[] = ["Annotation", "Collection", "Content", "Entity"];
+/**
+ * The qualified ref of a RAMEN base node. Its label in the database is its name in RAMEN's reference model, which is
+ * checked here, so a renamed base node fails on startup instead of silently matching no stored node.
+ *
+ * @param {BaseNodeLabel} label - The label the node is stored with.
+ * @param {string} id - The node's id in RAMEN's reference model, see `RAMEN_ELEMENT`.
+ * @returns {string} The qualified ref.
+ * @throws {Error} If the reference model names the node differently.
+ */
+function baseNodeRefOf(label: BaseNodeLabel, id: string): string {
+  const name: string | undefined = RAMEN_MODEL.classifiers.find((classifier) => classifier.id === id)?.name;
 
-/** Qualified refs of the RAMEN base nodes */
+  if (name !== label) {
+    throw new Error(`RAMEN's base node ${id} is named "${name}", not "${label}"`);
+  }
+
+  return `${RAMEN_MODEL.id}:${id}`;
+}
+
+/** Qualified refs of the RAMEN base nodes, by their label */
 export const BASE_NODE_REF = {
-  Collection: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.COLLECTION}`,
-  Content: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.CONTENT}`,
-  Entity: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ENTITY}`,
-  Annotation: `${RAMEN_MODEL.id}:${RAMEN_ELEMENT.ANNOTATION}`,
-} as const;
+  Annotation: baseNodeRefOf("Annotation", RAMEN_ELEMENT.ANNOTATION),
+  Collection: baseNodeRefOf("Collection", RAMEN_ELEMENT.COLLECTION),
+  Content: baseNodeRefOf("Content", RAMEN_ELEMENT.CONTENT),
+  Entity: baseNodeRefOf("Entity", RAMEN_ELEMENT.ENTITY),
+} as const satisfies Record<BaseNodeLabel, string>;
+
+/** The RAMEN base node labels */
+export const BASE_NODE_LABELS = Object.keys(BASE_NODE_REF) as readonly BaseNodeLabel[];
+
+/** The labels of the RAMEN base nodes, by their qualified refs */
+export const BASE_NODE_LABEL_BY_REF: Readonly<Record<string, BaseNodeLabel>> = Object.fromEntries(
+  BASE_NODE_LABELS.map((label) => [BASE_NODE_REF[label], label]),
+);
 
 /** The qualified refs of {@linkcode BASE_NODE_REF} as a list */
 export const BASE_NODE_REFS: readonly string[] = Object.values(BASE_NODE_REF);
+
+/** The relationship types of RAMEN's base relations */
+export const RAMEN_RELATION_TYPES = ["HAS_ANNOTATION", "PART_OF", "REFERS_TO"] as const;
+
+/** A relationship type of RAMEN's base relations, see {@linkcode RAMEN_RELATION_TYPES} */
+export type RelationType = (typeof RAMEN_RELATION_TYPES)[number];
 
 /** RAMEN core's built-in type refs (`String`, `Integer` ...), which need no data type declaration in the model */
 export const BUILTIN_TYPES: readonly string[] = Object.values(DataTypes);
@@ -61,9 +91,9 @@ export function createCollectionNode(type: NodeTypeOption): CollectionNode {
  * classifier are set on creation, so the node never needs its labels changed later.
  *
  * @param {NodeTypeOption} type - The node type, see `getNodeTypeOptions` in the config store.
- * @return {TextNode} The new Content.
+ * @return {ContentNode} The new Content.
  */
-export function createTextNode(type: NodeTypeOption): TextNode {
+export function createContentNode(type: NodeTypeOption): ContentNode {
   return {
     nodeLabels: [...type.nodeLabels],
     classifierRef: type.classifierRef,

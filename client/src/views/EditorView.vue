@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ComputedRef, computed, nextTick, onUnmounted, ref, toValue, watch } from "vue";
+import { ComputedRef, computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { RouteLocationNormalizedLoaded, useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from "vue-router";
 import { EditorContent } from "@tiptap/vue-3";
 import ConfirmDialog from "primevue/confirmdialog";
@@ -16,7 +16,7 @@ import EditorResizer from "../components/EditorResizer.vue";
 import BlockClassificationLines from "../components/BlockClassificationLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
-import { NodeDto, Annotation, NodeStatusObject, TextNode, TextUpdateDto } from "../models/types.ts";
+import { Annotation, ContentNode, EditGraph, WriteResponse } from "../models/types.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
 import PageOverlay from "../components/PageOverlay.vue";
@@ -27,6 +27,7 @@ import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
 import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
+import { toContentSaveGraph } from "../utils/helper/writePayload.ts";
 import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
 import { useAnnotateSelection } from "../composables/useAnnotateSelection.ts";
@@ -52,7 +53,7 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getAnnotationType } = useConfigStore();
+const { getAnnotationType, getModelContext } = useConfigStore();
 const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 const { insertLineBreak } = useInsertLineBreak();
 const { annotateByType } = useAnnotateSelection();
@@ -118,64 +119,59 @@ const parseErrorConsequences = computed<string[]>(() =>
 );
 
 function cleanUpAfterSave(
-  updatedText: NodeStatusObject<TextNode>,
+  updatedText: ContentNode,
   updatedAnnotations: { annotations: Annotation[]; structureElements: Annotation[] },
+  deletedOrphans: string[],
 ): void {
-  text.value = cloneDeep(updatedText.node);
+  text.value = cloneDeep(updatedText);
 
-  cleanUpAnnotations(updatedAnnotations.annotations);
+  const savedAnnotations: Map<string, Annotation> = cleanUpAnnotations(
+    updatedAnnotations.annotations,
+    initialAnnotations.value,
+    deletedOrphans,
+  );
+  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpAnnotations(
+    updatedAnnotations.structureElements,
+    initialStructuralAnnotations.value,
+    deletedOrphans,
+  );
 
-  const savedStructuralAnnotations: Map<string, Annotation> = cleanUpStructureElements(updatedAnnotations.structureElements);
-
-  // Needs to happen before the new initial state is set, since the document is part of it
-  tiptap.value?.commands.applySavedDocAnnotations(savedStructuralAnnotations);
+  // Needs to happen before the new initial state is set, since the document is part of it. Range annotations are
+  // updated in their decorations, zero-points and structural annotations in the document.
+  tiptap.value?.commands.applySavedAnnotations(savedAnnotations);
+  tiptap.value?.commands.applySavedDocAnnotations(savedStructuralAnnotations, deletedOrphans);
 
   setNewInitialState();
 }
 
-function cleanUpAnnotations(updatedAnnotations: Annotation[]): void {
-  const savedAnnotations = new Map<string, Annotation>();
-
-  updatedAnnotations.forEach((a: Annotation) => {
-    const uuid: string = a.node.properties.uuid;
-
-    if (a.meta.status === "deleted") {
-      // Can be removed from the map safely
-      initialAnnotations.value?.delete(uuid);
-    } else {
-      // Update value. Two separate clones, since the editor takes over the annotation object itself
-      initialAnnotations.value?.set(uuid, normalizeAnnotation(a));
-      savedAnnotations.set(uuid, normalizeAnnotation(a));
-    }
-  });
-
-  // Range annotations are updated here, zero-point annotations along with the document (applySavedDocAnnotations)
-  tiptap.value?.commands.applySavedAnnotations(savedAnnotations);
-}
-
 /**
- * Updates the initial structural annotations (structural nodes and block classifications) to the saved state.
+ * Updates the initial annotations to the saved state.
  *
- * @param {Annotation[]} structureElements - The saved structural annotations, including the deleted ones.
- * @returns {Map<string, Annotation>} The saved (not deleted) annotations by uuid, to be written back into the document.
+ * @param {Annotation[]} updatedAnnotations - The saved annotations, including the deleted ones.
+ * @param {Map<string, Annotation> | undefined} initial - The initial annotations of the same kind, changed in place.
+ * @param {string[]} deletedOrphans - uuids of the annotations the server deleted as orphans.
+ * @returns {Map<string, Annotation>} The saved (not deleted) annotations by uuid, to be written back into the editor.
  */
-function cleanUpStructureElements(structureElements: Annotation[]): Map<string, Annotation> {
-  const savedStructuralAnnotations = new Map<string, Annotation>();
+function cleanUpAnnotations(
+  updatedAnnotations: Annotation[],
+  initial: Map<string, Annotation> | undefined,
+  deletedOrphans: string[],
+): Map<string, Annotation> {
+  const saved = new Map<string, Annotation>();
 
-  structureElements.forEach((elm: Annotation) => {
-    const uuid: string = elm.node.properties.uuid;
+  updatedAnnotations.forEach((annotation: Annotation) => {
+    const uuid: string = annotation.node.properties.uuid;
 
-    if (elm.meta.status === "deleted") {
-      // Can be removed from the map safely
-      initialStructuralAnnotations.value?.delete(uuid);
+    if (annotation.status === "deleted") {
+      initial?.delete(uuid);
     } else {
-      // Update value. Two separate clones, since the editor takes over the annotation object itself
-      initialStructuralAnnotations.value?.set(uuid, normalizeAnnotation(elm));
-      savedStructuralAnnotations.set(uuid, normalizeAnnotation(elm));
+      // Two separate clones, since the editor takes over the annotation object itself
+      initial?.set(uuid, normalizeAnnotation(annotation, deletedOrphans));
+      saved.set(uuid, normalizeAnnotation(annotation, deletedOrphans));
     }
   });
 
-  return savedStructuralAnnotations;
+  return saved;
 }
 
 function getEmptyNodes(): DocNode[] {
@@ -227,32 +223,23 @@ async function handleSaveChanges(): Promise<void> {
 
   const { structureElements, annotations } = affectedAnnotations;
 
-  const annotationsToUpdate: Annotation[] = [...structureElements, ...annotations];
-  const newTextNode: NodeStatusObject<TextNode> = {
-    node: {
-      properties: {
-        uuid: text.value.properties.uuid,
-        text: tiptap.value.state.doc.textContent,
-      },
-      nodeLabels: [...text.value.nodeLabels],
+  const savedContent: ContentNode = {
+    properties: {
+      uuid: text.value.properties.uuid,
+      text: tiptap.value.state.doc.textContent,
     },
-    meta: { status: "modified" },
-    connectedNodes: [],
+    nodeLabels: [...text.value.nodeLabels],
+    classifierRef: text.value.classifierRef,
   };
 
-  // Object to send via API
-  const textToUpdate: TextUpdateDto = {
-    text: toValue(newTextNode),
-    annotations: toValue(annotationsToUpdate),
-  };
+  const graph: EditGraph = toContentSaveGraph(getModelContext(), savedContent, [...structureElements, ...annotations]);
 
   asyncOperationRunning.value = true;
   try {
-    await api.updateText(text.value.properties.uuid, textToUpdate);
+    const result: WriteResponse = await api.saveGraph(graph);
 
     // Update all initial values: Annotations, structuralAnnotations and text
-
-    cleanUpAfterSave(newTextNode, affectedAnnotations);
+    cleanUpAfterSave(savedContent, affectedAnnotations, result.deletedOrphans);
 
     showMessage("success");
   } catch (error: unknown) {
@@ -403,7 +390,7 @@ watch(
       return;
     }
 
-    const fetchedAnnotations: NodeDto[] = await api.getAnnotations(textUuid.value);
+    const fetchedAnnotations: Annotation[] = await api.getAnnotations(textUuid.value);
 
     const standoffObject = { text: text.value.properties.text, annotations: fetchedAnnotations };
 

@@ -6,6 +6,7 @@ import logger from "../logger.js";
 import type { BaseNodeProperties, ElementDiagnostic, ModelContext, NodeUpdateObject, WriteResponse } from "../models/types.js";
 import { ELEMENT_DIAGNOSTIC_CODE, validateElements } from "../utils/instanceMapper.js";
 import { buildSubgraphUpdateQuery, toNeo4jChanges } from "../utils/nodeUpdate.js";
+import { baseNodePattern } from "../utils/ramen.js";
 import {
   addStoredNode,
   addStoredRelation,
@@ -153,8 +154,8 @@ export default class WriteValidationService {
     const neighbourhoodResult = await tx.run(
       `
       UNWIND $uuids AS uuid
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: uuid})
-      OPTIONAL MATCH (n)-[r]-(m:Annotation|Content|Collection|Entity)
+      MATCH ${baseNodePattern("n", "uuid: uuid")}
+      OPTIONAL MATCH (n)-[r]-${baseNodePattern("m")}
 
       RETURN
         {properties: n {.*}, nodeLabels: labels(n)} AS node,
@@ -186,7 +187,7 @@ export default class WriteValidationService {
     const chainResult = await tx.run(
       `
       UNWIND $uuids AS uuid
-      MATCH path = (carrier)-[:HAS_ANNOTATION*1..${MAX_CARRIER_CHAIN}]->(a:Annotation {uuid: uuid})
+      MATCH path = (carrier)-[:${HAS_ANNOTATION}*1..${MAX_CARRIER_CHAIN}]->(a:Annotation {uuid: uuid})
       WHERE NOT carrier:Annotation AND (carrier:Content OR carrier:Collection OR carrier:Entity)
 
       RETURN [x IN nodes(path) | {properties: x {.*}, nodeLabels: labels(x)}] AS chain

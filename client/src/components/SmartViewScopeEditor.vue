@@ -4,6 +4,7 @@ import SelectButton from "primevue/selectbutton";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
 import { CollectionNode, SmartViewScope } from "../models/types";
+import { BASE_NODE_REF } from "../config/ramen";
 import SmartViewCollectionPicker from "./SmartViewCollectionPicker.vue";
 
 const props = defineProps<{
@@ -13,9 +14,9 @@ const props = defineProps<{
 const emit = defineEmits<{ change: [SmartViewScope] }>();
 
 const { api } = useAppStore();
-const { getAvailableCollectionLabels } = useConfigStore();
+const { getNodeTypeOptions } = useConfigStore();
 
-const canSearchInside: boolean = getAvailableCollectionLabels().length > 0;
+const canSearchInside: boolean = getNodeTypeOptions(BASE_NODE_REF.Collection).length > 0;
 
 const modeOptions: { label: string; value: SmartViewScope["kind"]; icon: string; hint: string }[] = [
   { label: "Everywhere", value: "all", icon: "icon-globe", hint: "All collections and contents" },

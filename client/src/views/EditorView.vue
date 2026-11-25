@@ -16,7 +16,7 @@ import EditorResizer from "../components/EditorResizer.vue";
 import BlockClassificationLines from "../components/BlockClassificationLines.vue";
 import EditorMetadata from "../components/EditorMetadata.vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
-import { Annotation, EditGraph, TextNode, WriteResponse } from "../models/types.ts";
+import { Annotation, ContentNode, EditGraph, WriteResponse } from "../models/types.ts";
 import { useTextStore } from "../store/text.ts";
 import { useAppStore } from "../store/app.ts";
 import PageOverlay from "../components/PageOverlay.vue";
@@ -119,7 +119,7 @@ const parseErrorConsequences = computed<string[]>(() =>
 );
 
 function cleanUpAfterSave(
-  updatedText: TextNode,
+  updatedText: ContentNode,
   updatedAnnotations: { annotations: Annotation[]; structureElements: Annotation[] },
   deletedOrphans: string[],
 ): void {
@@ -223,7 +223,7 @@ async function handleSaveChanges(): Promise<void> {
 
   const { structureElements, annotations } = affectedAnnotations;
 
-  const newTextNode: TextNode = {
+  const savedContent: ContentNode = {
     properties: {
       uuid: text.value.properties.uuid,
       text: tiptap.value.state.doc.textContent,
@@ -232,14 +232,14 @@ async function handleSaveChanges(): Promise<void> {
     classifierRef: text.value.classifierRef,
   };
 
-  const graph: EditGraph = toContentSaveGraph(getModelContext(), newTextNode, [...structureElements, ...annotations]);
+  const graph: EditGraph = toContentSaveGraph(getModelContext(), savedContent, [...structureElements, ...annotations]);
 
   asyncOperationRunning.value = true;
   try {
     const result: WriteResponse = await api.saveGraph(graph);
 
     // Update all initial values: Annotations, structuralAnnotations and text
-    cleanUpAfterSave(newTextNode, affectedAnnotations, result.deletedOrphans);
+    cleanUpAfterSave(savedContent, affectedAnnotations, result.deletedOrphans);
 
     showMessage("success");
   } catch (error: unknown) {

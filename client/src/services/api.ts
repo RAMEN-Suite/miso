@@ -2,12 +2,11 @@ import { DeepReadonly } from "vue";
 import {
   EditGraph,
   CollectionNode,
+  ContentNode,
   NodeSearchParams,
   EntityNode,
   NodeAncestry,
   PaginationResult,
-  TextNode,
-  BaseNodeLabel,
   Annotation,
   HierarchyNode,
   HierarchyFilters,
@@ -237,24 +236,30 @@ export default class ApiService {
     }
   }
 
+  /**
+   * Fetches one page of the nodes of a type (refinements included) whose label or text contains the search input.
+   *
+   * @param {string} classifierRef - Qualified ref of the node type.
+   * @param {{ filters: NodeSearchParams }} params - The search input and pagination.
+   * @returns {Promise<PaginationResult<(CollectionNode | EntityNode | ContentNode)[]>>} The page.
+   */
   public async searchNodes(
-    baseNodeLabel: BaseNodeLabel,
+    classifierRef: string,
     params: {
       filters: DeepReadonly<NodeSearchParams> | NodeSearchParams;
     },
-  ): Promise<PaginationResult<(CollectionNode | EntityNode | TextNode)[]>> {
+  ): Promise<PaginationResult<(CollectionNode | EntityNode | ContentNode)[]>> {
     const DEFAULT_ROW_COUNT: number | null = 10;
 
     const path: string = `${this.baseUrl}/search`;
 
-    const { sortDirection, searchInput, nodeLabels, rowCount, offset } = params.filters;
+    const { sortDirection, searchInput, rowCount, offset } = params.filters;
 
     const urlParams: URLSearchParams = new URLSearchParams();
 
-    urlParams.set("scope", baseNodeLabel);
+    urlParams.set("classifier", classifierRef);
     urlParams.set("order", sortDirection ?? "asc");
     urlParams.set("search", searchInput ?? "");
-    urlParams.set("nodeLabels", (nodeLabels ?? []).join(","));
     urlParams.set("limit", rowCount?.toString() ?? DEFAULT_ROW_COUNT.toString());
 
     if (offset) {
@@ -270,9 +275,9 @@ export default class ApiService {
 
       const result: PaginationResult<ElementResponse> = await response.json();
 
-      this.reportReadDiagnostics(`Search results (${baseNodeLabel})`, result.data.diagnostics);
+      this.reportReadDiagnostics(`Search results (${classifierRef})`, result.data.diagnostics);
 
-      return { data: toNodes<CollectionNode | EntityNode | TextNode>(result.data), pagination: result.pagination };
+      return { data: toNodes<CollectionNode | EntityNode | ContentNode>(result.data), pagination: result.pagination };
     } catch (error: unknown) {
       this.handleApiError(error);
     }
@@ -352,9 +357,9 @@ export default class ApiService {
    * Fetches a Content node.
    *
    * @param {string} contentUuid - The UUID of the Content.
-   * @returns {Promise<TextNode>} The Content node.
+   * @returns {Promise<ContentNode>} The Content node.
    */
-  public async getContent(contentUuid: string): Promise<TextNode> {
+  public async getContent(contentUuid: string): Promise<ContentNode> {
     try {
       const url: string = `${this.baseUrl}/contents/${contentUuid}`;
 
@@ -366,7 +371,7 @@ export default class ApiService {
 
       this.reportReadDiagnostics(`Content ${contentUuid}`, elements.diagnostics);
 
-      return toNode(elements, contentUuid) as TextNode;
+      return toNode(elements, contentUuid) as ContentNode;
     } catch (error: unknown) {
       this.handleApiError(error);
     }

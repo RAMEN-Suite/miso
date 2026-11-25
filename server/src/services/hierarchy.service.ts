@@ -16,7 +16,6 @@ import {
   ModelAttribute,
   ModelContext,
 } from "../models/types.js";
-import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- db results can not be typed (only with assertion) which is too cumbersome for now */
 
@@ -139,16 +138,11 @@ export default class HierarchyService {
   public async listNodes(scope: HierarchyScope, options: HierarchyListOptions): Promise<PaginationResult<ElementResponse>> {
     const { filters, sort, order, limit, cursor, signature, properties, context } = options;
 
-    // `search` in the pagination payload is a legacy field the client does not read for hierarchy
-    // listings; the free-text rule (if any) is the `distinct` one
-    // TODO: Remove search legacy from here and all pagination data occurences
-    const search: string = JSON.stringify(filters.find((rule) => rule.target.kind === "distinct")?.conditions[0]?.value ?? "");
-
     // An empty uuid scope can only ever yield an empty page -> skip db query
     if (scope.kind === "uuids" && scope.uuids.length === 0) {
       return {
         data: { nodes: [], relations: [], diagnostics: [] },
-        pagination: { limit, order, search, totalRecords: 0, nextCursor: null },
+        pagination: { limit, order, totalRecords: 0, nextCursor: null },
       };
     }
 
@@ -199,7 +193,6 @@ export default class HierarchyService {
       ...(scope.kind === "descendants" && { ancestorUuid: scope.ancestorUuid }),
       ...(scope.kind === "uuids" && { uuids: scope.uuids }),
       ...filterParams,
-      baseLabels: BASE_NODE_LABELS,
       previewLength: int(SORT_KEY_MAX_LENGTH),
       limit: int(limit + 1),
       ...(cursor && {
@@ -250,7 +243,6 @@ export default class HierarchyService {
       pagination: {
         limit,
         order,
-        search,
         totalRecords,
         nextCursor,
       },

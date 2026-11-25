@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { DataTypes, RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/core";
-import { BASE_NODE_REF } from "../../../../src/config/ramen";
+import { BASE_NODE_LABEL_BY_REF, BASE_NODE_LABELS, BASE_NODE_REF } from "../../../../src/config/ramen";
 import type { ModelAnnotationShape, ModelAttribute, ModelContext } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import {
@@ -82,6 +82,13 @@ function buildResolutionTestModel() {
 }
 
 const { context, refs } = buildResolutionTestModel();
+
+describe("RAMEN base nodes", () => {
+  test("their labels are their names in RAMEN's reference model", () => {
+    expect([...BASE_NODE_LABELS].sort()).toEqual(["Annotation", "Collection", "Content", "Entity"]);
+    expect(BASE_NODE_LABEL_BY_REF[BASE_NODE_REF.Content]).toBe("Content");
+  });
+});
 
 describe("resolveClassifierRef", () => {
   test.for([

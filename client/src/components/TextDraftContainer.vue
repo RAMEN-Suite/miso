@@ -2,8 +2,8 @@
 import { ComponentPublicInstance, computed, onMounted, ref, useTemplateRef } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
-import { NodeTypeOption, TextNode } from "../models/types";
-import { createTextNode } from "../config/ramen";
+import { ContentNode, NodeTypeOption } from "../models/types";
+import { createContentNode } from "../config/ramen";
 
 const props = defineProps<{
   /** The type of the new Content */
@@ -11,13 +11,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "textAdded", text: TextNode): void;
+  (e: "textAdded", text: ContentNode): void;
   (e: "textDiscarded"): void;
 }>();
 
 const textInput = useTemplateRef<ComponentPublicInstance>("text-input");
 
-const draft = ref<TextNode>(createTextNode(props.nodeType));
+const draft = ref<ContentNode>(createContentNode(props.nodeType));
 
 const isEmptyDraft = computed<boolean>(() => draft.value.properties.text.trim().length === 0);
 

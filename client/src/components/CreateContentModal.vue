@@ -3,10 +3,10 @@ import { ref, inject, watch, computed, Ref } from "vue";
 import Button from "primevue/button";
 import Textarea from "primevue/textarea";
 import { useRoute } from "vue-router";
-import { CollectionNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption, TextNode } from "../models/types";
+import { CollectionNode, ContentNode, EditGraph, HierarchyNode, ModelContext, NodeTypeOption } from "../models/types";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
-import { BASE_NODE_REF, createTextNode } from "../config/ramen";
+import { BASE_NODE_REF, createContentNode } from "../config/ramen";
 import { addExistingNode, addRelation, createNode, toGraphNode } from "../utils/helper/editGraph";
 import { relationRefOf } from "../utils/helper/writePayload";
 import { DynamicDialogInstance } from "primevue/dynamicdialogoptions";
@@ -31,7 +31,7 @@ const parentCollection: CollectionNode | null = dialogRef.value.data.parentColle
 const nodeType: NodeTypeOption = dialogRef.value.data.nodeType;
 
 const isLoading = ref<boolean>(false);
-const newContentNode = ref<TextNode>(createTextNode(nodeType));
+const newContentNode = ref<ContentNode>(createContentNode(nodeType));
 
 const inputIsValid = computed<boolean>(() => newContentNode.value.properties.text.trim().length > 0);
 
@@ -45,11 +45,11 @@ function closeModal() {
  * The graph for the create endpoint: the new Content, and its `PART_OF` relation to the parent unless it is created at
  * top level.
  *
- * @param {TextNode} contentNode - The new content node.
+ * @param {ContentNode} contentNode - The new content node.
  * @param {CollectionNode | null} parent - The parent collection, or null for top-level.
  * @returns {EditGraph} The graph to save.
  */
-function toCreationGraph(contentNode: TextNode, parent: CollectionNode | null): EditGraph {
+function toCreationGraph(contentNode: ContentNode, parent: CollectionNode | null): EditGraph {
   const context: ModelContext = getModelContext();
   const graph: EditGraph = { nodes: [], relations: [] };
 
@@ -80,7 +80,7 @@ async function handleSubmit() {
 
   const text: string = newContentNode.value.properties.text.replace(/(\r\n|\n|\r)/g, " ");
 
-  const contentNodeToAdd: TextNode = {
+  const contentNodeToAdd: ContentNode = {
     ...newContentNode.value,
     properties: { ...newContentNode.value.properties, text },
   };

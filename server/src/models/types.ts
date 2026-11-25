@@ -219,7 +219,7 @@ export interface FaviconResponse {
   data: Buffer;
 }
 
-export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
+export interface Node<T = AnnotationNode | CollectionNode | EntityNode | ContentNode> {
   properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
@@ -233,27 +233,24 @@ export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNod
   shapeRef?: string | null;
 }
 
+/** A node search, see `SearchService` */
 export interface NodeSearchParams {
-  nodeLabels?: string[];
-  order?: "asc" | "desc";
-  offset?: number;
-  limit?: number;
-  search?: string;
+  /** Qualified ref of the node type to search, refinements included */
+  classifierRef: string;
+  order: string;
+  offset: number;
+  limit: number;
+  /** The text the node's label (Contents: text) must contain, case-insensitive */
+  search: string;
 }
 
 export interface PaginationData {
   limit: number;
   offset?: number | null;
   order: string;
-  search: string;
   totalRecords: number;
-  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
-  nextCursor?: CursorData | string | null;
-}
-
-export interface CursorData {
-  label: string;
-  uuid: string;
+  /** The opaque cursor of the next hierarchy page, `null` on the last one */
+  nextCursor?: string | null;
 }
 
 export interface PaginationResult<T> {
@@ -261,8 +258,6 @@ export interface PaginationResult<T> {
   pagination: PaginationData;
 }
 
-export type TextNode = Node<IText>;
-// TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
 /** The changes of a write, grouped by operation, as the write query takes them (see `buildSubgraphUpdateQuery`) */

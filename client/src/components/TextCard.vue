@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import NodeCard from "./NodeCard.vue";
-import { ElementStatus, TextNode } from "../models/types";
+import { ContentNode, ElementStatus } from "../models/types";
 import { filterBaseNodeLabels } from "../config/ramen.ts";
 
 const props = withDefaults(
   defineProps<{
-    node: TextNode;
+    node: ContentNode;
     /** The edit status shown as badge */
     status?: ElementStatus;
     mode: "edit" | "view";

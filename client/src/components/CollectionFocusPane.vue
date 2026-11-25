@@ -77,7 +77,6 @@ const pane = useTemplateRef<HTMLDivElement>("pane");
 const {
   isInitialized: isConfigInitialized,
   annotationHasConstraints,
-  getAllCollectionAttributes,
   getAnnotationShape,
   getCollectionAnnotationShapes,
   getCollectionAttributes,
@@ -525,14 +524,12 @@ function carrierRelationOf(annotation: AnnotationNode): ElementRelation {
 }
 
 /**
- * Fills in any missing collection properties with the type-specific default value.
+ * Fills in the missing properties of the collection's type with their default value.
  *
  * @returns {void} This function does not return any value.
  */
 function enrichCollectionData(): void {
-  const allPossibleFields: ModelAttribute[] = getAllCollectionAttributes();
-
-  allPossibleFields.forEach((field) => {
+  getCollectionAttributes(temporaryWorkData.value.collection).forEach((field) => {
     const name: string = field.attribute.name;
 
     if (!(name in temporaryWorkData.value.collection.properties)) {

@@ -102,8 +102,6 @@ export interface TiptapMark {
   attrs: Record<string, unknown>;
 }
 
-export type AllowedTiptapNodeTypes = string;
-
 export interface TiptapNodeAttrs {
   [key: string]: unknown;
   uuid?: string;
@@ -112,7 +110,7 @@ export interface TiptapNodeAttrs {
 }
 
 export interface TiptapNode {
-  type: AllowedTiptapNodeTypes;
+  type: string;
   attrs?: TiptapNodeAttrs;
   content?: TiptapNode[];
   marks?: TiptapMark[];

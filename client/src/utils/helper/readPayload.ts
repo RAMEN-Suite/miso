@@ -2,6 +2,7 @@ import type {
   Annotation,
   AnnotationNode,
   CollectionNode,
+  ContentNode,
   EditGraph,
   EditNode,
   EditRelation,
@@ -9,7 +10,6 @@ import type {
   ElementNode,
   EntityNode,
   NodeAncestry,
-  TextNode,
 } from "../../models/types";
 
 /**
@@ -99,7 +99,7 @@ export function toEditGraph(elements: ElementGraph): EditGraph {
 }
 
 /** A node of the client's types */
-type ClientNode = AnnotationNode | CollectionNode | EntityNode | TextNode;
+type ClientNode = AnnotationNode | CollectionNode | ContentNode | EntityNode;
 
 /**
  * The client node of an element, with its properties copied.

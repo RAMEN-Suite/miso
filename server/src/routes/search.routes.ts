@@ -1,29 +1,24 @@
 import express, { Request, Response, Router, NextFunction } from "express";
-import { ElementResponse, PaginationResult, NodeSearchParams } from "../models/types.js";
+import { ElementResponse, PaginationResult } from "../models/types.js";
 import { getPagination } from "../utils/helper.js";
 import SearchService from "../services/search.service.js";
+import ValidationError from "../errors/validation.error.js";
 
 const router: Router = express.Router({ mergeParams: true });
 const searchService: SearchService = new SearchService();
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { limit, offset, order, search } = getPagination(req);
-    const scope: "Collection" | "Entity" | "Content" = req.query.scope as "Collection" | "Entity" | "Content";
+    const classifierRef: unknown = req.query.classifier;
 
-    if (!scope) {
-      return [];
+    if (typeof classifierRef !== "string" || classifierRef === "") {
+      throw new ValidationError("`classifier` (the qualified ref of a node type) is required.");
     }
 
-    const nodeLabels: string[] = (req.query.nodeLabels as string).split(",").filter((label) => label.trim() !== "");
-
-    const nodes: PaginationResult<ElementResponse> = await searchService.searchNodes(scope, {
-      nodeLabels,
-      limit,
-      order,
-      offset,
-      search,
-    } as Required<NodeSearchParams>);
+    const nodes: PaginationResult<ElementResponse> = await searchService.searchNodes({
+      classifierRef,
+      ...getPagination(req),
+    });
 
     res.status(200).json(nodes);
   } catch (error: unknown) {

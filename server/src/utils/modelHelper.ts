@@ -1,4 +1,4 @@
-import { Attribute, BuiltinType, Constraint, DataType, Node, RamenModel, Relation } from "@ramen-suite/core";
+import { Attribute, BuiltinType, Constraint, DataType, ModelRef, Node, RamenModel, Relation } from "@ramen-suite/core";
 import {
   BASE_NODE_REF,
   BASE_NODE_REFS,
@@ -45,10 +45,10 @@ import type {
  * @returns {string} The qualified ref (`<modelId>:<id>`).
  */
 export function qualify(ref: string, contextModelId: string): string {
-  if (ref.includes(":")) {
+  if (ModelRef.isQualified(ref)) {
     return ref;
   } else {
-    return `${contextModelId}:${ref}`;
+    return ModelRef.qualify(contextModelId, ref);
   }
 }
 
@@ -57,9 +57,10 @@ export function qualify(ref: string, contextModelId: string): string {
  *
  * @param {string} qualifiedRef - A qualified ref (`<modelId>:<id>`).
  * @returns {string} The model ID.
+ * @throws {Error} If the ref isn't qualified.
  */
 function modelIdOf(qualifiedRef: string): string {
-  return qualifiedRef.split(":")[0];
+  return ModelRef.splitQualified(qualifiedRef).modelId;
 }
 
 /**
@@ -109,7 +110,7 @@ export function findAttribute(owner: AttributeOwner, attributeRef: string): Attr
  * @returns {string} The attribute ref, in the model of its declaring element.
  */
 export function attributeRefOf(entry: ModelAttribute): string {
-  return `${modelIdOf(entry.ownerRef)}:${entry.attribute.id}`;
+  return ModelRef.qualify(modelIdOf(entry.ownerRef), entry.attribute.id);
 }
 
 // ----- Nodes -----
@@ -581,26 +582,15 @@ export function resolveShapeRef(context: ModelContext, carrierRef: string, type:
   }
 }
 
-/**
- * The relation definition of a qualified ref.
- *
- * @param {ModelContext} context - The model context.
- * @param {string} ref - Qualified ref of the relation definition.
- * @returns {(Relation & { modelId: string }) | undefined} The definition, `undefined` if the model has none.
- */
-export function findRelation(context: ModelContext, ref: string): (Relation & { modelId: string }) | undefined {
-  return context.config.model.relations.find((relation) => `${relation.modelId}:${relation.id}` === ref);
-}
-
 /** Qualified refs of all relation definitions a relation definition refines, directly or indirectly */
 function relationSuperRefsOf(context: ModelContext, ref: string, seen = new Set<string>()): Set<string> {
-  const relation: (Relation & { modelId: string }) | undefined = findRelation(context, ref);
+  const relation: Relation | undefined = context.model.getRelation(ref);
 
   if (!relation) {
     return seen;
   }
 
-  for (const superRef of relation.superTypes.map((superType) => qualify(superType, relation.modelId))) {
+  for (const superRef of relation.superTypes.map((superType) => qualify(superType, modelIdOf(ref)))) {
     if (!seen.has(superRef)) {
       seen.add(superRef);
       relationSuperRefsOf(context, superRef, seen);
@@ -630,7 +620,7 @@ export function resolveRelationRef(context: ModelContext, fromRef: string, type:
         .getAdvisor()
         .getRelations(modelId, fromRef, toRef)
         .map((selection) => qualify(selection.ref, modelId))
-        .filter((ref) => findRelation(context, ref)?.name === type),
+        .filter((ref) => context.model.getRelation(ref)?.name === type),
     ),
   ];
   const mostSpecificRefs: string[] = candidateRefs.filter((ref) => {

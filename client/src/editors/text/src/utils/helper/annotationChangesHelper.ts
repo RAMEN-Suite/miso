@@ -50,7 +50,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   } = useConfigStore();
 
   /**
-   * Collects and returns all properties for the neo4j payload of a structural annotation node.
+   * Collects and returns the properties a structural annotation node is saved with.
    *
    * Single assembly point for a structural node's data which merges the different sources of truth:
    * - Domain props from the tiptap node's `_annotation` attribute (as declared in the config),
@@ -62,7 +62,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * @returns {Record<string, unknown>} The collected properties
    */
   function assembleStructuralAnnotationData(node: DocNode): Record<string, unknown> {
-    const neo4jProperties: Record<string, unknown> = {};
+    const savedProperties: Record<string, unknown> = {};
 
     const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
     const annotationType: string = getAnnotationType(editorRole);
@@ -80,7 +80,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       }
 
       if (name in annotationData) {
-        neo4jProperties[name] = annotationData[name];
+        savedProperties[name] = annotationData[name];
       }
     });
 
@@ -101,18 +101,18 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
         continue;
       }
 
-      neo4jProperties[property] = value;
+      savedProperties[property] = value;
     }
 
     // 3. Authorative properties: type and uuid non-configurable, must always exist
-    neo4jProperties.uuid = node.attrs.uuid;
-    neo4jProperties.type = annotationType;
+    savedProperties.uuid = node.attrs.uuid;
+    savedProperties.type = annotationType;
 
     if (getAnnotationExtent(annotationType) === "zeroPoint") {
-      neo4jProperties.isZeroPoint = true;
+      savedProperties.isZeroPoint = true;
     }
 
-    return neo4jProperties;
+    return savedProperties;
   }
 
   /**

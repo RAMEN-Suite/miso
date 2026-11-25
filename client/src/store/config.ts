@@ -5,7 +5,6 @@ import {
   AnnotationExtent,
   AnnotationNode,
   AnnotationShapeConfig,
-  BaseNodeLabel,
   BaseNodeProperties,
   BuiltinStructuralType,
   CollectionNode,
@@ -71,14 +70,8 @@ const modelContext = shallowRef<ModelContext>();
  * for every annotation it renders.
  */
 const textShapesByType = shallowRef<Map<string, ModelAnnotationShape>>(new Map());
-const isFetching = ref<boolean>(false);
-const error = ref<Error | null>(null);
-const isInitialized = computed<boolean>(() => modelContext.value !== undefined && !isFetching.value);
+const isInitialized = computed<boolean>(() => modelContext.value !== undefined);
 
-const groupedAnnotationTypes = shallowRef<Record<string, ModelAnnotationShape[]>>();
-const availableCollectionLabels = ref<string[]>([]);
-const availableEntityLabels = ref<string[]>([]);
-const availableTextLabels = ref<string[]>([]);
 const groupedAndSortedAnnotationTypes = shallowRef<Record<string, ModelAnnotationShape[]>>();
 
 /**
@@ -93,8 +86,7 @@ const structuralTypes = ref<StructuralType[]>([]);
 /**
  * Mapping between default and project-specific structural annotations.
  *
- * Is {@linkcode DEFAULT_ANNOTATION_MAPPING} at first, but gets replaced with project-specific mapping via
- * {@linkcode setAnnotationMapping}
+ * Is {@linkcode DEFAULT_ANNOTATION_MAPPING} at first, and gets replaced with the project's mapping on initialization.
  */
 const annotationMapping = ref<AnnotationMapping>(DEFAULT_ANNOTATION_MAPPING);
 
@@ -123,8 +115,7 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
 /**
  * Store for making the Miso config available to all components. When the app is mounted, the store is
  * initialized with the fetched Miso config. Model questions are answered by RAMEN core, the config of model elements
- * comes from `elements` and `editors.text.mappings`. Only the annotation mapping changes after the initialization
- * (see {@linkcode setAnnotationMapping}).
+ * comes from `elements` and `editors.text.mappings`.
  *
  * Nodes are looked up by their classifier (`classifierRef`, see {@link getClassifierRef}), annotations
  * by their `shapeRef`. Text annotation types are matched by `type`, which is the editor's key.
@@ -277,24 +268,6 @@ export function useConfigStore() {
   }
 
   /**
-   * Retrieves the available labels that can be assigned to a Collection node.
-   *
-   * @return {string[]} The available labels.
-   */
-  function getAvailableCollectionLabels(): string[] {
-    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Collection).map(({ node }) => node.name) : [];
-  }
-
-  /**
-   * Retrieves the available labels that can be assigned to a a Content node.
-   *
-   * @return {string[]} The available labels.
-   */
-  function getAvailableContentLabels(): string[] {
-    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Content).map(({ node }) => node.name) : [];
-  }
-
-  /**
    * Retrieves the classifier refs of the node types listed in the hierarchy: the refinements of Collection and Content.
    * Empty before the config is loaded.
    *
@@ -375,35 +348,6 @@ export function useConfigStore() {
     }
 
     return getContentMediumOfType(context, classifierRef);
-  }
-
-  /**
-   * Retrieves the available labels that can be assigned to a an Entity node.
-   *
-   * @return {string[]} The available labels.
-   */
-  function getAvailableEntityLabels(): string[] {
-    return modelContext.value ? getRefinements(modelContext.value, BASE_NODE_REF.Entity).map(({ node }) => node.name) : [];
-  }
-
-  /**
-   * Retrieves the available labels that can be assigned to a node with given base type.
-   *
-   * Convenience wrapper for when only the base node label is known.
-   *
-   * @return {string[]} The available labels.
-   */
-  function getAvailableNodeLabels(baseLabel: BaseNodeLabel): string[] {
-    switch (baseLabel) {
-      case "Collection":
-        return availableCollectionLabels.value;
-      case "Entity":
-        return availableEntityLabels.value;
-      case "Content":
-        return availableTextLabels.value;
-      default:
-        return [];
-    }
   }
 
   /**
@@ -760,11 +704,7 @@ export function useConfigStore() {
     // Must be set before the structural types are built, since they are keyed by the project's type names
     annotationMapping.value = buildAnnotationMapping(context);
     structuralTypes.value = buildStructuralTypes();
-    groupedAnnotationTypes.value = groupAnnotationTypes();
-    groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup();
-    availableCollectionLabels.value = getAvailableCollectionLabels();
-    availableEntityLabels.value = getAvailableEntityLabels();
-    availableTextLabels.value = getAvailableContentLabels();
+    groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup(groupAnnotationTypes());
 
     initializeFilter([...textShapesByType.value.keys()]);
   }
@@ -809,49 +749,24 @@ export function useConfigStore() {
   }
 
   /**
-   * Sets the active annotation mapping (project names <-> built-in editor roles/attributes) and
-   * rebuilds the structural types and the toolbar groups so the renames take effect. On load, the mapping is built
-   * from the `editors.text.mappings` of the config; this function replaces it afterwards.
-   *
-   * @param {AnnotationMapping} mapping - The annotation mapping to apply.
-   * @return {void} This function does not return anything.
-   */
-  function setAnnotationMapping(mapping: AnnotationMapping): void {
-    annotationMapping.value = mapping;
-    structuralTypes.value = buildStructuralTypes();
-    groupedAnnotationTypes.value = groupAnnotationTypes();
-    groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup();
-  }
-
-  /**
    * Sorts each group of annotation types alphabetically by their type within their respective category.
    *
+   * @param {Record<string, ModelAnnotationShape[]>} grouped - The annotation shapes by group.
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group, sorted by type.
    */
-  function sortAnnotationTypesInGroup(): Record<string, ModelAnnotationShape[]> {
+  function sortAnnotationTypesInGroup(grouped: Record<string, ModelAnnotationShape[]>): Record<string, ModelAnnotationShape[]> {
     return Object.fromEntries(
-      Object.entries(groupedAnnotationTypes.value ?? {}).map(([category, shapes]) => [
-        category,
-        shapes.toSorted((a, b) => a.type.localeCompare(b.type)),
-      ]),
+      Object.entries(grouped).map(([category, shapes]) => [category, shapes.toSorted((a, b) => a.type.localeCompare(b.type))]),
     );
   }
 
   return {
     annotationHasConstraints,
-    availableCollectionLabels,
-    availableEntityLabels,
-    availableTextLabels,
-    error: readonly(error),
     getAllCollectionAttributes,
     getAnnotationExtent,
     getAnnotationRepresentation,
     getAnnotationShortcuts,
     getAnnotationType,
-    getAvailableCollectionLabels,
-    getAvailableContentLabels,
-    getAvailableEntityLabels,
-    getAvailableNodeLabels,
     findCollectionAnnotationShape,
     getAnnotationNodeProperties,
     getAnnotationProperties,
@@ -873,14 +788,11 @@ export function useConfigStore() {
     getTextAnnotationProperties,
     getTextAnnotationShape,
     groupedAndSortedAnnotationTypes,
-    groupedAnnotationTypes,
     initializeConfig,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,
-    isFetching: readonly(isFetching),
     isInitialized: readonly(isInitialized),
     isStructuralType,
     isZeroPoint,
-    setAnnotationMapping,
   };
 }

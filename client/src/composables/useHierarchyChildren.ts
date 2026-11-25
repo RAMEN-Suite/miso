@@ -91,7 +91,7 @@ export function useHierarchyChildren(
       }
 
       state.value.pagination = result.pagination;
-      state.value.cursor = (result.pagination.nextCursor as string | null) ?? null;
+      state.value.cursor = result.pagination.nextCursor ?? null;
       state.value.initialized = true;
     } finally {
       state.value.isLoading = false;

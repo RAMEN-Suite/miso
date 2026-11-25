@@ -1,7 +1,6 @@
 import { Request } from "express";
 import { isDuration, isInt, types } from "neo4j-driver";
 import {
-  CursorData,
   FilterSpec,
   FilterTarget,
   HierarchyQuery,
@@ -21,67 +20,29 @@ import { AttributeValueType } from "./ramen.js";
 import { isPlainObject } from "./selector.js";
 
 /**
- * Capitalizes the first letter of a given string.
- *
- * @param {string} inputString - The string to be capitalized.
- * @return {string} The input string with the first letter capitalized.
- */
-export function capitalize(inputString: string): string {
-  return inputString.charAt(0).toUpperCase() + inputString.slice(1);
-}
-
-/**
- * Parses pagination parameters from the request query.
- *
- * Copied from the official Neo4j Graphacademy repo: https://github.com/neo4j-graphacademy/app-nodejs/blob/main/src/utils.js
- * and modiefied.
+ * Parses the offset pagination of the node search from the request query. Missing or invalid values get their
+ * defaults, see {@linkcode parsePaginationLimit} for the limit.
  *
  * @param {Request} req - The express request object.
- * @returns {{ cursor: CursorData | null; limit: number; offset: number; order: string; search: string }} An object with the following properties:
- *   - `cursor`: The cursor to continue from, or `null` if none (or an invalid one) was provided.
- *   - `search`: The search string to filter by.
- *   - `order`: The direction of the sort (ascending/descending).
- *   - `limit`: The maximum number of results to return.
- *   - `offset`: The number of results to skip.
+ * @returns {{ limit: number; offset: number; order: string; search: string }} The search string, sort direction
+ *   (`ASC`/`DESC`), page size and number of results to skip.
  */
 export function getPagination(req: Request): {
-  cursor: CursorData | null;
   limit: number;
   offset: number;
   order: string;
   search: string;
 } {
-  // TODO: Should this function have more restriction functionalities/error handling
-  const { limit, cursorUuid, cursorLabel, offset } = req.query;
+  const ORDERS: string[] = ["ASC", "DESC"];
 
-  // Valid Order directions
-  const ORDER_ASC: string = "ASC";
-  const ORDER_DESC: string = "DESC";
-  const ORDERS: string[] = [ORDER_ASC, ORDER_DESC];
-  // TODO: This is a temporary solution until a better endless
-  // pagination solution in the frontend is implemented
-  const MAX_ROW_COUNT: number = 1000;
-  const DEFAULT_OFFSET: number = 0;
-
-  const isCursorValid: boolean = typeof cursorUuid === "string" && typeof cursorLabel === "string" && cursorUuid !== "";
-
-  // Set default values
   const search: string = typeof req.query.search === "string" ? req.query.search : "";
-  const cursor: CursorData | null = isCursorValid
-    ? {
-        uuid: cursorUuid as string,
-        label: cursorLabel as string,
-      }
-    : null;
-
-  // Only accept ASC/DESC values
   const rawOrder: unknown = req.query.order;
-  const order: string = typeof rawOrder === "string" && ORDERS.includes(rawOrder.toUpperCase()) ? rawOrder : ORDER_ASC;
+  const order: string = typeof rawOrder === "string" && ORDERS.includes(rawOrder.toUpperCase()) ? rawOrder : "ASC";
+  const offset: number = parseInt(req.query.offset as string);
 
   return {
-    cursor,
-    limit: parseInt(limit as string) || MAX_ROW_COUNT,
-    offset: parseInt(offset as string) || DEFAULT_OFFSET,
+    limit: parsePaginationLimit(req.query.limit),
+    offset: offset > 0 ? offset : 0,
     order,
     search,
   };
@@ -269,9 +230,9 @@ export function parseHierarchyQuery(
 }
 
 /**
- * Parses the pagination limit from the request body.
+ * Parses the pagination limit from the request body or query.
  *
- * @param {unknown} rawLimit - The `limit` value from the request body. Typed as `unknown` to be forgiving, but very likely string
+ * @param {unknown} rawLimit - The `limit` value from the request. Typed as `unknown` to be forgiving, but very likely string
  * @returns {number} The normalized limit, defaulting to 50 and capped to 1000.
  */
 function parsePaginationLimit(rawLimit: unknown): number {
@@ -472,7 +433,7 @@ function valueToNeo4jType(
 
   if (isInteger(valueType)) {
     if (valueIsNull) {
-      if (!isRequired) {
+      if (!required) {
         return null;
       } else {
         return 0;

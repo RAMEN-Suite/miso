@@ -1,3 +1,4 @@
+import { ModelRef } from "@ramen-suite/core";
 import ValidationError from "../errors/validation.error.js";
 import {
   ElementGraph,
@@ -10,8 +11,8 @@ import {
   NodeUpdateObject,
 } from "../models/types.js";
 import { toNeo4jTypes, toStoredSelector } from "./helper.js";
-import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
-import { BASE_NODE_REF, isRelationType } from "./ramen.js";
+import { findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
+import { BASE_NODE_REF, baseNodePattern, isRelationType } from "./ramen.js";
 import { HAS_ANNOTATION } from "./storedGraph.js";
 
 /**
@@ -71,7 +72,7 @@ function toEdge(context: ModelContext, relation: ElementRelation): NodeUpdateObj
   let type: string | undefined;
 
   if (relation.relationRef) {
-    type = findRelation(context, relation.relationRef)?.name;
+    type = ModelRef.isQualified(relation.relationRef) ? context.model.getRelation(relation.relationRef)?.name : undefined;
   } else if (relation.status === "removed" && isRelationType(relation.type)) {
     type = relation.type;
   }
@@ -215,8 +216,8 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $delete AS nodeToDelete
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToDelete.properties.uuid})
-      OPTIONAL MATCH (n)--(m:Annotation|Content|Collection|Entity)
+      MATCH ${baseNodePattern("n", "uuid: nodeToDelete.properties.uuid")}
+      OPTIONAL MATCH (n)--${baseNodePattern("m")}
       OPTIONAL MATCH (n)-[:${HAS_ANNOTATION}]->(c:Annotation)
 
       WITH collect(DISTINCT n) AS deleted, collect(DISTINCT m.uuid) AS neighbours, collect(DISTINCT c.uuid) AS carried
@@ -241,7 +242,7 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $update AS nodeToUpdate
 
-      MATCH (n:Annotation|Content|Collection|Entity {uuid: nodeToUpdate.properties.uuid})
+      MATCH ${baseNodePattern("n", "uuid: nodeToUpdate.properties.uuid")}
       SET n = nodeToUpdate.properties
       WITH n, nodeToUpdate, labels(n) AS currentLabels
       CALL apoc.create.removeLabels(n, currentLabels) YIELD node
@@ -253,7 +254,7 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $remove AS edge
 
-      MATCH (start:Annotation|Content|Collection|Entity {uuid: edge.startUuid})-[r]->(end:Annotation|Content|Collection|Entity {uuid: edge.endUuid})
+      MATCH ${baseNodePattern("start", "uuid: edge.startUuid")}-[r]->${baseNodePattern("end", "uuid: edge.endUuid")}
       WHERE type(r) = edge.type
 
       DELETE r
@@ -263,8 +264,8 @@ export function buildSubgraphUpdateQuery(): string {
   CALL () {
       UNWIND $attach AS edge
 
-      MATCH (start:Annotation|Content|Collection|Entity {uuid: edge.startUuid})
-      MATCH (end:Annotation|Content|Collection|Entity {uuid: edge.endUuid})
+      MATCH ${baseNodePattern("start", "uuid: edge.startUuid")}
+      MATCH ${baseNodePattern("end", "uuid: edge.endUuid")}
       CALL apoc.merge.relationship(start, edge.type, {}, {}, end) YIELD rel
 
       RETURN count(rel) AS attached
@@ -275,7 +276,7 @@ export function buildSubgraphUpdateQuery(): string {
       UNWIND [node IN $update | node.properties.uuid] + [edge IN $attach | edge.startUuid] + [edge IN $attach | edge.endUuid] AS expectedUuid
 
       WITH DISTINCT expectedUuid
-      WHERE NOT EXISTS { MATCH (:Annotation|Content|Collection|Entity {uuid: expectedUuid}) }
+      WHERE NOT EXISTS { MATCH ${baseNodePattern("", "uuid: expectedUuid")} }
 
       RETURN collect(expectedUuid) AS missing
   }
@@ -296,7 +297,7 @@ export function buildSubgraphUpdateQuery(): string {
       CALL (deletedOrphans) {
         UNWIND deletedOrphans AS orphan
 
-        MATCH (orphan)--(m:Annotation|Content|Collection|Entity)
+        MATCH (orphan)--${baseNodePattern("m")}
 
         RETURN collect(DISTINCT m.uuid) AS neighbours
       }

@@ -426,7 +426,7 @@ function parseClassifierConditions(context: ModelContext, raw: unknown[]): Filte
  * @param {string[]} classifierRefs - Qualified refs of the node types.
  * @returns {string[]} The labels.
  */
-function labelsOfClassifiers(context: ModelContext, classifierRefs: string[]): string[] {
+export function labelsOfClassifiers(context: ModelContext, classifierRefs: string[]): string[] {
   const labels = new Set<string>();
 
   for (const classifier of context.config.model.classifiers) {

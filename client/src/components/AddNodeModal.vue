@@ -4,7 +4,7 @@ import Button from "primevue/button";
 import Divider from "primevue/divider";
 import { PickedNode, useAddNode } from "../composables/useAddNode";
 import { RouteLocationNormalizedLoaded, useRoute } from "vue-router";
-import { CollectionNode, TextNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
+import { CollectionNode, ContentNode, EntityNode, NodeTypeOption, ReferenceNodeLabel } from "../models/types";
 import NodeSearchbar from "./NodeSearchbar.vue";
 import CollectionCard from "./CollectionCard.vue";
 import TextCard from "./TextCard.vue";
@@ -36,7 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const nodeAsCollection = computed(() => nodeToAdd.value?.node as CollectionNode | undefined);
-const nodeAsText = computed(() => nodeToAdd.value?.node as TextNode | undefined);
+const nodeAsText = computed(() => nodeToAdd.value?.node as ContentNode | undefined);
 const nodeAsEntity = computed(() => nodeToAdd.value?.node as EntityNode | undefined);
 
 const canCreateNode = computed<boolean>(() => baseNodeLabel === "Content" || baseNodeLabel === "Entity");
@@ -55,7 +55,7 @@ function handleFinishClick(): void {
   closeModal();
 }
 
-function handleSearchItemSelected(item: CollectionNode | TextNode | EntityNode) {
+function handleSearchItemSelected(item: CollectionNode | ContentNode | EntityNode) {
   setNode({ node: item, isNew: false });
 
   setPipelineStep("finishing");
@@ -72,10 +72,10 @@ function handleDiscardDraft(): void {
 /**
  * Takes over the finished draft node as the node to add.
  *
- * @param {TextNode | EntityNode} newNode - The drafted Content or Entity node.
+ * @param {ContentNode | EntityNode} newNode - The drafted Content or Entity node.
  * @returns {void} This function does not return any value.
  */
-function handleDraftConfirmed(newNode: TextNode | EntityNode): void {
+function handleDraftConfirmed(newNode: ContentNode | EntityNode): void {
   setNode({ node: newNode, isNew: true });
   setPipelineStep("finishing");
 
@@ -95,11 +95,7 @@ function closeModal(): void {
 <template>
   <div class="modal-container">
     <template v-if="currentStep === 'choosing'">
-      <NodeSearchbar
-        :base-node-label="baseNodeLabel"
-        :additional-node-label="nodeType.name"
-        @item-selected="handleSearchItemSelected"
-      />
+      <NodeSearchbar :classifier-ref="nodeType.classifierRef" @item-selected="handleSearchItemSelected" />
 
       <template v-if="canCreateNode">
         <Divider align="center">

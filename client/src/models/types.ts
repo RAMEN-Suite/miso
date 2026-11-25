@@ -199,7 +199,6 @@ export type CollectionNode = Node<ICollection>;
 
 export interface NodeSearchParams {
   searchInput?: string;
-  nodeLabels?: string[];
   offset?: number;
   rowCount?: number;
   sortDirection?: "asc" | "desc";
@@ -208,7 +207,7 @@ export interface NodeSearchParams {
 export type EntityNode = Node<IEntity>;
 
 /** A node that can live in the Collection/Content hierarchy (a Collection or a leaf Content). */
-export type HierarchyNode = CollectionNode | TextNode;
+export type HierarchyNode = CollectionNode | ContentNode;
 
 /**
  * An ordered path of hierarchy nodes, root first, focused node last. */
@@ -331,7 +330,7 @@ export interface CollectionFocus {
 /** Focus-pane data for a Content: the node itself plus its structural annotations, both shown read-only as a text preview. */
 export interface ContentFocus {
   kind: "content";
-  content: TextNode;
+  content: ContentNode;
   annotations: Annotation[];
 }
 
@@ -413,7 +412,7 @@ export interface HierarchySort {
 /** Filter state for a hierarchy listing: the rules are ANDed with each other. */
 export type HierarchyFilters = FilterSpec;
 
-export interface Node<T = AnnotationNode | CollectionNode | EntityNode | TextNode> {
+export interface Node<T = AnnotationNode | CollectionNode | EntityNode | ContentNode> {
   properties: T;
   /** The labels as stored in the database */
   nodeLabels: string[];
@@ -432,15 +431,9 @@ export interface PaginationData {
   limit: number;
   offset?: number | null;
   order: string;
-  search: string;
   totalRecords: number;
-  /** Legacy structured cursor ({@link CursorData}) or the opaque hierarchy cursor string. */
-  nextCursor?: CursorData | string | null;
-}
-
-export interface CursorData {
-  label: string;
-  uuid: string;
+  /** The opaque cursor of the next hierarchy page, `null` on the last one */
+  nextCursor?: string | null;
 }
 
 export interface PaginationResult<T> {
@@ -467,8 +460,6 @@ export interface SmartView {
   };
 }
 
-export type TextNode = Node<IText>;
-// TODO: Remove TextNode (or remove IText) -> ContentNode will be default
 export type ContentNode = Node<IText>;
 
 /**

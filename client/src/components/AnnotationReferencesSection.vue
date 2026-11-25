@@ -7,6 +7,7 @@ import {
   AnnotationNode,
   BaseNodeLabel,
   CollectionNode,
+  ContentNode,
   EditGraph,
   EditNode,
   EditRelation,
@@ -15,7 +16,6 @@ import {
   IconSpec,
   NodeTypeOption,
   ReferenceNodeLabel,
-  TextNode,
 } from "../models/types";
 import { BASE_NODE_REF } from "../config/ramen";
 import { getBaseNodeLabel, getClassifierRef, getNodeTypeOption } from "../utils/helper/modelHelper";
@@ -278,7 +278,7 @@ function handleAddNodeClick(event: PointerEvent): void {
     />
     <TextCard
       v-else-if="baseLabelOf(node) === 'Content'"
-      :node="node as unknown as TextNode"
+      :node="node as unknown as ContentNode"
       :status="referenceStatusOf(node)"
       :mode="props.mode"
       :disabled="props.disabled"

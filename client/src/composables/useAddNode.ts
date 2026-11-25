@@ -1,9 +1,9 @@
 import { ref, readonly, Ref, DeepReadonly } from "vue";
-import { CollectionNode, EntityNode, TextNode } from "../models/types";
+import { CollectionNode, ContentNode, EntityNode } from "../models/types";
 
 /** A node picked as reference: a stored one from the search, or a new one (`isNew`) from a draft */
 export interface PickedNode {
-  node: CollectionNode | EntityNode | TextNode;
+  node: CollectionNode | ContentNode | EntityNode;
   isNew: boolean;
 }
 

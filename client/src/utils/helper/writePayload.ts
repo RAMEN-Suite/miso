@@ -12,7 +12,7 @@ import type {
   Node as DataNode,
   RefResolution,
 } from "../../models/types";
-import { BASE_NODE_REF } from "../../config/ramen";
+import { BASE_NODE_REF, type RelationType } from "../../config/ramen";
 import {
   familyRefOf,
   findShape,
@@ -22,7 +22,7 @@ import {
   resolveRelationRef,
   resolveShapeRef,
 } from "./modelHelper";
-import { findNode, type RelationType } from "./editGraph";
+import { findNode } from "./editGraph";
 
 /**
  * Converts the client's editing state into the flat write payload (`ElementGraph` with statuses): nodes with
@@ -152,6 +152,7 @@ export function toContentSaveGraph(
       graph.relations.push({
         status: "added",
         relationRef: relationRefOf(context, contentRef, "HAS_ANNOTATION", refs.classifierRef),
+        type: "HAS_ANNOTATION",
         from: content.properties.uuid,
         to: annotation.node.properties.uuid,
       });

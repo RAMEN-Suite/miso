@@ -98,9 +98,7 @@ const fieldStates = ref<Record<string, FieldSaveState>>({});
 // The saved state of the annotations. Each action saves a copy and applies it on success, so it stays `unchanged`.
 const graph = ref<EditGraph>(cloneDeep(props.focus.graph));
 
-const annotations = computed<EditNode[]>(() =>
-  annotationsOf(getModelContext(), graph.value, temporaryWorkData.value.collection.properties.uuid),
-);
+const annotations = computed<EditNode[]>(() => annotationsOf(graph.value, temporaryWorkData.value.collection.properties.uuid));
 
 // The annotation the removal confirmation is open for, and whether its deletion is running
 const annotationPendingRemoval = ref<string | null>(null);
@@ -521,6 +519,7 @@ function carrierRelationOf(annotation: AnnotationNode): ElementRelation {
       "HAS_ANNOTATION",
       annotation.classifierRef ?? BASE_NODE_REF.Annotation,
     ),
+    type: "HAS_ANNOTATION",
     to: annotation.properties.uuid,
   };
 }

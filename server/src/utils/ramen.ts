@@ -15,6 +15,22 @@ export const BASE_NODE_REF = {
 /** The qualified refs of {@linkcode BASE_NODE_REF} as a list */
 export const BASE_NODE_REFS: readonly string[] = Object.values(BASE_NODE_REF);
 
+/** The relationship types of RAMEN's base relations */
+export const RAMEN_RELATION_TYPES = ["HAS_ANNOTATION", "PART_OF", "REFERS_TO"] as const;
+
+/** A relationship type of RAMEN's base relations, see {@linkcode RAMEN_RELATION_TYPES} */
+export type RelationType = (typeof RAMEN_RELATION_TYPES)[number];
+
+/**
+ * Whether a stored relationship type is one of RAMEN's base relations.
+ *
+ * @param {string} type - The relationship type.
+ * @returns {boolean} `true` for the types in {@linkcode RAMEN_RELATION_TYPES}.
+ */
+export function isRelationType(type: string): type is RelationType {
+  return (RAMEN_RELATION_TYPES as readonly string[]).includes(type);
+}
+
 /** RAMEN core's built-in type refs (`String`, `Integer` ...), which need no data type declaration in the model */
 export const BUILTIN_TYPES: readonly string[] = Object.values(DataTypes);
 

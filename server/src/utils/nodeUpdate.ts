@@ -11,7 +11,7 @@ import {
 } from "../models/types.js";
 import { toNeo4jTypes, toStoredSelector } from "./helper.js";
 import { findRelation, findShape, getBaseNodeRef, getNodeAttributes, getShapeProperties } from "./modelHelper.js";
-import { BASE_NODE_REF } from "./ramen.js";
+import { BASE_NODE_REF, isRelationType } from "./ramen.js";
 import { HAS_ANNOTATION } from "./storedGraph.js";
 
 /**
@@ -59,14 +59,22 @@ function nodeLabelsOf(context: ModelContext, node: ElementNode): string[] {
 
 /**
  * The relationship of a payload relation as the write query takes it: its type is the name of its relation definition.
+ * A removed relation without one (stored data that doesn't match the model) is removed by its stored `type`.
  *
  * @param {ModelContext} context - The model context.
  * @param {ElementRelation} relation - The relation of the payload.
  * @returns {NodeUpdateObject["attach"][number]} The relationship.
- * @throws {ValidationError} If the relation definition is missing (`null` is only allowed on reads) or not in the model.
+ * @throws {ValidationError} If the relation definition is not in the model, or missing on a relation that isn't removed
+ *   or has no RAMEN relationship type.
  */
 function toEdge(context: ModelContext, relation: ElementRelation): NodeUpdateObject["attach"][number] {
-  const type: string | undefined = relation.relationRef ? findRelation(context, relation.relationRef)?.name : undefined;
+  let type: string | undefined;
+
+  if (relation.relationRef) {
+    type = findRelation(context, relation.relationRef)?.name;
+  } else if (relation.status === "removed" && isRelationType(relation.type)) {
+    type = relation.type;
+  }
 
   if (!type) {
     throw new ValidationError(`Unknown relation ${String(relation.relationRef)} from ${relation.from} to ${relation.to}.`);

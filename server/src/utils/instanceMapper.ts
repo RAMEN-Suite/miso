@@ -341,7 +341,7 @@ function toElementDiagnostic(diagnostic: Diagnostic, mapping: InstanceMapping): 
       result.attribute = nodeMatch[2];
     }
   } else if (relation) {
-    result.relation = { relationRef: relation.relationRef, from: relation.from, to: relation.to };
+    result.relation = { relationRef: relation.relationRef, type: relation.type, from: relation.from, to: relation.to };
   } else {
     const instanceId: string | undefined = diagnostic.instanceId ?? diagnostic.ref;
     const byInstance: ElementNode | undefined = mapping.nodes.find(

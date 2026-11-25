@@ -8,11 +8,9 @@ import type {
   ElementGraph,
   ElementNode,
   EntityNode,
-  ModelContext,
   NodeAncestry,
   TextNode,
 } from "../../models/types";
-import { getBaseNodeLabel } from "./modelHelper";
 
 /**
  * Turns reads in the element format (every read that returns nodes) into the client's formats: the editing graph, plain
@@ -23,23 +21,21 @@ import { getBaseNodeLabel } from "./modelHelper";
 
 /**
  * The annotations of a Content from its annotation graph, each with the nodes below it along outgoing relations and
- * these relations. Only annotations are followed further, referenced nodes are leaves.
+ * these relations. Only annotations (reached via `HAS_ANNOTATION`) are followed further, referenced nodes are leaves.
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The annotation graph of the Content, as read.
  * @param {string} carrierUuid - The uuid of the annotated Content.
  * @returns {Annotation[]} The annotations, in the order of the relations from the Content, values copied.
  */
-export function toAnnotations(context: ModelContext, graph: EditGraph, carrierUuid: string): Annotation[] {
+export function toAnnotations(graph: EditGraph, carrierUuid: string): Annotation[] {
   const nodesByUuid = new Map<string, EditNode>(graph.nodes.map((node) => [node.properties.uuid, node]));
-  const isAnnotation = (node: EditNode): boolean => getBaseNodeLabel(context, node) === "Annotation";
 
   return graph.relations
-    .filter((relation) => relation.from === carrierUuid)
+    .filter((relation) => relation.from === carrierUuid && relation.type === "HAS_ANNOTATION")
     .flatMap((carrierRelation) => {
       const root: EditNode | undefined = nodesByUuid.get(carrierRelation.to);
 
-      if (!root || !isAnnotation(root)) {
+      if (!root) {
         return [];
       }
 
@@ -65,7 +61,7 @@ export function toAnnotations(context: ModelContext, graph: EditGraph, carrierUu
           visited.add(target.properties.uuid);
           nodes.push(structuredClone(target));
 
-          if (isAnnotation(target)) {
+          if (relation.type === "HAS_ANNOTATION") {
             queue.push(target.properties.uuid);
           }
         }

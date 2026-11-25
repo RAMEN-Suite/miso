@@ -53,7 +53,7 @@ const isLoading = ref<boolean>(false);
 const inputIsValid = computed<boolean>(
   () =>
     checkAnnotationValidity(annotationNode.value, allProperties, getModelContext()) &&
-    getMissingAnnotationReferences(annotationNode.value, referencesOf(getModelContext(), graph.value, uuid)).length === 0,
+    getMissingAnnotationReferences(annotationNode.value, referencesOf(graph.value, uuid)).length === 0,
 );
 
 watch(() => route.path, closeModal);

@@ -65,6 +65,7 @@ function toCreationGraph(contentNode: TextNode, parent: CollectionNode | null): 
         "PART_OF",
         parent.classifierRef ?? BASE_NODE_REF.Collection,
       ),
+      type: "PART_OF",
       to: parent.properties.uuid,
     });
   }

@@ -77,6 +77,7 @@ function toCreationGraph(collectionNode: CollectionNode, parent: CollectionNode 
         "PART_OF",
         parent.classifierRef ?? BASE_NODE_REF.Collection,
       ),
+      type: "PART_OF",
       to: parent.properties.uuid,
     });
   }

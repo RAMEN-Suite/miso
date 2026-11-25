@@ -102,7 +102,7 @@ const annotation = computed<AnnotationNode>(() => {
 });
 
 /** The current references of the annotation */
-const references = computed<EditNode[]>(() => referencesOf(getModelContext(), graph.value, props.annotationUuid));
+const references = computed<EditNode[]>(() => referencesOf(graph.value, props.annotationUuid));
 
 /** Classifier refs of the current references, one per reference; unresolvable nodes are left out */
 const referencedRefs = computed<string[]>(() =>
@@ -204,6 +204,7 @@ function addReference(picked: PickedNode, baseNodeLabel: ReferenceNodeLabel): vo
   addRelation(graph.value, {
     from: props.annotationUuid,
     relationRef: relationRefOf(getModelContext(), annotationRef, "REFERS_TO", nodeRef),
+    type: "REFERS_TO",
     to: node.properties.uuid,
   });
 }

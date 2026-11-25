@@ -186,7 +186,7 @@ export default class ApiService {
   public async getAnnotations(contentUuid: string, options: { types?: string[] } = {}): Promise<Annotation[]> {
     const graph: EditGraph = await this.getAnnotationGraph(contentUuid, options);
 
-    return toAnnotations(useConfigStore().getModelContext(), graph, contentUuid);
+    return toAnnotations(graph, contentUuid);
   }
 
   /**

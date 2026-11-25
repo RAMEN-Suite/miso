@@ -72,13 +72,13 @@ describe("toContentSaveGraph", () => {
       node: { nodeLabels: ["Annotation"], properties: { uuid: "a1", type: "persName" } } as unknown as Annotation["node"],
       status: "created",
       nodes: [{ ...person }],
-      relations: [{ status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" }],
+      relations: [{ status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" }],
     };
     const withEditedPerson: Annotation = {
       node: { nodeLabels: ["Annotation"], properties: { uuid: "a2", type: "persName" } } as unknown as Annotation["node"],
       status: "unchanged",
       nodes: [{ ...person, status: "modified", properties: { uuid: "p1", label: "New" } }],
-      relations: [{ status: "unchanged", relationRef: refs.refersToPerson, from: "a2", to: "p1" }],
+      relations: [{ status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a2", to: "p1" }],
     };
 
     const graph: EditGraph = toContentSaveGraph(context, content, [created, withEditedPerson]);
@@ -90,9 +90,9 @@ describe("toContentSaveGraph", () => {
       ["a2", "unchanged", refs.family, refs.persName],
     ]);
     expect(graph.relations).toEqual([
-      { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
-      { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
-      { status: "unchanged", relationRef: refs.refersToPerson, from: "a2", to: "p1" },
+      { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+      { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
+      { status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a2", to: "p1" },
     ]);
   });
 });
@@ -112,9 +112,9 @@ describe("toWritePayload", () => {
         { status: "modified", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "New" } },
       ],
       relations: [
-        { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
-        { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
-        { status: "unchanged", relationRef: refs.refersToPerson, from: "a0", to: "p1" },
+        { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
+        { status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a0", to: "p1" },
       ],
     };
 
@@ -125,8 +125,8 @@ describe("toWritePayload", () => {
       { status: "modified", classifierRef: refs.person, properties: { uuid: "p1", label: "New" } },
     ]);
     expect(payload.relations).toEqual([
-      { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
-      { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
+      { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+      { status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" },
     ]);
   });
 
@@ -137,5 +137,16 @@ describe("toWritePayload", () => {
     };
 
     expect(toWritePayload(context, graph).nodes[0].classifierRef).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
+  });
+
+  test("a removed relation without a relation definition keeps its stored type", () => {
+    const graph: EditGraph = {
+      nodes: [],
+      relations: [{ status: "removed", relationRef: null, type: "REFERS_TO", from: "a1", to: "e1" }],
+    };
+
+    expect(toWritePayload(context, graph).relations).toEqual([
+      { status: "removed", relationRef: null, type: "REFERS_TO", from: "a1", to: "e1" },
+    ]);
   });
 });

@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { RamenModel } from "@ramen-suite/core";
 import type { Annotation, EditGraph, ElementGraph, ElementNode } from "../../../../src/models/types";
-import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
-import { createModelContext } from "../../../../src/utils/helper/modelHelper";
 import {
   toAncestryPaths,
   toAnnotations,
@@ -20,7 +17,7 @@ describe("toEditGraph", () => {
   test("every node once, everything unchanged, values copied", () => {
     const elements: ElementGraph = {
       nodes: [element("a1", ["Annotation"]), element("p1", ["Entity", "Person"]), element("p1", ["Entity", "Person"])],
-      relations: [{ relationRef: "M:refersToPerson", from: "a1", to: "p1" }],
+      relations: [{ relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1" }],
     };
 
     const graph: EditGraph = toEditGraph(elements);
@@ -29,7 +26,7 @@ describe("toEditGraph", () => {
       ["a1", "unchanged"],
       ["p1", "unchanged"],
     ]);
-    expect(graph.relations).toEqual([{ relationRef: "M:refersToPerson", from: "a1", to: "p1", status: "unchanged" }]);
+    expect(graph.relations).toEqual([{ relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1", status: "unchanged" }]);
 
     graph.nodes[1].properties.label = "Changed";
 
@@ -38,38 +35,26 @@ describe("toEditGraph", () => {
 });
 
 describe("toAnnotations", () => {
-  // Without a resolved classifier, the base nodes come from the labels, so an empty model will do
-  const unresolved = (uuid: string, nodeLabels: string[]): ElementNode => element(uuid, nodeLabels, { classifierRef: null });
-  const { config, model } = parseMisoConfig({
-    $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
-    id: "readTest",
-    model: RamenModel.create("Read test").export(),
-    general: { templates: [] },
-    elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
-  });
-  const context = createModelContext(config, model);
-
   test("each annotation of the Content with everything below it; referenced nodes are leaves", () => {
     const graph: EditGraph = toEditGraph({
       nodes: [
-        unresolved("t1", ["Content", "Text"]),
-        unresolved("a1", ["Annotation"]),
-        unresolved("a2", ["Annotation"]),
-        unresolved("a3", ["Annotation"]),
-        unresolved("p1", ["Entity", "Person"]),
+        element("t1", ["Content", "Text"]),
+        element("a1", ["Annotation"]),
+        element("a2", ["Annotation"]),
+        element("a3", ["Annotation"]),
+        element("p1", ["Entity", "Person"]),
       ],
       relations: [
-        { relationRef: "M:onText", from: "t1", to: "a1" },
-        { relationRef: "M:onText", from: "t1", to: "a3" },
-        { relationRef: "M:onAnnotation", from: "a1", to: "a2" },
-        { relationRef: "M:refersToPerson", from: "a2", to: "p1" },
-        { relationRef: "M:refersToPerson", from: "a3", to: "p1" },
-        { relationRef: "M:refersToText", from: "a3", to: "t1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a3" },
+        { relationRef: "M:onAnnotation", type: "HAS_ANNOTATION", from: "a1", to: "a2" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a2", to: "p1" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a3", to: "p1" },
+        { relationRef: "M:refersToText", type: "REFERS_TO", from: "a3", to: "t1" },
       ],
     });
 
-    const annotations: Annotation[] = toAnnotations(context, graph, "t1");
+    const annotations: Annotation[] = toAnnotations(graph, "t1");
     const shape = (annotation: Annotation) => ({
       uuid: annotation.node.properties.uuid,
       status: annotation.status,
@@ -87,16 +72,16 @@ describe("toAnnotations", () => {
 
   test("a node below two annotations is copied", () => {
     const graph: EditGraph = toEditGraph({
-      nodes: [unresolved("a1", ["Annotation"]), unresolved("a2", ["Annotation"]), unresolved("p1", ["Entity", "Person"])],
+      nodes: [element("a1", ["Annotation"]), element("a2", ["Annotation"]), element("p1", ["Entity", "Person"])],
       relations: [
-        { relationRef: "M:onText", from: "t1", to: "a1" },
-        { relationRef: "M:onText", from: "t1", to: "a2" },
-        { relationRef: "M:refersToPerson", from: "a1", to: "p1" },
-        { relationRef: "M:refersToPerson", from: "a2", to: "p1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a1" },
+        { relationRef: "M:onText", type: "HAS_ANNOTATION", from: "t1", to: "a2" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a1", to: "p1" },
+        { relationRef: "M:refersToPerson", type: "REFERS_TO", from: "a2", to: "p1" },
       ],
     });
 
-    const [first, second] = toAnnotations(context, graph, "t1");
+    const [first, second] = toAnnotations(graph, "t1");
 
     first.nodes[0].properties.label = "Changed";
 
@@ -134,11 +119,11 @@ describe("toAncestryPaths", () => {
     const elements: ElementGraph = {
       nodes: ["t1", "v1", "v2", "l1", "l2"].map((uuid) => element(uuid, ["Collection"])),
       relations: [
-        { relationRef: "M:partOf", from: "t1", to: "v1" },
-        { relationRef: "M:partOf", from: "t1", to: "v2" },
-        { relationRef: "M:partOf", from: "v1", to: "l1" },
-        { relationRef: "M:partOf", from: "v2", to: "l1" },
-        { relationRef: "M:partOf", from: "v2", to: "l2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "v1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "v2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v1", to: "l1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v2", to: "l1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "v2", to: "l2" },
       ],
     };
 
@@ -160,9 +145,9 @@ describe("toAncestryPaths", () => {
     const elements: ElementGraph = {
       nodes: ["t1", "c1", "c2"].map((uuid) => element(uuid, ["Collection"])),
       relations: [
-        { relationRef: "M:partOf", from: "t1", to: "c1" },
-        { relationRef: "M:partOf", from: "c1", to: "c2" },
-        { relationRef: "M:partOf", from: "c2", to: "c1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "t1", to: "c1" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "c1", to: "c2" },
+        { relationRef: "M:partOf", type: "PART_OF", from: "c2", to: "c1" },
       ],
     };
 

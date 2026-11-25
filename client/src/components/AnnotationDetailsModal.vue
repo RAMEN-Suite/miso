@@ -51,7 +51,7 @@ const referencesSection = useTemplateRef<InstanceType<typeof AnnotationReference
 const inputIsValid = computed<boolean>(
   () =>
     checkAnnotationValidity(annotationNode.value, editedProperties, getModelContext()) &&
-    getMissingAnnotationReferences(annotationNode.value, referencesOf(getModelContext(), graph.value, uuid)).length === 0,
+    getMissingAnnotationReferences(annotationNode.value, referencesOf(graph.value, uuid)).length === 0,
 );
 
 const emit = defineEmits<(e: "submit", data: Annotation) => void>();

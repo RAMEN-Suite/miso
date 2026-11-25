@@ -7,8 +7,9 @@ import type {
   ModelContext,
   Node as DataNode,
 } from "../../models/types";
+import type { RelationType } from "../../config/ramen";
 import { cloneDeep } from "./helper";
-import { findRelation, getClassifierRef } from "./modelHelper";
+import { getClassifierRef } from "./modelHelper";
 
 /**
  * Operations and selectors on an {@linkcode EditGraph}. Operations change the graph in place and keep the statuses
@@ -19,9 +20,6 @@ import { findRelation, getClassifierRef } from "./modelHelper";
 
 /** A node of an {@linkcode EditGraph} without its status */
 export type EditNodeData = Omit<EditNode, "status">;
-
-/** The relationship types of RAMEN's base relations */
-export type RelationType = "HAS_ANNOTATION" | "REFERS_TO" | "PART_OF";
 
 /** The identity of a relation: its ends and its relation definition */
 type RelationKey = Pick<ElementRelation, "from" | "relationRef" | "to">;
@@ -57,13 +55,12 @@ export function addRelation(graph: EditGraph, relation: ElementRelation): void {
 /**
  * The annotations of a node (outgoing `HAS_ANNOTATION`).
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The graph.
  * @param {string} uuid - The uuid of the carrier.
  * @returns {EditNode[]} The annotations.
  */
-export function annotationsOf(context: ModelContext, graph: EditGraph, uuid: string): EditNode[] {
-  return linkedNodes(context, graph, uuid, "HAS_ANNOTATION", "outgoing");
+export function annotationsOf(graph: EditGraph, uuid: string): EditNode[] {
+  return linkedNodes(graph, uuid, "HAS_ANNOTATION", "outgoing");
 }
 
 /**
@@ -130,13 +127,12 @@ export function applySavedChanges(target: EditGraph, saved: EditGraph, deletedOr
 /**
  * The carriers of an annotation (incoming `HAS_ANNOTATION`).
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The graph.
  * @param {string} uuid - The uuid of the annotation.
  * @returns {EditNode[]} The carriers.
  */
-export function carriersOf(context: ModelContext, graph: EditGraph, uuid: string): EditNode[] {
-  return linkedNodes(context, graph, uuid, "HAS_ANNOTATION", "incoming");
+export function carriersOf(graph: EditGraph, uuid: string): EditNode[] {
+  return linkedNodes(graph, uuid, "HAS_ANNOTATION", "incoming");
 }
 
 /**
@@ -232,18 +228,6 @@ function isCurrentRelation(graph: EditGraph, relation: EditRelation): boolean {
 }
 
 /**
- * Whether a relation's definition has the given type as name.
- *
- * @param {ModelContext} context - The model context.
- * @param {EditRelation} relation - The relation.
- * @param {RelationType} type - The relationship type.
- * @returns {boolean} `true` if the type matches.
- */
-function isOfType(context: ModelContext, relation: EditRelation, type: RelationType): boolean {
-  return relation.relationRef !== null && findRelation(context, relation.relationRef)?.name === type;
-}
-
-/**
  * Whether two relations are the same relation.
  *
  * @param {RelationKey} a - A relation.
@@ -257,23 +241,16 @@ function isSameRelation(a: RelationKey, b: RelationKey): boolean {
 /**
  * The nodes a node is linked to by current relations of a type.
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The graph.
  * @param {string} uuid - The uuid of the node.
  * @param {RelationType} type - The relationship type.
  * @param {"outgoing" | "incoming"} direction - Whether the node is the start (`outgoing`) or the end (`incoming`).
  * @returns {EditNode[]} The linked nodes.
  */
-export function linkedNodes(
-  context: ModelContext,
-  graph: EditGraph,
-  uuid: string,
-  type: RelationType,
-  direction: "outgoing" | "incoming",
-): EditNode[] {
+export function linkedNodes(graph: EditGraph, uuid: string, type: RelationType, direction: "outgoing" | "incoming"): EditNode[] {
   return graph.relations
     .filter((relation) => (direction === "outgoing" ? relation.from : relation.to) === uuid)
-    .filter((relation) => isOfType(context, relation, type) && isCurrentRelation(graph, relation))
+    .filter((relation) => relation.type === type && isCurrentRelation(graph, relation))
     .map((relation) => findNode(graph, direction === "outgoing" ? relation.to : relation.from))
     .filter((node): node is EditNode => node !== undefined);
 }
@@ -281,25 +258,23 @@ export function linkedNodes(
 /**
  * The parts of a Collection (incoming `PART_OF`).
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The graph.
  * @param {string} uuid - The uuid of the Collection.
  * @returns {EditNode[]} The parts.
  */
-export function partsOf(context: ModelContext, graph: EditGraph, uuid: string): EditNode[] {
-  return linkedNodes(context, graph, uuid, "PART_OF", "incoming");
+export function partsOf(graph: EditGraph, uuid: string): EditNode[] {
+  return linkedNodes(graph, uuid, "PART_OF", "incoming");
 }
 
 /**
  * The nodes an annotation refers to (outgoing `REFERS_TO`).
  *
- * @param {ModelContext} context - The model context.
  * @param {EditGraph} graph - The graph.
  * @param {string} uuid - The uuid of the annotation.
  * @returns {EditNode[]} The referenced nodes.
  */
-export function referencesOf(context: ModelContext, graph: EditGraph, uuid: string): EditNode[] {
-  return linkedNodes(context, graph, uuid, "REFERS_TO", "outgoing");
+export function referencesOf(graph: EditGraph, uuid: string): EditNode[] {
+  return linkedNodes(graph, uuid, "REFERS_TO", "outgoing");
 }
 
 /**

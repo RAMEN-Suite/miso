@@ -232,13 +232,13 @@ export function toElementGraph(
 
     // An end that couldn't be resolved already has its finding
     if (!fromRef || !toRef) {
-      relations.push({ relationRef: null, from: relation.from, to: relation.to });
+      relations.push({ relationRef: null, type: relation.type, from: relation.from, to: relation.to });
       continue;
     }
 
     const resolution: RefResolution = resolveRelationRef(context, fromRef, relation.type, toRef);
 
-    relations.push({ relationRef: resolution.ref, from: relation.from, to: relation.to });
+    relations.push({ relationRef: resolution.ref, type: relation.type, from: relation.from, to: relation.to });
 
     if (!resolution.ref) {
       findings.push({

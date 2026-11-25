@@ -1,5 +1,6 @@
 import type { AnnotationShape, Attribute, Diagnostic, Node as RamenNode, Owned, RamenModel } from "@ramen-suite/core";
 import type { MisoConfig } from "../schemas/misoConfig.schema";
+import type { RelationType } from "../config/ramen";
 import { IAnnotation } from "./IAnnotation";
 import { ICollection } from "./ICollection";
 import { IEntity } from "./IEntity";
@@ -120,6 +121,11 @@ export interface ElementRelation {
   status?: ElementRelationStatus;
   /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
   relationRef: string | null;
+  /**
+   * The relationship type as stored. Writes take it from `relationRef` and use it only for removing a relation without
+   * one.
+   */
+  type: RelationType;
   /** uuid of the start node */
   from: string;
   /** uuid of the end node */

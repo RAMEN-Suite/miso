@@ -54,6 +54,11 @@ export interface ElementRelation {
   status?: ElementRelationStatus;
   /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
   relationRef: string | null;
+  /**
+   * The relationship type as stored (`HAS_ANNOTATION`, `REFERS_TO`, `PART_OF`). Writes take it from `relationRef` and use
+   * it only for removing a relation without one.
+   */
+  type: string;
   /** uuid of the start node */
   from: string;
   /** uuid of the end node */

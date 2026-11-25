@@ -1,11 +1,32 @@
-import type { CollectionNode, ElementGraph, ElementNode, NodeAncestry, NodeDto } from "../../models/types";
+import type { CollectionNode, EditGraph, EditNode, ElementGraph, ElementNode, NodeAncestry, NodeDto } from "../../models/types";
 
 /**
- * Turns reads in the element format (every read that returns nodes) into the client's formats: plain nodes, `NodeDto`
- * trees and ancestries. The counterpart of `writePayload.ts`.
+ * Turns reads in the element format (every read that returns nodes) into the client's formats: the editing graph, plain
+ * nodes, `NodeDto` trees and ancestries. The counterpart of `writePayload.ts`.
  *
  * @packageDocumentation
  */
+
+/**
+ * The editing graph of a read: every node once, everything `unchanged`, values copied.
+ *
+ * @param {ElementGraph} elements - The nodes and relations of the read.
+ * @returns {EditGraph} The graph, in the order of the read.
+ */
+export function toEditGraph(elements: ElementGraph): EditGraph {
+  const nodes = new Map<string, EditNode>();
+
+  for (const element of elements.nodes) {
+    if (!nodes.has(element.properties.uuid)) {
+      nodes.set(element.properties.uuid, { ...structuredClone(element), status: "unchanged" });
+    }
+  }
+
+  return {
+    nodes: [...nodes.values()],
+    relations: elements.relations.map((relation) => ({ ...relation, status: "unchanged" })),
+  };
+}
 
 /**
  * The tree node of an element. The properties are copied, so a node that appears in several places of the tree (e.g. a person

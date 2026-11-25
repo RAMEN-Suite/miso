@@ -36,6 +36,8 @@ export interface ValidatedWrite {
   node: StoredNodeRecord;
   /** The findings of the touched nodes */
   diagnostics: ElementDiagnostic[];
+  /** uuids of the annotations the write deleted because they had no carrier left */
+  deletedOrphans: string[];
 }
 
 /**
@@ -52,7 +54,7 @@ export default class WriteValidationService {
    * @param {ModelContext} context - The model context.
    * @param {NodeUpdateObject} changes - The changes of the write, with the values as sent.
    * @param {string} uuid - The uuid of the root node (a Content or a Collection).
-   * @returns {Promise<ValidatedWrite>} The root node after the write and the findings.
+   * @returns {Promise<ValidatedWrite>} The root node after the write, the findings and the deleted orphans.
    * @throws {NotFoundError} If the root node doesn't exist after the write (rolled back).
    * @throws {ValidationError} In `enforce` mode, if there are errors (rolled back).
    */
@@ -69,10 +71,11 @@ export default class WriteValidationService {
         throw new NotFoundError(`Content or Collection with UUID ${uuid} not found`);
       }
 
-      const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted") as string[]);
+      const deletedOrphans: string[] = record.get("deletedOrphans") as string[];
+      const touched: Set<string> = touchedUuids(changes, record.get("neighboursOfDeleted") as string[], deletedOrphans);
       const diagnostics: ElementDiagnostic[] = await this.validate(tx, context, touched);
 
-      return { node: record.get("node"), diagnostics };
+      return { node: record.get("node"), diagnostics, deletedOrphans };
     });
   }
 

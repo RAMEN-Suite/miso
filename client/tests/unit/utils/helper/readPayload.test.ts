@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { ElementGraph, ElementNode, NodeDto } from "../../../../src/models/types";
-import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../../../../src/utils/helper/readPayload";
+import type { EditGraph, ElementGraph, ElementNode, NodeDto } from "../../../../src/models/types";
+import { toAncestryPaths, toEditGraph, toNodeDto, toNodeDtoTrees, toNodes } from "../../../../src/utils/helper/readPayload";
 
 /** An element with the given uuid and labels */
 function element(uuid: string, nodeLabels: string[], extra: Partial<ElementNode> = {}): ElementNode {
@@ -13,6 +13,27 @@ type UuidTree = [string, UuidTree[]];
 function uuidsOf(tree: NodeDto): UuidTree {
   return [tree.node.properties.uuid, tree.connectedNodes.map(uuidsOf)];
 }
+
+describe("toEditGraph", () => {
+  test("every node once, everything unchanged, values copied", () => {
+    const elements: ElementGraph = {
+      nodes: [element("a1", ["Annotation"]), element("p1", ["Entity", "Person"]), element("p1", ["Entity", "Person"])],
+      relations: [{ relationRef: "M:refersToPerson", from: "a1", to: "p1" }],
+    };
+
+    const graph: EditGraph = toEditGraph(elements);
+
+    expect(graph.nodes.map((node) => [node.properties.uuid, node.status])).toEqual([
+      ["a1", "unchanged"],
+      ["p1", "unchanged"],
+    ]);
+    expect(graph.relations).toEqual([{ relationRef: "M:refersToPerson", from: "a1", to: "p1", status: "unchanged" }]);
+
+    graph.nodes[1].properties.label = "Changed";
+
+    expect(elements.nodes[1].properties).toEqual({ uuid: "p1" });
+  });
+});
 
 describe("toNodeDtoTrees", () => {
   test("nested annotations, referenced nodes, and a person shared by two annotations", () => {

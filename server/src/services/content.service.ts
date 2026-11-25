@@ -8,6 +8,7 @@ import {
   NodeSearchParams,
   NodeUpdateObject,
   PaginationResult,
+  WriteResponse,
 } from "../models/types.js";
 import { StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { toNodeChanges } from "../utils/nodeUpdate.js";
@@ -117,13 +118,13 @@ export default class ContentService {
    * @throws {NotFoundError} If the Content doesn't exist after the update.
    * @throws {ValidationError} If the payload is malformed, or the write doesn't match the model in `enforce` mode.
    * @return {Promise<ElementResponse>} The updated Content as the only node, with the findings of the validation as
-   * diagnostics.
+   * diagnostics and the annotations deleted as orphans.
    */
-  public async updateText(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
+  public async updateText(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
     const context: ModelContext = await ConfigService.getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
+    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
 
-    return { ...toElementResponse(context, [node]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 }

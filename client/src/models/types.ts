@@ -104,10 +104,16 @@ export interface NodeTypeOption {
  */
 export type RefResolution = { ref: string; problem?: undefined } | { ref: null; problem: string };
 
+/** The status of a node: what a write does with it, or `unchanged`. Unlinking is a status of the relation. */
+export type ElementNodeStatus = "created" | "modified" | "deleted" | "unchanged";
+
+/** The status of a relation: what a write does with it, or `unchanged` */
+export type ElementRelationStatus = "added" | "removed" | "unchanged";
+
 /** A node in the element format: `uuid` inside `properties`, values by attribute name, the model refs next to them */
 export interface ElementNode {
   /** What a write does with the node. Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementNodeStatus;
   /** Qualified ref of the node's classifier, `null` if it couldn't be resolved */
   classifierRef: string | null;
   /** Annotations only: qualified ref of the annotation shape */
@@ -120,7 +126,7 @@ export interface ElementNode {
 /** A relation in the element format. Relations have no id of their own: they are identified by `from`, `relationRef` and `to`. */
 export interface ElementRelation {
   /** What a write does with the relation (`added`/`removed`). Missing on reads. */
-  status?: NodeStatus;
+  status?: ElementRelationStatus;
   /** Qualified ref of the relation definition. `null` on reads if the stored relationship can't be resolved. */
   relationRef: string | null;
   /** uuid of the start node */
@@ -138,6 +144,28 @@ export interface ElementGraph {
 /** A read in the element format: the stored nodes and relations, and the problems of resolving them to the model */
 export interface ElementResponse extends ElementGraph {
   diagnostics: ElementDiagnostic[];
+}
+
+/** The response of a write: the root node, the findings of the validation, and the annotations deleted as orphans */
+export interface WriteResponse extends ElementResponse {
+  /** uuids of the annotations the write deleted because they had no carrier left */
+  deletedOrphans: string[];
+}
+
+/** A node of an {@linkcode EditGraph}, always with a status */
+export interface EditNode extends ElementNode {
+  status: ElementNodeStatus;
+}
+
+/** A relation of an {@linkcode EditGraph}, always with a status */
+export interface EditRelation extends ElementRelation {
+  status: ElementRelationStatus;
+}
+
+/** The editing state of a subgraph: every node once and the relations between them, each with a status */
+export interface EditGraph {
+  nodes: EditNode[];
+  relations: EditRelation[];
 }
 
 /** A validation finding, mapped back to the element it belongs to */

@@ -12,6 +12,7 @@ import {
   ModelContext,
   ElementGraph,
   ElementResponse,
+  WriteResponse,
 } from "../models/types.js";
 import { toNodeChanges } from "../utils/nodeUpdate.js";
 import WriteValidationService from "./writeValidation.service.js";
@@ -126,14 +127,15 @@ export default class CollectionService {
    * @param payload - The changed nodes (the Collection, its annotations etc.) and relations.
    * @throws {NotFoundError} If no Collection node with the given UUID exists after the update.
    * @throws {ValidationError} If the write doesn't match the model, in `enforce` mode.
-   * @returns The updated Collection as the only node, with the findings of the validation as diagnostics.
+   * @returns The updated Collection as the only node, with the findings of the validation as diagnostics and the
+   *   annotations deleted as orphans.
    */
-  public async updateCollection(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
+  public async updateCollection(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
     const context: ModelContext = await ConfigService.getModelContext();
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
+    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
 
-    return { ...toElementResponse(context, [node]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 
   /**

@@ -26,7 +26,7 @@ import NotFoundError from "../utils/errors/notFound.error";
 import ExternalServiceError from "../utils/errors/externalService.error";
 import { useConfigStore } from "../store/config";
 import { useAppStore } from "../store/app";
-import { toWritePayload } from "../utils/helper/writePayload";
+import { treeToWritePayload } from "../utils/helper/writePayload";
 import { toAncestryPaths, toNodeDto, toNodeDtoTrees, toNodes } from "../utils/helper/readPayload";
 
 /**
@@ -328,7 +328,7 @@ export default class ApiService {
   public async createHierarchyNode(uuid: string, data: NodeStatusObject): Promise<NodeDto<HierarchyNode>> {
     try {
       const url: string = `${this.hierarchyUrl}/nodes`;
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
+      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), data);
 
       const response: Response = await fetch(url, this.jsonBodyRequest({ uuid, data: payload }));
 
@@ -459,7 +459,7 @@ export default class ApiService {
     const url: string = `${this.baseUrl}/collections/${uuid}`;
 
     try {
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), data);
+      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), data);
       const response: Response = await fetch(url, this.jsonBodyRequest(payload, { signal }));
 
       await this.assertResponseOk(response);
@@ -529,7 +529,7 @@ export default class ApiService {
   public async updateText(uuid: string, text: TextUpdateDto): Promise<void> {
     try {
       const url: string = `${this.baseUrl}/contents/${uuid}`;
-      const payload: ElementGraph = toWritePayload(useConfigStore().getModelContext(), {
+      const payload: ElementGraph = treeToWritePayload(useConfigStore().getModelContext(), {
         ...text.text,
         connectedNodes: text.annotations,
       });

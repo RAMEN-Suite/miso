@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { RAMEN_ELEMENT, RAMEN_MODEL, RamenModel, Relation } from "@ramen-suite/core";
-import type { ElementGraph, NodeStatusObject } from "../../../../src/models/types";
+import type { EditGraph, ElementGraph, NodeStatusObject } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
-import { toWritePayload } from "../../../../src/utils/helper/writePayload";
+import { toWritePayload, treeToWritePayload } from "../../../../src/utils/helper/writePayload";
 
 /**
  * A model for the write payload: a Letter (Collection), a Text (Content), a Person (Entity) and the text annotation
@@ -55,7 +55,7 @@ const { context, refs } = buildPayloadTestModel();
 
 // The trees below only carry the fields the conversion reads, hence the casts via `unknown`
 
-describe("toWritePayload", () => {
+describe("treeToWritePayload", () => {
   test("a text with a new annotation that refers to an existing person", () => {
     const root: NodeStatusObject = {
       node: { nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } },
@@ -79,7 +79,7 @@ describe("toWritePayload", () => {
       ],
     } as unknown as NodeStatusObject;
 
-    const payload: ElementGraph = toWritePayload(context, root);
+    const payload: ElementGraph = treeToWritePayload(context, root);
 
     expect(payload.nodes).toEqual([
       expect.objectContaining({ status: "modified", classifierRef: refs.text, properties: expect.objectContaining({ uuid: "t1" }) }),
@@ -121,7 +121,7 @@ describe("toWritePayload", () => {
       ],
     } as unknown as NodeStatusObject;
 
-    const payload: ElementGraph = toWritePayload(context, root);
+    const payload: ElementGraph = treeToWritePayload(context, root);
 
     expect(payload.nodes.map((node) => [node.status, node.properties.uuid])).toEqual([
       ["modified", "a1"],
@@ -143,9 +143,46 @@ describe("toWritePayload", () => {
       ],
     } as unknown as NodeStatusObject;
 
-    const [relation] = toWritePayload(context, root).relations;
+    const [relation] = treeToWritePayload(context, root).relations;
 
     expect(relation).toEqual(expect.objectContaining({ status: "added", from: "t1", to: "l1" }));
     expect(relation.relationRef).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
+  });
+});
+
+describe("toWritePayload", () => {
+  test("only changed nodes and relations are sent, without the stored labels", () => {
+    const graph: EditGraph = {
+      nodes: [
+        { status: "unchanged", classifierRef: refs.text, nodeLabels: ["Content", "Text"], properties: { uuid: "t1" } },
+        { status: "created", classifierRef: refs.family, shapeRef: refs.persName, properties: { uuid: "a1", type: "persName" } },
+        { status: "modified", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1", label: "New" } },
+      ],
+      relations: [
+        { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
+        { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
+        { status: "unchanged", relationRef: refs.refersToPerson, from: "a0", to: "p1" },
+      ],
+    };
+
+    const payload: ElementGraph = toWritePayload(context, graph);
+
+    expect(payload.nodes).toEqual([
+      { status: "created", classifierRef: refs.family, shapeRef: refs.persName, properties: { uuid: "a1", type: "persName" } },
+      { status: "modified", classifierRef: refs.person, properties: { uuid: "p1", label: "New" } },
+    ]);
+    expect(payload.relations).toEqual([
+      { status: "added", relationRef: refs.onText, from: "t1", to: "a1" },
+      { status: "added", relationRef: refs.refersToPerson, from: "a1", to: "p1" },
+    ]);
+  });
+
+  test("a node whose classifier couldn't be resolved gets its RAMEN base node", () => {
+    const graph: EditGraph = {
+      nodes: [{ status: "modified", classifierRef: null, nodeLabels: ["Entity", "Unknown"], properties: { uuid: "e1" } }],
+      relations: [],
+    };
+
+    expect(toWritePayload(context, graph).nodes[0].classifierRef).toMatch(new RegExp(`^${RAMEN_MODEL.id}:`));
   });
 });

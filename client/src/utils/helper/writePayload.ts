@@ -1,9 +1,12 @@
 import type {
   BaseNodeProperties,
   BaseNodeLabel,
+  EditGraph,
   ElementGraph,
   ElementNode,
+  ElementNodeStatus,
   ElementRelation,
+  ElementRelationStatus,
   ModelAnnotationShape,
   ModelContext,
   Node as DataNode,
@@ -21,21 +24,32 @@ import {
   resolveRelationRef,
   resolveShapeRef,
 } from "./modelHelper";
+import type { RelationType } from "./editGraph";
 
 /**
- * Converts the client's `NodeStatusObject` trees into the flat write payload (`ElementGraph` with statuses): nodes with
- * `classifierRef`/`shapeRef`, relations with `relationRef`. The tree stays the editing state of the components; this is
- * the only place where parent/child pairs become relations.
+ * Converts the client's editing state into the flat write payload (`ElementGraph` with statuses): nodes with
+ * `classifierRef`/`shapeRef`, relations with `relationRef`. {@linkcode toWritePayload} takes an `EditGraph`,
+ * {@linkcode treeToWritePayload} a `NodeStatusObject` tree, where parent/child pairs become relations.
  *
  * @packageDocumentation
  */
 
-/** Statuses of nodes that are sent: unchanged nodes and nodes whose relation to the parent changes are not */
+/** Statuses of tree nodes that are sent: unchanged nodes and nodes whose relation to the parent changes are not */
 const SENT_NODE_STATUSES: readonly NodeStatus[] = ["created", "modified", "deleted"];
+
+/**
+ * Whether a tree node's status is a change of the node itself.
+ *
+ * @param {NodeStatus} status - The status of the tree node.
+ * @returns {boolean} `true` for `created`, `modified` and `deleted`.
+ */
+function isNodeStatusChanged(status: NodeStatus): status is Exclude<ElementNodeStatus, "unchanged"> {
+  return SENT_NODE_STATUSES.includes(status);
+}
 
 /** The relationship between a parent and a child in the tree, by the RAMEN base nodes of both */
 interface TreeRelation {
-  type: "HAS_ANNOTATION" | "REFERS_TO" | "PART_OF";
+  type: RelationType;
   /** Whether the relation points from the parent to the child (`PART_OF` points from the child to the parent) */
   fromParent: boolean;
 }
@@ -112,12 +126,12 @@ function resolveNodeRefs(
  *
  * @param {ModelContext} context - The model context.
  * @param {string} fromRef - Classifier ref of the start node.
- * @param {TreeRelation["type"]} type - The relationship type.
+ * @param {RelationType} type - The relationship type.
  * @param {string} toRef - Classifier ref of the end node.
  * @returns {string} The qualified ref of the relation definition.
  * @throws {Error} If not even the base nodes have such a relation.
  */
-function relationRefOf(context: ModelContext, fromRef: string, type: TreeRelation["type"], toRef: string): string {
+export function relationRefOf(context: ModelContext, fromRef: string, type: RelationType, toRef: string): string {
   const resolution: RefResolution = resolveRelationRef(context, fromRef, type, toRef);
 
   if (resolution.ref) {
@@ -142,9 +156,9 @@ function relationRefOf(context: ModelContext, fromRef: string, type: TreeRelatio
  *
  * @param {NodeStatus} childStatus - The status of the child.
  * @param {NodeStatus} parentStatus - The status of the parent.
- * @returns {NodeStatus | null} `added`, `removed`, or `null` if the relation doesn't change.
+ * @returns {ElementRelationStatus | null} `added`, `removed`, or `null` if the relation doesn't change.
  */
-function relationStatusOf(childStatus: NodeStatus, parentStatus: NodeStatus): NodeStatus | null {
+function relationStatusOf(childStatus: NodeStatus, parentStatus: NodeStatus): ElementRelationStatus | null {
   if (childStatus === "created" || childStatus === "added") {
     return "added";
   } else if (childStatus === "removed" && parentStatus !== "deleted") {
@@ -165,7 +179,7 @@ function relationStatusOf(childStatus: NodeStatus, parentStatus: NodeStatus): No
  * @returns {ElementGraph} The nodes and relations to write.
  * @throws {Error} If a node has no base node, or a parent/child pair has no relation.
  */
-export function toWritePayload(context: ModelContext, root: NodeStatusObject): ElementGraph {
+export function treeToWritePayload(context: ModelContext, root: NodeStatusObject): ElementGraph {
   const nodes: ElementNode[] = [];
   const relations: ElementRelation[] = [];
 
@@ -183,11 +197,11 @@ export function toWritePayload(context: ModelContext, root: NodeStatusObject): E
     const carrierRef: string | null = treeRelation?.type === "HAS_ANNOTATION" && parent ? parent.classifierRef : null;
     const refs = resolveNodeRefs(context, node, baseLabel, carrierRef);
 
-    if (SENT_NODE_STATUSES.includes(meta.status)) {
+    if (isNodeStatusChanged(meta.status)) {
       nodes.push({ status: meta.status, ...refs, properties: node.properties as ElementNode["properties"] });
     }
 
-    const relationStatus: NodeStatus | null = parent ? relationStatusOf(meta.status, parent.status) : null;
+    const relationStatus: ElementRelationStatus | null = parent ? relationStatusOf(meta.status, parent.status) : null;
 
     if (parent && treeRelation && relationStatus) {
       const [from, to] = treeRelation.fromParent ? [parent, { uuid, ...refs }] : [{ uuid, ...refs }, parent];
@@ -206,6 +220,38 @@ export function toWritePayload(context: ModelContext, root: NodeStatusObject): E
   }
 
   visit(root, null);
+
+  return { nodes, relations };
+}
+
+/**
+ * The write payload of an {@linkcode EditGraph}: every node and relation that isn't `unchanged`, without stored labels.
+ * Nodes without a resolved classifier get their RAMEN base node, so the server reports them.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {EditGraph} graph - The editing state.
+ * @returns {ElementGraph} The nodes and relations to write.
+ * @throws {Error} If a changed node has neither a classifier nor a base node label.
+ */
+export function toWritePayload(context: ModelContext, graph: EditGraph): ElementGraph {
+  const nodes: ElementNode[] = graph.nodes
+    .filter((node) => node.status !== "unchanged")
+    .map(({ nodeLabels, ...node }) => {
+      if (node.classifierRef !== null) {
+        return node;
+      }
+
+      const baseLabel: BaseNodeLabel | undefined = getBaseNodeLabel(context, { ...node, nodeLabels: nodeLabels ?? [] });
+
+      if (!baseLabel) {
+        throw new Error(`The node ${node.properties.uuid} has no RAMEN base node`);
+      }
+
+      return { ...node, classifierRef: BASE_NODE_REF[baseLabel] };
+    });
+  const relations: ElementRelation[] = graph.relations
+    .filter((relation) => relation.status !== "unchanged")
+    .map((relation) => ({ ...relation }));
 
   return { nodes, relations };
 }

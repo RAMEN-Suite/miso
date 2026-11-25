@@ -5,7 +5,7 @@ import { orderDirection } from "../utils/cypher.js";
 import { valueToNativeType } from "../utils/helper.js";
 import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
 import { CURSOR_VERSION, encodeCursor, HierarchyCursor } from "../utils/cursor.js";
-import { toNodeChanges } from "../utils/nodeUpdate.js";
+import { orphanedAnnotationsCypher, toNodeChanges } from "../utils/nodeUpdate.js";
 import ConfigService from "./config.service.js";
 import WriteValidationService from "./writeValidation.service.js";
 import { buildFilterCypher, SORT_KEY_MAX_LENGTH, targetExpression } from "../utils/filter.js";
@@ -19,6 +19,7 @@ import {
   PaginationResult,
   ModelAttribute,
   ModelContext,
+  WriteResponse,
 } from "../models/types.js";
 import { BASE_NODE_LABELS } from "../utils/ramen.js";
 
@@ -268,12 +269,12 @@ export default class HierarchyService {
    *
    * @param {string} uuid - UUID of the created node (not of its parent).
    * @param {ElementGraph} payload - The created node, and its relation to the parent unless it is created at top level.
-   * @return {Promise<ElementResponse>} The created node as the only node, with the findings of the validation as
-   * diagnostics.
+   * @return {Promise<WriteResponse>} The created node as the only node, with the findings of the validation as
+   * diagnostics and the annotations deleted as orphans.
    * @throws {ValidationError} If `uuid` is not a node of the payload.
    * @throws {NotFoundError} If the node could not be created.
    */
-  public async createNode(uuid: string, payload: ElementGraph): Promise<ElementResponse> {
+  public async createNode(uuid: string, payload: ElementGraph): Promise<WriteResponse> {
     const context = await ConfigService.getModelContext();
 
     if (!payload.nodes.some((node) => node.properties?.uuid === uuid)) {
@@ -281,9 +282,9 @@ export default class HierarchyService {
     }
 
     const changes: NodeUpdateObject = toNodeChanges(context, payload);
-    const { node, diagnostics } = await new WriteValidationService().write(context, changes, uuid);
+    const { node, diagnostics, deletedOrphans } = await new WriteValidationService().write(context, changes, uuid);
 
-    return { ...toElementResponse(context, [node]), diagnostics };
+    return { ...toElementResponse(context, [node]), diagnostics, deletedOrphans };
   }
 
   /**
@@ -310,42 +311,8 @@ export default class HierarchyService {
       }) YIELD node AS hierarchyNode
 
       WITH collect(DISTINCT hierarchyNode) AS hierarchyNodes
-
-      // Candidates: all annotations owned by the hierarchy nodes, including sub-annotations
-      CALL (hierarchyNodes) {
-        UNWIND hierarchyNodes AS owner
-
-        CALL apoc.path.subgraphNodes(owner, {
-          relationshipFilter: 'HAS_ANNOTATION>',
-          labelFilter: '+Annotation',
-          minLevel: 1,
-          maxLevel: -1
-        }) YIELD node
-
-        RETURN collect(DISTINCT node) AS candidates
-      }
-
-      // Shared roots: candidates that also have an owner which is not marked as deleted
-      WITH hierarchyNodes, candidates, hierarchyNodes + candidates AS deletionSet
-      WITH hierarchyNodes, candidates, [a IN candidates WHERE EXISTS {
-        MATCH (owner)-[:HAS_ANNOTATION]->(a)
-        WHERE NOT owner IN deletionSet
-      }] AS sharedRoots
-
-      // Shared roots and everything below them are kept
-      CALL (sharedRoots) {
-        UNWIND sharedRoots AS sharedRoot
-
-        CALL apoc.path.subgraphNodes(sharedRoot, {
-          relationshipFilter: 'HAS_ANNOTATION>',
-          labelFilter: '+Annotation',
-          maxLevel: -1
-        }) YIELD node
-
-        RETURN collect(DISTINCT node) AS kept
-      }
-
-      WITH hierarchyNodes, [a IN candidates WHERE NOT a IN kept] AS annotations, [n IN hierarchyNodes | n.uuid] AS deleted
+      ${orphanedAnnotationsCypher("hierarchyNodes", "annotations")}
+      WITH hierarchyNodes, annotations, [n IN hierarchyNodes | n.uuid] AS deleted
 
       FOREACH (annotation IN annotations | DETACH DELETE annotation)
       FOREACH (node IN hierarchyNodes | DETACH DELETE node)

@@ -6,7 +6,6 @@ import type {
   ElementNode,
   ElementRelation,
   ModelContext,
-  NodeStatus,
 } from "../../models/types";
 import { BASE_NODE_REF } from "../../config/ramen";
 import { getBaseNodeRef, getContentMedium, isEmptyValue } from "./modelHelper";
@@ -58,9 +57,6 @@ export const ELEMENT_DIAGNOSTIC_CODE = {
   /** The selector of an annotation on a Content doesn't fit the Content's medium or its selector type */
   SELECTOR_INVALID: "MISO_SELECTOR_INVALID",
 } as const;
-
-/** Statuses of elements that don't exist after a write */
-const REMOVED_STATUSES: readonly NodeStatus[] = ["deleted", "removed"];
 
 /** A relation resolved to its relation definition */
 type ResolvedRelation = ElementRelation & { relationRef: string };
@@ -152,7 +148,7 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
   const instanceNodes: ModelInstanceNode[] = [];
 
   for (const node of elements.nodes) {
-    if (node.status && REMOVED_STATUSES.includes(node.status)) {
+    if (node.status === "deleted") {
       continue;
     }
 
@@ -178,7 +174,7 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
   const relations: ResolvedRelation[] = elements.relations.filter(
     (relation): relation is ResolvedRelation =>
       relation.relationRef !== null &&
-      !(relation.status && REMOVED_STATUSES.includes(relation.status)) &&
+      relation.status !== "removed" &&
       mappedUuids.has(relation.from) &&
       mappedUuids.has(relation.to),
   );

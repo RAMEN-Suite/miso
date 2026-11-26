@@ -22,7 +22,7 @@
   "author": "Maximilian Michel",
   "license": "MIT",
   "dependencies": {
-    "@ramen-suite/core": "^0.1.0",
+    "@ramen-suite/core": "^0.2.0",
     "cors": "^2.8.5",
     "express": "^4.22.1",
     "morgan": "^1.10.1",

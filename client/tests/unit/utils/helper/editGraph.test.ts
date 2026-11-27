@@ -34,13 +34,13 @@ function buildGraphTestModel() {
   edition.hasAnnotation(text, family);
   edition.refersTo(family, person);
 
-  const { mappings } = addNativeShapes(edition);
+  const { mappings, classifiers } = addNativeShapes(edition, text);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "graphTest",
     model: edition.export(),
     general: { templates: [] },
-    elements: { classifiers: {}, annotations: {} },
+    elements: { classifiers, annotations: {} },
     editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;

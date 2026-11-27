@@ -398,7 +398,7 @@ watch(
 
     const standoffObject = { text: text.value.properties.text, annotations: fetchedAnnotations };
 
-    const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
+    const parseIssues: StandoffParseIssue[] = initializeTiptap(text.value, standoffObject, {
       onHardBreakMarkerClick: openStructuralAnnotationEditor,
       onHardBreakShortcut: insertLineBreak,
       onAnnotationShortcut: annotateByShapeRef,

@@ -1,5 +1,5 @@
 import { ref, shallowRef, watch } from "vue";
-import { Annotation } from "../models/types";
+import { Annotation, ContentNode } from "../models/types";
 import { Editor } from "@tiptap/vue-3";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import { Node, Schema } from "@tiptap/pm/model";
@@ -31,7 +31,7 @@ import { useConfigStore } from "./config";
 
 const { selectedOptions } = useFilterStore();
 const { settings } = useEditorSettingsStore();
-const { getTextAnnotationAppearance, getAnnotationShortcuts, getModelContext } = useConfigStore();
+const { getTextAnnotationAppearance, getAnnotationShortcuts, getModelContext, setEditorContentType } = useConfigStore();
 
 const tiptap = shallowRef<Editor | null>(null);
 
@@ -123,8 +123,10 @@ function hasUnsavedChanges(): boolean {
 }
 
 /**
- * Parses the given standoff document and creates the tiptap editor from it.
+ * Parses the given standoff document and creates the tiptap editor from it. The editor offers the annotation shapes of
+ * the text's Content type (see `setEditorContentType`).
  *
+ * @param {ContentNode} textNode - The Content node of the opened text.
  * @param {{ text: string; annotations: Annotation[] }} standoffObject - The text and its annotations as fetched from the API.
  * @param {Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut">} editorHandlers -
  *   What happens on a click on a line break's `¬`, on the line break shortcuts and on the configured annotation
@@ -132,9 +134,12 @@ function hasUnsavedChanges(): boolean {
  * @returns {StandoffParseIssue[]} The problems found while parsing. Empty when the document was parsed cleanly.
  */
 function initializeTiptap(
+  textNode: ContentNode,
   standoffObject: { text: string; annotations: Annotation[] },
   editorHandlers: Pick<ExtensionOptions, "onHardBreakMarkerClick" | "onHardBreakShortcut" | "onAnnotationShortcut"> = {},
 ): StandoffParseIssue[] {
+  setEditorContentType(textNode);
+
   const extensions: Extensions = createExtensions({
     getAppearance: getTextAnnotationAppearance,
     annotationShortcuts: getAnnotationShortcuts(),

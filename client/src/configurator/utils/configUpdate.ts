@@ -1,10 +1,11 @@
-import type { RamenFile } from "@ramen-suite/core";
+import type { RamenFile, RamenModel } from "@ramen-suite/core";
 import {
   findAttribute,
   shapeRefOf,
   type AppearanceOverride,
   type AppearanceVariant,
   type AttributeOwner,
+  type ContentMedium,
   type MisoConfig,
 } from "../external";
 
@@ -69,6 +70,44 @@ export function editClassifierEntry(
 ): void {
   config.elements.classifiers[ref] ??= { name };
   change(config.elements.classifiers[ref]);
+}
+
+/**
+ * Sets the own medium of a Content type (see {@linkcode editClassifierEntry}). Setting one also removes the own media of
+ * the types refining it, which then inherit the new one: a medium is forwarded down the refinement chain unchanged, so
+ * their own one could only repeat the old medium or conflict with the new one. Changes the config in place.
+ *
+ * @param {MisoConfig} config - The config.
+ * @param {RamenModel} model - Its model, for the refinement chains.
+ * @param {string} ref - Qualified ref of the Content type.
+ * @param {string} name - Its name in the model, the hint of a new entry.
+ * @param {ContentMedium | undefined} medium - The medium, `undefined` to remove the own one.
+ */
+export function setContentMedium(
+  config: MisoConfig,
+  model: RamenModel,
+  ref: string,
+  name: string,
+  medium: ContentMedium | undefined,
+): void {
+  editClassifierEntry(config, ref, name, (entry) => {
+    entry.medium = medium;
+  });
+
+  if (!medium) {
+    return;
+  }
+
+  for (const [entryRef, entry] of Object.entries(config.elements.classifiers)) {
+    const isRefinement: boolean = model
+      .getNodeLineage(entryRef)
+      .slice(0, -1)
+      .some((item) => `${item.modelId}:${item.nodeId}` === ref);
+
+    if (isRefinement) {
+      delete entry.medium;
+    }
+  }
 }
 
 /**

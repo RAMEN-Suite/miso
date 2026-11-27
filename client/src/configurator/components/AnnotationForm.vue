@@ -94,14 +94,19 @@ const carriers = computed<Carrier[]>(() =>
     .map((node) => ({ ref: `${node.modelId}:${node.id}`, name: node.name })),
 );
 
-/** The Content types that may carry the shape, by their medium (from the draft, along the lineage) */
+/**
+ * The Content types that may carry the shape, by their medium (from the draft, along the lineage). Types without a
+ * medium (RAMEN's Content node, or a refinement the config check reports) are left out.
+ */
 const contentCarriersByMedium = computed<Map<ContentMedium, Carrier[]>>(() => {
   const byMedium = new Map<ContentMedium, Carrier[]>();
 
   for (const ref of getContentCarrierRefs(ctx.value).filter(carries)) {
-    const medium: ContentMedium = getContentMedium(ctx.value, ref);
+    const medium: ContentMedium | undefined = getContentMedium(ctx.value, ref);
 
-    byMedium.set(medium, [...(byMedium.get(medium) ?? []), { ref, name: ctx.value.model.getNode(ref)?.name ?? ref }]);
+    if (medium) {
+      byMedium.set(medium, [...(byMedium.get(medium) ?? []), { ref, name: ctx.value.model.getNode(ref)?.name ?? ref }]);
+    }
   }
 
   return byMedium;

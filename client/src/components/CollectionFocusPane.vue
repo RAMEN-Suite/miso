@@ -77,7 +77,7 @@ const {
   isInitialized: isConfigInitialized,
   annotationHasConstraints,
   getAnnotationShape,
-  getCollectionAnnotationShapes,
+  getCarriedAnnotationShapes,
   getCollectionAttributes,
   getModelContext,
 } = useConfigStore();
@@ -114,7 +114,7 @@ const displayLabel = computed<string>(
 );
 
 const availableAnnotationShapes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
-  getCollectionAnnotationShapes(temporaryWorkData.value.collection),
+  getCarriedAnnotationShapes(temporaryWorkData.value.collection),
 );
 
 const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotation-menu");

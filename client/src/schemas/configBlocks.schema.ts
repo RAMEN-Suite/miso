@@ -323,7 +323,7 @@ const nodeConfigSchema = z.strictObject({ appearance: nodeAppearanceSchema.optio
 const contentMediumSchema = z
   .enum(["text", "image"])
   .describe(
-    "What a Content type holds, which decides its editor and how its annotations are shown. Inherited from the nearest configured type in the lineage; default text.",
+    "What a Content type holds, which decides its editor and how its annotations are shown. Required for every Content refinement, on itself or on a type it refines; forwarded to the types refining it, which can't change it. Not allowed on RAMEN's Content node.",
   );
 
 /** The media of Content types, from the schema */

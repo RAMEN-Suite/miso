@@ -1,11 +1,12 @@
 import { z } from "zod";
 import type { Attribute, Constraint, RamenFile } from "@ramen-suite/core";
-import type { ConfigMapping, IMisoConfig } from "../models/IMisoConfig.js";
-import type { AttributeOwner } from "../models/types.js";
-import { findAttribute } from "../utils/modelHelper.js";
+import type { ConfigMapping } from "../models/IMisoConfig.js";
+import type { AttributeOwner, ContentMedium, ModelAnnotationShape, ModelContext } from "../models/types.js";
+import { BASE_NODE_REF } from "../utils/ramen.js";
+import { findAttribute, findShape, getNodeConfig, getRefinements, getShapesForNode, shapeRefOf } from "../utils/modelHelper.js";
 
 // Schemas of the settings in the config (`elements`, `editors.text.mappings`) and their checks against the model.
-// Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkElements`/`checkMappings` in
+// Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkElements`/`checkMappings`/`checkContentMedia` in
 // `client/src/schemas/misoConfig.schema.ts` and the native attributes in `NATIVE_TYPE_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
 // reads a few keys.
@@ -347,17 +348,98 @@ export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): Conf
 }
 
 /**
- * Runs all checks of the settings against the model: {@linkcode checkElements} and {@linkcode checkMappings}.
+ * The medium a Content type's own `elements.classifiers` entry declares.
  *
- * @param {IMisoConfig} config - The config, with a model RAMEN core accepted.
+ * @param {ModelContext} context - The model context.
+ * @param {string} nodeRef - Qualified ref of the Content type.
+ * @returns {ContentMedium | undefined} The medium, `undefined` if the entry declares none.
+ */
+function ownMediumOf(context: ModelContext, nodeRef: string): ContentMedium | undefined {
+  const medium: unknown = getNodeConfig(context, nodeRef)?.medium;
+
+  return medium === "text" || medium === "image" ? medium : undefined;
+}
+
+/**
+ * Checks the media of the Content refinements. Mirrors `checkContentMedia` in `client/src/schemas/misoConfig.schema.ts`.
+ * - Every Content refinement needs a medium, declared on itself or on a type it refines. A medium is forwarded down the
+ *   refinement chain and can't be changed on the way.
+ * - A text Content refinement must carry the annotation shape of every native mapping (inherited ones count), since its
+ *   texts are built from them.
+ *
+ * - RAMEN's Content node itself has no medium (there are no plain Contents), so a medium on it is a problem.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {ConfigFindings} The problems, each naming the Content type it belongs to.
+ */
+export function checkContentMedia(context: ModelContext, mappings: ConfigMapping[]): ConfigFindings {
+  const findings: ConfigFindings = { problems: [], warnings: [] };
+
+  if (ownMediumOf(context, BASE_NODE_REF.Content)) {
+    findings.problems.push(
+      `elements.classifiers["${BASE_NODE_REF.Content}"].medium: RAMEN's Content node has no medium, set it on its refinements`,
+    );
+  }
+
+  for (const { ref, node } of getRefinements(context, BASE_NODE_REF.Content)) {
+    const path: string = `elements.classifiers["${ref}"] ("${node.name}")`;
+    const ownMedium: ContentMedium | undefined = ownMediumOf(context, ref);
+    // The lineage is base-first, so the nearest ancestor with a medium is the last one. RAMEN's Content node is skipped,
+    // its medium is reported above
+    const ancestor: { name: string; medium: ContentMedium | undefined } | undefined = context.model
+      .getNodeLineage(ref)
+      .slice(1, -1)
+      .map((item) => ({ name: item.name, medium: ownMediumOf(context, `${item.modelId}:${item.nodeId}`) }))
+      .reverse()
+      .find((item) => item.medium !== undefined);
+
+    if (ownMedium && ancestor?.medium && ownMedium !== ancestor.medium) {
+      findings.problems.push(
+        `${path}: medium "${ownMedium}" differs from "${ancestor.medium}" of "${ancestor.name}", a refinement keeps the medium of the type it refines`,
+      );
+    }
+
+    const medium: ContentMedium | undefined = ancestor?.medium ?? ownMedium;
+
+    if (!medium) {
+      findings.problems.push(`${path}: has no medium, declare one on it or on a type it refines`);
+    } else if (medium === "text") {
+      const carriedRefs = new Set<string>(getShapesForNode(context, ref).map(shapeRefOf));
+
+      for (const mapping of mappings) {
+        const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
+
+        // A mapping to a shape the model doesn't have is reported by `checkMappings`
+        if (shape && !carriedRefs.has(mapping.annotation)) {
+          findings.problems.push(
+            `${path}: doesn't carry the annotation shape "${shape.type}" (${mapping.annotation}) mapped to the native type "${mapping.native}", texts are built from it`,
+          );
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Runs all checks of the settings against the model: {@linkcode checkElements}, {@linkcode checkMappings} and
+ * {@linkcode checkContentMedia}.
+ *
+ * @param {ModelContext} context - The config with a model RAMEN core accepted.
  * @returns {ConfigFindings} The problems and warnings of all checks.
  */
-export function checkConfigSettings(config: IMisoConfig): ConfigFindings {
-  const elementFindings: ConfigFindings = checkElements(config.model, config.elements);
-  const mappingFindings: ConfigFindings = checkMappings(config.model, config.editors.text.mappings);
+export function checkConfigSettings(context: ModelContext): ConfigFindings {
+  const { config } = context;
+  const results: ConfigFindings[] = [
+    checkElements(config.model, config.elements),
+    checkMappings(config.model, config.editors.text.mappings),
+    checkContentMedia(context, config.editors.text.mappings),
+  ];
 
   return {
-    problems: [...elementFindings.problems, ...mappingFindings.problems],
-    warnings: [...elementFindings.warnings, ...mappingFindings.warnings],
+    problems: results.flatMap((result) => result.problems),
+    warnings: results.flatMap((result) => result.warnings),
   };
 }

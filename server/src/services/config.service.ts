@@ -223,13 +223,12 @@ export default class ConfigService {
       throw new ExternalServiceError(`The model in the config is invalid: ${(error as Error).message}`);
     }
 
-    const findings: ConfigFindings = checkConfigSettings(config);
+    const context: ModelContext = createModelContext(config, model);
+    const findings: ConfigFindings = checkConfigSettings(context);
 
     if (findings.problems.length > 0) {
       throw new ExternalServiceError(`The Miso settings in the config are invalid:\n${findings.problems.join("\n")}`);
     }
-
-    const context: ModelContext = createModelContext(config, model);
 
     [...findings.warnings, ...collectConfigWarnings(context)].forEach((warning) => logger.warn(`Miso config: ${warning}`));
 

@@ -13,7 +13,7 @@ import {
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { attributeRowsOf, type AttributeRow } from "../utils/attributes";
-import { editClassifierEntry, withKey, type ClassifierEntry } from "../utils/configUpdate";
+import { editClassifierEntry, setContentMedium, withKey, type ClassifierEntry } from "../utils/configUpdate";
 import { classifierIconOf } from "../utils/elementIcons";
 import IconSpecInputField from "./IconSpecInput.vue";
 import { MEDIUM_ICONS } from "../utils/media";
@@ -35,11 +35,6 @@ const { draft, requiredContext: ctx, findings, selection } = useConfigDraft();
 
 /** Media without an editor yet; they can't be chosen, a config that has one still shows it */
 const MEDIA_WITHOUT_EDITOR: readonly Medium[] = ["image"];
-
-const MEDIUM_OPTIONS: { value: Medium; disabled: boolean }[] = CONTENT_MEDIA.map((value) => ({
-  value,
-  disabled: MEDIA_WITHOUT_EDITOR.includes(value),
-}));
 
 /** The classifier as an attribute owner; RAMEN base nodes may not be listed in the file, the model has them */
 const owner = computed<(Node & { modelId: string }) | undefined>(() => {
@@ -90,6 +85,61 @@ const icon = computed<IconSpecInput | undefined>(() => classifierIconOf(ctx.valu
 
 const inheritedMedium = computed<{ value: Medium; from: string } | undefined>(() => inherited((ancestor) => ancestor.medium));
 
+const isBaseContent = computed<boolean>(() => props.classifierRef === BASE_NODE_REF.Content);
+
+/**
+ * Why a medium can't be chosen, `undefined` if it can: media without an editor; any other medium than an inherited one,
+ * since a medium is forwarded down the refinement chain unchanged; and every medium on RAMEN's Content node, which has
+ * none. A medium already set there stays selectable, so it can be removed.
+ *
+ * @param {Medium} medium - The medium.
+ * @returns {string | undefined} The reason.
+ */
+function mediumBlockedReason(medium: Medium): string | undefined {
+  if (isBaseContent.value) {
+    return entry.value?.medium === medium ? undefined : "RAMEN's Content node has no medium, set it on its refinements";
+  } else if (MEDIA_WITHOUT_EDITOR.includes(medium)) {
+    return "No editor for this medium yet";
+  } else if (inheritedMedium.value && medium !== inheritedMedium.value.value) {
+    return `The medium is inherited from ${inheritedMedium.value.from}`;
+  } else {
+    return undefined;
+  }
+}
+
+/** The media to choose from, see {@linkcode mediumBlockedReason} */
+const mediumOptions = computed<{ value: Medium; disabled: boolean; reason?: string }[]>(() =>
+  CONTENT_MEDIA.map((value) => {
+    const reason: string | undefined = mediumBlockedReason(value);
+
+    return { value, disabled: reason !== undefined, reason };
+  }),
+);
+
+/**
+ * The medium the switch shows: the own one, otherwise the inherited one. Exactly one is shown as soon as there is one,
+ * since a Content refinement can't be without a medium.
+ */
+const shownMedium = computed<Medium | undefined>(() => entry.value?.medium ?? inheritedMedium.value?.value);
+
+/** Only a medium on RAMEN's Content node can be unselected, since it isn't allowed there */
+const canUnselectMedium = computed<boolean>(() => isBaseContent.value && entry.value?.medium !== undefined);
+
+/** The hint next to the medium switch */
+const mediumHint = computed<string>(() => {
+  if (isBaseContent.value) {
+    return entry.value?.medium
+      ? "Not allowed here, click the selected option to remove it."
+      : "RAMEN's Content node has no medium, set it on its refinements.";
+  } else if (inheritedMedium.value) {
+    return `Inherited from ${inheritedMedium.value.from}.`;
+  } else if (entry.value?.medium) {
+    return "Forwarded to the types refining it.";
+  } else {
+    return "Required, here or on a type it refines.";
+  }
+});
+
 const ownFindings = computed<ConfigFinding[]>(() => findings.value.filter((finding) => finding.ref === props.classifierRef));
 
 /** The controls of the form that can show findings */
@@ -121,10 +171,16 @@ function setIcon(icon: IconSpecInput | undefined): void {
   });
 }
 
+/**
+ * Sets the classifier's own medium; the types refining it lose theirs and inherit it (see `setContentMedium`). `null`
+ * (unselected) only comes from RAMEN's Content node, see {@linkcode canUnselectMedium}.
+ *
+ * @param {Medium | null | undefined} medium - The chosen medium.
+ */
 function setMedium(medium: Medium | null | undefined): void {
-  edit((target) => {
-    target.medium = medium ?? undefined;
-  });
+  if (draft.value) {
+    setContentMedium(draft.value, ctx.value.model, props.classifierRef, name.value, medium ?? undefined);
+  }
 }
 </script>
 
@@ -158,8 +214,9 @@ function setMedium(medium: Medium | null | undefined): void {
       <SectionHeading class="font-medium gap-1.5">Medium <TermHint term="medium" /></SectionHeading>
       <div class="flex items-center gap-3">
         <SelectButton
-          :model-value="entry?.medium"
-          :options="MEDIUM_OPTIONS"
+          :model-value="shownMedium"
+          :allow-empty="canUnselectMedium"
+          :options="mediumOptions"
           option-label="value"
           option-value="value"
           option-disabled="disabled"
@@ -167,20 +224,12 @@ function setMedium(medium: Medium | null | undefined): void {
           @update:model-value="setMedium"
         >
           <template #option="{ option }">
-            <span class="flex items-center gap-1.5" :title="option.disabled ? 'No editor for this medium yet' : ''">
+            <span class="flex items-center gap-1.5" :title="option.reason ?? ''">
               <i :class="MEDIUM_ICONS[option.value as Medium]" />{{ option.value }}
             </span>
           </template>
         </SelectButton>
-        <small class="text-slate-500">
-          {{
-            entry?.medium
-              ? "Click the selected option to inherit again."
-              : inheritedMedium
-                ? `Inherited from ${inheritedMedium.from}: ${inheritedMedium.value}`
-                : "Default: text"
-          }}
-        </small>
+        <small class="text-slate-500">{{ mediumHint }}</small>
       </div>
     </section>
 

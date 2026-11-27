@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { RamenFile } from "@ramen-suite/core";
+import { RAMEN_ELEMENT, RamenModel, type RamenFile } from "@ramen-suite/core";
 import { testConfig } from "../../fixtures/config";
 import { parseMisoConfig, type MisoConfig } from "../../../src/schemas/misoConfig.schema";
 import {
@@ -7,6 +7,7 @@ import {
   pruneGoneEntries,
   refreshNameHints,
   serializeConfig,
+  setContentMedium,
   toExportConfig,
   withKey,
 } from "../../../src/configurator/utils/configUpdate";
@@ -70,6 +71,50 @@ describe("toExportConfig", () => {
 
     expect(parsed.config.model).toEqual(testConfig.config.model);
     expect(parsed.config.elements.annotations[shapeRef(config, "add")]?.appearance?.highlight?.color).toBe("#2563eb");
+  });
+});
+
+describe("setContentMedium", () => {
+  /** A config whose model has Content > Text > Transcription > Draft, Transcription and Draft with their own medium */
+  function buildMediumConfig() {
+    const edition = RamenModel.create("Medium test");
+    const text = edition.createNode({ name: "Text", refines: RAMEN_ELEMENT.CONTENT }).element;
+    const transcription = edition.createNode({ name: "Transcription", refines: text }).element;
+    const draft = edition.createNode({ name: "Draft", refines: transcription }).element;
+    const modelId: string = edition.getModel().id;
+    const refs = { text: `${modelId}:${text.id}`, transcription: `${modelId}:${transcription.id}`, draft: `${modelId}:${draft.id}` };
+    const config: MisoConfig = {
+      ...copyOfTestConfig(),
+      model: edition.export(),
+      elements: {
+        classifiers: {
+          [refs.transcription]: { name: "Transcription", medium: "text" },
+          [refs.draft]: { name: "Draft", medium: "text", appearance: { icon: "pencil" } },
+        },
+        annotations: {},
+      },
+    };
+
+    return { config, model: edition, refs };
+  }
+
+  test("setting a medium removes the own media of all types refining it, their other settings stay", () => {
+    const { config, model, refs } = buildMediumConfig();
+
+    setContentMedium(config, model, refs.text, "Text", "image");
+
+    expect(config.elements.classifiers[refs.text].medium).toBe("image");
+    expect(config.elements.classifiers[refs.transcription].medium).toBeUndefined();
+    expect(config.elements.classifiers[refs.draft]).toEqual({ name: "Draft", appearance: { icon: "pencil" } });
+  });
+
+  test("removing a medium leaves the refining types as they are", () => {
+    const { config, model, refs } = buildMediumConfig();
+
+    setContentMedium(config, model, refs.transcription, "Transcription", undefined);
+
+    expect(config.elements.classifiers[refs.transcription].medium).toBeUndefined();
+    expect(config.elements.classifiers[refs.draft].medium).toBe("text");
   });
 });
 

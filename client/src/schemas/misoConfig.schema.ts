@@ -3,9 +3,18 @@ import { Attribute, Constraint, RamenModel, RamenFile } from "@ramen-suite/core"
 import { getNativeTypeConfig, NATIVE_TYPES } from "../editors/text/src/config/constants";
 import { NativeTypeConfig, SpecialCharacterGroupConfig } from "../editors/text/src/models/types";
 import { annotationEntrySchema, checkNativeAttributes, classifierEntrySchema, nativeTypeSchema } from "./configBlocks.schema";
-import type { AttributeOwner } from "../models/types";
+import type { AttributeOwner, ContentMedium, ContentTypeConfig, ModelAnnotationShape, ModelContext } from "../models/types";
+import { BASE_NODE_REF } from "../config/ramen";
 import ConfigValidationError from "../utils/errors/configValidation.error";
-import { findAttribute } from "../utils/helper/modelHelper";
+import {
+  createModelContext,
+  findAttribute,
+  findShape,
+  getNodeConfig,
+  getRefinements,
+  getShapesForNode,
+  shapeRefOf,
+} from "../utils/helper/modelHelper";
 
 // Schema of the config file: `$schema`, `id`, `meta`, the raw model, and the app's settings (`general`, `elements`,
 // `editors`). The model is validated and read by RAMEN core, so it is typed with RAMEN core's `RamenFile` and never
@@ -338,6 +347,75 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
 }
 
 /**
+ * Checks the media of the Content refinements. Mirrored in `server/src/schemas/configBlocks.schema.ts`.
+ * - Every Content refinement needs a medium, declared on itself or on a type it refines. A medium is forwarded down the
+ *   refinement chain and can't be changed on the way.
+ * - A text Content refinement must carry the annotation shape of every native mapping (inherited ones count), since its
+ *   texts are built from them.
+ *
+ * - RAMEN's Content node itself has no medium (there are no plain Contents), so a medium on it is a problem.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ConfigMapping[]} mappings - The native mappings.
+ * @returns {ConfigFinding[]} The problems, each with the Content type it belongs to.
+ */
+function checkContentMedia(context: ModelContext, mappings: ConfigMapping[]): ConfigFinding[] {
+  const findings: ConfigFinding[] = [];
+  const baseEntry: ContentTypeConfig | undefined = getNodeConfig(context, BASE_NODE_REF.Content);
+
+  if (baseEntry?.medium) {
+    findings.push({
+      severity: "problem",
+      path: `elements.classifiers["${BASE_NODE_REF.Content}"].medium`,
+      message: "RAMEN's Content node has no medium, set it on its refinements",
+      ref: BASE_NODE_REF.Content,
+    });
+  }
+
+  for (const { ref, node } of getRefinements(context, BASE_NODE_REF.Content)) {
+    const path: string = `elements.classifiers["${ref}"] ("${node.name}")`;
+    const problem = (message: string): void => {
+      findings.push({ severity: "problem", path, message, ref });
+    };
+    const ownMedium: ContentMedium | undefined = getNodeConfig(context, ref)?.medium;
+    // The lineage is base-first, so the nearest ancestor with a medium is the last one. RAMEN's Content node is skipped,
+    // its medium is reported above
+    const ancestor = context.model
+      .getNodeLineage(ref)
+      .slice(1, -1)
+      .map((item) => ({ name: item.name, medium: getNodeConfig(context, `${item.modelId}:${item.nodeId}`)?.medium }))
+      .findLast((item) => item.medium !== undefined);
+
+    if (ownMedium && ancestor?.medium && ownMedium !== ancestor.medium) {
+      problem(
+        `medium "${ownMedium}" differs from "${ancestor.medium}" of "${ancestor.name}", a refinement keeps the medium of the type it refines`,
+      );
+    }
+
+    const medium: ContentMedium | undefined = ancestor?.medium ?? ownMedium;
+
+    if (!medium) {
+      problem("has no medium, declare one on it or on a type it refines");
+    } else if (medium === "text") {
+      const carriedRefs = new Set<string>(getShapesForNode(context, ref).map(shapeRefOf));
+
+      for (const mapping of mappings) {
+        const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
+
+        // A mapping to a shape the model doesn't have is reported by `checkMappings`
+        if (shape && !carriedRefs.has(mapping.annotation)) {
+          problem(
+            `doesn't carry the annotation shape "${shape.type}" (${mapping.annotation}) mapped to the native type "${mapping.native}", texts are built from it`,
+          );
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
  * Checks that only shapes mapped to a native type have the representation `structure`: the editor builds blocks only
  * for its native types.
  *
@@ -365,8 +443,8 @@ function checkRepresentations(elements: ConfigElements, mappings: ConfigMapping[
 /**
  * Checks the given data like {@linkcode parseMisoConfig}, without throwing: the settings against their schemas (the
  * kind-specific options by the section of `elements`), the model by RAMEN core, the refs of the settings and the
- * mapped shapes against the model (see `checkElements`, `checkMappings`), and that only mapped shapes have the
- * representation `structure`. A format error or an invalid model stops the
+ * mapped shapes against the model (see `checkElements`, `checkMappings`), that only mapped shapes have the
+ * representation `structure`, and the media of the Content refinements (see `checkContentMedia`). A format error or an invalid model stops the
  * checks; there is one problem then, and no `config`/`model`.
  *
  * @param {unknown} data - The config, e.g. the parsed JSON of a file.
@@ -397,6 +475,7 @@ export function checkConfig(data: unknown): ConfigCheckResult {
       ...checkElements(result.data.model, result.data.elements),
       ...checkMappings(result.data.model, result.data.editors.text.mappings),
       ...checkRepresentations(result.data.elements, result.data.editors.text.mappings),
+      ...checkContentMedia(createModelContext(result.data, model), result.data.editors.text.mappings),
     ],
   };
 }

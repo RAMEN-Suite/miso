@@ -30,7 +30,7 @@ export interface ConfigMapping {
 
 /**
  * The Miso config: the raw RAMEN model and the app's settings of its elements, keyed by qualified ref (`<modelId>:<id>`).
- * The model is validated and read by RAMEN core, the settings and their refs by `checkElements`/`checkMappings`.
+ * The model is validated and read by RAMEN core, the settings and their refs by `checkConfigSettings`.
  */
 export interface IMisoConfig {
   /** The config format and its version, e.g. `https://ramen-schema.org/miso/1.0.0/config.schema.json` */

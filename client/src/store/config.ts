@@ -6,8 +6,6 @@ import {
   AnnotationNode,
   BaseNodeProperties,
   CollectionNode,
-  ContentMedium,
-  ContentNode,
   TextAnnotationRepresentation,
   ModelAnnotationShape,
   ModelAttribute,
@@ -27,7 +25,6 @@ import {
   createModelContext,
   findShape,
   getClassifierRef,
-  getContentMedium as getContentMediumOfType,
   getMappedAttributeNames,
   getNodeAttributes,
   getNodeTypeOption,
@@ -267,23 +264,6 @@ export function useConfigStore() {
       .filter(({ ref }) => isAllowedTarget(context, ref, targetRefs))
       .map(({ ref }) => getNodeTypeOption(context, ref))
       .toSorted((a, b) => a.name.localeCompare(b.name));
-  }
-
-  /**
-   * Retrieves the medium of a Content node from its classifier: the nearest configured medium along its lineage.
-   *
-   * @param {ContentNode} content - The Content node.
-   * @return {ContentMedium} The configured medium, `text` if none is configured or the node can't be resolved.
-   */
-  function getContentMedium(content: ContentNode): ContentMedium {
-    const context: ModelContext | undefined = modelContext.value;
-    const classifierRef: string | null = context ? getClassifierRef(context, content) : null;
-
-    if (!context || !classifierRef) {
-      return "text";
-    }
-
-    return getContentMediumOfType(context, classifierRef);
   }
 
   /**
@@ -610,7 +590,6 @@ export function useConfigStore() {
     getAnnotationShape,
     getCollectionAnnotationShapes,
     getCollectionAttributes,
-    getContentMedium,
     getEditorOwnedProperties,
     getModelContext,
     getHierarchyClassifierRefs,

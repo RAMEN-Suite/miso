@@ -155,7 +155,6 @@ export default class ApiService {
   public async getAnnotationGraph(nodeUuid: string, options: { shapes?: string[] } = {}): Promise<EditGraph> {
     try {
       const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
-      console.log("hiiiiiiiiiiiiiiii");
 
       if (options.shapes) {
         params.set("shapes", options.shapes.join(","));

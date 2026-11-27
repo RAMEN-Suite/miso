@@ -155,13 +155,15 @@ export function getNodeConfig(context: ModelContext, nodeRef: string): ConfigBlo
 }
 
 /**
- * The medium of a Content type: the nearest configured `medium` along its lineage.
+ * The medium of a Content type: the nearest configured `medium` along its lineage. A medium is forwarded down the
+ * refinement chain and may not change on the way (see `checkContentMedia`).
  *
  * @param {ModelContext} context - The model context.
  * @param {string} contentRef - Qualified ref of the Content type.
- * @returns {ContentMedium} The configured medium, `text` if none is configured.
+ * @returns {ContentMedium | undefined} The configured medium, `undefined` if none is configured along the lineage (a
+ *   config problem for Content refinements; RAMEN's Content node has none).
  */
-export function getContentMedium(context: ModelContext, contentRef: string): ContentMedium {
+export function getContentMedium(context: ModelContext, contentRef: string): ContentMedium | undefined {
   // The lineage is base-first, the nearest configuration wins
   for (const item of [...context.model.getNodeLineage(contentRef)].reverse()) {
     const medium: unknown = getNodeConfig(context, `${item.modelId}:${item.nodeId}`)?.medium;
@@ -171,7 +173,7 @@ export function getContentMedium(context: ModelContext, contentRef: string): Con
     }
   }
 
-  return "text";
+  return undefined;
 }
 
 // ----- Attributes -----

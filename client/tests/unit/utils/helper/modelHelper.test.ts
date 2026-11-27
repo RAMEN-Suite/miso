@@ -2,11 +2,13 @@ import { describe, expect, test } from "vitest";
 import { DataTypes, RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/core";
 import { BASE_NODE_LABEL_BY_REF, BASE_NODE_LABELS, BASE_NODE_REF } from "../../../../src/config/ramen";
 import type { ModelAnnotationShape, ModelAttribute, ModelContext } from "../../../../src/models/types";
-import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
+import { checkConfig, parseMisoConfig, type ConfigFinding } from "../../../../src/schemas/misoConfig.schema";
+import { NATIVE_TYPES } from "../../../../src/editors/text/src/config/constants";
 import {
   createModelContext,
   familyRefOf,
   findShape,
+  getContentMedium,
   getMissingReferences,
   getNodeAttributes,
   getNodeConfig,
@@ -55,13 +57,13 @@ function buildResolutionTestModel() {
   edition.createAnnotationShape({ node: textFamily, type: "seg", relations: incoming(onText) });
   edition.createAnnotationShape({ node: otherFamily, type: "seg", relations: incoming(otherOnText) });
 
-  const { mappings } = addNativeShapes(edition);
+  const { mappings, classifiers } = addNativeShapes(edition, text);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "resolutionTest",
     model: edition.export(),
     general: { templates: [] },
-    elements: { classifiers: {}, annotations: {} },
+    elements: { classifiers, annotations: {} },
     editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
@@ -164,7 +166,6 @@ describe("getTextShapes", () => {
     const segShapes: ModelAnnotationShape[] = getTextShapes(context).filter((shape) => shape.type === "seg");
 
     expect(segShapes).toHaveLength(2);
-    expect(getTextShapes(context).map((shape) => shape.type)).not.toContain("p");
   });
 });
 
@@ -196,13 +197,13 @@ function buildReferenceTestModel(personBounds = { lowerBound: 0, upperBound: 1 }
     ],
   });
 
-  const { mappings } = addNativeShapes(edition);
+  const { mappings, classifiers } = addNativeShapes(edition, text);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "referenceTest",
     model: edition.export(),
     general: { templates: [] },
-    elements: { classifiers: {}, annotations: {} },
+    elements: { classifiers, annotations: {} },
     editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
@@ -284,14 +285,35 @@ function buildSettingsTestModel() {
     properties: [{ name: "key", typeId: DataTypes.String, bounds: { lowerBound: 0, upperBound: 1 } }],
     relations: [{ relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } }],
   }).element;
-  const { mappings } = addNativeShapes(edition);
+  const { mappings, classifiers } = addNativeShapes(edition, text);
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
 
+  /**
+   * Parses a config of the model with the given `elements`; the entry that makes `Text` a text Content is always added.
+   *
+   * @param elements - The element settings.
+   * @param withMappings - The native mappings, all by default.
+   */
+  function parse(
+    elements: { classifiers: Record<string, unknown>; annotations: Record<string, unknown> },
+    withMappings: unknown[] = mappings,
+  ) {
+    return parseMisoConfig({
+      $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
+      id: "settingsTest",
+      model: edition.export(),
+      general: { templates: [] },
+      elements: { ...elements, classifiers: { ...classifiers, ...elements.classifiers } },
+      editors: { text: { mappings: withMappings } },
+    });
+  }
+
   return {
-    edition,
     mappings,
+    parse,
     refs: {
+      text: ref(text),
       letter: ref(letter),
       draftLetter: ref(draftLetter),
       sentDate: ref(sentDate),
@@ -301,31 +323,19 @@ function buildSettingsTestModel() {
   };
 }
 
-/** Parses a config of the settings test model with the given `elements` */
-function parseSettingsConfig(edition: RamenModel, mappings: unknown[], elements: unknown) {
-  return parseMisoConfig({
-    $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
-    id: "settingsTest",
-    model: edition.export(),
-    general: { templates: [] },
-    elements,
-    editors: { text: { mappings } },
-  });
-}
-
 describe("settings by ref", () => {
-  const { edition, mappings, refs } = buildSettingsTestModel();
+  const { mappings, parse, refs } = buildSettingsTestModel();
 
   test("every native type of the text editor needs a mapping", () => {
     const withoutParagraph = mappings.filter((mapping) => mapping.native !== "paragraph");
 
-    expect(() => parseSettingsConfig(edition, withoutParagraph, { classifiers: {}, annotations: {} })).toThrow(
+    expect(() => parse({ classifiers: {}, annotations: {} }, withoutParagraph)).toThrow(
       'the native type "paragraph" is not mapped to an annotation shape',
     );
   });
 
   test("an attribute's settings on its declaring node apply to subtypes", () => {
-    const { config, model, warnings } = parseSettingsConfig(edition, mappings, {
+    const { config, model, warnings } = parse({
       classifiers: {
         [refs.letter]: {
           name: "Letter",
@@ -346,7 +356,7 @@ describe("settings by ref", () => {
   });
 
   test("an entry of a removed element and an outdated name hint only warn", () => {
-    const { warnings } = parseSettingsConfig(edition, mappings, {
+    const { warnings } = parse({
       classifiers: { [refs.letter]: { name: "Brief" }, "unknownModel:unknownId": { name: "Gone" } },
       annotations: {},
     });
@@ -357,13 +367,13 @@ describe("settings by ref", () => {
   });
 
   test("a ref of another kind than its section is fatal", () => {
-    expect(() =>
-      parseSettingsConfig(edition, mappings, { classifiers: { [refs.persName]: { name: "persName" } }, annotations: {} }),
-    ).toThrow("not a node classifier");
+    expect(() => parse({ classifiers: { [refs.persName]: { name: "persName" } }, annotations: {} })).toThrow(
+      "not a node classifier",
+    );
   });
 
   test("an attribute the element doesn't declare itself only warns", () => {
-    const { warnings } = parseSettingsConfig(edition, mappings, {
+    const { warnings } = parse({
       classifiers: {},
       annotations: { [refs.persName]: { name: "persName", attributes: { [refs.sentDate]: { name: "sentDate" } } } },
     });
@@ -372,12 +382,114 @@ describe("settings by ref", () => {
     expect(warnings[0]).toContain("declares no such attribute");
   });
 
+  test("a Content refinement needs a medium", () => {
+    expect(() => parse({ classifiers: { [refs.text]: { name: "Text" } }, annotations: {} })).toThrow("has no medium");
+  });
+
   test("kind-specific options are checked per section", () => {
     expect(() =>
-      parseSettingsConfig(edition, mappings, {
+      parse({
         classifiers: { [refs.letter]: { name: "Letter", controls: { shortcut: "Mod-l" } } },
         annotations: {},
       }),
     ).toThrow();
+  });
+});
+
+/**
+ * A model for the media of Content types: Content > Text > Transcription, where Text carries the native shapes, and
+ * Content > Scan, Content > Note, which carry none. By default Text is a text Content, Scan and Note are image Contents.
+ */
+function buildMediaTestModel() {
+  const edition = RamenModel.create("Media test");
+  const text = edition.createNode({ name: "Text", refines: RAMEN_ELEMENT.CONTENT }).element;
+  const transcription = edition.createNode({ name: "Transcription", refines: text }).element;
+  const scan = edition.createNode({ name: "Scan", refines: RAMEN_ELEMENT.CONTENT }).element;
+  const note = edition.createNode({ name: "Note", refines: RAMEN_ELEMENT.CONTENT }).element;
+  const { mappings, classifiers } = addNativeShapes(edition, text);
+  const modelId: string = edition.getModel().id;
+  const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
+  const refs = { text: ref(text), transcription: ref(transcription), scan: ref(scan), note: ref(note) };
+
+  /**
+   * Checks a config of the model, with the given classifier entries over the default ones.
+   *
+   * @param entries - Classifier entries by ref.
+   */
+  function check(entries: Record<string, unknown> = {}) {
+    return checkConfig({
+      $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
+      id: "mediaTest",
+      model: edition.export(),
+      general: { templates: [] },
+      elements: {
+        classifiers: {
+          ...classifiers,
+          [refs.scan]: { name: "Scan", medium: "image" },
+          [refs.note]: { name: "Note", medium: "image" },
+          ...entries,
+        },
+        annotations: {},
+      },
+      editors: { text: { mappings } },
+    });
+  }
+
+  /** The problems of {@linkcode check} */
+  const problemsOf = (entries: Record<string, unknown> = {}): ConfigFinding[] =>
+    check(entries).findings.filter((finding) => finding.severity === "problem");
+
+  return { refs, check, problemsOf };
+}
+
+describe("media of Content types", () => {
+  const { refs, check, problemsOf } = buildMediaTestModel();
+
+  test("a medium is forwarded down the refinement chain, with the carried shapes", () => {
+    const { config, model } = check();
+
+    expect(problemsOf()).toEqual([]);
+    expect(config && model && getContentMedium(createModelContext(config, model), refs.transcription)).toBe("text");
+  });
+
+  test("RAMEN's Content node has no medium and isn't checked", () => {
+    const { config, model } = check();
+
+    expect(config && model && getContentMedium(createModelContext(config, model), BASE_NODE_REF.Content)).toBeUndefined();
+    expect(problemsOf().filter((finding) => finding.ref === BASE_NODE_REF.Content)).toEqual([]);
+  });
+
+  test("a medium on RAMEN's Content node is a problem", () => {
+    const problems: ConfigFinding[] = problemsOf({ [BASE_NODE_REF.Content]: { name: "Content", medium: "text" } });
+
+    expect(problems).toEqual([
+      expect.objectContaining({ ref: BASE_NODE_REF.Content, message: expect.stringContaining("has no medium") }),
+    ]);
+  });
+
+  test("a Content refinement without a medium is a problem", () => {
+    const problems: ConfigFinding[] = problemsOf({ [refs.scan]: { name: "Scan" } });
+
+    expect(problems).toEqual([expect.objectContaining({ ref: refs.scan, message: expect.stringContaining("has no medium") })]);
+  });
+
+  test("a refinement can't change the medium it inherits", () => {
+    const problems: ConfigFinding[] = problemsOf({ [refs.transcription]: { name: "Transcription", medium: "image" } });
+
+    expect(problems).toEqual([
+      expect.objectContaining({ ref: refs.transcription, message: expect.stringContaining('differs from "text" of "Text"') }),
+    ]);
+  });
+
+  test("a refinement may repeat the medium it inherits", () => {
+    expect(problemsOf({ [refs.transcription]: { name: "Transcription", medium: "text" } })).toEqual([]);
+  });
+
+  test("a text Content must carry the shape of every native mapping", () => {
+    const problems: ConfigFinding[] = problemsOf({ [refs.note]: { name: "Note", medium: "text" } });
+
+    expect(problems).toHaveLength(NATIVE_TYPES.length);
+    expect(problems.every((finding) => finding.ref === refs.note)).toBe(true);
+    expect(problems.map((finding) => finding.message).join("\n")).toContain('mapped to the native type "paragraph"');
   });
 });

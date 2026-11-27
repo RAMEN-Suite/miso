@@ -13,7 +13,7 @@ const TEXT_ANNOTATION_TYPES: { type: string; settings: AnnotationShapeConfig }[]
 ];
 
 /**
- * Builds a minimal Miso config for the tests: a `Text` content type, one text annotation family with the native
+ * Builds a minimal Miso config for the tests: a `Text` content type of medium `text`, one text annotation family with the native
  * structure types (see `addNativeShapes`, mapped) and the types above (with their settings in `elements.annotations`).
  * The model is built with RAMEN core, so it stays valid when the library changes, and the config is validated the same
  * way the app does on load.
@@ -30,7 +30,7 @@ function buildTestConfig(): { parsed: ParsedMisoConfig; shapeRefByType: Record<s
   const relations: AnnotationShapeInput["relations"] = [
     { relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } },
   ];
-  const { mappings, shapeRefByType } = addNativeShapes(edition, family, relations);
+  const { mappings, classifiers, shapeRefByType } = addNativeShapes(edition, text, family, relations);
   const annotations: Record<string, AnnotationShapeConfig & { name: string }> = {};
 
   for (const { type, settings } of TEXT_ANNOTATION_TYPES) {
@@ -45,7 +45,7 @@ function buildTestConfig(): { parsed: ParsedMisoConfig; shapeRefByType: Record<s
     id: "testConfig",
     model: edition.export(),
     general: { templates: [] },
-    elements: { classifiers: {}, annotations },
+    elements: { classifiers, annotations },
     editors: { text: { mappings } },
   });
 

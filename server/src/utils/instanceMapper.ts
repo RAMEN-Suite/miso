@@ -56,6 +56,8 @@ export const ELEMENT_DIAGNOSTIC_CODE = {
   SELECTOR_REQUIRED: "MISO_SELECTOR_REQUIRED",
   /** The selector of an annotation on a Content doesn't fit the Content's medium or its selector type */
   SELECTOR_INVALID: "MISO_SELECTOR_INVALID",
+  /** An annotation is carried by a Content whose type has no medium (e.g. RAMEN's Content node itself) */
+  CONTENT_MEDIUM_MISSING: "MISO_CONTENT_MEDIUM_MISSING",
 } as const;
 
 /** A relation resolved to its relation definition */
@@ -197,29 +199,38 @@ export function toInstanceGraph(context: ModelContext, elements: ElementGraph): 
  * @returns {ElementDiagnostic[]} The findings.
  */
 function checkContentAnnotations(context: ModelContext, mapping: InstanceMapping): ElementDiagnostic[] {
-  const mediumByContent = new Map<string, ContentMedium>(
-    mapping.nodes.flatMap((node): [string, ContentMedium][] =>
+  const mediumByContent = new Map<string, ContentMedium | undefined>(
+    mapping.nodes.flatMap((node): [string, ContentMedium | undefined][] =>
       node.classifierRef && getBaseNodeRef(context, node.classifierRef) === BASE_NODE_REF.Content
         ? [[node.properties.uuid, getContentMedium(context, node.classifierRef)]]
         : [],
     ),
   );
-  const carrierMediumByUuid = new Map<string, ContentMedium>();
+  // Annotations carried by a Content, with the Content's medium (`undefined` if its type has none)
+  const carrierMediumByUuid = new Map<string, ContentMedium | undefined>();
 
   for (const relation of mapping.relations) {
-    const medium: ContentMedium | undefined = mediumByContent.get(relation.from);
-
-    if (medium) {
-      carrierMediumByUuid.set(relation.to, medium);
+    if (mediumByContent.has(relation.from)) {
+      carrierMediumByUuid.set(relation.to, mediumByContent.get(relation.from));
     }
   }
 
   const diagnostics: ElementDiagnostic[] = [];
 
   for (const node of mapping.nodes) {
+    if (!carrierMediumByUuid.has(node.properties.uuid) || !isAnnotation(context, node)) {
+      continue;
+    }
+
     const medium: ContentMedium | undefined = carrierMediumByUuid.get(node.properties.uuid);
 
-    if (!medium || !isAnnotation(context, node)) {
+    if (!medium) {
+      diagnostics.push({
+        severity: "error",
+        code: ELEMENT_DIAGNOSTIC_CODE.CONTENT_MEDIUM_MISSING,
+        message: "The annotated Content's type has no medium, so the annotation can't be checked.",
+        uuid: node.properties.uuid,
+      });
       continue;
     }
 

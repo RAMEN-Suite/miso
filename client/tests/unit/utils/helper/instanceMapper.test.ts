@@ -3,6 +3,7 @@ import { DataTypes, RAMEN_ELEMENT, RamenModel, Relation } from "@ramen-suite/cor
 import type { ElementDiagnostic, ElementGraph, ElementNode, ElementRelation } from "../../../../src/models/types";
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
+import { BASE_NODE_REF } from "../../../../src/config/ramen";
 import { ELEMENT_DIAGNOSTIC_CODE, relationInstanceId, validateElements } from "../../../../src/utils/helper/instanceMapper";
 import { addNativeShapes } from "../../../fixtures/nativeMappings";
 
@@ -31,13 +32,13 @@ function buildMapperTestModel() {
     ],
   });
 
-  const { mappings } = addNativeShapes(edition);
+  const { mappings, classifiers } = addNativeShapes(edition, text);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "mapperTest",
     model: edition.export(),
     general: { templates: [] },
-    elements: { classifiers: {}, annotations: {} },
+    elements: { classifiers, annotations: {} },
     editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
@@ -123,6 +124,18 @@ describe("validateElements", () => {
     expect(findingsOf(validateElements(context, graph), A1)).toEqual([
       expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID, attribute: "selector" }),
     ]);
+  });
+
+  test("an annotation on a Content without a medium is reported, its selector isn't checked", () => {
+    const graph: ElementGraph = buildValidGraph();
+
+    graph.nodes[1].classifierRef = BASE_NODE_REF.Content;
+    graph.nodes[2].properties.selector = { type: "SvgSelector", value: "<svg/>" };
+
+    const findings: ElementDiagnostic[] = findingsOf(validateElements(context, graph), A1);
+
+    expect(findings).toContainEqual(expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.CONTENT_MEDIUM_MISSING }));
+    expect(findings).not.toContainEqual(expect.objectContaining({ code: ELEMENT_DIAGNOSTIC_CODE.SELECTOR_INVALID }));
   });
 
   test("a missing isZeroPoint is accepted, it is only set on zero-point annotations", () => {

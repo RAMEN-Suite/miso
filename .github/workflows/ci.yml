@@ -29,7 +29,7 @@ jobs:
             directory: server
             test-scripts: '' # no tests yet; its "test" script only exits 1
             package-script: compile # tsc
-    uses: RAMEN-Suite/ramen-workflows/.github/workflows/node-ci.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/node-ci.yml@052bd3de631153d42e86a32e27fdb28fbe82f0dc # v0.2.12
     with:
       working-directory: ${{ matrix.directory }}
       lint-scripts: lint format
@@ -48,7 +48,7 @@ jobs:
             directory: client
           - name: Server
             directory: server
-    uses: RAMEN-Suite/ramen-workflows/.github/workflows/container-check.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/container-check.yml@052bd3de631153d42e86a32e27fdb28fbe82f0dc # v0.2.12
     with:
       name: ${{ matrix.directory }}
       dockerfile: ${{ matrix.directory }}/Dockerfile
@@ -58,7 +58,7 @@ jobs:
 
   supply-chain:
     name: CI
-    uses: RAMEN-Suite/ramen-workflows/.github/workflows/supply-chain.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/supply-chain.yml@052bd3de631153d42e86a32e27fdb28fbe82f0dc # v0.2.12
     with:
       working-directories: . client server
     permissions:
@@ -66,7 +66,7 @@ jobs:
 
   security:
     name: CI
-    uses: RAMEN-Suite/ramen-workflows/.github/workflows/security.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/security.yml@052bd3de631153d42e86a32e27fdb28fbe82f0dc # v0.2.12
     with:
       semgrep-configs: p/security-audit p/secrets p/nodejs p/nodejsscan p/typescript
       codeql-config-file: ./.github/codeql/codeql-config.yml
@@ -76,7 +76,7 @@ jobs:
 
   config-lint:
     name: Config lint
-    uses: RAMEN-Suite/ramen-workflows/.github/workflows/config-lint.yml@3fef79e03598b698818270ed2eec99af952971f6 # v0.2.6
+    uses: RAMEN-Suite/ramen-workflows/.github/workflows/config-lint.yml@052bd3de631153d42e86a32e27fdb28fbe82f0dc # v0.2.12
     with:
       dockerfiles: client/Dockerfile server/Dockerfile
     permissions:

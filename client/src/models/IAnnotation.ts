@@ -10,7 +10,6 @@ export type IAnnotation<M extends SelectorMedium = "text"> = BaseNodeProperties 
   [keyof: string]: unknown;
   /** The part of the annotated Content the annotation covers */
   selector: SelectorByMedium[M];
-  subType?: string | number;
   text: string;
   type: string;
   /** Only present and `true` for zero-point annotations (omitted otherwise)*/

@@ -72,10 +72,10 @@ export function useAnnotateSelection() {
    * Annotates the selection with an inline (range or zero point) annotation. Opens the
    * {@linkcode AnnotationDetailsModal} first if the type has constraints.
    *
-   * @param {{ type: string; subType?: string | number }} data - The annotation type and optional subtype.
+   * @param {{ type: string }} data - The annotation type.
    * @returns {void} This function does not return any value.
    */
-  function annotateInline(data: { type: string; subType?: string | number }): void {
+  function annotateInline(data: { type: string }): void {
     const selection: Selection | undefined = tiptap.value?.state.selection;
 
     if (!selection) {
@@ -108,7 +108,7 @@ export function useAnnotateSelection() {
           dialog.open(AnnotationDetailsModal, {
             props: {
               ...ANNOTATION_MODAL_PROPS,
-              header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
+              header: `Add new ${newAnnotationTemplate.node.properties.type} annotation`,
             },
             data: {
               annotation: newAnnotationTemplate,
@@ -161,10 +161,10 @@ export function useAnnotateSelection() {
    * Classifies the blocks in the selection with a block classification type. Opens the
    * {@linkcode AnnotationDetailsModal} first if the type has constraints.
    *
-   * @param {{ type: string; subType?: string | number }} data - The annotation type and optional subtype.
+   * @param {{ type: string }} data - The annotation type.
    * @returns {void} This function does not return any value.
    */
-  function annotateBlock(data: { type: string; subType?: string | number }): void {
+  function annotateBlock(data: { type: string }): void {
     const selection: Selection | undefined = tiptap.value?.state.selection;
 
     if (!selection) {
@@ -198,7 +198,7 @@ export function useAnnotateSelection() {
           dialog.open(AnnotationDetailsModal, {
             props: {
               ...ANNOTATION_MODAL_PROPS,
-              header: `Add new ${newAnnotationTemplate.node.properties.subType ?? newAnnotationTemplate.node.properties.type} annotation`,
+              header: `Add new ${newAnnotationTemplate.node.properties.type} annotation`,
             },
             data: {
               annotation: newAnnotationTemplate,

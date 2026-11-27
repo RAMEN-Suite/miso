@@ -297,7 +297,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
     const { getAppearance } = this.options;
 
     function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
-      const { type, uuid, subType } = annotation.node.properties;
+      const { type, uuid } = annotation.node.properties;
 
       const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
 
@@ -307,9 +307,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
         {
           nodeName: "span",
           "data-annotation-type": type,
-          "data-annotation-uuid": uuid,
-          "data-annotation-subtype": subType?.toString() ?? "",
-          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
+          "data-annotation-uuid": uuid,          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
         },
         { inclusiveEnd: true, ...spec },
       );

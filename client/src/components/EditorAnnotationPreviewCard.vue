@@ -96,7 +96,7 @@ function handleEditAnnotation(): void {
     dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${props.annotation.node.properties.subType ?? props.annotation.node.properties.type} annotation`,
+        header: `Edit ${props.annotation.node.properties.type} annotation`,
       },
 
       data: { annotation: props.annotation, mode: "edit" },
@@ -186,7 +186,7 @@ function updateData(updated: Annotation): void {
         <div class="annotation-type-icon-container">
           <AnnotationTypeIcon :shape="shape" />
         </div>
-        <span class="font-bold">{{ props.annotation.node.properties.subType ?? props.annotation.node.properties.type }}</span>
+        <span class="font-bold">{{ props.annotation.node.properties.type }}</span>
         <span class="italic text-xs text-(color:--p-text-muted-color)" :title="props.annotation.node.properties.text">
           {{ previewText }}
         </span>

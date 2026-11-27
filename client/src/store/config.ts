@@ -132,8 +132,7 @@ export function useConfigStore() {
    * @returns {boolean} True if the annotation type has constraints.
    */
   function annotationHasConstraints(shape: ModelAnnotationShape): boolean {
-    // TODO: The subType field requires a lot of hacks -> Refactor later
-    if (getShapeProperties(shape).some((entry) => isRequired(entry) && entry.attribute.name !== "subType")) {
+    if (getShapeProperties(shape).some(isRequired)) {
       return true;
     }
 

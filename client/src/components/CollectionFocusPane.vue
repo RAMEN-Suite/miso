@@ -22,7 +22,6 @@ import { BASE_NODE_REF } from "../config/ramen";
 import {
   getDefaultValue,
   getOptions,
-  getShapeProperties,
   getValueType,
   isEditable,
   isEmptyValue,
@@ -118,41 +117,20 @@ const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(()
   getCollectionAnnotationShapes(temporaryWorkData.value.collection),
 );
 
-const SHOW_ANNOTATION_SUBTYPES: boolean = true;
-
 const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotation-menu");
 
 const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
   return availabeAnnotationTypes.value
     .toSorted((a, b) => a.type.localeCompare(b.type))
-    .map((type: ModelAnnotationShape) => {
-      const subTypeField: ModelAttribute | undefined = SHOW_ANNOTATION_SUBTYPES
-        ? getShapeProperties(type).find((field) => field.attribute.name === "subType")
-        : undefined;
-      const subTypeOptions: (string | number)[] = subTypeField ? getOptions(getModelContext(), subTypeField) ?? [] : [];
-
-      if (subTypeOptions.length === 0) {
-        return {
-          label: type.type,
-          annotationShape: type,
-          command: () => handleAnnotationButtonClick({ type: type.type }),
-        };
-      }
-
-      return {
-        label: type.type,
-        annotationShape: type,
-        items: subTypeOptions.map((option: string | number) => ({
-          label: option.toString(),
-          annotationShape: type,
-          command: () => handleAnnotationButtonClick({ type: type.type, subType: option }),
-        })),
-      };
-    });
+    .map((type: ModelAnnotationShape) => ({
+      label: type.type,
+      annotationShape: type,
+      command: () => handleAnnotationButtonClick({ type: type.type }),
+    }));
 });
 
 /**
- * Opens the annotation type menu, or the modal directly if there is only one type without subtypes.
+ * Opens the annotation type menu, or creates the annotation directly if there is only one type.
  *
  * @param {Event} event - The click event, used to anchor the menu.
  * @returns {void} This function does not return any value.
@@ -160,7 +138,7 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
 function handleAddAnnotationClick(event: Event): void {
   const items: MenuItem[] = annotationMenuItems.value;
 
-  if (items.length === 1 && !items[0].items) {
+  if (items.length === 1) {
     items[0].command?.({ originalEvent: event, item: items[0] });
   } else {
     annotationMenu.value?.toggle(event);
@@ -538,7 +516,7 @@ function enrichCollectionData(): void {
   });
 }
 
-function handleAnnotationButtonClick(data: { type: string; subType?: string | number }): void {
+function handleAnnotationButtonClick(data: { type: string }): void {
   const collection: CollectionNode = temporaryWorkData.value.collection;
   const newAnnotation: AnnotationNode = createAnnotation({ ...data, collection });
   const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation);
@@ -556,7 +534,7 @@ function handleAnnotationButtonClick(data: { type: string; subType?: string | nu
   addRelation(changed, carrierRelationOf(newAnnotation));
 
   if (annotationHasConstraints(shape)) {
-    openAnnotationModal(changed, newAnnotation.properties.uuid, `Add new ${data.subType ?? data.type} annotation`);
+    openAnnotationModal(changed, newAnnotation.properties.uuid, `Add new ${data.type} annotation`);
   } else {
     void saveGraph(changed);
   }
@@ -601,7 +579,7 @@ function handleRemoveAnnotation(uuid: string, event: Event): void {
   confirm.require({
     group: "annotation-remove",
     target: event.currentTarget as HTMLElement,
-    message: `Remove this “${annotation.properties.subType ?? annotation.properties.type}” annotation?`,
+    message: `Remove this “${annotation.properties.type}” annotation?`,
   });
 }
 

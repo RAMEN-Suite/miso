@@ -250,7 +250,7 @@ function handleDetailsClick(line: PositionedLine): void {
     dialog.open(AnnotationDetailsModal, {
       props: {
         ...ANNOTATION_MODAL_PROPS,
-        header: `Edit ${annotation.node.properties.subType ?? annotation.node.properties.type} annotation`,
+        header: `Edit ${annotation.node.properties.type} annotation`,
       },
 
       data: { annotation, mode: "edit" },

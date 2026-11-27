@@ -90,10 +90,8 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
       const elm: HTMLElement = document.createElement("span");
       const annotation: Annotation | null = nodeProps.node.attrs._annotation;
       const annotationType: string = annotation?.node.properties.type ?? "";
-      const annotationSubType: string | number | undefined = annotation?.node.properties.subType;
 
       elm.setAttribute("data-annotation-type", annotationType);
-      elm.setAttribute("data-annotation-subtype", annotationSubType?.toString() ?? "");
 
       renderMarker(elm, this.options.getAppearance(annotationType), annotation?.node.properties);
 

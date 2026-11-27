@@ -6,6 +6,7 @@ import {
   AnnotationNode,
   BaseNodeProperties,
   CollectionNode,
+  ContentNode,
   TextAnnotationRepresentation,
   ModelAnnotationShape,
   ModelAttribute,
@@ -58,11 +59,15 @@ const { initializeFilter } = useFilterStore();
  * doesn't change after the initialization, and the RAMEN core model is a class instance.
  */
 const modelContext = shallowRef<ModelContext>();
-/** The annotation shapes Content nodes may carry, each once. Built on initialization. */
+/** The annotation shapes Content nodes may carry, each once. Built on initialization, for the appearances. */
 const textShapes = shallowRef<ModelAnnotationShape[]>([]);
 const isInitialized = computed<boolean>(() => modelContext.value !== undefined);
 
-const groupedAndSortedAnnotationShapes = shallowRef<Record<string, ModelAnnotationShape[]>>();
+/**
+ * Classifier ref of the Content type of the text opened in the editor, `null` if there is none or it can't be resolved.
+ * Set when a text is opened, see `setEditorContentType`.
+ */
+const editorContentTypeRef = shallowRef<string | null>(null);
 
 /**
  * The appearances of the text annotation shapes as the text editor reads them (property names instead of attribute
@@ -87,6 +92,63 @@ const nativeByShapeRef = computed<Map<string, NativeType>>(() => {
 
   return byRef;
 });
+
+/** The annotation shapes the editor offers: the ones the Content type of the opened text may carry */
+const editorShapes = computed<ModelAnnotationShape[]>(() =>
+  modelContext.value && editorContentTypeRef.value ? getShapesForNode(modelContext.value, editorContentTypeRef.value) : [],
+);
+
+/** {@linkcode editorShapes} by group, each group sorted by type */
+const groupedAndSortedAnnotationShapes = computed<Record<string, ModelAnnotationShape[]>>(() =>
+  modelContext.value ? sortAnnotationShapesInGroup(groupAnnotationShapes(modelContext.value, editorShapes.value)) : {},
+);
+
+/**
+ * The annotation shapes a node may carry, from its classifier (inherited ones included, see `getShapesForNode`).
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {Node<BaseNodeProperties>} node - The node.
+ * @returns {ModelAnnotationShape[]} The shapes, each once; none if the node's classifier can't be resolved.
+ */
+function carriedShapesOf(context: ModelContext, node: Node<BaseNodeProperties>): ModelAnnotationShape[] {
+  const classifierRef: string | null = getClassifierRef(context, node);
+
+  return classifierRef ? getShapesForNode(context, classifierRef) : [];
+}
+
+/**
+ * Groups annotation shapes by their configured `group`. Shapes mapped to a native type are always
+ * in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {ModelAnnotationShape[]} shapes - The annotation shapes.
+ * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
+ */
+function groupAnnotationShapes(context: ModelContext, shapes: ModelAnnotationShape[]): Record<string, ModelAnnotationShape[]> {
+  const grouped: Record<string, ModelAnnotationShape[]> = {};
+
+  for (const shape of shapes) {
+    const category: string = nativeByShapeRef.value.has(shapeRefOf(shape))
+      ? STRUCTURE_ANNOTATION_GROUP
+      : getShapeConfig(context, shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
+
+    grouped[category] = [...(grouped[category] ?? []), shape];
+  }
+
+  return grouped;
+}
+
+/**
+ * Sorts the annotation shapes of each group alphabetically by their type.
+ *
+ * @param {Record<string, ModelAnnotationShape[]>} grouped - The annotation shapes by group.
+ * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group, sorted by type.
+ */
+function sortAnnotationShapesInGroup(grouped: Record<string, ModelAnnotationShape[]>): Record<string, ModelAnnotationShape[]> {
+  return Object.fromEntries(
+    Object.entries(grouped).map(([category, shapes]) => [category, shapes.toSorted((a, b) => a.type.localeCompare(b.type))]),
+  );
+}
 
 /**
  * Store for making the Miso config available to all components. When the app is mounted, the store is
@@ -397,7 +459,8 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the configured shortcuts of the text annotation shapes. Passed to the text editor, which binds them.
+   * Returns the configured shortcuts of the annotation shapes of the opened text (see {@linkcode setEditorContentType}).
+   * Passed to the text editor, which binds them.
    *
    * @returns {Record<string, string>} The shape ref per shortcut in keymap notation, e.g. `Mod-Shift-e`. If a
    *   shortcut is configured for several shapes, the last one wins (the config check warns about it).
@@ -406,7 +469,7 @@ export function useConfigStore() {
     const context: ModelContext = getModelContext();
     const shortcuts: Record<string, string> = {};
 
-    for (const shape of textShapes.value) {
+    for (const shape of editorShapes.value) {
       const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
 
       if (shortcut) {
@@ -439,23 +502,13 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the annotation shapes a Collection may carry, from its classifier (the ones of the RAMEN Collection node
-   * included).
+   * Returns the annotation shapes a node may carry, from its classifier (inherited ones included).
    *
-   * @param {CollectionNode} collection - The Collection.
-   * @returns {ModelAnnotationShape[]} The shapes, each once.
+   * @param {Node<BaseNodeProperties>} node - The node, e.g. a Collection.
+   * @returns {ModelAnnotationShape[]} The shapes, each once; none if the node's classifier can't be resolved.
    */
-  function getCollectionAnnotationShapes(collection: CollectionNode): ModelAnnotationShape[] {
-    const context: ModelContext = getModelContext();
-    const classifierRef: string | null = getClassifierRef(context, collection);
-    const carrierRefs: string[] = classifierRef ? [BASE_NODE_REF.Collection, classifierRef] : [BASE_NODE_REF.Collection];
-    const shapes = new Map<string, ModelAnnotationShape>();
-
-    for (const shape of carrierRefs.flatMap((ref) => getShapesForNode(context, ref))) {
-      shapes.set(shapeRefOf(shape), shape);
-    }
-
-    return [...shapes.values()];
+  function getCarriedAnnotationShapes(node: Node<BaseNodeProperties>): ModelAnnotationShape[] {
+    return carriedShapesOf(getModelContext(), node);
   }
 
   /**
@@ -510,27 +563,8 @@ export function useConfigStore() {
   }
 
   /**
-   * Groups the text annotation shapes by their configured `group`. Shapes mapped to a native type are always
-   * in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
-   *
-   * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
-   */
-  function groupAnnotationShapes(): Record<string, ModelAnnotationShape[]> {
-    const grouped: Record<string, ModelAnnotationShape[]> = {};
-
-    for (const shape of textShapes.value) {
-      const category: string = getNativeType(shape)
-        ? STRUCTURE_ANNOTATION_GROUP
-        : getShapeConfig(getModelContext(), shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
-
-      grouped[category] = [...(grouped[category] ?? []), shape];
-    }
-
-    return grouped;
-  }
-
-  /**
-   * Initializes the store with the Miso config, logs the warnings of its checks and initializes the filter store.
+   * Initializes the store with the Miso config and logs the warnings of its checks. The shapes the editor offers are
+   * set per opened text, see {@linkcode setEditorContentType}.
    *
    * @param {ParsedMisoConfig} parsed - The validated Miso config, its imported model and the warnings of its checks.
    * @return {void} This function does not return anything.
@@ -546,11 +580,19 @@ export function useConfigStore() {
 
     initializeNodeIcons(context);
 
-    // Must be set before the shapes are grouped, since mapped shapes are always structural
     annotationMapping.value = buildAnnotationMapping(context);
-    groupedAndSortedAnnotationShapes.value = sortAnnotationShapesInGroup(groupAnnotationShapes());
+  }
 
-    initializeFilter(textShapes.value.map(shapeRefOf));
+  /**
+   * Sets the Content type of the opened text, which decides the annotation shapes the editor offers (buttons,
+   * shortcuts, filter), and resets the filter to all of them.
+   *
+   * @param {ContentNode} textNode - The Content node of the opened text, whose classifier is its Content type.
+   * @return {void} This function does not return anything.
+   */
+  function setEditorContentType(textNode: ContentNode): void {
+    editorContentTypeRef.value = getClassifierRef(getModelContext(), textNode);
+    initializeFilter(editorShapes.value.map(shapeRefOf));
   }
 
   /**
@@ -567,18 +609,6 @@ export function useConfigStore() {
     return shape !== undefined && getAnnotationExtent(shape) === "zeroPoint";
   }
 
-  /**
-   * Sorts the annotation shapes of each group alphabetically by their type.
-   *
-   * @param {Record<string, ModelAnnotationShape[]>} grouped - The annotation shapes by group.
-   * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group, sorted by type.
-   */
-  function sortAnnotationShapesInGroup(grouped: Record<string, ModelAnnotationShape[]>): Record<string, ModelAnnotationShape[]> {
-    return Object.fromEntries(
-      Object.entries(grouped).map(([category, shapes]) => [category, shapes.toSorted((a, b) => a.type.localeCompare(b.type))]),
-    );
-  }
-
   return {
     annotationHasConstraints,
     getAllCollectionAttributes,
@@ -588,7 +618,7 @@ export function useConfigStore() {
     getAnnotationNodeProperties,
     getAnnotationProperties,
     getAnnotationShape,
-    getCollectionAnnotationShapes,
+    getCarriedAnnotationShapes,
     getCollectionAttributes,
     getEditorOwnedProperties,
     getModelContext,
@@ -605,5 +635,6 @@ export function useConfigStore() {
     initializeConfig,
     isInitialized: readonly(isInitialized),
     isZeroPoint,
+    setEditorContentType,
   };
 }

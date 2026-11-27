@@ -18,7 +18,6 @@ export type {
   AnnotationExtent,
   AnnotationNode,
   AppearanceOverride,
-  BuiltinStructuralType,
   EditGraph,
   EditNode,
   EditRelation,
@@ -28,5 +27,6 @@ export type {
   MarkerStyle,
   MathTextStyle,
   ModelAnnotationShape,
+  NativeType,
   TextAnnotationRepresentation,
 } from "../../../models/types";

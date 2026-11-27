@@ -53,7 +53,7 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getShapeOfRole, getModelContext } = useConfigStore();
+const { getShapeOfNative, getModelContext } = useConfigStore();
 const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 const { insertLineBreak } = useInsertLineBreak();
 const { annotateByShapeRef } = useAnnotateSelection();
@@ -202,7 +202,7 @@ async function handleSaveChanges(): Promise<void> {
   }
 
   const nodesWithoutChildrenOrText = getEmptyNodes();
-  const joined: string = nodesWithoutChildrenOrText.map((n) => getShapeOfRole(n.type.name)?.type ?? n.type.name).join(",");
+  const joined: string = nodesWithoutChildrenOrText.map((n) => getShapeOfNative(n.type.name)?.type ?? n.type.name).join(",");
 
   if (nodesWithoutChildrenOrText.length > 0) {
     console.warn("Some nodes have no text: ", joined);

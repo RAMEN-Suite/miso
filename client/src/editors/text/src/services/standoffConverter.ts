@@ -1,13 +1,13 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
-import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
+import { NATIVE_TYPE_NESTING } from "../config/constants";
 import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
   Annotation,
   AnnotationNode,
-  BuiltinStructuralType,
   IAnnotation,
   ModelAnnotationShape,
+  NativeType,
   TextAnnotationRepresentation,
   cloneDeep,
   createTextPositionSelector,
@@ -20,8 +20,8 @@ import { toDocAnnotation } from "../utils/helper/annotationHelper";
 const {
   isZeroPoint,
   getAnnotationShape,
-  getEditorRole,
-  getShapeOfRole,
+  getNativeType,
+  getShapeOfNative,
   getAnnotationRepresentation,
   getAnnotationExtent,
   getPriority,
@@ -118,27 +118,27 @@ export default class StandoffConverter {
   }
 
   /**
-   * Returns the editor role (native structural type) of an annotation's shape.
+   * Returns the native type of an annotation's shape.
    *
    * @param {Annotation} annotation The annotation
-   * @returns {BuiltinStructuralType | undefined} The role, `undefined` if the annotation has no shape mapped to one
+   * @returns {NativeType | undefined} The native type, `undefined` if the annotation has no shape mapped to one
    */
-  private roleOf(annotation: Annotation): BuiltinStructuralType | undefined {
+  private nativeTypeOf(annotation: Annotation): NativeType | undefined {
     const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
 
-    return shape ? getEditorRole(shape) : undefined;
+    return shape ? getNativeType(shape) : undefined;
   }
 
   /**
-   * Returns the built-in types allowed as structural children of the given native type, from its nesting rules
+   * Returns the native types allowed as structural children of the given native type, from its nesting rules
    * (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
    * `Null` means "no filter" - the node either has no declared children or is a leaf.
    *
-   * @param {BuiltinStructuralType} role The native structural type
-   * @returns {readonly string[] | null} The list of allowed child types (editor roles) or `null` if list is empty
+   * @param {NativeType} native The native type
+   * @returns {readonly string[] | null} The list of allowed child native types or `null` if list is empty
    */
-  private getContainsList(role: BuiltinStructuralType): readonly string[] | null {
-    const list: readonly string[] = BUILTIN_STRUCTURAL_NESTING[role].contains;
+  private getContainsList(native: NativeType): readonly string[] | null {
+    const list: readonly string[] = NATIVE_TYPE_NESTING[native].contains;
 
     return list.length > 0 ? list : null;
   }
@@ -200,19 +200,14 @@ export default class StandoffConverter {
    * Note that this function does not build any tree/tiptap elements; it is only a lookup function for the flattened
    * annotation list.
    *
-   * @param {BuiltinStructuralType} parentRole Native structural type of the parent annotation
+   * @param {NativeType} parentNative Native type of the parent annotation
    * @param {number} start The start index of the parent annotation's range
    * @param {number} end The end index of the parent annotation's range
    * @param {Annotation[]} allStructural The list of all structural annotations
    * @returns {Annotation[]} The immediate structural children, sorted by start index
    */
-  private findDirectChildren(
-    parentRole: BuiltinStructuralType,
-    start: number,
-    end: number,
-    allStructural: Annotation[],
-  ): Annotation[] {
-    const containsList: readonly string[] | null = this.getContainsList(parentRole);
+  private findDirectChildren(parentNative: NativeType, start: number, end: number, allStructural: Annotation[]): Annotation[] {
+    const containsList: readonly string[] | null = this.getContainsList(parentNative);
 
     const candidates: Annotation[] = allStructural.filter(
       (a) =>
@@ -220,7 +215,7 @@ export default class StandoffConverter {
         !this.isStructuralZeroPoint(a) &&
         a.node.properties.selector.start >= start &&
         a.node.properties.selector.end <= end &&
-        (containsList === null || containsList.includes(this.roleOf(a) ?? "")),
+        (containsList === null || containsList.includes(this.nativeTypeOf(a) ?? "")),
     );
 
     return candidates
@@ -357,7 +352,7 @@ export default class StandoffConverter {
    */
   private syntheticParagraph(start: number, end: number, content: TiptapNode[]): TiptapNode {
     const uuid: string = crypto.randomUUID();
-    const paragraphShape: ModelAnnotationShape | undefined = getShapeOfRole("paragraph");
+    const paragraphShape: ModelAnnotationShape | undefined = getShapeOfNative("paragraph");
 
     if (!paragraphShape) {
       throw new Error("No annotation shape is mapped to paragraphs.");
@@ -426,12 +421,12 @@ export default class StandoffConverter {
     return ranges;
   }
 
-  // Whether the given (built-in) container type may hold a `paragraph` as a direct child.
+  // Whether the given native container type may hold a `paragraph` as a direct child.
   // Drives gap handling: containers like listItem/tableCell accept synthetic paragraphs,
   // while tableRow/table/bulletList do NOT (their content is restricted to cells/rows/items),
   // so orphan gap text inside them must be clamped into an adjacent child instead.
-  private parentAllowsParagraph(parentRole: BuiltinStructuralType): boolean {
-    const containsList: readonly string[] | null = this.getContainsList(parentRole);
+  private parentAllowsParagraph(parentNative: NativeType): boolean {
+    const containsList: readonly string[] | null = this.getContainsList(parentNative);
 
     // No declared children → treated as permissive (leaf types never reach gap-filling anyway).
     if (containsList === null) {
@@ -623,9 +618,9 @@ export default class StandoffConverter {
    */
   private buildStructuralNode(annotation: Annotation, allStructural: Annotation[]): TiptapNode {
     const { start, end } = annotation.node.properties.selector;
-    const editorRole: BuiltinStructuralType | undefined = this.roleOf(annotation);
+    const native: NativeType | undefined = this.nativeTypeOf(annotation);
 
-    if (!editorRole) {
+    if (!native) {
       throw new Error(`Structural annotation ${annotation.node.properties.uuid} has no native type.`);
     }
 
@@ -636,7 +631,7 @@ export default class StandoffConverter {
 
     // Apply editor attributes (level/colspan/rowspan/role) from the node's value under its project property name.
     // Missing values are left out, so the node's defaults apply (e.g. colspan 1 on cells, no role).
-    for (const { property, attribute } of getEditorOwnedProperties(editorRole)) {
+    for (const { property, attribute } of getEditorOwnedProperties(native)) {
       const value: unknown = annotation.node.properties[property];
 
       if (value !== undefined && value !== null) {
@@ -645,17 +640,17 @@ export default class StandoffConverter {
     }
 
     // Is heading or paragraph -> can only hold text
-    if (this.isTextBlock(editorRole)) {
-      return { type: editorRole, attrs, content: this.createLeafContent(start, end) };
+    if (this.isTextBlock(native)) {
+      return { type: native, attrs, content: this.createLeafContent(start, end) };
     }
 
-    const directChildren: Annotation[] = this.findDirectChildren(editorRole, start, end, allStructural);
+    const directChildren: Annotation[] = this.findDirectChildren(native, start, end, allStructural);
 
     directChildren.forEach((c) => this.usedUuids.add(c.node.properties.uuid));
 
     // Does this container accept paragraphs directly? If not (tableRow, table, bulletList), gap
     // text cannot become a synthetic paragraph and must be clamped into an adjacent child.
-    const allowsParagraph: boolean = this.parentAllowsParagraph(editorRole);
+    const allowsParagraph: boolean = this.parentAllowsParagraph(native);
     const type: string = annotation.node.properties.type;
 
     const childNodes: TiptapNode[] = [];
@@ -710,7 +705,7 @@ export default class StandoffConverter {
       childNodes.push(this.syntheticParagraph(start, end, []));
     }
 
-    return { type: editorRole, attrs, content: childNodes };
+    return { type: native, attrs, content: childNodes };
   }
 
   /**
@@ -744,11 +739,11 @@ export default class StandoffConverter {
    *
    * Reads from the prosemirror schema, where such a node is a textblock (only `heading` and `paragraph`).
    *
-   * @param {string} editorRole - The internal type of the Tiptap node (`heading`, `bulletList` etc.)
+   * @param {string} nodeType - The type of the Tiptap node (`heading`, `bulletList` etc.)
    * @returns {boolean} `true` if the node is a text block, `false` otherwise
    */
-  private isTextBlock(editorRole: string): boolean {
-    return this.schema.nodes[editorRole]?.isTextblock ?? false;
+  private isTextBlock(nodeType: string): boolean {
+    return this.schema.nodes[nodeType]?.isTextblock ?? false;
   }
 
   /**

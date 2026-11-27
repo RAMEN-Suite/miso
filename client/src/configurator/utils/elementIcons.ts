@@ -1,10 +1,4 @@
-import {
-  BASE_NODE_ICONS,
-  BUILTIN_STRUCTURAL_CONFIGS,
-  normalizeIconSpec,
-  type IconSpecInput,
-  type ModelContext,
-} from "../external";
+import { BASE_NODE_ICONS, nativeTypeIcon, normalizeIconSpec, type IconSpecInput, type ModelContext } from "../external";
 
 /**
  * The icon a node classifier shows: the nearest icon along its lineage (itself first), otherwise the default of its
@@ -36,7 +30,7 @@ export function shapeIconOf(context: ModelContext, shapeRef: string): IconSpecIn
   const native = context.config.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef)?.native;
 
   if (native) {
-    return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.icon;
+    return nativeTypeIcon(native);
   }
 
   const icon: IconSpecInput | undefined = context.config.elements.annotations[shapeRef]?.appearance?.icon;

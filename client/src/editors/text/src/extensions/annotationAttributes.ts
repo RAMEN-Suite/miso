@@ -1,5 +1,5 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
-import { DocAnnotation, StructuralShape } from "../models/types";
+import { DocAnnotation, NativeShape } from "../models/types";
 import { Annotation, ModelAnnotationShape, useConfigStore } from "../external";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
@@ -55,7 +55,7 @@ declare module "@tiptap/core" {
   }
 }
 
-const { getStructuralShapes } = useConfigStore();
+const { getNativeShapes } = useConfigStore();
 
 /**
  * Creates the annotation attributes for a structural node type. Both hold {@link DocAnnotation} objects.
@@ -102,19 +102,19 @@ function createDefaultAttrs(shape: ModelAnnotationShape, isBlockClassificationTa
  * Adds `_annotation` to all structural node types and `_blockClassifications` to the block classification targets
  * (see {@linkcode createDefaultAttrs}).
  *
- * Built-in types (paragraph, heading, ...) are tiptap nodes with their annotation in `_annotation`. Block
+ * Native types (paragraph, heading, ...) are tiptap nodes with their annotation in `_annotation`. Block
  * classifications (address, closer, ...) are no nodes; they live in `_blockClassifications` of every node they cover.
  */
 export const AnnotationAttributes = Extension.create({
   name: "annotationAttributes",
 
   addGlobalAttributes() {
-    const builtinAttrs: GlobalAttributes = getStructuralShapes().map(({ role, shape }: StructuralShape) => ({
-      types: [role],
-      attributes: createDefaultAttrs(shape, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(role)),
+    const nativeAttrs: GlobalAttributes = getNativeShapes().map(({ native, shape }: NativeShape) => ({
+      types: [native],
+      attributes: createDefaultAttrs(shape, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(native)),
     }));
 
-    return [...builtinAttrs];
+    return [...nativeAttrs];
   },
 
   addCommands() {

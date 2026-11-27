@@ -39,7 +39,7 @@ export function annotationToGraph(annotation: Annotation): EditGraph {
  * Creates the annotation of a structural node that is new in the editor (stored in its `_annotation` attribute). It
  * only carries the shape and its type; uuid, indices etc. are added on the first save.
  *
- * @param {ModelAnnotationShape} shape - The annotation shape mapped to the node's role (e.g. the `p` shape for a paragraph).
+ * @param {ModelAnnotationShape} shape - The annotation shape mapped to the node's native type (e.g. the `p` shape for a paragraph).
  * @returns {DocAnnotation} The new annotation.
  */
 export function createDefaultDocAnnotation(shape: ModelAnnotationShape): DocAnnotation {

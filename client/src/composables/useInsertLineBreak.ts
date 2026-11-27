@@ -14,7 +14,7 @@ import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
  */
 export function useInsertLineBreak() {
   const { tiptap } = useTiptapStore();
-  const { getShapeOfRole, annotationHasConstraints } = useConfigStore();
+  const { getShapeOfNative, annotationHasConstraints } = useConfigStore();
   const { createModalInstance, destroyModalInstance } = useAppStore();
   const { createTextAnnotation } = useCreateAnnotation("Content");
 
@@ -32,7 +32,7 @@ export function useInsertLineBreak() {
       return;
     }
 
-    const shape: ModelAnnotationShape | undefined = getShapeOfRole("hardBreak");
+    const shape: ModelAnnotationShape | undefined = getShapeOfNative("hardBreak");
 
     if (!shape || !annotationHasConstraints(shape)) {
       tiptap.value.chain().focus().setHardBreak().run();

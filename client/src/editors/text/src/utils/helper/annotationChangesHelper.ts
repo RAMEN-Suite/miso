@@ -3,10 +3,10 @@ import { EditorState } from "@tiptap/pm/state";
 import { DocAnnotation, IndexMap, TextRange } from "../../models/types";
 import {
   Annotation,
-  BuiltinStructuralType,
   ElementNodeStatus,
   IAnnotation,
   ModelAnnotationShape,
+  NativeType,
   cloneDeep,
   createTextPositionSelector,
   familyRefOf,
@@ -46,8 +46,8 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     getAnnotationNodeProperties,
     getAnnotationShape,
     getEditorOwnedProperties,
-    getEditorRole,
-    getShapeOfRole,
+    getNativeType,
+    getShapeOfNative,
     isZeroPoint,
   } = useConfigStore();
 
@@ -58,19 +58,19 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * - Domain props from the tiptap node's `_annotation` attribute (as declared in the config),
    * - Editor-owned props from the live tiptap-native attrs (e.g. `level` for headings),
    * - uuid from the UniqueID extension
-   * - The annotation type itself from the shape mapped to the node's editor role
+   * - The annotation type itself from the shape mapped to the node's native type
    *
    * @param {DocNode} node The Tiptap node from where the data should be collected.
-   * @param {ModelAnnotationShape} shape The annotation shape mapped to the node's editor role.
+   * @param {ModelAnnotationShape} shape The annotation shape mapped to the node's native type.
    * @returns {Record<string, unknown>} The collected properties
    */
   function assembleStructuralAnnotationData(node: DocNode, shape: ModelAnnotationShape): Record<string, unknown> {
     const savedProperties: Record<string, unknown> = {};
 
-    const editorRole: BuiltinStructuralType = node.type.name as BuiltinStructuralType;
+    const native: NativeType = node.type.name as NativeType;
     const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.properties ?? {};
 
-    const editorOwned = getEditorOwnedProperties(editorRole);
+    const editorOwned = getEditorOwnedProperties(native);
 
     // 1. Domain properties: read from `_annotation`, skipping the editor-owned ones. Only the properties of the
     // annotation shape in the model are taken.
@@ -266,7 +266,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * @param {IndexMap} indexMap - The live ranges of all structural nodes in the editor.
    * @param {string} plainText - The plain text of the whole document.
    * @returns {Annotation[]} The structural annotations in the editor and the deleted ones.
-   * @throws {Error} If a node's editor role has no annotation shape mapped to it (the config check prevents it).
+   * @throws {Error} If a node's native type has no annotation shape mapped to it (the config check prevents it).
    */
   function collectStructureChanges(indexMap: IndexMap, plainText: string): Annotation[] {
     const affected: Annotation[] = [];
@@ -287,8 +287,8 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
       }
 
       const docAnnotation: DocAnnotation | null | undefined = docNode.attrs._annotation;
-      // The role decides, so a paragraph turned into a heading gets the heading's shape
-      const shape: ModelAnnotationShape | undefined = getShapeOfRole(docNode.type.name);
+      // The native type decides, so a paragraph turned into a heading gets the heading's shape
+      const shape: ModelAnnotationShape | undefined = getShapeOfNative(docNode.type.name);
 
       if (!shape) {
         throw new Error(`No annotation shape is mapped to "${docNode.type.name}".`);
@@ -325,7 +325,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   }
 
   /**
-   * Checks if an annotation's shape is mapped to a native structural type, i.e. whether the editor keeps it as a node.
+   * Checks if an annotation's shape is mapped to a native type, i.e. whether the editor keeps it as a node.
    *
    * @param {Annotation} annotation - The annotation.
    * @returns {boolean} `true` if its shape is mapped, `false` otherwise (also without a shape).
@@ -333,7 +333,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
   function isMappedToNativeType(annotation: Annotation): boolean {
     const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
 
-    return shape !== undefined && getEditorRole(shape) !== undefined;
+    return shape !== undefined && getNativeType(shape) !== undefined;
   }
 
   /**

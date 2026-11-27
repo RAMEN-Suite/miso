@@ -1,16 +1,16 @@
 import { ModelFactory, RAMEN_ELEMENT, RamenModel, type AnnotationShapeInput } from "@ramen-suite/core";
-import type { BuiltinStructuralType } from "../../src/models/types";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../../src/editors/text/src/config/constants";
+import type { NativeType } from "../../src/models/types";
+import { NATIVE_TYPE_CONFIGS } from "../../src/editors/text/src/config/constants";
 
 /** An entry of `editors.text.mappings` */
 interface NativeMapping {
-  native: BuiltinStructuralType;
+  native: NativeType;
   annotation: string;
   type: string;
 }
 
 /** The type of the annotation shape of each native type, as the project configs name them */
-const NATIVE_SHAPE_TYPES: Record<BuiltinStructuralType, string> = {
+const NATIVE_SHAPE_TYPES: Record<NativeType, string> = {
   paragraph: "p",
   heading: "head",
   hardBreak: "lb",
@@ -22,7 +22,7 @@ const NATIVE_SHAPE_TYPES: Record<BuiltinStructuralType, string> = {
 };
 
 /**
- * Adds an annotation shape for every native type of the text editor to a test model, with the editor's built-in
+ * Adds an annotation shape for every native type of the text editor to a test model, with the editor's native
  * attributes unchanged, and returns their mappings, which every config needs (see `checkMappings`).
  *
  * Without a family, the shapes get one of their own that nothing carries, so they don't change what the other
@@ -44,7 +44,7 @@ export function addNativeShapes(
   const mappings: NativeMapping[] = [];
   const shapeRefByType: Record<string, string> = {};
 
-  for (const { type: native, attributes } of BUILTIN_STRUCTURAL_CONFIGS) {
+  for (const { native, attributes } of NATIVE_TYPE_CONFIGS) {
     const type: string = NATIVE_SHAPE_TYPES[native];
     const shape = edition.createAnnotationShape({
       node,

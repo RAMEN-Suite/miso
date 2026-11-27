@@ -5,7 +5,6 @@ import {
   AnnotationExtent,
   AnnotationNode,
   BaseNodeProperties,
-  BuiltinStructuralType,
   CollectionNode,
   ContentMedium,
   ContentNode,
@@ -13,12 +12,13 @@ import {
   ModelAnnotationShape,
   ModelAttribute,
   ModelContext,
+  NativeType,
   Node,
   NodeTypeOption,
 } from "../models/types";
-import type { AnnotationMapping, StructuralShape } from "../editors/text/src";
+import type { AnnotationMapping, NativeShape } from "../editors/text/src";
 import type { NativeTypeConfig } from "../editors/text/src/models/types";
-import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
+import { getNativeTypeConfig, NATIVE_TYPE_CONFIGS, NATIVE_TYPE_NESTING } from "../editors/text/src/config/constants";
 import { initializeNodeIcons } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import { formatFinding, type ParsedMisoConfig } from "../schemas/misoConfig.schema";
@@ -74,16 +74,16 @@ const groupedAndSortedAnnotationShapes = shallowRef<Record<string, ModelAnnotati
  */
 const editorAppearancesByRef = shallowRef<Map<string, AnnotationAppearance>>(new Map());
 
-/** Mapping between the editor's native structural types and the project's annotation shapes. Built on initialization. */
-const annotationMapping = shallowRef<AnnotationMapping>({ shapeByRole: {}, attrByRole: {} });
+/** Mapping between the editor's native types and the project's annotation shapes. Built on initialization. */
+const annotationMapping = shallowRef<AnnotationMapping>({ shapeByNative: {}, attrByNative: {} });
 
-/** The native structural type of each mapped annotation shape, by shape ref. Inverse of `shapeByRole`. */
-const roleByShapeRef = computed<Map<string, BuiltinStructuralType>>(() => {
-  const byRef = new Map<string, BuiltinStructuralType>();
+/** The native type of each mapped annotation shape, by shape ref. Inverse of `shapeByNative`. */
+const nativeByShapeRef = computed<Map<string, NativeType>>(() => {
+  const byRef = new Map<string, NativeType>();
 
-  for (const [role, shape] of Object.entries(annotationMapping.value.shapeByRole)) {
+  for (const [native, shape] of Object.entries(annotationMapping.value.shapeByNative)) {
     if (shape) {
-      byRef.set(shapeRefOf(shape), role as BuiltinStructuralType);
+      byRef.set(shapeRefOf(shape), native as NativeType);
     }
   }
 
@@ -141,7 +141,7 @@ export function useConfigStore() {
   }
 
   /**
-   * Builds the mapping between the editor's native structural types/attributes and the project's annotation
+   * Builds the mapping between the editor's native types/attributes and the project's annotation
    * shapes/properties from the `editors.text.mappings` of the config, whose attribute refs are resolved to the property
    * names. A native type mapped twice keeps its first mapping (the config check warns about it).
    *
@@ -149,21 +149,21 @@ export function useConfigStore() {
    * @returns {AnnotationMapping} The annotation mapping.
    */
   function buildAnnotationMapping(context: ModelContext): AnnotationMapping {
-    const shapeByRole: Partial<Record<BuiltinStructuralType, ModelAnnotationShape>> = {};
-    const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {};
+    const shapeByNative: Partial<Record<NativeType, ModelAnnotationShape>> = {};
+    const attrByNative: Partial<Record<NativeType, Record<string, string>>> = {};
 
     for (const mapping of context.config.editors.text.mappings) {
       const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
 
-      if (!shape || shapeByRole[mapping.native]) {
+      if (!shape || shapeByNative[mapping.native]) {
         continue;
       }
 
-      shapeByRole[mapping.native] = shape;
-      attrByRole[mapping.native] = getMappedAttributeNames(context, mapping);
+      shapeByNative[mapping.native] = shape;
+      attrByNative[mapping.native] = getMappedAttributeNames(context, mapping);
     }
 
-    return { shapeByRole, attrByRole };
+    return { shapeByNative, attrByNative };
   }
 
   /**
@@ -174,10 +174,10 @@ export function useConfigStore() {
    * @returns {AnnotationExtent} The resolved extent
    */
   function getAnnotationExtent(shape: ModelAnnotationShape): AnnotationExtent {
-    const role: BuiltinStructuralType | undefined = getEditorRole(shape);
+    const native: NativeType | undefined = getNativeType(shape);
 
-    if (role) {
-      return BUILTIN_STRUCTURAL_CONFIGS.find((config: NativeTypeConfig) => config.type === role)?.extent ?? "range";
+    if (native) {
+      return getNativeTypeConfig(native)?.extent ?? "range";
     }
 
     return getShapeConfig(getModelContext(), shape)?.editing?.extent ?? "range";
@@ -188,14 +188,14 @@ export function useConfigStore() {
    * shape mapped to a native type is always `structure`; otherwise the configured `editing.representation` is used,
    * `inline` if there is none.
    *
-   * NOTE: this is the annotation's *classification*, distinct from {@linkcode getEditorRole}, which returns
+   * NOTE: this is the annotation's *classification*, distinct from {@linkcode getNativeType}, which returns
    * the tiptap node name of a structural shape.
    *
    * @param {ModelAnnotationShape} shape The annotation shape
    * @returns {TextAnnotationRepresentation} The resolved representation
    */
   function getAnnotationRepresentation(shape: ModelAnnotationShape): TextAnnotationRepresentation {
-    if (getEditorRole(shape)) {
+    if (getNativeType(shape)) {
       return "structure";
     }
 
@@ -286,12 +286,12 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the editor-owned properties of a native structural type: each pairs the editor
+   * Returns the editor-owned properties of a native type: each pairs the editor
    * `attribute` (the tiptap-native attr the editor needs, e.g. `level`) with the `property` (the
    * project's name for it). The property equals the attribute unless the project mapped it — e.g.
-   * applying TEI semantics, `rows` instead of the native `rowspan`. `required` is taken from the built-in config.
+   * applying TEI semantics, `rows` instead of the native `rowspan`. `required` is taken from the native config.
    *
-   * @param {BuiltinStructuralType} role The native structural type
+   * @param {NativeType} native The native type
    * @returns {{ property: string; attribute: string; required: boolean }[]} The editor-owned properties
    * @example
    * getEditorOwnedProperties("heading")
@@ -304,27 +304,15 @@ export function useConfigStore() {
    *    required: true,
    * }]
    */
-  function getEditorOwnedProperties(role: BuiltinStructuralType): { property: string; attribute: string; required: boolean }[] {
-    const propertyByAttribute: Readonly<Record<string, string>> = annotationMapping.value.attrByRole[role] ?? {};
-    const config: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === role);
+  function getEditorOwnedProperties(native: NativeType): { property: string; attribute: string; required: boolean }[] {
+    const propertyByAttribute: Readonly<Record<string, string>> = annotationMapping.value.attrByNative[native] ?? {};
+    const config: NativeTypeConfig | undefined = getNativeTypeConfig(native);
 
     return (config?.attributes ?? []).map((attribute) => ({
       attribute: attribute.name,
       property: propertyByAttribute[attribute.name] ?? attribute.name,
       required: attribute.bounds.lowerBound >= 1,
     }));
-  }
-
-  /**
-   * Returns the editor role (the native structural type / tiptap node type) an annotation shape is mapped to.
-   *
-   * Complementary function of {@linkcode getShapeOfRole}.
-   *
-   * @param {ModelAnnotationShape} shape The annotation shape
-   * @returns {BuiltinStructuralType | undefined} The editor role (e.g. `paragraph`), `undefined` if the shape isn't mapped
-   */
-  function getEditorRole(shape: ModelAnnotationShape): BuiltinStructuralType | undefined {
-    return roleByShapeRef.value.get(shapeRefOf(shape));
   }
 
   /**
@@ -378,7 +366,7 @@ export function useConfigStore() {
 
   /**
    * Returns the annotation shape of an annotation, from its `shapeRef`: resolved by the server for stored annotations,
-   * set on creation, and by the text editor from the node's role for its structural annotations.
+   * set on creation, and by the text editor from the node's native type for its structural annotations.
    *
    * @param {AnnotationNode} annotation - The annotation.
    * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for annotations without one (`shapeRef: null`
@@ -498,39 +486,51 @@ export function useConfigStore() {
    * @returns {number} The priority (higher is more outer), `0` for shapes not mapped to a native type
    */
   function getPriority(shape: ModelAnnotationShape): number {
-    const role: BuiltinStructuralType | undefined = getEditorRole(shape);
+    const native: NativeType | undefined = getNativeType(shape);
 
-    return role ? BUILTIN_STRUCTURAL_NESTING[role].priority : 0;
+    return native ? NATIVE_TYPE_NESTING[native].priority : 0;
   }
 
   /**
-   * Returns the annotation shape mapped to a native structural type.
-   *
-   * Complementary function of {@linkcode getEditorRole}.
-   *
-   * @param {string} role The editor role (e.g. `paragraph`)
-   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for nodes that aren't native structural types
-   */
-  function getShapeOfRole(role: string): ModelAnnotationShape | undefined {
-    return annotationMapping.value.shapeByRole[role as BuiltinStructuralType];
-  }
-
-  /**
-   * Returns the native structural types with the annotation shapes mapped to them. Every native type is mapped (enforced
+   * Returns the native types with the annotation shapes mapped to them. Every native type is mapped (enforced
    * by `checkConfig`).
    *
-   * @returns {StructuralShape[]} The structural shapes.
+   * @returns {NativeShape[]} The native types and their shapes.
    */
-  function getStructuralShapes(): StructuralShape[] {
-    return BUILTIN_STRUCTURAL_CONFIGS.flatMap((config: NativeTypeConfig): StructuralShape[] => {
-      const shape: ModelAnnotationShape | undefined = getShapeOfRole(config.type);
+  function getNativeShapes(): NativeShape[] {
+    return NATIVE_TYPE_CONFIGS.flatMap(({ native }: NativeTypeConfig): NativeShape[] => {
+      const shape: ModelAnnotationShape | undefined = getShapeOfNative(native);
 
-      return shape ? [{ role: config.type, shape }] : [];
+      return shape ? [{ native, shape }] : [];
     });
   }
 
   /**
-   * Groups the text annotation shapes by their configured `group`. Shapes mapped to a native structural type are always
+   * Returns the native type (tiptap node type) an annotation shape is mapped to.
+   *
+   * Complementary function of {@linkcode getShapeOfNative}.
+   *
+   * @param {ModelAnnotationShape} shape The annotation shape
+   * @returns {NativeType | undefined} The native type (e.g. `paragraph`), `undefined` if the shape isn't mapped
+   */
+  function getNativeType(shape: ModelAnnotationShape): NativeType | undefined {
+    return nativeByShapeRef.value.get(shapeRefOf(shape));
+  }
+
+  /**
+   * Returns the annotation shape mapped to a native type.
+   *
+   * Complementary function of {@linkcode getNativeType}.
+   *
+   * @param {string} native The native type, usually a tiptap node type name (e.g. `paragraph`)
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for node types that aren't native types
+   */
+  function getShapeOfNative(native: string): ModelAnnotationShape | undefined {
+    return annotationMapping.value.shapeByNative[native as NativeType];
+  }
+
+  /**
+   * Groups the text annotation shapes by their configured `group`. Shapes mapped to a native type are always
    * in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
    *
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
@@ -539,7 +539,7 @@ export function useConfigStore() {
     const grouped: Record<string, ModelAnnotationShape[]> = {};
 
     for (const shape of textShapes.value) {
-      const category: string = getEditorRole(shape)
+      const category: string = getNativeType(shape)
         ? STRUCTURE_ANNOTATION_GROUP
         : getShapeConfig(getModelContext(), shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
 
@@ -612,15 +612,15 @@ export function useConfigStore() {
     getCollectionAttributes,
     getContentMedium,
     getEditorOwnedProperties,
-    getEditorRole,
     getModelContext,
     getHierarchyClassifierRefs,
+    getNativeShapes,
+    getNativeType,
     getNodeTypeOptions,
     getReferenceTypeOptions,
     getMissingAnnotationReferences,
     getPriority,
-    getShapeOfRole,
-    getStructuralShapes,
+    getShapeOfNative,
     getTextAnnotationAppearance,
     groupedAndSortedAnnotationShapes,
     initializeConfig,

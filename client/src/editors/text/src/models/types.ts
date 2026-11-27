@@ -2,14 +2,14 @@ import type { Attribute, Constraint } from "@ramen-suite/core";
 import type {
   Annotation,
   AnnotationExtent,
-  BuiltinStructuralType,
   IconSpecInput,
   ModelAnnotationShape,
+  NativeType,
   TextPositionSelector,
 } from "../external";
 
 /**
- * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
+ * An attribute of a native type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
  * the type name, the cardinality (`lowerBound` 1 = required) and value rules as constraints. The constraints get their
  * IDs when they are declared in a model.
  */
@@ -23,7 +23,8 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
  * properties and settings (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
-  type: BuiltinStructuralType;
+  /** The native type, i.e. the tiptap node type, e.g. `paragraph` */
+  native: NativeType;
   /** How annotations of the type extend in the text */
   extent: AnnotationExtent;
   /** The attributes the editor sets itself, in RAMEN terms */
@@ -32,10 +33,10 @@ export interface NativeTypeConfig {
   icon: IconSpecInput;
 }
 
-/** A native structural type of the editor and the project's annotation shape mapped to it */
-export interface StructuralShape {
-  /** The editor node type, e.g. `paragraph` */
-  role: BuiltinStructuralType;
+/** A native type of the editor and the project's annotation shape mapped to it */
+export interface NativeShape {
+  /** The native type, e.g. `paragraph` */
+  native: NativeType;
   /** The annotation shape, e.g. the one with the type `p` */
   shape: ModelAnnotationShape;
 }
@@ -59,7 +60,7 @@ export interface ApiJson {
 }
 
 /**
- * Mapping between the editor's native structural types/attributes and the project's annotation shapes/properties, e.g.
+ * Mapping between the editor's native types/attributes and the project's annotation shapes/properties, e.g.
  * a shape with the type ["p"](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-p.html) for paragraphs, or
  * [`rows`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.rows)
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
@@ -72,10 +73,10 @@ export interface ApiJson {
  * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "<modelId>:<cols id>", "rowspan": "<modelId>:<rows id>" } }
  *
  * // Resulting mapping
- * shapeByRole: {
+ * shapeByNative: {
  *    tableCell: <the shape "<modelId>:<cell id>">,
  * },
- * attrByRole: {
+ * attrByNative: {
  *    tableCell: {
  *        colspan: 'cols',
  *        rowspan: 'rows',
@@ -83,13 +84,13 @@ export interface ApiJson {
  * },
  */
 export interface AnnotationMapping {
-  /** The annotation shape of each native structural type */
-  shapeByRole: Partial<Record<BuiltinStructuralType, ModelAnnotationShape>>;
-  /** Mapping from native structural types to project-specific property names. The keys are the editor-owned
-   * attributes of the type, i.e. the attribute names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`). Attributes
+  /** The annotation shape of each native type */
+  shapeByNative: Partial<Record<NativeType, ModelAnnotationShape>>;
+  /** Mapping from native types to project-specific property names. The keys are the editor-owned
+   * attributes of the type, i.e. the attribute names in its native config (`NATIVE_TYPE_CONFIGS`). Attributes
    * without a mapped property keep their native name.
    * @example
-   * attrByRole: {
+   * attrByNative: {
    *    tableCell: {
    *        colspan: 'cols',
    *        rowspan: 'rows',
@@ -97,7 +98,7 @@ export interface AnnotationMapping {
    *    },
    * },
    */
-  attrByRole: DeepReadonly<Partial<Record<BuiltinStructuralType, Record<string, string>>>>;
+  attrByNative: DeepReadonly<Partial<Record<NativeType, Record<string, string>>>>;
 }
 
 export interface TiptapMark {
@@ -197,7 +198,7 @@ export interface ToCItem {
   key: string;
   data: {
     nodeType: string;
-    /** Type of the annotation shape mapped to the live node's role (not read from _annotation), for display. */
+    /** Type of the annotation shape mapped to the live node's native type (not read from _annotation), for display. */
     type: string;
     /** Heading level when the node is a heading; read from the live native attr. */
     level?: number;

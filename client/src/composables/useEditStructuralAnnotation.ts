@@ -1,6 +1,6 @@
 import { useDialog } from "primevue";
 import { Node as PmNode } from "@tiptap/pm/model";
-import { Annotation, BuiltinStructuralType, ElementNodeStatus, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import { Annotation, ElementNodeStatus, ModelAnnotationShape, ModelAttribute, NativeType } from "../models/types";
 import { getShapeProperties } from "../utils/helper/modelHelper";
 import { type DocAnnotation, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useTiptapStore } from "../store/tiptap";
@@ -17,7 +17,7 @@ import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
  */
 export function useEditStructuralAnnotation() {
   const { tiptap, initialStructuralAnnotations } = useTiptapStore();
-  const { getShapeOfRole, getEditorOwnedProperties } = useConfigStore();
+  const { getShapeOfNative, getEditorOwnedProperties } = useConfigStore();
   const { createModalInstance, destroyModalInstance } = useAppStore();
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -50,14 +50,14 @@ export function useEditStructuralAnnotation() {
       return;
     }
 
-    const shape: ModelAnnotationShape | undefined = getShapeOfRole(node.type.name);
+    const shape: ModelAnnotationShape | undefined = getShapeOfNative(node.type.name);
 
     if (!shape) {
       console.error(`"${node.type.name}" has no structural annotation shape.`);
       return;
     }
 
-    const editorOwned: string[] = getEditorOwnedProperties(node.type.name as BuiltinStructuralType).map((p) => p.property);
+    const editorOwned: string[] = getEditorOwnedProperties(node.type.name as NativeType).map((p) => p.property);
     const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
 
     const status: ElementNodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "unchanged" : "created";

@@ -26,7 +26,7 @@ interface UseTextPreviewReturnType {
  * @returns {UseTextPreviewReturnType} An object containing the functions to build previews.
  */
 export function useTextPreview(): UseTextPreviewReturnType {
-  const { getAnnotationRepresentation, getAnnotationShape, getEditorRole, getStructuralShapes } = useConfigStore();
+  const { getAnnotationRepresentation, getAnnotationShape, getNativeShapes, getNativeType } = useConfigStore();
   const { getEditorSchema } = useTiptapStore();
 
   /**
@@ -36,19 +36,19 @@ export function useTextPreview(): UseTextPreviewReturnType {
    * @returns {string[]} The shape refs
    */
   function getTextPreviewShapeRefs(): string[] {
-    return getStructuralShapes().map(({ shape }) => shapeRefOf(shape));
+    return getNativeShapes().map(({ shape }) => shapeRefOf(shape));
   }
 
   /**
-   * Returns the editor role of an annotation's shape.
+   * Returns the native type of an annotation's shape.
    *
    * @param {Annotation} annotation The annotation
-   * @returns {string | undefined} The role, `undefined` if the annotation has no shape mapped to one
+   * @returns {string | undefined} The native type, `undefined` if the annotation has no shape mapped to one
    */
-  function roleOf(annotation: Annotation): string | undefined {
+  function nativeTypeOf(annotation: Annotation): string | undefined {
     const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
 
-    return shape ? getEditorRole(shape) : undefined;
+    return shape ? getNativeType(shape) : undefined;
   }
 
   /**
@@ -102,7 +102,7 @@ export function useTextPreview(): UseTextPreviewReturnType {
     const lastIndex: number = maxLength - 1;
     const textBlock: Annotation | undefined = structural.find(
       (a) =>
-        schema.nodes[roleOf(a) ?? ""]?.isTextblock &&
+        schema.nodes[nativeTypeOf(a) ?? ""]?.isTextblock &&
         a.node.properties.selector.start <= lastIndex &&
         a.node.properties.selector.end >= lastIndex,
     );

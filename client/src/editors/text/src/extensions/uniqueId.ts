@@ -4,7 +4,7 @@ import { Node } from "@tiptap/pm/model";
 import { ModelAnnotationShape, useConfigStore } from "../external";
 import { createDefaultDocAnnotation } from "../utils/helper/annotationHelper";
 
-const { getShapeOfRole } = useConfigStore();
+const { getShapeOfNative } = useConfigStore();
 
 /**
  * Gives every node whose id already occurs earlier in the document a new id and, if it is a structural node, a new
@@ -42,7 +42,7 @@ function fixDuplicateIds(
     }
 
     // The copied annotation belongs to the original, so a structural copy gets a new one
-    const shape: ModelAnnotationShape | undefined = getShapeOfRole(node.type.name);
+    const shape: ModelAnnotationShape | undefined = getShapeOfNative(node.type.name);
     const newAnnotation = shape ? { _annotation: createDefaultDocAnnotation(shape) } : {};
 
     tr.setNodeMarkup(pos, undefined, {

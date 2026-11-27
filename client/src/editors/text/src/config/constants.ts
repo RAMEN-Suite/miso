@@ -1,4 +1,4 @@
-import type { BuiltinStructuralType, IconSpecInput } from "../external";
+import type { IconSpecInput, NativeType } from "../external";
 import type { NativeTypeAttribute, NativeTypeConfig } from "../models/types";
 
 const OPTIONAL = { lowerBound: 0, upperBound: 1 } as const;
@@ -26,17 +26,17 @@ const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
 /**
  * The structural types the editor implements natively, with the attributes it sets itself. A project names them via
  * `editors.text.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
- * properties. The built-in attributes can be renamed, but not redefined.
+ * properties. The native attributes can be renamed, but not redefined.
  */
-export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
+export const NATIVE_TYPE_CONFIGS: NativeTypeConfig[] = [
   {
-    type: "paragraph",
+    native: "paragraph",
     extent: "range",
     attributes: [],
     icon: "pilcrow",
   },
   {
-    type: "heading",
+    native: "heading",
     extent: "range",
     icon: "heading",
     attributes: [
@@ -56,26 +56,26 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
     ],
   },
   {
-    type: "hardBreak",
+    native: "hardBreak",
     extent: "zeroPoint",
     attributes: [],
     icon: "text-wrap",
   },
   {
-    type: "table",
+    native: "table",
     extent: "range",
     attributes: [],
     icon: "table",
   },
   {
-    type: "tableRow",
+    native: "tableRow",
     extent: "range",
     icon: "rows-3",
     // Only kept from stored data on rows, the editor doesn't set them
     attributes: TABLE_DECORATION_ATTRIBUTES,
   },
   {
-    type: "tableCell",
+    native: "tableCell",
     extent: "range",
     icon: "square",
     // Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the header toggles (`data` is
@@ -83,13 +83,13 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
     attributes: TABLE_DECORATION_ATTRIBUTES,
   },
   {
-    type: "bulletList",
+    native: "bulletList",
     extent: "range",
     attributes: [],
     icon: "list",
   },
   {
-    type: "listItem",
+    native: "listItem",
     extent: "range",
     attributes: [],
     icon: "dot",
@@ -97,22 +97,32 @@ export const BUILTIN_STRUCTURAL_CONFIGS: NativeTypeConfig[] = [
 ];
 
 /**
- * The icon of a built-in type.
+ * The config of a native type.
  *
- * @param {BuiltinStructuralType} type - The built-in type.
- * @returns {IconSpecInput | undefined} The icon, `undefined` for an unknown type.
+ * @param {string | undefined} native - The native type.
+ * @returns {NativeTypeConfig | undefined} The config, `undefined` for an unknown native type.
  */
-export function nativeTypeIcon(type: BuiltinStructuralType): IconSpecInput | undefined {
-  return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === type)?.icon;
+export function getNativeTypeConfig(native: string | undefined): NativeTypeConfig | undefined {
+  return NATIVE_TYPE_CONFIGS.find((config) => config.native === native);
 }
 
 /**
- * Nesting rules of the editor's built-in structural types, used to build the document tree from standoff annotations.
+ * The icon of a native type.
+ *
+ * @param {NativeType} native - The native type.
+ * @returns {IconSpecInput | undefined} The icon, `undefined` for an unknown native type.
+ */
+export function nativeTypeIcon(native: NativeType): IconSpecInput | undefined {
+  return getNativeTypeConfig(native)?.icon;
+}
+
+/**
+ * Nesting rules of the editor's native types, used to build the document tree from standoff annotations.
  * They are editor internals and not configurable.
  * - `priority`: decides which of two annotations with the same range is the outer one. Higher is more outer.
- * - `contains`: the built-in types allowed as direct children. Empty means no restriction (or a leaf).
+ * - `contains`: the native types allowed as direct children. Empty means no restriction (or a leaf).
  */
-export const BUILTIN_STRUCTURAL_NESTING = {
+export const NATIVE_TYPE_NESTING = {
   bulletList: { priority: 60, contains: ["listItem"] },
   listItem: { priority: 50, contains: ["paragraph", "heading", "bulletList", "table"] },
   hardBreak: { priority: 10, contains: [] },

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
+import { getNativeTypeConfig } from "../editors/text/src/config/constants";
 
 // Schemas and types of the settings of model elements (the entries of `elements.classifiers`/`elements.annotations`).
 // The types are inferred from the schemas, so the format is defined only once. Objects are strict, so unknown or
@@ -165,7 +165,7 @@ const textAnnotationRepresentationSchema = z
   .enum(["structure", "inline", "blockClassification"])
   .describe(`How the text editor shows the annotation. ${describeValues(TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS)}`);
 
-export const builtinStructuralTypeSchema = z
+export const nativeTypeSchema = z
   .enum(["paragraph", "heading", "hardBreak", "table", "tableRow", "tableCell", "bulletList", "listItem"])
   .describe(
     "The editor's native types, which it implements itself. A native mapping says which annotation shape of the project stands for one of them.",
@@ -217,18 +217,17 @@ const annotationAppearanceSchema = z.strictObject({
 /**
  * Reports every attribute of a native mapping that the native type doesn't have.
  *
- * @param {string} nativeType - The native type.
+ * @param {NativeType} nativeType - The native type.
  * @param {Record<string, string> | undefined} attributes - Native attribute -> attribute ref of the project property.
  * @param {z.RefinementCtx} ctx - The refinement context to add the issues to.
  * @returns {void} This function does not return anything.
  */
 export function checkNativeAttributes(
-  nativeType: string,
+  nativeType: NativeType,
   attributes: Record<string, string> | undefined,
   ctx: z.RefinementCtx,
 ): void {
-  const nativeAttributes: string[] =
-    BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === nativeType)?.attributes.map((a) => a.name) ?? [];
+  const nativeAttributes: string[] = getNativeTypeConfig(nativeType).attributes.map((a) => a.name);
 
   for (const attribute of Object.keys(attributes ?? {})) {
     if (!nativeAttributes.includes(attribute)) {
@@ -297,8 +296,8 @@ export type AnnotationExtent = z.infer<typeof annotationExtentSchema>;
  */
 export type TextAnnotationRepresentation = z.infer<typeof textAnnotationRepresentationSchema>;
 
-/** The structural node types the editor implements natively */
-export type BuiltinStructuralType = z.infer<typeof builtinStructuralTypeSchema>;
+/** The structural node types the editor implements natively (tiptap node types) */
+export type NativeType = z.infer<typeof nativeTypeSchema>;
 
 /** Appearance overrides for annotations with a certain property value */
 export type AppearanceOverride = z.infer<typeof appearanceOverrideSchema>;
@@ -399,7 +398,7 @@ export const annotationEntrySchema = annotationShapeConfigSchema.extend({
 const CONFIG_TERM_SCHEMAS = {
   extent: annotationExtentSchema,
   representation: textAnnotationRepresentationSchema,
-  native: builtinStructuralTypeSchema,
+  native: nativeTypeSchema,
   medium: contentMediumSchema,
   group: groupSchema,
   shortcut: shortcutSchema,

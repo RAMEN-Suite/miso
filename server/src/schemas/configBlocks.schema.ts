@@ -6,7 +6,7 @@ import { findAttribute } from "../utils/modelHelper.js";
 
 // Schemas of the settings in the config (`elements`, `editors.text.mappings`) and their checks against the model.
 // Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkElements`/`checkMappings` in
-// `client/src/schemas/misoConfig.schema.ts` and the built-in attributes of `BUILTIN_STRUCTURAL_CONFIGS`
+// `client/src/schemas/misoConfig.schema.ts` and the native attributes in `NATIVE_TYPE_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
 // reads a few keys.
 
@@ -16,10 +16,10 @@ export interface ConfigFindings {
   warnings: string[];
 }
 
-// ----- Built-in structural types of the text editor -----
+// ----- Native types of the text editor -----
 
-/** An attribute the editor sets itself on a built-in type, in RAMEN terms */
-type BuiltinAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> & {
+/** An attribute the editor sets itself on a native type, in RAMEN terms */
+type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> & {
   constraints?: Pick<Constraint, "language" | "expression">[];
 };
 
@@ -27,7 +27,7 @@ const OPTIONAL = { lowerBound: 0, upperBound: 1 };
 const REQUIRED = { lowerBound: 1, upperBound: 1 };
 
 /** TEI `att.tableDecoration` of rows and cells */
-const TABLE_DECORATION_ATTRIBUTES: BuiltinAttribute[] = [
+const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
   { name: "rowspan", typeId: "Integer", bounds: OPTIONAL },
   { name: "colspan", typeId: "Integer", bounds: OPTIONAL },
   {
@@ -39,7 +39,7 @@ const TABLE_DECORATION_ATTRIBUTES: BuiltinAttribute[] = [
 ];
 
 /** The structural types the text editor implements natively, with the attributes it sets itself */
-const BUILTIN_ATTRIBUTES: Readonly<Record<string, BuiltinAttribute[]>> = {
+const NATIVE_TYPE_ATTRIBUTES: Readonly<Record<string, NativeTypeAttribute[]>> = {
   paragraph: [],
   heading: [
     {
@@ -59,13 +59,13 @@ const BUILTIN_ATTRIBUTES: Readonly<Record<string, BuiltinAttribute[]>> = {
 
 const mappingSchema = z
   .strictObject({
-    native: z.enum(Object.keys(BUILTIN_ATTRIBUTES) as [string, ...string[]]),
+    native: z.enum(Object.keys(NATIVE_TYPE_ATTRIBUTES) as [string, ...string[]]),
     annotation: z.string(),
     type: z.string(),
     attributes: z.record(z.string(), z.string()).optional(),
   })
   .superRefine((mapping, ctx) => {
-    const nativeAttributes: string[] = (BUILTIN_ATTRIBUTES[mapping.native] ?? []).map((attribute) => attribute.name);
+    const nativeAttributes: string[] = (NATIVE_TYPE_ATTRIBUTES[mapping.native] ?? []).map((attribute) => attribute.name);
 
     for (const attribute of Object.keys(mapping.attributes ?? {})) {
       if (!nativeAttributes.includes(attribute)) {
@@ -315,7 +315,7 @@ export function checkMappings(model: RamenFile, mappings: ConfigMapping[]): Conf
       }
     }
 
-    for (const builtinAttribute of BUILTIN_ATTRIBUTES[mapping.native] ?? []) {
+    for (const builtinAttribute of NATIVE_TYPE_ATTRIBUTES[mapping.native] ?? []) {
       const name: string = mappedNames[builtinAttribute.name] ?? builtinAttribute.name;
       const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
       const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;

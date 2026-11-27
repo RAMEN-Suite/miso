@@ -27,6 +27,7 @@ import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
 import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
+import { isNativeType } from "../editors/text/src/config/constants";
 import { toContentSaveGraph } from "../utils/helper/writePayload.ts";
 import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
@@ -53,10 +54,10 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getAnnotationType, getModelContext } = useConfigStore();
+const { getShapeOfNative, getModelContext } = useConfigStore();
 const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 const { insertLineBreak } = useInsertLineBreak();
-const { annotateByType } = useAnnotateSelection();
+const { annotateByShapeRef } = useAnnotateSelection();
 
 onUnmounted(() => destroyTiptap());
 
@@ -107,7 +108,8 @@ const activeResizer = ref<string>("");
 const PARSE_ISSUE_CONSEQUENCES: Record<StandoffParseIssue["reason"], string> = {
   clampedGap: "The repaired structure is stored with the next save.",
   textMismatch: "Annotations may be displayed at the wrong position, and saving can write these positions to the database.",
-  unconfiguredType: "Annotations of unconfigured types were found. Saving can change or remove their data.",
+  unconfiguredType:
+    "Annotations of types that are not in the model were found. Saving removes their data that the model doesn't define.",
 };
 
 /** The parse errors of the current document, displayed in the parse error dialog. */
@@ -201,7 +203,9 @@ async function handleSaveChanges(): Promise<void> {
   }
 
   const nodesWithoutChildrenOrText = getEmptyNodes();
-  const joined: string = nodesWithoutChildrenOrText.map((n) => getAnnotationType(n.type.name)).join(",");
+  const joined: string = nodesWithoutChildrenOrText
+    .map((n) => (isNativeType(n.type.name) ? getShapeOfNative(n.type.name)?.type : undefined) ?? n.type.name)
+    .join(",");
 
   if (nodesWithoutChildrenOrText.length > 0) {
     console.warn("Some nodes have no text: ", joined);
@@ -397,7 +401,7 @@ watch(
     const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
       onHardBreakMarkerClick: openStructuralAnnotationEditor,
       onHardBreakShortcut: insertLineBreak,
-      onAnnotationShortcut: annotateByType,
+      onAnnotationShortcut: annotateByShapeRef,
     });
 
     isLoading.value = false;

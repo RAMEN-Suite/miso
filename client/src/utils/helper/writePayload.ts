@@ -13,15 +13,7 @@ import type {
   RefResolution,
 } from "../../models/types";
 import { BASE_NODE_REF, type RelationType } from "../../config/ramen";
-import {
-  familyRefOf,
-  findShape,
-  getBaseNodeLabel,
-  getBaseNodeRef,
-  getClassifierRef,
-  resolveRelationRef,
-  resolveShapeRef,
-} from "./modelHelper";
+import { familyRefOf, findShape, getBaseNodeLabel, getBaseNodeRef, getClassifierRef, resolveRelationRef } from "./modelHelper";
 import { findNode } from "./editGraph";
 
 /**
@@ -33,38 +25,23 @@ import { findNode } from "./editGraph";
  */
 
 /**
- * The refs of a node. Annotations are resolved from their carrier and `type` on every save, since the editor rebuilds
- * structural annotations and may change their type. Nodes whose type can't be resolved get the RAMEN base node, so the
- * write still goes through and the server reports them.
+ * The refs of an annotation, from its `shapeRef`: the shape and its family as classifier. Annotations without a shape
+ * get the RAMEN base node, so the write still goes through and the server reports them.
  *
  * @param {ModelContext} context - The model context.
- * @param {DataNode<BaseNodeProperties>} node - The node.
- * @param {BaseNodeLabel} baseLabel - The base node of the node.
- * @param {string | null} carrierRef - For annotations: the classifier of the carrier.
+ * @param {DataNode<BaseNodeProperties>} node - The annotation node.
  * @returns {Pick<ElementNode, "classifierRef" | "shapeRef">} The refs.
  */
-function resolveNodeRefs(
+function annotationRefsOf(
   context: ModelContext,
   node: DataNode<BaseNodeProperties>,
-  baseLabel: BaseNodeLabel,
-  carrierRef: string | null,
-): { classifierRef: string; shapeRef?: string | null } {
-  const fallbackRef: string = getClassifierRef(context, node) ?? BASE_NODE_REF[baseLabel];
-
-  if (baseLabel !== "Annotation") {
-    return { classifierRef: fallbackRef };
-  }
-
-  const type: unknown = (node.properties as BaseNodeProperties & { type?: unknown }).type;
-  const resolution: RefResolution | null =
-    carrierRef && typeof type === "string" ? resolveShapeRef(context, carrierRef, type) : null;
-  const shapeRef: string | null = resolution?.ref ?? null;
-  const shape: ModelAnnotationShape | undefined = shapeRef ? findShape(context, shapeRef) : undefined;
+): { classifierRef: string; shapeRef: string | null } {
+  const shape: ModelAnnotationShape | undefined = node.shapeRef ? findShape(context, node.shapeRef) : undefined;
 
   if (shape) {
-    return { classifierRef: familyRefOf(shape), shapeRef };
+    return { classifierRef: familyRefOf(shape), shapeRef: node.shapeRef ?? null };
   } else {
-    return { classifierRef: fallbackRef, shapeRef: node.shapeRef ?? null };
+    return { classifierRef: BASE_NODE_REF.Annotation, shapeRef: null };
   }
 }
 
@@ -101,7 +78,7 @@ export function relationRefOf(context: ModelContext, fromRef: string, type: Rela
 
 /**
  * The graph of a Content's save: the Content as `modified` and the text editor's annotations. The Content's annotations
- * get their refs from the Content's classifier and their type, created ones a `HAS_ANNOTATION` relation from the Content.
+ * get their refs from their shape, created ones a `HAS_ANNOTATION` relation from the Content.
  * A node in several annotations is taken once, a changed copy over an unchanged one.
  *
  * @param {ModelContext} context - The model context.
@@ -139,7 +116,7 @@ export function toContentSaveGraph(
   }
 
   for (const annotation of annotations) {
-    const refs = resolveNodeRefs(context, annotation.node, "Annotation", contentRef);
+    const refs = annotationRefsOf(context, annotation.node);
 
     addNode({
       status: annotation.status,

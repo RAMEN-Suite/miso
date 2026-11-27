@@ -149,15 +149,16 @@ export default class ApiService {
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
-   * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
+   * @param {string[]} [options.shapes] - Only top-level annotations of these annotation shapes (refs). All if omitted.
    * @returns {Promise<EditGraph>} The graph, everything `unchanged`.
    */
-  public async getAnnotationGraph(nodeUuid: string, options: { types?: string[] } = {}): Promise<EditGraph> {
+  public async getAnnotationGraph(nodeUuid: string, options: { shapes?: string[] } = {}): Promise<EditGraph> {
     try {
       const params: URLSearchParams = new URLSearchParams({ parent: nodeUuid });
+      console.log("hiiiiiiiiiiiiiiii");
 
-      if (options.types) {
-        params.set("types", options.types.join(","));
+      if (options.shapes) {
+        params.set("shapes", options.shapes.join(","));
       }
 
       const response: Response = await fetch(`${this.baseUrl}/annotations?${params.toString()}`);
@@ -179,10 +180,10 @@ export default class ApiService {
    *
    * @param {string} contentUuid - The UUID of the Content.
    * @param {object} [options] - Optional filters.
-   * @param {string[]} [options.types] - Only annotations of these types. All types if omitted.
+   * @param {string[]} [options.shapes] - Only annotations of these annotation shapes (refs). All if omitted.
    * @returns {Promise<Annotation[]>} The annotations, everything `unchanged`.
    */
-  public async getAnnotations(contentUuid: string, options: { types?: string[] } = {}): Promise<Annotation[]> {
+  public async getAnnotations(contentUuid: string, options: { shapes?: string[] } = {}): Promise<Annotation[]> {
     const graph: EditGraph = await this.getAnnotationGraph(contentUuid, options);
 
     return toAnnotations(graph, contentUuid);

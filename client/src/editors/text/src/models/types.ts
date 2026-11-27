@@ -1,8 +1,15 @@
 import type { Attribute, Constraint } from "@ramen-suite/core";
-import type { Annotation, AnnotationExtent, BuiltinStructuralType, IconSpecInput, TextPositionSelector } from "../external";
+import type {
+  Annotation,
+  AnnotationExtent,
+  IconSpecInput,
+  ModelAnnotationShape,
+  NativeType,
+  TextPositionSelector,
+} from "../external";
 
 /**
- * An attribute of a native structural type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
+ * An attribute of a native type that the editor itself sets (e.g. the level of a heading), in RAMEN terms:
  * the type name, the cardinality (`lowerBound` 1 = required) and value rules as constraints. The constraints get their
  * IDs when they are declared in a model.
  */
@@ -16,21 +23,27 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
  * properties and settings (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
-  type: BuiltinStructuralType;
   /** How annotations of the type extend in the text */
   extent: AnnotationExtent;
   /** The attributes the editor sets itself, in RAMEN terms */
   attributes: NativeTypeAttribute[];
   /** The icon of the type, e.g. `pilcrow` (Lucide shorthand); a mapped shape shows it instead of an icon of its own */
   icon: IconSpecInput;
+  /**
+   * Decides which of two annotations with the same range is the outer one when the document tree is built from
+   * standoff annotations. Higher is more outer.
+   */
+  priority: number;
+  /** The native types allowed as direct children. Empty means no restriction (or a leaf). */
+  contains: readonly NativeType[];
 }
 
-/** A structural annotation type of the project and the editor node type that represents it */
-export interface StructuralType {
-  /** The project's annotation type, e.g. `p` */
-  type: string;
-  /** The editor node type, e.g. `paragraph` */
-  editorRole: string;
+/** A native type of the editor and the project's annotation shape mapped to it */
+export interface NativeShape {
+  /** The native type, e.g. `paragraph` */
+  native: NativeType;
+  /** The annotation shape, e.g. the one with the type `p` */
+  shape: ModelAnnotationShape;
 }
 
 /** Makes all properties of `T` readonly, recursively. */
@@ -52,41 +65,37 @@ export interface ApiJson {
 }
 
 /**
- * Mapping between built-in structural annotation types/attributes and their (optional) project-specific override.
- * Exists because a project might want to use names from a namespace like TEI for the built-in elements, like
- * ["p"](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-p.html) for paragraph annotations
- * or [`rows`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.rows)
+ * Mapping between the editor's native types/attributes and the project's annotation shapes/properties, e.g.
+ * a shape with the type ["p"](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-p.html) for paragraphs, or
+ * [`rows`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.rows)
  * and [`cols`](https://www.tei-c.org/release/doc/tei-p5-doc/en/html/ref-att.tableDecoration.html#tei_att.cols)
- * as rowspan/colspan properties in tableRow and tableCell annotations.
+ * as rowspan/colspan properties of table rows and cells.
  *
- * Built from `DEFAULT_ANNOTATION_MAPPING` and the `editors.text.mappings` of the Miso config, whose attribute refs are
- * resolved to the property names.
+ * Built from the `editors.text.mappings` of the Miso config, whose attribute refs are resolved to the property names.
  *
  * @example
  * // Entry of editors.text.mappings
  * { "native": "tableCell", "annotation": "<modelId>:<cell id>", "type": "cell", "attributes": { "colspan": "<modelId>:<cols id>", "rowspan": "<modelId>:<rows id>" } }
  *
- * // Resulting mapping: tiptap defaults as keys, project-specific overrides (property names) as values
- * typeByRole: {
- *    tableCell: 'cell',
+ * // Resulting mapping
+ * shapeByNative: {
+ *    tableCell: <the shape "<modelId>:<cell id>">,
  * },
- * attrByRole: {
+ * attrByNative: {
  *    tableCell: {
  *        colspan: 'cols',
  *        rowspan: 'rows',
  *    },
  * },
  */
-export type AnnotationMapping = DeepReadonly<{
-  /** Mapping from built-in structural types to project-specific types
+export interface AnnotationMapping {
+  /** The annotation shape of each native type */
+  shapeByNative: Partial<Record<NativeType, ModelAnnotationShape>>;
+  /** Mapping from native types to project-specific property names. The keys are the editor-owned
+   * attributes of the type, i.e. the attribute names in its native config (`NATIVE_TYPE_CONFIGS`). Attributes
+   * without a mapped property keep their native name.
    * @example
-   * { paragraph: 'p', hardBreak: 'lb' }
-   */
-  typeByRole: Partial<Record<BuiltinStructuralType, string>>;
-  /** Mapping from built-in structural types to project-specific attributes. The keys are the editor-owned
-   * attributes of the type, i.e. the attribute names in its built-in config (`BUILTIN_STRUCTURAL_CONFIGS`).
-   * @example
-   * attrByRole: {
+   * attrByNative: {
    *    tableCell: {
    *        colspan: 'cols',
    *        rowspan: 'rows',
@@ -94,8 +103,8 @@ export type AnnotationMapping = DeepReadonly<{
    *    },
    * },
    */
-  attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>>;
-}>;
+  attrByNative: DeepReadonly<Partial<Record<NativeType, Record<string, string>>>>;
+}
 
 export interface TiptapMark {
   type: string;
@@ -167,6 +176,7 @@ export interface Range {
 export interface BlockClassificationRange {
   startPos: number;
   endPos: number;
+  /** The annotation's type, for display */
   type: string;
   uuid: string;
 }
@@ -175,8 +185,8 @@ export interface BlockClassificationRange {
  * A problem found while a standoff document is parsed into a tiptap document.
  * - `warning`: the document was repaired while parsing (e.g. orphaned text merged into a neighbouring node). No data
  *    are lost, the repaired state is written to the database on the next save.
- * - `error`: the parsed document does not match the stored data, or contains annotations of a type that is not
- *    in the config. Saving it can corrupt the stored data, so the user should be asked before continuing.
+ * - `error`: the parsed document does not match the stored data, or contains annotations without an annotation shape
+ *    in the model. Saving it can corrupt the stored data, so the user should be asked before continuing.
  */
 export interface StandoffParseIssue {
   severity: "warning" | "error";
@@ -193,7 +203,7 @@ export interface ToCItem {
   key: string;
   data: {
     nodeType: string;
-    /** Canonical (project-configured) annotation type, derived from the live node, not _annotation. */
+    /** Type of the annotation shape mapped to the live node's native type (not read from _annotation), for display. */
     type: string;
     /** Heading level when the node is a heading; read from the live native attr. */
     level?: number;

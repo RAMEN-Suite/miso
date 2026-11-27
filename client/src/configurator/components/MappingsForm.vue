@@ -2,15 +2,17 @@
 import { computed, nextTick, useTemplateRef, watch } from "vue";
 import Select from "primevue/select";
 import {
-  BUILTIN_STRUCTURAL_CONFIGS,
+  NATIVE_TYPES,
   findShape,
   getContentCarrierRefs,
+  getNativeTypeConfig,
   getShapesForNode,
   IconView,
+  nativeTypeIcon,
   shapeRefOf,
   type ConfigFinding,
   type ConfigMapping,
-  type IconSpecInput,
+  type NativeType,
 } from "../external";
 import { useConfigDraft } from "../state/useConfigDraft";
 import { useTimedHighlight } from "../state/useTimedHighlight";
@@ -18,8 +20,6 @@ import { EMPTY_ENTRY_PT, withEmptyEntry, type SelectEntry } from "../utils/selec
 import FindingList from "./FindingList.vue";
 import SectionHeading from "./SectionHeading.vue";
 import TermHint from "./TermHint.vue";
-
-type NativeType = ConfigMapping["native"];
 
 const { draft, requiredContext: ctx, findings, selection } = useConfigDraft();
 
@@ -41,8 +41,6 @@ watch(
   },
   { immediate: true },
 );
-
-const NATIVE_TYPES: NativeType[] = BUILTIN_STRUCTURAL_CONFIGS.map((config) => config.type);
 
 /** The place of a native type in the form; `index` is the position of its mapping in the config */
 interface MappingSlot {
@@ -73,14 +71,9 @@ const shapeEntries = computed<SelectEntry<string>[]>(() => {
   return withEmptyEntry([...byRef].map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label)));
 });
 
-/** The icon of a native type */
-function nativeTypeIconOf(native: NativeType): IconSpecInput | undefined {
-  return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.icon;
-}
-
-/** The built-in attributes of a native type */
+/** The native attributes of a native type */
 function nativeAttributesOf(native: NativeType): string[] {
-  return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.attributes.map((attribute) => attribute.name) ?? [];
+  return getNativeTypeConfig(native).attributes.map((attribute) => attribute.name);
 }
 
 /** The properties of a mapping's shape as dropdown entries (attribute refs), after the empty one */
@@ -189,7 +182,7 @@ function setAttribute(index: number, nativeAttribute: string, attributeRef: stri
     >
       <div class="grid grid-cols-[10rem_auto_1fr] gap-x-2 gap-y-1 items-center">
         <span class="flex items-center gap-2" :class="slot.mapping ? 'font-medium' : 'text-slate-500'">
-          <IconView :spec="nativeTypeIconOf(slot.native)" class="text-slate-500" />
+          <IconView :spec="nativeTypeIcon(slot.native)" class="text-slate-500" />
           <code class="text-sm">{{ slot.native }}</code>
         </span>
         <span class="text-slate-500">is</span>

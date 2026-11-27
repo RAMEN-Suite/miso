@@ -1,28 +1,31 @@
 import { Schema } from "@tiptap/pm/model";
-import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
-import { BUILTIN_STRUCTURAL_NESTING } from "../config/constants";
+import { isBlockClassificationTarget } from "../config/editor";
+import { getNativeTypeConfig } from "../config/constants";
 import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
   Annotation,
   AnnotationNode,
-  BuiltinStructuralType,
   IAnnotation,
+  ModelAnnotationShape,
+  NativeType,
   TextAnnotationRepresentation,
   cloneDeep,
   createTextPositionSelector,
+  familyRefOf,
+  shapeRefOf,
   useConfigStore,
 } from "../external";
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
 const {
   isZeroPoint,
-  getEditorRole,
-  getAnnotationType,
+  getAnnotationShape,
+  getNativeType,
+  getShapeOfNative,
   getAnnotationRepresentation,
   getAnnotationExtent,
-  getPriorityForType,
+  getPriority,
   getEditorOwnedProperties,
-  isConfiguredAnnotationType,
 } = useConfigStore();
 
 export default class StandoffConverter {
@@ -85,9 +88,11 @@ export default class StandoffConverter {
     const unconfiguredTypes = new Map<string, number>();
 
     for (const a of annotations) {
-      const representation: TextAnnotationRepresentation = getAnnotationRepresentation(a.node.properties.type);
+      const shape: ModelAnnotationShape | undefined = getAnnotationShape(a.node);
+      // Annotations without a shape are kept as inline annotations, so their text positions survive
+      const representation: TextAnnotationRepresentation = shape ? getAnnotationRepresentation(shape) : "inline";
 
-      if (!isConfiguredAnnotationType(a.node.properties.type)) {
+      if (!shape) {
         unconfiguredTypes.set(a.node.properties.type, (unconfiguredTypes.get(a.node.properties.type) ?? 0) + 1);
       }
 
@@ -107,24 +112,35 @@ export default class StandoffConverter {
       this.issues.push({
         severity: "error",
         reason: "unconfiguredType",
-        message: `${count} annotation(s) of type "${type}" are not configured.`,
+        message: `${count} annotation(s) of type "${type}" have no annotation shape in the model.`,
       });
     }
   }
 
   /**
-   * Returns the built-in types allowed as structural children of the given annotation type, from the nesting rules
-   * of its built-in type (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
+   * Returns the native type of an annotation's shape.
+   *
+   * @param {Annotation} annotation The annotation
+   * @returns {NativeType | undefined} The native type, `undefined` if the annotation has no shape mapped to one
+   */
+  private nativeTypeOf(annotation: Annotation): NativeType | undefined {
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
+
+    return shape ? getNativeType(shape) : undefined;
+  }
+
+  /**
+   * Returns the native types allowed as structural children of the given native type, from its nesting rules
+   * (e.g. `table` -> `tableRow`, `bulletList` -> `listItem`).
    * `Null` means "no filter" - the node either has no declared children or is a leaf.
    *
-   * @param {string} type The annotation type
-   * @returns {readonly string[] | null} The list of allowed child types (editor roles) or `null` if list is empty or non-existent
+   * @param {NativeType} native The native type
+   * @returns {readonly string[] | null} The list of allowed child native types or `null` if list is empty
    */
-  private getContainsList(type: string): readonly string[] | null {
-    const list: readonly string[] | undefined =
-      BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.contains;
+  private getContainsList(native: NativeType): readonly NativeType[] | null {
+    const list: readonly NativeType[] = getNativeTypeConfig(native).contains;
 
-    return list && list.length > 0 ? list : null;
+    return list.length > 0 ? list : null;
   }
 
   /**
@@ -162,8 +178,10 @@ export default class StandoffConverter {
     }
 
     // Co-equal range: order by priority (higher = more outer / further up the tree)
-    const outerPrio: number = getPriorityForType(outer.node.properties.type);
-    const innerPrio: number = getPriorityForType(inner.node.properties.type);
+    const outerShape: ModelAnnotationShape | undefined = getAnnotationShape(outer.node);
+    const innerShape: ModelAnnotationShape | undefined = getAnnotationShape(inner.node);
+    const outerPrio: number = outerShape ? getPriority(outerShape) : 0;
+    const innerPrio: number = innerShape ? getPriority(innerShape) : 0;
 
     if (outerPrio !== innerPrio) {
       return outerPrio > innerPrio;
@@ -174,7 +192,7 @@ export default class StandoffConverter {
   }
 
   /**
-   * Returns the immediate structural children within given range for the parent type.
+   * Returns the immediate structural children within given range for the parent's native type.
    * When the parent type has a `contains` list, only types in that list are candidates.
    * This resolves co-equal built-in ranges (e.g. `tableCell` and `paragraph` both at [40,60]):
    * If `tableRow.contains` = [`'tableCell'`] -> only `tableCell` is a candidate for `tableRow`.
@@ -182,22 +200,27 @@ export default class StandoffConverter {
    * Note that this function does not build any tree/tiptap elements; it is only a lookup function for the flattened
    * annotation list.
    *
-   * @param {string} parentType Type of the parent annotation
+   * @param {NativeType} parentNative Native type of the parent annotation
    * @param {number} start The start index of the parent annotation's range
    * @param {number} end The end index of the parent annotation's range
    * @param {Annotation[]} allStructural The list of all structural annotations
    * @returns {Annotation[]} The immediate structural children, sorted by start index
    */
-  private findDirectChildren(parentType: string, start: number, end: number, allStructural: Annotation[]): Annotation[] {
-    const containsList: readonly string[] | null = this.getContainsList(parentType);
+  private findDirectChildren(parentNative: NativeType, start: number, end: number, allStructural: Annotation[]): Annotation[] {
+    const containsList: readonly NativeType[] | null = this.getContainsList(parentNative);
+    const isAllowedChild = (a: Annotation): boolean => {
+      const native: NativeType | undefined = this.nativeTypeOf(a);
+
+      return containsList === null || (native !== undefined && containsList.includes(native));
+    };
 
     const candidates: Annotation[] = allStructural.filter(
       (a) =>
         !this.usedUuids.has(a.node.properties.uuid) &&
-        !this.isStructuralZeroPoint(a.node.properties.type) &&
+        !this.isStructuralZeroPoint(a) &&
         a.node.properties.selector.start >= start &&
         a.node.properties.selector.end <= end &&
-        (containsList === null || containsList.includes(getEditorRole(a.node.properties.type))),
+        isAllowedChild(a),
     );
 
     return candidates
@@ -265,7 +288,7 @@ export default class StandoffConverter {
 
     // Resolve to hardBreaks (the only built-in type configured the way below)
     const hardBreakEntries: InlineEntry[] = [...this.structuralAnnotations.values()]
-      .filter((a) => getAnnotationExtent(a.node.properties.type) === "zeroPoint" && this.inRange(a, { start, end }))
+      .filter((a) => this.isStructuralZeroPoint(a) && this.inRange(a, { start, end }))
       .map((a) => ({
         pos: a.node.properties.selector.start,
         node: {
@@ -330,19 +353,26 @@ export default class StandoffConverter {
    * @param {number} end The end index of the gap
    * @param {TiptapNode[]} content The content that should be passed into the paragraph node
    * @returns {TiptapNode} The synthetic paragraph node
+   * @throws {Error} If no annotation shape is mapped to paragraphs (the config check prevents it)
    */
   private syntheticParagraph(start: number, end: number, content: TiptapNode[]): TiptapNode {
     const uuid: string = crypto.randomUUID();
-    const paragraphType: string = getAnnotationType("paragraph");
+    const paragraphShape: ModelAnnotationShape | undefined = getShapeOfNative("paragraph");
+
+    if (!paragraphShape) {
+      throw new Error("No annotation shape is mapped to paragraphs.");
+    }
 
     const docAnnotation: DocAnnotation = {
       node: {
         properties: {
-          type: paragraphType,
+          type: paragraphShape.type,
           uuid,
           selector: createTextPositionSelector(start, end),
         } as AnnotationNode["properties"],
         nodeLabels: ["Annotation"],
+        shapeRef: shapeRefOf(paragraphShape),
+        classifierRef: familyRefOf(paragraphShape),
       },
       nodes: [],
       relations: [],
@@ -396,12 +426,12 @@ export default class StandoffConverter {
     return ranges;
   }
 
-  // Whether the given (built-in) container type may hold a `paragraph` as a direct child.
+  // Whether the given native container type may hold a `paragraph` as a direct child.
   // Drives gap handling: containers like listItem/tableCell accept synthetic paragraphs,
   // while tableRow/table/bulletList do NOT (their content is restricted to cells/rows/items),
   // so orphan gap text inside them must be clamped into an adjacent child instead.
-  private parentAllowsParagraph(parentType: string): boolean {
-    const containsList: readonly string[] | null = this.getContainsList(parentType);
+  private parentAllowsParagraph(parentNative: NativeType): boolean {
+    const containsList: readonly NativeType[] | null = this.getContainsList(parentNative);
 
     // No declared children → treated as permissive (leaf types never reach gap-filling anyway).
     if (containsList === null) {
@@ -589,11 +619,15 @@ export default class StandoffConverter {
    * @param {Annotation} annotation The annotation that should be converted into a tiptap node
    * @param {Annotation[]} allStructural Annotations that need to be considered for all operations)
    * @returns {TiptapNode} The built tiptap node
+   * @throws {Error} If the annotation's shape isn't mapped to a native type (only those are sorted in as structural)
    */
   private buildStructuralNode(annotation: Annotation, allStructural: Annotation[]): TiptapNode {
-    const { type } = annotation.node.properties;
     const { start, end } = annotation.node.properties.selector;
-    const editorRole: string = getEditorRole(type);
+    const native: NativeType | undefined = this.nativeTypeOf(annotation);
+
+    if (!native) {
+      throw new Error(`Structural annotation ${annotation.node.properties.uuid} has no native type.`);
+    }
 
     const attrs: TiptapNodeAttrs = {
       uuid: annotation.node.properties.uuid,
@@ -602,7 +636,7 @@ export default class StandoffConverter {
 
     // Apply editor attributes (level/colspan/rowspan/role) from the node's value under its project property name.
     // Missing values are left out, so the node's defaults apply (e.g. colspan 1 on cells, no role).
-    for (const { property, attribute } of getEditorOwnedProperties(type)) {
+    for (const { property, attribute } of getEditorOwnedProperties(native)) {
       const value: unknown = annotation.node.properties[property];
 
       if (value !== undefined && value !== null) {
@@ -611,17 +645,18 @@ export default class StandoffConverter {
     }
 
     // Is heading or paragraph -> can only hold text
-    if (this.isTextBlock(editorRole)) {
-      return { type: editorRole, attrs, content: this.createLeafContent(start, end) };
+    if (this.isTextBlock(native)) {
+      return { type: native, attrs, content: this.createLeafContent(start, end) };
     }
 
-    const directChildren: Annotation[] = this.findDirectChildren(type, start, end, allStructural);
+    const directChildren: Annotation[] = this.findDirectChildren(native, start, end, allStructural);
 
     directChildren.forEach((c) => this.usedUuids.add(c.node.properties.uuid));
 
     // Does this container accept paragraphs directly? If not (tableRow, table, bulletList), gap
     // text cannot become a synthetic paragraph and must be clamped into an adjacent child.
-    const allowsParagraph: boolean = this.parentAllowsParagraph(type);
+    const allowsParagraph: boolean = this.parentAllowsParagraph(native);
+    const type: string = annotation.node.properties.type;
 
     const childNodes: TiptapNode[] = [];
 
@@ -675,28 +710,32 @@ export default class StandoffConverter {
       childNodes.push(this.syntheticParagraph(start, end, []));
     }
 
-    return { type: editorRole, attrs, content: childNodes };
+    return { type: native, attrs, content: childNodes };
   }
 
   /**
    * A structure annotation with zero-point extent (currently only `hardBreak`): an inline atom that must never
    * appear as a block child or a top-level node.
    *
-   * @param {string} annotationType - The type of the annotation.
-   * @returns {boolean} `true` if the type is a structural zero-point, `false` otherwise.
+   * @param {Annotation} annotation - The annotation.
+   * @returns {boolean} `true` if the annotation is a structural zero-point, `false` otherwise.
    */
-  private isStructuralZeroPoint(annotationType: string): boolean {
-    return getAnnotationRepresentation(annotationType) === "structure" && getAnnotationExtent(annotationType) === "zeroPoint";
+  private isStructuralZeroPoint(annotation: Annotation): boolean {
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
+
+    return (
+      shape !== undefined && getAnnotationRepresentation(shape) === "structure" && getAnnotationExtent(shape) === "zeroPoint"
+    );
   }
 
-  /** Checks if annotation of given type can be a top-level document node. Excludes structural zero-points
+  /** Checks if an annotation can be a top-level document node. Excludes structural zero-points
    * (currently only `hardBreak`).
    *
-   * @param {string} type - The type of the annotation.
+   * @param {Annotation} annotation - The annotation.
    * @returns {boolean} `true` if the annotation can be a top-level node, `false` otherwise.
    */
-  private isAllowedAtTopLevel(type: string): boolean {
-    return !this.isStructuralZeroPoint(type);
+  private isAllowedAtTopLevel(annotation: Annotation): boolean {
+    return !this.isStructuralZeroPoint(annotation);
   }
 
   /**
@@ -705,11 +744,11 @@ export default class StandoffConverter {
    *
    * Reads from the prosemirror schema, where such a node is a textblock (only `heading` and `paragraph`).
    *
-   * @param {string} editorRole - The internal type of the Tiptap node (`heading`, `bulletList` etc.)
+   * @param {string} nodeType - The type of the Tiptap node (`heading`, `bulletList` etc.)
    * @returns {boolean} `true` if the node is a text block, `false` otherwise
    */
-  private isTextBlock(editorRole: string): boolean {
-    return this.schema.nodes[editorRole]?.isTextblock ?? false;
+  private isTextBlock(nodeType: string): boolean {
+    return this.schema.nodes[nodeType]?.isTextblock ?? false;
   }
 
   /**
@@ -734,7 +773,7 @@ export default class StandoffConverter {
    */
   private findTopLevelAnnotations(allStructural: Annotation[]): Annotation[] {
     const topLevelBlocks: Annotation[] = allStructural.filter(
-      (a) => this.isAllowedAtTopLevel(a.node.properties.type) && !allStructural.some((b) => this.contains(b, a)),
+      (a) => this.isAllowedAtTopLevel(a) && !allStructural.some((b) => this.contains(b, a)),
     );
 
     return topLevelBlocks.sort((a, b) => a.node.properties.selector.start - b.node.properties.selector.start);
@@ -772,7 +811,7 @@ export default class StandoffConverter {
       const docAnnotation: DocAnnotation | undefined = node.attrs?._annotation;
       const nodeStart: number | undefined = docAnnotation?.node.properties.selector?.start;
       const nodeEnd: number | undefined = docAnnotation?.node.properties.selector?.end;
-      const isValidBlockTarget: boolean = VALID_BLOCK_CLASSIFICATION_TARGETS.includes(getEditorRole(node.type));
+      const isValidBlockTarget: boolean = isBlockClassificationTarget(node.type);
 
       if (nodeStart !== undefined && nodeEnd !== undefined && isValidBlockTarget) {
         // Converted (= cloned) per node so the document never shares references with the annotation stores

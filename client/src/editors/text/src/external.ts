@@ -7,8 +7,8 @@
 export { useConfigStore } from "../../../store/config";
 export { cloneDeep, pruneUnconfiguredProperties } from "../../../utils/helper/helper";
 export { applySaveResult, findNode } from "../../../utils/helper/editGraph";
-export { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
 export { createTextPositionSelector } from "../../../utils/helper/selector";
+export { familyRefOf, findShape, getShapeProperties, shapeRefOf } from "../../../utils/helper/modelHelper";
 
 export type { IAnnotation } from "../../../models/IAnnotation";
 export type { TextPositionSelector } from "../../../utils/helper/selector";
@@ -18,7 +18,6 @@ export type {
   AnnotationExtent,
   AnnotationNode,
   AppearanceOverride,
-  BuiltinStructuralType,
   EditGraph,
   EditNode,
   EditRelation,
@@ -27,5 +26,7 @@ export type {
   IconSpecInput,
   MarkerStyle,
   MathTextStyle,
+  ModelAnnotationShape,
+  NativeType,
   TextAnnotationRepresentation,
 } from "../../../models/types";

@@ -1,4 +1,5 @@
 import { ApiJson } from "../../src/editors/text/src/models/types";
+import { testShapeRefByType } from "./config";
 
 /**
  * A standoff annotation to build a fixture from, with the `start` and `end` of its selector. Both are inclusive, like in
@@ -12,7 +13,8 @@ interface AnnotationSpec {
 
 /**
  * Builds a standoff document as the API returns it. Uuids are `<type>-<position in the list>` so that tests can
- * reference them and the converter's uuid tiebreaks stay deterministic.
+ * reference them and the converter's uuid tiebreaks stay deterministic. Annotations get the `shapeRef` of their type in
+ * the test config, like the server resolves it; types without a shape there get `null`.
  *
  * @param {string} text - The plain text of the document.
  * @param {AnnotationSpec[]} annotations - The annotations on the text.
@@ -34,6 +36,7 @@ function standoff(text: string, annotations: AnnotationSpec[]): ApiJson {
             ...(isZeroPoint ? { isZeroPoint: true as const } : {}),
           },
           nodeLabels: ["Annotation"],
+          shapeRef: testShapeRefByType[type] ?? null,
         },
         status: "unchanged" as const,
         nodes: [],

@@ -1,13 +1,8 @@
 import { z } from "zod";
 import { Attribute, Constraint, RamenModel, RamenFile } from "@ramen-suite/core";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
+import { getNativeTypeConfig, NATIVE_TYPES } from "../editors/text/src/config/constants";
 import { NativeTypeConfig, SpecialCharacterGroupConfig } from "../editors/text/src/models/types";
-import {
-  annotationEntrySchema,
-  builtinStructuralTypeSchema,
-  checkNativeAttributes,
-  classifierEntrySchema,
-} from "./configBlocks.schema";
+import { annotationEntrySchema, checkNativeAttributes, classifierEntrySchema, nativeTypeSchema } from "./configBlocks.schema";
 import type { AttributeOwner } from "../models/types";
 import ConfigValidationError from "../utils/errors/configValidation.error";
 import { findAttribute } from "../utils/helper/modelHelper";
@@ -20,7 +15,7 @@ import { findAttribute } from "../utils/helper/modelHelper";
 const mappingSchema = z
   .strictObject({
     /** The editor's native type */
-    native: builtinStructuralTypeSchema,
+    native: nativeTypeSchema,
     /** Qualified ref (`<modelId>:<id>`) of the annotation shape that implements it */
     annotation: z.string(),
     /** Type of the annotation shape. A hint for readers, the ref decides. */
@@ -242,8 +237,8 @@ function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindin
 }
 
 /**
- * Checks the entries of `editors.text.mappings` against the model: the annotation shape must exist (its `type` hint
- * only warns), the mapped attribute refs must be properties of that shape, and the shape must not override the
+ * Checks the entries of `editors.text.mappings` against the model: every native type must be mapped, the annotation
+ * shape must exist (its `type` hint only warns), the mapped attribute refs must be properties of that shape, and the shape must not override the
  * editor's built-in attributes: each one must be a property of the shape (the mapped one, otherwise the one with the
  * built-in name) with the built-in type, cardinality and constraints. Shapes may add properties of their own.
  *
@@ -262,7 +257,7 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
   mappings.forEach((mapping, index) => {
     const path: string = `editors.text.mappings[${index}] (${mapping.native})`;
     const shape = model.annotations.find((candidate) => `${candidate.modelId}:${candidate.id}` === mapping.annotation);
-    const builtin: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.native);
+    const nativeConfig: NativeTypeConfig = getNativeTypeConfig(mapping.native);
     const ref: string = mapping.annotation;
     const problem = (findingPath: string, message: string, attributeRef?: string): void => {
       findings.push({ severity: "problem", path: findingPath, message, ref, attributeRef });
@@ -298,7 +293,7 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       }
     }
 
-    for (const builtinAttribute of builtin?.attributes ?? []) {
+    for (const builtinAttribute of nativeConfig.attributes) {
       const name: string = mappedNames[builtinAttribute.name] ?? builtinAttribute.name;
       const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
       const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;
@@ -328,6 +323,16 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       }
     }
   });
+
+  for (const native of NATIVE_TYPES) {
+    if (!mappings.some((mapping) => mapping.native === native)) {
+      findings.push({
+        severity: "problem",
+        path: "editors.text.mappings",
+        message: `the native type "${native}" is not mapped to an annotation shape`,
+      });
+    }
+  }
 
   return findings;
 }

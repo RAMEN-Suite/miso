@@ -4,6 +4,8 @@ import type { Annotation, EditGraph, EditNode, ElementGraph } from "../../../../
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
 import { relationRefOf, toContentSaveGraph, toWritePayload } from "../../../../src/utils/helper/writePayload";
+import { BASE_NODE_REF } from "../../../../src/config/ramen";
+import { addNativeShapes } from "../../../fixtures/nativeMappings";
 
 /**
  * A model for the write payload: a Letter (Collection), a Text (Content), a Person (Entity) and the text annotation
@@ -26,13 +28,14 @@ function buildPayloadTestModel() {
     ],
   });
 
+  const { mappings } = addNativeShapes(edition);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "payloadTest",
     model: edition.export(),
     general: { templates: [] },
     elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -64,30 +67,45 @@ describe("relationRefOf", () => {
 });
 
 describe("toContentSaveGraph", () => {
-  test("refs from the Content and the type, a carrier relation for created annotations, a shared node once", () => {
+  test("refs from the shape, a carrier relation for created annotations, a shared node once", () => {
     const content = { classifierRef: refs.text, nodeLabels: ["Content", "Text"], properties: { uuid: "t1", text: "Abcd" } };
     const person: EditNode = { status: "unchanged", classifierRef: refs.person, nodeLabels: ["Entity", "Person"], properties: { uuid: "p1" } };
-    // Annotations rebuilt by the editor carry no refs: they are resolved from the Content and their type
+    // The classifier comes from the shape, whatever the annotation carries
     const created: Annotation = {
-      node: { nodeLabels: ["Annotation"], properties: { uuid: "a1", type: "persName" } } as unknown as Annotation["node"],
+      node: {
+        nodeLabels: ["Annotation"],
+        shapeRef: refs.persName,
+        properties: { uuid: "a1", type: "persName" },
+      } as unknown as Annotation["node"],
       status: "created",
       nodes: [{ ...person }],
       relations: [{ status: "added", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a1", to: "p1" }],
     };
     const withEditedPerson: Annotation = {
-      node: { nodeLabels: ["Annotation"], properties: { uuid: "a2", type: "persName" } } as unknown as Annotation["node"],
+      node: {
+        nodeLabels: ["Annotation"],
+        shapeRef: refs.persName,
+        properties: { uuid: "a2", type: "persName" },
+      } as unknown as Annotation["node"],
       status: "unchanged",
       nodes: [{ ...person, status: "modified", properties: { uuid: "p1", label: "New" } }],
       relations: [{ status: "unchanged", relationRef: refs.refersToPerson, type: "REFERS_TO", from: "a2", to: "p1" }],
     };
+    const withoutShape: Annotation = {
+      node: { nodeLabels: ["Annotation"], shapeRef: null, properties: { uuid: "a3", type: "unknown" } } as unknown as Annotation["node"],
+      status: "modified",
+      nodes: [],
+      relations: [],
+    };
 
-    const graph: EditGraph = toContentSaveGraph(context, content, [created, withEditedPerson]);
+    const graph: EditGraph = toContentSaveGraph(context, content, [created, withEditedPerson, withoutShape]);
 
     expect(graph.nodes.map((node) => [node.properties.uuid, node.status, node.classifierRef, node.shapeRef])).toEqual([
       ["t1", "modified", refs.text, undefined],
       ["a1", "created", refs.family, refs.persName],
       ["p1", "modified", refs.person, undefined],
       ["a2", "unchanged", refs.family, refs.persName],
+      ["a3", "modified", BASE_NODE_REF.Annotation, null],
     ]);
     expect(graph.relations).toEqual([
       { status: "added", relationRef: refs.onText, type: "HAS_ANNOTATION", from: "t1", to: "a1" },

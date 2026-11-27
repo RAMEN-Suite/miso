@@ -7,12 +7,12 @@ import Button from "primevue/button";
 import {
   ANNOTATION_EXTENT_DESCRIPTIONS,
   ANNOTATION_EXTENTS,
-  BUILTIN_STRUCTURAL_CONFIGS,
   TEXT_ANNOTATION_REPRESENTATION_DESCRIPTIONS,
   TEXT_ANNOTATION_REPRESENTATIONS,
   findShape,
   getContentCarrierRefs,
   getContentMedium,
+  getNativeTypeConfig,
   getShapesForNode,
   IconView,
   shapeRefOf,
@@ -120,7 +120,7 @@ const textCarriers = computed<Carrier[]>(() => contentCarriersByMedium.value.get
 const imageCarriers = computed<Carrier[]>(() => contentCarriersByMedium.value.get("image") ?? []);
 
 const extent = computed<Extent>(() => {
-  const nativeExtent: Extent | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === mapping.value?.native)?.extent;
+  const nativeExtent: Extent | undefined = mapping.value ? getNativeTypeConfig(mapping.value.native).extent : undefined;
 
   return nativeExtent ?? entry.value?.editing?.extent ?? "range";
 });

@@ -1,7 +1,7 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
-import { DocAnnotation, StructuralType } from "../models/types";
-import { Annotation, useConfigStore } from "../external";
-import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
+import { DocAnnotation, NativeShape } from "../models/types";
+import { Annotation, ModelAnnotationShape, useConfigStore } from "../external";
+import { isBlockClassificationTarget, VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
   createDefaultDocAnnotation,
   normalizeAnnotation,
@@ -55,12 +55,12 @@ declare module "@tiptap/core" {
   }
 }
 
-const { getStructuralTypes } = useConfigStore();
+const { getNativeShapes } = useConfigStore();
 
 /**
  * Creates the annotation attributes for a structural node type. Both hold {@link DocAnnotation} objects.
  *
- * - `_annotation`: the annotation of the node itself. Defaults to one that only carries the given type, so new nodes
+ * - `_annotation`: the annotation of the node itself. Defaults to one that only carries the given shape, so new nodes
  *   are usable before their first save.
  * - `_blockClassifications`: the block classifications covering the node (e.g. an `opener`), sorted outermost-first.
  *   Only created for {@link VALID_BLOCK_CLASSIFICATION_TARGETS}.
@@ -69,15 +69,15 @@ const { getStructuralTypes } = useConfigStore();
  * properties come from the document on save and are stale until the saved version is written back
  * (command applySavedDocAnnotations).
  *
- * @param {string} defaultType - The configured annotation type of the node type, used in the default `_annotation`.
+ * @param {ModelAnnotationShape} shape - The annotation shape mapped to the node type, used in the default `_annotation`.
  * @param {boolean} isBlockClassificationTarget - Whether the node type can be wrapped by block classifications and therefore
  *   needs the `_blockClassifications` attribute.
  * @returns {Record<string, Attribute>} The attribute definitions, keyed by attribute name.
  */
-function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: boolean): Record<string, Attribute> {
+function createDefaultAttrs(shape: ModelAnnotationShape, isBlockClassificationTarget: boolean): Record<string, Attribute> {
   const attributes: Record<string, Attribute> = {
     _annotation: {
-      default: createDefaultDocAnnotation(defaultType),
+      default: createDefaultDocAnnotation(shape),
       rendered: false,
     },
   };
@@ -102,19 +102,19 @@ function createDefaultAttrs(defaultType: string, isBlockClassificationTarget: bo
  * Adds `_annotation` to all structural node types and `_blockClassifications` to the block classification targets
  * (see {@linkcode createDefaultAttrs}).
  *
- * Built-in types (paragraph, heading, ...) are tiptap nodes with their annotation in `_annotation`. Block
+ * Native types (paragraph, heading, ...) are tiptap nodes with their annotation in `_annotation`. Block
  * classifications (address, closer, ...) are no nodes; they live in `_blockClassifications` of every node they cover.
  */
 export const AnnotationAttributes = Extension.create({
   name: "annotationAttributes",
 
   addGlobalAttributes() {
-    const builtinAttrs: GlobalAttributes = getStructuralTypes().map(({ type, editorRole }: StructuralType) => ({
-      types: [editorRole],
-      attributes: createDefaultAttrs(type, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(editorRole)),
+    const nativeAttrs: GlobalAttributes = getNativeShapes().map(({ native, shape }: NativeShape) => ({
+      types: [native],
+      attributes: createDefaultAttrs(shape, VALID_BLOCK_CLASSIFICATION_TARGETS.includes(native)),
     }));
 
-    return [...builtinAttrs];
+    return [...nativeAttrs];
   },
 
   addCommands() {
@@ -125,7 +125,7 @@ export const AnnotationAttributes = Extension.create({
           const newAnnotation: DocAnnotation = toDocAnnotation(annotation);
 
           tr.doc.nodesBetween(from, to, (node, pos) => {
-            if (!VALID_BLOCK_CLASSIFICATION_TARGETS.includes(node.type.name) || node.isText) {
+            if (!isBlockClassificationTarget(node.type.name) || node.isText) {
               return;
             }
 

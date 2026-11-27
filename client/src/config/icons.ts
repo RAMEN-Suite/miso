@@ -1,7 +1,7 @@
 import { BaseNodeProperties, IconSpec, IconSpecInput, ModelAnnotationShape, ModelContext, Node } from "../models/types";
 import { BASE_NODE_REF } from "./ramen";
 import { getNodeConfig, getShapeConfig, resolveClassifierRef, shapeRefOf } from "../utils/helper/modelHelper";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
+import { nativeTypeIcon } from "../editors/text/src/config/constants";
 
 /** Used for nodes whose labels can't be resolved to a node type (invalid data). */
 const FALLBACK_NODE_ICON: IconSpec = { kind: "lucide", name: "circle-question-mark" };
@@ -36,7 +36,7 @@ export function resolveAnnotationIcon(shape: ModelAnnotationShape | undefined): 
   const native = iconContext.config.editors.text.mappings.find((mapping) => mapping.annotation === shapeRef)?.native;
 
   if (native) {
-    return BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.icon;
+    return nativeTypeIcon(native);
   } else {
     return getShapeConfig(iconContext, shape)?.appearance?.icon;
   }

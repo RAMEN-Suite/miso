@@ -21,6 +21,7 @@ import {
 } from "../../../../src/utils/helper/editGraph";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
 import { relationRefOf } from "../../../../src/utils/helper/writePayload";
+import { addNativeShapes } from "../../../fixtures/nativeMappings";
 
 /** A model with a Letter (Collection), a Text (Content), a Person (Entity) and a text annotation family that may refer to a Person */
 function buildGraphTestModel() {
@@ -33,13 +34,14 @@ function buildGraphTestModel() {
   edition.hasAnnotation(text, family);
   edition.refersTo(family, person);
 
+  const { mappings } = addNativeShapes(edition);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "graphTest",
     model: edition.export(),
     general: { templates: [] },
     elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;

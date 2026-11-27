@@ -285,8 +285,8 @@ async function refetchAfterQueryChange(): Promise<void> {
   await fetchFirstPage();
 }
 
-// PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons
-// (see the same workaround in AnnotationButton.vue), so the width is set on the DOM node directly.
+// PrimeVue's `pt` option does not reliably reach the SplitButton's internal dropdown/main buttons,
+// so the width is set on the DOM node directly.
 onMounted(() => {
   const dropdownButton: HTMLButtonElement | null = sortButton.value?.$el.querySelector(".p-splitbutton-dropdown") ?? null;
 

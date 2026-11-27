@@ -5,18 +5,18 @@ const selectedOptions = ref<string[]>([]);
 const areAllOptionsSelected = computed<boolean>(() => selectedOptions.value.length === allOptions.value.length);
 
 /**
- * Store for filtering the displayed annotation types in the editor instance. The store's data are derived from
- * the config store and is initialized from there.
+ * Store for filtering the displayed annotation shapes in the editor instance. The options are shape refs. The store's
+ * data are derived from the config store and is initialized from there.
  */
 export function useFilterStore() {
   /**
    * Initializes the store with the provided data. Called from the config store. All options are selected initially.
    *
-   * @param {string[]} annotationTypes - The annotation types of the editor, i.e. the options.
+   * @param {string[]} shapeRefs - The refs of the editor's annotation shapes, i.e. the options.
    * @return {void} This function does not return anything.
    */
-  function initializeFilter(annotationTypes: string[]): void {
-    allOptions.value = [...annotationTypes];
+  function initializeFilter(shapeRefs: string[]): void {
+    allOptions.value = [...shapeRefs];
     selectedOptions.value = [...allOptions.value];
   }
 
@@ -34,7 +34,7 @@ export function useFilterStore() {
   }
 
   /**
-   * Toggles a group of options at once (e.g. all types of a category). If every given option is already selected,
+   * Toggles a group of options at once (e.g. all shapes of a category). If every given option is already selected,
    * all of them are deselected. Otherwise the missing ones are added to the selection.
    *
    * @param {string[]} options - The options to toggle.

@@ -1,6 +1,8 @@
 import { useDialog } from "primevue";
 import { Node as PmNode } from "@tiptap/pm/model";
-import { Annotation, ElementNodeStatus, ModelAttribute } from "../models/types";
+import { Annotation, ElementNodeStatus, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import { isNativeType } from "../editors/text/src/config/constants";
+import { getShapeProperties } from "../utils/helper/modelHelper";
 import { type DocAnnotation, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useTiptapStore } from "../store/tiptap";
 import { useConfigStore } from "../store/config";
@@ -16,7 +18,7 @@ import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
  */
 export function useEditStructuralAnnotation() {
   const { tiptap, initialStructuralAnnotations } = useTiptapStore();
-  const { getAnnotationType, getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useConfigStore();
+  const { getShapeOfNative, getEditorOwnedProperties } = useConfigStore();
   const { createModalInstance, destroyModalInstance } = useAppStore();
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -49,14 +51,15 @@ export function useEditStructuralAnnotation() {
       return;
     }
 
-    const type: string = getAnnotationType(node.type.name);
+    const native: string = node.type.name;
+    const shape: ModelAnnotationShape | undefined = isNativeType(native) ? getShapeOfNative(native) : undefined;
 
-    if (!isStructuralType(type)) {
-      console.error(`"${type}" is no structural annotation type.`);
+    if (!isNativeType(native) || !shape) {
+      console.error(`"${native}" has no structural annotation shape.`);
       return;
     }
 
-    const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
+    const editorOwned: string[] = getEditorOwnedProperties(native).map((p) => p.property);
     const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
 
     const status: ElementNodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "unchanged" : "created";
@@ -66,11 +69,11 @@ export function useEditStructuralAnnotation() {
       dialog.open(AnnotationDetailsModal, {
         props: {
           ...ANNOTATION_MODAL_PROPS,
-          header: `Edit ${type} annotation`,
+          header: `Edit ${shape.type} annotation`,
         },
         data: {
           annotation,
-          propertyFields: getTextAnnotationProperties(type).filter(isEditableInForm),
+          propertyFields: getShapeProperties(shape).filter(isEditableInForm),
           mode: "edit",
         },
         emits: {

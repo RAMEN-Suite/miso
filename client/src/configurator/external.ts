@@ -40,7 +40,7 @@ export {
 } from "../utils/helper/modelHelper";
 export { toEditorAppearance } from "../utils/helper/appearance";
 export { BASE_NODE_REF, BASE_NODE_REFS } from "../config/ramen";
-export { BUILTIN_STRUCTURAL_CONFIGS } from "../editors/text/src/config/constants";
+export { NATIVE_TYPES, getNativeTypeConfig, nativeTypeIcon } from "../editors/text/src/config/constants";
 export { getHighlightStyle } from "../editors/text/src/rendering/highlight";
 export { renderMarker } from "../editors/text/src/rendering/marker";
 export { default as IconView } from "../components/RAMENNodeIcon.vue";
@@ -57,4 +57,5 @@ export type {
   MarkerStyle,
   ModelAnnotationShape,
   ModelContext,
+  NativeType,
 } from "../models/types";

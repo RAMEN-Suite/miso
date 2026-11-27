@@ -39,6 +39,7 @@ export type {
   BlockClassificationRange,
   DocAnnotation,
   EditorSettings,
+  NativeShape,
   Range,
   SpecialCharacter,
   SpecialCharacterGroup,

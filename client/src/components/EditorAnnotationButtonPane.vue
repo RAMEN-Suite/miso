@@ -4,6 +4,7 @@ import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
 import { ModelAnnotationShape } from "../models/types";
+import { shapeRefOf } from "../utils/helper/modelHelper";
 import { useAnnotateSelection } from "../composables/useAnnotateSelection";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
@@ -28,7 +29,7 @@ import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 /** A block is either a paragraph or one of the existing heading levels. */
 type BlockTypeValue = "paragraph" | (typeof HEADING_LEVELS)[number];
 
-const { groupedAndSortedAnnotationTypes, getAnnotationRepresentation } = useConfigStore();
+const { groupedAndSortedAnnotationShapes, getAnnotationRepresentation } = useConfigStore();
 const { selectedOptions } = useFilterStore();
 const { tiptap } = useTiptapStore();
 const { annotateBlock, annotateInline } = useAnnotateSelection();
@@ -49,14 +50,14 @@ const structureButtonProps = {
 } as const;
 
 const annotationCategories = computed(() =>
-  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
+  Object.entries(groupedAndSortedAnnotationShapes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
 );
 
 const selectedCategory = ref<string>("");
 
-const blockClassificationTypes = computed<ModelAnnotationShape[]>(() =>
-  (groupedAndSortedAnnotationTypes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
-    (t) => getAnnotationRepresentation(t.type) === "blockClassification",
+const blockClassificationShapes = computed<ModelAnnotationShape[]>(() =>
+  (groupedAndSortedAnnotationShapes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
+    (shape) => getAnnotationRepresentation(shape) === "blockClassification",
   ),
 );
 
@@ -289,20 +290,19 @@ function openTableMenu(event: Event): void {
           >
             <template #icon><RAMENNodeIcon :spec="nativeTypeIcon('hardBreak')" /></template>
           </Button>
-          <template v-if="blockClassificationTypes.length > 0">
+          <template v-if="blockClassificationShapes.length > 0">
             <Divider layout="vertical" class="mx-3! self-stretch" />
             <AnnotationButton
-              v-for="blockType in blockClassificationTypes"
-              :key="blockType.type"
-              v-tooltip.hover.top="{ value: blockType.type, showDelay: 50 }"
+              v-for="shape in blockClassificationShapes"
+              :key="shapeRefOf(shape)"
+              v-tooltip.hover.top="{ value: shape.type, showDelay: 50 }"
               severity="secondary"
-              :type="blockType.type"
-              :disabled="!selectedOptions.includes(blockType.type)"
+              :disabled="!selectedOptions.includes(shapeRefOf(shape))"
               :class="{ 'is-active': true }"
-              :shape="blockType"
+              :shape="shape"
               @clicked="annotateBlock($event)"
             >
-              {{ blockType.type }}
+              {{ shape.type }}
             </AnnotationButton>
           </template>
         </div>
@@ -310,19 +310,18 @@ function openTableMenu(event: Event): void {
       <TabPanel value="annotations">
         <Tabs v-model:value="selectedCategory">
           <TabList>
-            <Tab v-for="[category, types] in annotationCategories" :key="category" :value="category" v-bind="tabProps">
-              {{ capitalize(category) }} ({{ types.length }})
+            <Tab v-for="[category, shapes] in annotationCategories" :key="category" :value="category" v-bind="tabProps">
+              {{ capitalize(category) }} ({{ shapes.length }})
             </Tab>
           </TabList>
           <TabPanels :pt="{ root: { style: { padding: 0 } } }">
-            <TabPanel v-for="[category, types] in annotationCategories" :key="category" :value="category">
+            <TabPanel v-for="[category, shapes] in annotationCategories" :key="category" :value="category">
               <div class="buttons">
                 <AnnotationButton
-                  v-for="type in types"
-                  :key="type.type"
-                  :type="type.type"
-                  :disabled="!selectedOptions.includes(type.type)"
-                  :shape="type"
+                  v-for="shape in shapes"
+                  :key="shapeRefOf(shape)"
+                  :disabled="!selectedOptions.includes(shapeRefOf(shape))"
+                  :shape="shape"
                   @clicked="annotateInline($event)"
                 />
               </div>

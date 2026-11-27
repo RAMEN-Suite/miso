@@ -3,9 +3,10 @@ import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DocAnnotation, EditorSettings } from "../models/types";
-import { useConfigStore } from "../external";
+import { NativeType, useConfigStore } from "../external";
+import { isNativeType } from "../config/constants";
 
-const { getAnnotationType } = useConfigStore();
+const { getShapeOfNative } = useConfigStore();
 
 interface BlockDecorationState {
   decoSet: DecorationSet;
@@ -34,12 +35,12 @@ declare module "@tiptap/core" {
 
 export const BLOCK_DECORATION_KEY = new PluginKey<BlockDecorationState>("blockDecorations");
 
-// Tiptap node-type names (editor roles) that receive an outline + tag bar.
-const DECORATED_ROLES: ReadonlySet<string> = new Set(["paragraph", "heading", "bulletList", "table"]);
+// Native types (tiptap node types) that receive an outline + tag bar.
+const DECORATED_NATIVE_TYPES: ReadonlySet<NativeType> = new Set(["paragraph", "heading", "bulletList", "table"]);
 
 // Paragraphs nested directly inside these containers are skipped to avoid visual clutter
 // (paragraphs inside cells e.g. do not have to be displayed)
-const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "listItem"]);
+const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<NativeType> = new Set(["tableCell", "listItem"]);
 
 /**
  * Build the decoration set, consisting of node decorations and widget decorations depending on the user settings.
@@ -134,35 +135,21 @@ function createTagKey(node: Node, tags: TagData[]): string {
 }
 
 /**
- * Get label for basic building block that should be displayed in a tag.
- *
- * Currently just returns built-in tiptap node names, but the configured name should be used.
+ * Get label for basic building block that should be displayed in a tag: the type of the annotation shape mapped to the
+ * node's native type, with the level for headings.
  *
  * @param {Node} node - The current node
  * @returns {string} The label to be displayed
  */
 function getBaseLabel(node: Node): string {
-  // TODO: Use the configured names instead (projects might use list instead of bulletList e.g.)
-  const role: string = node.type.name;
+  const native: string = node.type.name;
+  const label: string = (isNativeType(native) ? getShapeOfNative(native)?.type : undefined) ?? native;
 
-  if (role === "paragraph") {
-    return "p";
+  if (native === "heading") {
+    return `${label}-${node.attrs.level ?? 1}`;
   }
 
-  if (role === "heading") {
-    return `h#-${node.attrs.level ?? 1}`;
-  }
-
-  if (role === "bulletList") {
-    return "list";
-  }
-
-  if (role === "table") {
-    return "table";
-  }
-
-  // Return the canonical configured type as fallback, derived from the live node's editor role.
-  return getAnnotationType(role);
+  return label;
 }
 
 /**
@@ -186,13 +173,14 @@ function getSemanticLabel(type: string): string {
  * @returns {boolean} `true` if the node needs to be decorated, `false` otherwise
  */
 function needsDecoration(node: Node, parent: Node | null): boolean {
-  const role: string = node.type.name;
+  const native: string = node.type.name;
+  const parentNative: string | undefined = parent?.type.name;
 
-  if (!DECORATED_ROLES.has(role)) {
+  if (!isNativeType(native) || !DECORATED_NATIVE_TYPES.has(native)) {
     return false;
   }
 
-  if (role === "paragraph" && parent && EXCLUDED_PARAGRAPH_PARENTS.has(parent.type.name)) {
+  if (native === "paragraph" && parentNative && isNativeType(parentNative) && EXCLUDED_PARAGRAPH_PARENTS.has(parentNative)) {
     return false;
   }
 

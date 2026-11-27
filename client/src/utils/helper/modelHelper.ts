@@ -601,22 +601,19 @@ export function getContentCarrierRefs(context: ModelContext): string[] {
 }
 
 /**
- * The annotation shapes Content nodes may carry, by type. Of several shapes with the same type, the first one wins,
- * since name matching couldn't tell them apart (`collectConfigWarnings` reports them).
+ * The annotation shapes Content nodes may carry, each once.
  *
  * @param {ModelContext} context - The model context.
- * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
+ * @returns {ModelAnnotationShape[]} The shapes, in the order of the Content carriers.
  */
-export function getTextShapesByType(context: ModelContext): Map<string, ModelAnnotationShape> {
-  const byType = new Map<string, ModelAnnotationShape>();
+export function getTextShapes(context: ModelContext): ModelAnnotationShape[] {
+  const byRef = new Map<string, ModelAnnotationShape>();
 
   for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
-    if (!byType.has(shape.type)) {
-      byType.set(shape.type, shape);
-    }
+    byRef.set(shapeRefOf(shape), shape);
   }
 
-  return byType;
+  return [...byRef.values()];
 }
 
 /**

@@ -33,9 +33,7 @@ const propertyFields: ComputedRef<ModelAttribute[]> = computed(() => getAnnotati
 
 const shape: ComputedRef<ModelAnnotationShape | undefined> = computed(() => getAnnotationShape(annotation.value));
 
-const label: ComputedRef<string> = computed(() =>
-  String(annotation.value.properties.subType ?? annotation.value.properties.type),
-);
+const label: ComputedRef<string> = computed(() => annotation.value.properties.type);
 
 /**
  * Shows or hides the details popover. Ignores remove clicks (not stopped, the confirmation needs them to position).

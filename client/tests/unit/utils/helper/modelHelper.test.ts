@@ -15,7 +15,9 @@ import {
   requiresReferences,
   resolveClassifierRef,
   resolveShapeRef,
+  getTextShapes,
 } from "../../../../src/utils/helper/modelHelper";
+import { addNativeShapes } from "../../../fixtures/nativeMappings";
 
 /**
  * A model for the resolution of stored names:
@@ -53,13 +55,14 @@ function buildResolutionTestModel() {
   edition.createAnnotationShape({ node: textFamily, type: "seg", relations: incoming(onText) });
   edition.createAnnotationShape({ node: otherFamily, type: "seg", relations: incoming(otherOnText) });
 
+  const { mappings } = addNativeShapes(edition);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "resolutionTest",
     model: edition.export(),
     general: { templates: [] },
     elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -156,6 +159,15 @@ describe("resolveShapeRef", () => {
   });
 });
 
+describe("getTextShapes", () => {
+  test("keeps every shape of the Content carriers, also several with the same type", () => {
+    const segShapes: ModelAnnotationShape[] = getTextShapes(context).filter((shape) => shape.type === "seg");
+
+    expect(segShapes).toHaveLength(2);
+    expect(getTextShapes(context).map((shape) => shape.type)).not.toContain("p");
+  });
+});
+
 /**
  * A text annotation type `rs` that may refer to at most one Person (or a refinement) and to any number of Letters,
  * each rule counted on its own.
@@ -184,13 +196,14 @@ function buildReferenceTestModel(personBounds = { lowerBound: 0, upperBound: 1 }
     ],
   });
 
+  const { mappings } = addNativeShapes(edition);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "referenceTest",
     model: edition.export(),
     general: { templates: [] },
     elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
@@ -271,11 +284,13 @@ function buildSettingsTestModel() {
     properties: [{ name: "key", typeId: DataTypes.String, bounds: { lowerBound: 0, upperBound: 1 } }],
     relations: [{ relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } }],
   }).element;
+  const { mappings } = addNativeShapes(edition);
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;
 
   return {
     edition,
+    mappings,
     refs: {
       letter: ref(letter),
       draftLetter: ref(draftLetter),
@@ -287,22 +302,30 @@ function buildSettingsTestModel() {
 }
 
 /** Parses a config of the settings test model with the given `elements` */
-function parseSettingsConfig(edition: RamenModel, elements: unknown) {
+function parseSettingsConfig(edition: RamenModel, mappings: unknown[], elements: unknown) {
   return parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "settingsTest",
     model: edition.export(),
     general: { templates: [] },
     elements,
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
 }
 
 describe("settings by ref", () => {
-  const { edition, refs } = buildSettingsTestModel();
+  const { edition, mappings, refs } = buildSettingsTestModel();
+
+  test("every native type of the text editor needs a mapping", () => {
+    const withoutParagraph = mappings.filter((mapping) => mapping.native !== "paragraph");
+
+    expect(() => parseSettingsConfig(edition, withoutParagraph, { classifiers: {}, annotations: {} })).toThrow(
+      'the native type "paragraph" is not mapped to an annotation shape',
+    );
+  });
 
   test("an attribute's settings on its declaring node apply to subtypes", () => {
-    const { config, model, warnings } = parseSettingsConfig(edition, {
+    const { config, model, warnings } = parseSettingsConfig(edition, mappings, {
       classifiers: {
         [refs.letter]: {
           name: "Letter",
@@ -323,7 +346,7 @@ describe("settings by ref", () => {
   });
 
   test("an entry of a removed element and an outdated name hint only warn", () => {
-    const { warnings } = parseSettingsConfig(edition, {
+    const { warnings } = parseSettingsConfig(edition, mappings, {
       classifiers: { [refs.letter]: { name: "Brief" }, "unknownModel:unknownId": { name: "Gone" } },
       annotations: {},
     });
@@ -335,12 +358,12 @@ describe("settings by ref", () => {
 
   test("a ref of another kind than its section is fatal", () => {
     expect(() =>
-      parseSettingsConfig(edition, { classifiers: { [refs.persName]: { name: "persName" } }, annotations: {} }),
+      parseSettingsConfig(edition, mappings, { classifiers: { [refs.persName]: { name: "persName" } }, annotations: {} }),
     ).toThrow("not a node classifier");
   });
 
   test("an attribute the element doesn't declare itself only warns", () => {
-    const { warnings } = parseSettingsConfig(edition, {
+    const { warnings } = parseSettingsConfig(edition, mappings, {
       classifiers: {},
       annotations: { [refs.persName]: { name: "persName", attributes: { [refs.sentDate]: { name: "sentDate" } } } },
     });
@@ -351,7 +374,7 @@ describe("settings by ref", () => {
 
   test("kind-specific options are checked per section", () => {
     expect(() =>
-      parseSettingsConfig(edition, {
+      parseSettingsConfig(edition, mappings, {
         classifiers: { [refs.letter]: { name: "Letter", controls: { shortcut: "Mod-l" } } },
         annotations: {},
       }),

@@ -7,7 +7,6 @@ import { AnnotationNode, EditGraph, EditNode, ModelAttribute, WriteResponse } fr
 import { isVisible } from "../utils/helper/modelHelper";
 import { useAppStore } from "../store/app";
 import { useConfigStore } from "../store/config";
-import { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../config/annotations";
 import { checkAnnotationValidity, cloneDeep, pruneUnconfiguredProperties } from "../utils/helper/helper";
 import { findNode, referencesOf, updateNode } from "../utils/helper/editGraph";
 import FormPropertiesSection from "./FormPropertiesSection.vue";
@@ -26,13 +25,8 @@ const emit = defineEmits<{
 
 const route = useRoute();
 const { api, addToastMessage } = useAppStore();
-const {
-  getAnnotationShape,
-  getAnnotationNodeProperties,
-  getAnnotationProperties,
-  getMissingAnnotationReferences,
-  getModelContext,
-} = useConfigStore();
+const { getAnnotationNodeProperties, getAnnotationProperties, getMissingAnnotationReferences, getModelContext } =
+  useConfigStore();
 
 const uuid: string = dialogRef.value.data.annotationUuid;
 
@@ -89,13 +83,11 @@ function prepareGraph(): EditGraph {
   const node: EditNode = cloneDeep(found);
   const annotation: AnnotationNode = node as unknown as AnnotationNode;
 
-  if (getAnnotationShape(annotation) || PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
-    pruneUnconfiguredProperties(
-      node.properties,
-      getAnnotationProperties(annotation).map((field) => field.attribute.name),
-      getAnnotationNodeProperties(annotation),
-    );
-  }
+  pruneUnconfiguredProperties(
+    node.properties,
+    getAnnotationProperties(annotation).map((field) => field.attribute.name),
+    getAnnotationNodeProperties(annotation),
+  );
 
   updateNode(prepared, node);
 

@@ -8,9 +8,12 @@ import {
   EditGraph,
   EditNode,
   ElementNodeStatus,
+  ModelAnnotationShape,
   applySaveResult,
   cloneDeep,
+  familyRefOf,
   findNode,
+  shapeRefOf,
 } from "../../external";
 import { ANNOTATION_DECORATION_KEY, type AnnotationDecorationSpec } from "../../extensions/annotationDecoration";
 
@@ -34,14 +37,19 @@ export function annotationToGraph(annotation: Annotation): EditGraph {
 
 /**
  * Creates the annotation of a structural node that is new in the editor (stored in its `_annotation` attribute). It
- * only carries the type; uuid, indices etc. are added on the first save.
+ * only carries the shape and its type; uuid, indices etc. are added on the first save.
  *
- * @param {string} type - The configured annotation type of the node (e.g. `p` for a paragraph).
+ * @param {ModelAnnotationShape} shape - The annotation shape mapped to the node's native type (e.g. the `p` shape for a paragraph).
  * @returns {DocAnnotation} The new annotation.
  */
-export function createDefaultDocAnnotation(type: string): DocAnnotation {
+export function createDefaultDocAnnotation(shape: ModelAnnotationShape): DocAnnotation {
   return {
-    node: { properties: { type }, nodeLabels: ["Annotation"] } as DocAnnotation["node"],
+    node: {
+      properties: { type: shape.type },
+      nodeLabels: ["Annotation"],
+      shapeRef: shapeRefOf(shape),
+      classifierRef: familyRefOf(shape),
+    } as DocAnnotation["node"],
     nodes: [],
     relations: [],
   };

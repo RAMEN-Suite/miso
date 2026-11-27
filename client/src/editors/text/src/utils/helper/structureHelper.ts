@@ -1,8 +1,9 @@
 import { Node } from "@tiptap/pm/model";
 import { BlockClassificationRange, DocAnnotation, ToCItem } from "../../models/types";
 import { useConfigStore } from "../../external";
+import { isNativeType } from "../../config/constants";
 
-const { getAnnotationType } = useConfigStore();
+const { getShapeOfNative } = useConfigStore();
 
 /**
  * Recursively builds a tree of {@link ToCItem} nodes from a ProseMirror node's block children.
@@ -39,7 +40,7 @@ export function buildDocChildren(node: Node, contentStartPos: number, cache: Wea
       data: {
         text: child.textContent ?? "",
         nodeType: child.type.name,
-        type: getAnnotationType(child.type.name),
+        type: (isNativeType(child.type.name) ? getShapeOfNative(child.type.name)?.type : undefined) ?? child.type.name,
         level: child.attrs.level ?? null,
         _annotation: child.attrs._annotation,
         _blockClassifications: child.attrs._blockClassifications ?? [],

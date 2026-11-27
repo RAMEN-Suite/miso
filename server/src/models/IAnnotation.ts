@@ -5,7 +5,6 @@ export type IAnnotation = BaseNodeProperties & {
   [keyof: string]: unknown;
   /** The part of the annotated Content the annotation covers. Only annotations on a Content have one. */
   selector?: Selector;
-  subType?: string | number;
   text: string;
   type: string;
   /** Only present and `true` for zero-point annotations (omitted otherwise)*/

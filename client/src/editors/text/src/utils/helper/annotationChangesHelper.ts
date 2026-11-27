@@ -1,12 +1,12 @@
 import { Node as DocNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
-import { DocAnnotation, IndexMap, TextRange } from "../../models/types";
+import { DocAnnotation, IndexMap, NativeShape, TextRange } from "../../models/types";
+import { isNativeType } from "../../config/constants";
 import {
   Annotation,
   ElementNodeStatus,
   IAnnotation,
   ModelAnnotationShape,
-  NativeType,
   cloneDeep,
   createTextPositionSelector,
   familyRefOf,
@@ -61,13 +61,12 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * - The annotation type itself from the shape mapped to the node's native type
    *
    * @param {DocNode} node The Tiptap node from where the data should be collected.
-   * @param {ModelAnnotationShape} shape The annotation shape mapped to the node's native type.
+   * @param {NativeShape} nativeShape The node's native type and the annotation shape mapped to it.
    * @returns {Record<string, unknown>} The collected properties
    */
-  function assembleStructuralAnnotationData(node: DocNode, shape: ModelAnnotationShape): Record<string, unknown> {
+  function assembleStructuralAnnotationData(node: DocNode, { native, shape }: NativeShape): Record<string, unknown> {
     const savedProperties: Record<string, unknown> = {};
 
-    const native: NativeType = node.type.name as NativeType;
     const annotationData: Record<string, unknown> = (node.attrs._annotation as DocAnnotation | null)?.node.properties ?? {};
 
     const editorOwned = getEditorOwnedProperties(native);
@@ -288,10 +287,11 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const docAnnotation: DocAnnotation | null | undefined = docNode.attrs._annotation;
       // The native type decides, so a paragraph turned into a heading gets the heading's shape
-      const shape: ModelAnnotationShape | undefined = getShapeOfNative(docNode.type.name);
+      const native: string = docNode.type.name;
+      const shape: ModelAnnotationShape | undefined = isNativeType(native) ? getShapeOfNative(native) : undefined;
 
-      if (!shape) {
-        throw new Error(`No annotation shape is mapped to "${docNode.type.name}".`);
+      if (!isNativeType(native) || !shape) {
+        throw new Error(`No annotation shape is mapped to "${native}".`);
       }
 
       // Always "modified" (not worth to fine-tune an it is likely anyway (text changes all the time))
@@ -299,7 +299,7 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
 
       const annotation: Annotation = {
         node: {
-          properties: assembleStructuralAnnotationData(docNode, shape) as IAnnotation,
+          properties: assembleStructuralAnnotationData(docNode, { native, shape }) as IAnnotation,
           nodeLabels: [...(docAnnotation?.node.nodeLabels ?? ["Annotation"])],
           shapeRef: shapeRefOf(shape),
           classifierRef: familyRefOf(shape),

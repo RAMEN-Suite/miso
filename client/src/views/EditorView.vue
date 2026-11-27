@@ -27,6 +27,7 @@ import { useConfigStore } from "../store/config.ts";
 import EditorToC from "../components/EditorToC.vue";
 import { cloneDeep } from "../utils/helper/helper.ts";
 import { type StandoffParseIssue, createAnnotationChangeCollector, normalizeAnnotation } from "../editors/text/src";
+import { isNativeType } from "../editors/text/src/config/constants";
 import { toContentSaveGraph } from "../utils/helper/writePayload.ts";
 import { useEditStructuralAnnotation } from "../composables/useEditStructuralAnnotation.ts";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak.ts";
@@ -202,7 +203,9 @@ async function handleSaveChanges(): Promise<void> {
   }
 
   const nodesWithoutChildrenOrText = getEmptyNodes();
-  const joined: string = nodesWithoutChildrenOrText.map((n) => getShapeOfNative(n.type.name)?.type ?? n.type.name).join(",");
+  const joined: string = nodesWithoutChildrenOrText
+    .map((n) => (isNativeType(n.type.name) ? getShapeOfNative(n.type.name)?.type : undefined) ?? n.type.name)
+    .join(",");
 
   if (nodesWithoutChildrenOrText.length > 0) {
     console.warn("Some nodes have no text: ", joined);

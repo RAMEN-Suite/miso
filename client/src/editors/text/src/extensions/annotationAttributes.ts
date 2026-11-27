@@ -1,7 +1,7 @@
 import { Attribute, Extension, GlobalAttributes } from "@tiptap/core";
 import { DocAnnotation, NativeShape } from "../models/types";
 import { Annotation, ModelAnnotationShape, useConfigStore } from "../external";
-import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
+import { isBlockClassificationTarget, VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
 import {
   createDefaultDocAnnotation,
   normalizeAnnotation,
@@ -125,7 +125,7 @@ export const AnnotationAttributes = Extension.create({
           const newAnnotation: DocAnnotation = toDocAnnotation(annotation);
 
           tr.doc.nodesBetween(from, to, (node, pos) => {
-            if (!VALID_BLOCK_CLASSIFICATION_TARGETS.includes(node.type.name) || node.isText) {
+            if (!isBlockClassificationTarget(node.type.name) || node.isText) {
               return;
             }
 

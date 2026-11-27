@@ -3,7 +3,8 @@ import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DocAnnotation, EditorSettings } from "../models/types";
-import { useConfigStore } from "../external";
+import { NativeType, useConfigStore } from "../external";
+import { isNativeType } from "../config/constants";
 
 const { getShapeOfNative } = useConfigStore();
 
@@ -35,11 +36,11 @@ declare module "@tiptap/core" {
 export const BLOCK_DECORATION_KEY = new PluginKey<BlockDecorationState>("blockDecorations");
 
 // Native types (tiptap node types) that receive an outline + tag bar.
-const DECORATED_NATIVE_TYPES: ReadonlySet<string> = new Set(["paragraph", "heading", "bulletList", "table"]);
+const DECORATED_NATIVE_TYPES: ReadonlySet<NativeType> = new Set(["paragraph", "heading", "bulletList", "table"]);
 
 // Paragraphs nested directly inside these containers are skipped to avoid visual clutter
 // (paragraphs inside cells e.g. do not have to be displayed)
-const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<string> = new Set(["tableCell", "listItem"]);
+const EXCLUDED_PARAGRAPH_PARENTS: ReadonlySet<NativeType> = new Set(["tableCell", "listItem"]);
 
 /**
  * Build the decoration set, consisting of node decorations and widget decorations depending on the user settings.
@@ -142,7 +143,7 @@ function createTagKey(node: Node, tags: TagData[]): string {
  */
 function getBaseLabel(node: Node): string {
   const native: string = node.type.name;
-  const label: string = getShapeOfNative(native)?.type ?? native;
+  const label: string = (isNativeType(native) ? getShapeOfNative(native)?.type : undefined) ?? native;
 
   if (native === "heading") {
     return `${label}-${node.attrs.level ?? 1}`;
@@ -173,12 +174,13 @@ function getSemanticLabel(type: string): string {
  */
 function needsDecoration(node: Node, parent: Node | null): boolean {
   const native: string = node.type.name;
+  const parentNative: string | undefined = parent?.type.name;
 
-  if (!DECORATED_NATIVE_TYPES.has(native)) {
+  if (!isNativeType(native) || !DECORATED_NATIVE_TYPES.has(native)) {
     return false;
   }
 
-  if (native === "paragraph" && parent && EXCLUDED_PARAGRAPH_PARENTS.has(parent.type.name)) {
+  if (native === "paragraph" && parentNative && isNativeType(parentNative) && EXCLUDED_PARAGRAPH_PARENTS.has(parentNative)) {
     return false;
   }
 

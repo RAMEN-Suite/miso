@@ -2,7 +2,8 @@ import HardBreak, { type HardBreakOptions } from "@tiptap/extension-hard-break";
 import { Node as PmNode } from "@tiptap/pm/model";
 import { EditorState, Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, EditorView } from "@tiptap/pm/view";
-import { Annotation, ModelAnnotationShape, NativeType, getShapeProperties, useConfigStore } from "../external";
+import { Annotation, ModelAnnotationShape, getShapeProperties, useConfigStore } from "../external";
+import { isNativeType } from "../config/constants";
 import { DocAnnotation } from "../models/types";
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
@@ -73,8 +74,12 @@ interface AnnotatedHardBreakOptions extends HardBreakOptions {
  * @returns {string[]} The property names, empty if the project gives line breaks no properties.
  */
 function getEditableProperties(nodeName: string): string[] {
+  if (!isNativeType(nodeName)) {
+    return [];
+  }
+
   const shape: ModelAnnotationShape | undefined = getShapeOfNative(nodeName);
-  const editorOwned: string[] = getEditorOwnedProperties(nodeName as NativeType).map((p) => p.property);
+  const editorOwned: string[] = getEditorOwnedProperties(nodeName).map((p) => p.property);
 
   return (shape ? getShapeProperties(shape) : [])
     .map((field) => field.attribute.name)

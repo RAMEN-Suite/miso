@@ -80,9 +80,11 @@ const annotationMapping = shallowRef<AnnotationMapping>({ shapeByNative: {}, att
 const nativeByShapeRef = computed<Map<string, NativeType>>(() => {
   const byRef = new Map<string, NativeType>();
 
-  for (const [native, shape] of Object.entries(annotationMapping.value.shapeByNative)) {
+  for (const native of NATIVE_TYPES) {
+    const shape: ModelAnnotationShape | undefined = annotationMapping.value.shapeByNative[native];
+
     if (shape) {
-      byRef.set(shapeRefOf(shape), native as NativeType);
+      byRef.set(shapeRefOf(shape), native);
     }
   }
 
@@ -519,11 +521,12 @@ export function useConfigStore() {
    *
    * Complementary function of {@linkcode getNativeType}.
    *
-   * @param {string} native The native type, usually a tiptap node type name (e.g. `paragraph`)
-   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for node types that aren't native types
+   * @param {NativeType} native The native type (e.g. `paragraph`)
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if the native type isn't mapped (the config check
+   *   prevents it)
    */
-  function getShapeOfNative(native: string): ModelAnnotationShape | undefined {
-    return annotationMapping.value.shapeByNative[native as NativeType];
+  function getShapeOfNative(native: NativeType): ModelAnnotationShape | undefined {
+    return annotationMapping.value.shapeByNative[native];
   }
 
   /**

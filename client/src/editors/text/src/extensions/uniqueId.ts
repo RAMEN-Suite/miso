@@ -3,6 +3,7 @@ import { EditorState, Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Node } from "@tiptap/pm/model";
 import { ModelAnnotationShape, useConfigStore } from "../external";
 import { createDefaultDocAnnotation } from "../utils/helper/annotationHelper";
+import { isNativeType } from "../config/constants";
 
 const { getShapeOfNative } = useConfigStore();
 
@@ -42,7 +43,8 @@ function fixDuplicateIds(
     }
 
     // The copied annotation belongs to the original, so a structural copy gets a new one
-    const shape: ModelAnnotationShape | undefined = getShapeOfNative(node.type.name);
+    const native: string = node.type.name;
+    const shape: ModelAnnotationShape | undefined = isNativeType(native) ? getShapeOfNative(native) : undefined;
     const newAnnotation = shape ? { _annotation: createDefaultDocAnnotation(shape) } : {};
 
     tr.setNodeMarkup(pos, undefined, {

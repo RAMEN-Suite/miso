@@ -112,6 +112,16 @@ export const NATIVE_TYPE_CONFIGS: Readonly<Record<NativeType, NativeTypeConfig>>
 export const NATIVE_TYPES = Object.keys(NATIVE_TYPE_CONFIGS) as NativeType[];
 
 /**
+ * Checks if a name is a native type, e.g. the type name of a tiptap node.
+ *
+ * @param {string} name - The name to check.
+ * @returns {boolean} `true` if it is a native type, `false` otherwise.
+ */
+export function isNativeType(name: string): name is NativeType {
+  return (NATIVE_TYPES as readonly string[]).includes(name);
+}
+
+/**
  * The config of a native type.
  *
  * @param {NativeType} native - The native type.

@@ -1,5 +1,5 @@
 import { Schema } from "@tiptap/pm/model";
-import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
+import { isBlockClassificationTarget } from "../config/editor";
 import { getNativeTypeConfig } from "../config/constants";
 import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
@@ -137,8 +137,8 @@ export default class StandoffConverter {
    * @param {NativeType} native The native type
    * @returns {readonly string[] | null} The list of allowed child native types or `null` if list is empty
    */
-  private getContainsList(native: NativeType): readonly string[] | null {
-    const list: readonly string[] = getNativeTypeConfig(native).contains;
+  private getContainsList(native: NativeType): readonly NativeType[] | null {
+    const list: readonly NativeType[] = getNativeTypeConfig(native).contains;
 
     return list.length > 0 ? list : null;
   }
@@ -207,7 +207,12 @@ export default class StandoffConverter {
    * @returns {Annotation[]} The immediate structural children, sorted by start index
    */
   private findDirectChildren(parentNative: NativeType, start: number, end: number, allStructural: Annotation[]): Annotation[] {
-    const containsList: readonly string[] | null = this.getContainsList(parentNative);
+    const containsList: readonly NativeType[] | null = this.getContainsList(parentNative);
+    const isAllowedChild = (a: Annotation): boolean => {
+      const native: NativeType | undefined = this.nativeTypeOf(a);
+
+      return containsList === null || (native !== undefined && containsList.includes(native));
+    };
 
     const candidates: Annotation[] = allStructural.filter(
       (a) =>
@@ -215,7 +220,7 @@ export default class StandoffConverter {
         !this.isStructuralZeroPoint(a) &&
         a.node.properties.selector.start >= start &&
         a.node.properties.selector.end <= end &&
-        (containsList === null || containsList.includes(this.nativeTypeOf(a) ?? "")),
+        isAllowedChild(a),
     );
 
     return candidates
@@ -426,7 +431,7 @@ export default class StandoffConverter {
   // while tableRow/table/bulletList do NOT (their content is restricted to cells/rows/items),
   // so orphan gap text inside them must be clamped into an adjacent child instead.
   private parentAllowsParagraph(parentNative: NativeType): boolean {
-    const containsList: readonly string[] | null = this.getContainsList(parentNative);
+    const containsList: readonly NativeType[] | null = this.getContainsList(parentNative);
 
     // No declared children → treated as permissive (leaf types never reach gap-filling anyway).
     if (containsList === null) {
@@ -806,7 +811,7 @@ export default class StandoffConverter {
       const docAnnotation: DocAnnotation | undefined = node.attrs?._annotation;
       const nodeStart: number | undefined = docAnnotation?.node.properties.selector?.start;
       const nodeEnd: number | undefined = docAnnotation?.node.properties.selector?.end;
-      const isValidBlockTarget: boolean = VALID_BLOCK_CLASSIFICATION_TARGETS.includes(node.type);
+      const isValidBlockTarget: boolean = isBlockClassificationTarget(node.type);
 
       if (nodeStart !== undefined && nodeEnd !== undefined && isValidBlockTarget) {
         // Converted (= cloned) per node so the document never shares references with the annotation stores

@@ -2,7 +2,7 @@
 import { computed, nextTick, useTemplateRef, watch } from "vue";
 import Select from "primevue/select";
 import {
-  NATIVE_TYPE_CONFIGS,
+  NATIVE_TYPES,
   findShape,
   getContentCarrierRefs,
   getNativeTypeConfig,
@@ -42,8 +42,6 @@ watch(
   { immediate: true },
 );
 
-const NATIVE_TYPES: NativeType[] = NATIVE_TYPE_CONFIGS.map((config) => config.native);
-
 /** The place of a native type in the form; `index` is the position of its mapping in the config */
 interface MappingSlot {
   native: NativeType;
@@ -75,7 +73,7 @@ const shapeEntries = computed<SelectEntry<string>[]>(() => {
 
 /** The native attributes of a native type */
 function nativeAttributesOf(native: NativeType): string[] {
-  return getNativeTypeConfig(native)?.attributes.map((attribute) => attribute.name) ?? [];
+  return getNativeTypeConfig(native).attributes.map((attribute) => attribute.name);
 }
 
 /** The properties of a mapping's shape as dropdown entries (attribute refs), after the empty one */

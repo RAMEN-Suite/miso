@@ -120,7 +120,7 @@ const textCarriers = computed<Carrier[]>(() => contentCarriersByMedium.value.get
 const imageCarriers = computed<Carrier[]>(() => contentCarriersByMedium.value.get("image") ?? []);
 
 const extent = computed<Extent>(() => {
-  const nativeExtent: Extent | undefined = getNativeTypeConfig(mapping.value?.native)?.extent;
+  const nativeExtent: Extent | undefined = mapping.value ? getNativeTypeConfig(mapping.value.native).extent : undefined;
 
   return nativeExtent ?? entry.value?.editing?.extent ?? "range";
 });

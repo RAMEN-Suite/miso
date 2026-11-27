@@ -4,6 +4,9 @@ import type { NativeTypeAttribute, NativeTypeConfig } from "../models/types";
 const OPTIONAL = { lowerBound: 0, upperBound: 1 } as const;
 const REQUIRED = { lowerBound: 1, upperBound: 1 } as const;
 
+/** Native types that hold blocks (paragraphs, headings, lists and tables) */
+const BLOCK_CONTENT: readonly NativeType[] = ["paragraph", "heading", "bulletList", "table"];
+
 /** TEI `att.tableDecoration` of rows and cells */
 const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
   { name: "rowspan", typeId: "Integer", bounds: OPTIONAL },
@@ -24,19 +27,20 @@ const TABLE_DECORATION_ATTRIBUTES: NativeTypeAttribute[] = [
 ];
 
 /**
- * The structural types the editor implements natively, with the attributes it sets itself. A project names them via
- * `editors.text.mappings` (type and attributes) and declares matching annotation shapes in its model, which may add further
- * properties. The native attributes can be renamed, but not redefined.
+ * The structural types the editor implements natively, with the attributes it sets itself and its nesting rules. A
+ * project names them via `editors.text.mappings` (type and attributes) and declares matching annotation shapes in its
+ * model, which may add further properties. The native attributes can be renamed, but not redefined; the nesting rules
+ * are editor internals and not configurable. Keyed by native type, so every native type has exactly one entry.
  */
-export const NATIVE_TYPE_CONFIGS: NativeTypeConfig[] = [
-  {
-    native: "paragraph",
+export const NATIVE_TYPE_CONFIGS: Readonly<Record<NativeType, NativeTypeConfig>> = {
+  paragraph: {
     extent: "range",
     attributes: [],
     icon: "pilcrow",
+    priority: 20,
+    contains: [],
   },
-  {
-    native: "heading",
+  heading: {
     extent: "range",
     icon: "heading",
     attributes: [
@@ -54,81 +58,75 @@ export const NATIVE_TYPE_CONFIGS: NativeTypeConfig[] = [
         ],
       },
     ],
+    priority: 30,
+    contains: [],
   },
-  {
-    native: "hardBreak",
+  hardBreak: {
     extent: "zeroPoint",
     attributes: [],
     icon: "text-wrap",
+    priority: 10,
+    contains: [],
   },
-  {
-    native: "table",
+  table: {
     extent: "range",
     attributes: [],
     icon: "table",
+    priority: 90,
+    contains: ["tableRow"],
   },
-  {
-    native: "tableRow",
+  tableRow: {
     extent: "range",
     icon: "rows-3",
     // Only kept from stored data on rows, the editor doesn't set them
     attributes: TABLE_DECORATION_ATTRIBUTES,
+    priority: 80,
+    contains: ["tableCell"],
   },
-  {
-    native: "tableCell",
+  tableCell: {
     extent: "range",
     icon: "square",
     // Set by the editor on cells: rowspan/colspan on merge/split, role `label` via the header toggles (`data` is
     // accepted, but not set)
     attributes: TABLE_DECORATION_ATTRIBUTES,
+    priority: 70,
+    contains: BLOCK_CONTENT,
   },
-  {
-    native: "bulletList",
+  bulletList: {
     extent: "range",
     attributes: [],
     icon: "list",
+    priority: 60,
+    contains: ["listItem"],
   },
-  {
-    native: "listItem",
+  listItem: {
     extent: "range",
     attributes: [],
     icon: "dot",
+    priority: 50,
+    contains: BLOCK_CONTENT,
   },
-];
+};
+
+/** The native types, in the order of {@linkcode NATIVE_TYPE_CONFIGS} */
+export const NATIVE_TYPES = Object.keys(NATIVE_TYPE_CONFIGS) as NativeType[];
 
 /**
  * The config of a native type.
  *
- * @param {string | undefined} native - The native type.
- * @returns {NativeTypeConfig | undefined} The config, `undefined` for an unknown native type.
+ * @param {NativeType} native - The native type.
+ * @returns {NativeTypeConfig} The config.
  */
-export function getNativeTypeConfig(native: string | undefined): NativeTypeConfig | undefined {
-  return NATIVE_TYPE_CONFIGS.find((config) => config.native === native);
+export function getNativeTypeConfig(native: NativeType): NativeTypeConfig {
+  return NATIVE_TYPE_CONFIGS[native];
 }
 
 /**
  * The icon of a native type.
  *
  * @param {NativeType} native - The native type.
- * @returns {IconSpecInput | undefined} The icon, `undefined` for an unknown native type.
+ * @returns {IconSpecInput} The icon.
  */
-export function nativeTypeIcon(native: NativeType): IconSpecInput | undefined {
-  return getNativeTypeConfig(native)?.icon;
+export function nativeTypeIcon(native: NativeType): IconSpecInput {
+  return getNativeTypeConfig(native).icon;
 }
-
-/**
- * Nesting rules of the editor's native types, used to build the document tree from standoff annotations.
- * They are editor internals and not configurable.
- * - `priority`: decides which of two annotations with the same range is the outer one. Higher is more outer.
- * - `contains`: the native types allowed as direct children. Empty means no restriction (or a leaf).
- */
-export const NATIVE_TYPE_NESTING = {
-  bulletList: { priority: 60, contains: ["listItem"] },
-  listItem: { priority: 50, contains: ["paragraph", "heading", "bulletList", "table"] },
-  hardBreak: { priority: 10, contains: [] },
-  heading: { priority: 30, contains: [] },
-  table: { priority: 90, contains: ["tableRow"] },
-  paragraph: { priority: 20, contains: [] },
-  tableCell: { priority: 70, contains: ["paragraph", "heading", "bulletList", "table"] },
-  tableRow: { priority: 80, contains: ["tableCell"] },
-} as const;

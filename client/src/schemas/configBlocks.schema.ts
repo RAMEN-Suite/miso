@@ -217,17 +217,17 @@ const annotationAppearanceSchema = z.strictObject({
 /**
  * Reports every attribute of a native mapping that the native type doesn't have.
  *
- * @param {string} nativeType - The native type.
+ * @param {NativeType} nativeType - The native type.
  * @param {Record<string, string> | undefined} attributes - Native attribute -> attribute ref of the project property.
  * @param {z.RefinementCtx} ctx - The refinement context to add the issues to.
  * @returns {void} This function does not return anything.
  */
 export function checkNativeAttributes(
-  nativeType: string,
+  nativeType: NativeType,
   attributes: Record<string, string> | undefined,
   ctx: z.RefinementCtx,
 ): void {
-  const nativeAttributes: string[] = getNativeTypeConfig(nativeType)?.attributes.map((a) => a.name) ?? [];
+  const nativeAttributes: string[] = getNativeTypeConfig(nativeType).attributes.map((a) => a.name);
 
   for (const attribute of Object.keys(attributes ?? {})) {
     if (!nativeAttributes.includes(attribute)) {

@@ -1,6 +1,6 @@
 import { ModelFactory, RAMEN_ELEMENT, RamenModel, type AnnotationShapeInput } from "@ramen-suite/core";
 import type { NativeType } from "../../src/models/types";
-import { NATIVE_TYPE_CONFIGS } from "../../src/editors/text/src/config/constants";
+import { getNativeTypeConfig, NATIVE_TYPES } from "../../src/editors/text/src/config/constants";
 
 /** An entry of `editors.text.mappings` */
 interface NativeMapping {
@@ -44,7 +44,8 @@ export function addNativeShapes(
   const mappings: NativeMapping[] = [];
   const shapeRefByType: Record<string, string> = {};
 
-  for (const { native, attributes } of NATIVE_TYPE_CONFIGS) {
+  for (const native of NATIVE_TYPES) {
+    const { attributes } = getNativeTypeConfig(native);
     const type: string = NATIVE_SHAPE_TYPES[native];
     const shape = edition.createAnnotationShape({
       node,

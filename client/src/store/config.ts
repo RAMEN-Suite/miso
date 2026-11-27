@@ -17,8 +17,7 @@ import {
   NodeTypeOption,
 } from "../models/types";
 import type { AnnotationMapping, NativeShape } from "../editors/text/src";
-import type { NativeTypeConfig } from "../editors/text/src/models/types";
-import { getNativeTypeConfig, NATIVE_TYPE_CONFIGS, NATIVE_TYPE_NESTING } from "../editors/text/src/config/constants";
+import { getNativeTypeConfig, NATIVE_TYPES } from "../editors/text/src/config/constants";
 import { initializeNodeIcons } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import { formatFinding, type ParsedMisoConfig } from "../schemas/misoConfig.schema";
@@ -177,7 +176,7 @@ export function useConfigStore() {
     const native: NativeType | undefined = getNativeType(shape);
 
     if (native) {
-      return getNativeTypeConfig(native)?.extent ?? "range";
+      return getNativeTypeConfig(native).extent;
     }
 
     return getShapeConfig(getModelContext(), shape)?.editing?.extent ?? "range";
@@ -306,9 +305,7 @@ export function useConfigStore() {
    */
   function getEditorOwnedProperties(native: NativeType): { property: string; attribute: string; required: boolean }[] {
     const propertyByAttribute: Readonly<Record<string, string>> = annotationMapping.value.attrByNative[native] ?? {};
-    const config: NativeTypeConfig | undefined = getNativeTypeConfig(native);
-
-    return (config?.attributes ?? []).map((attribute) => ({
+    return getNativeTypeConfig(native).attributes.map((attribute) => ({
       attribute: attribute.name,
       property: propertyByAttribute[attribute.name] ?? attribute.name,
       required: attribute.bounds.lowerBound >= 1,
@@ -488,7 +485,7 @@ export function useConfigStore() {
   function getPriority(shape: ModelAnnotationShape): number {
     const native: NativeType | undefined = getNativeType(shape);
 
-    return native ? NATIVE_TYPE_NESTING[native].priority : 0;
+    return native ? getNativeTypeConfig(native).priority : 0;
   }
 
   /**
@@ -498,7 +495,7 @@ export function useConfigStore() {
    * @returns {NativeShape[]} The native types and their shapes.
    */
   function getNativeShapes(): NativeShape[] {
-    return NATIVE_TYPE_CONFIGS.flatMap(({ native }: NativeTypeConfig): NativeShape[] => {
+    return NATIVE_TYPES.flatMap((native: NativeType): NativeShape[] => {
       const shape: ModelAnnotationShape | undefined = getShapeOfNative(native);
 
       return shape ? [{ native, shape }] : [];

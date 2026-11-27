@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Attribute, Constraint, RamenModel, RamenFile } from "@ramen-suite/core";
-import { getNativeTypeConfig, NATIVE_TYPE_CONFIGS } from "../editors/text/src/config/constants";
+import { getNativeTypeConfig, NATIVE_TYPES } from "../editors/text/src/config/constants";
 import { NativeTypeConfig, SpecialCharacterGroupConfig } from "../editors/text/src/models/types";
 import { annotationEntrySchema, checkNativeAttributes, classifierEntrySchema, nativeTypeSchema } from "./configBlocks.schema";
 import type { AttributeOwner } from "../models/types";
@@ -257,7 +257,7 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
   mappings.forEach((mapping, index) => {
     const path: string = `editors.text.mappings[${index}] (${mapping.native})`;
     const shape = model.annotations.find((candidate) => `${candidate.modelId}:${candidate.id}` === mapping.annotation);
-    const nativeConfig: NativeTypeConfig | undefined = getNativeTypeConfig(mapping.native);
+    const nativeConfig: NativeTypeConfig = getNativeTypeConfig(mapping.native);
     const ref: string = mapping.annotation;
     const problem = (findingPath: string, message: string, attributeRef?: string): void => {
       findings.push({ severity: "problem", path: findingPath, message, ref, attributeRef });
@@ -293,7 +293,7 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       }
     }
 
-    for (const builtinAttribute of nativeConfig?.attributes ?? []) {
+    for (const builtinAttribute of nativeConfig.attributes) {
       const name: string = mappedNames[builtinAttribute.name] ?? builtinAttribute.name;
       const property: Attribute | undefined = shape.properties.find((candidate) => candidate.name === name);
       const label: string = `Annotation shape "${shape.type}" (${mapping.annotation}).${name}, built-in attribute "${builtinAttribute.name}" of "${mapping.native}"`;
@@ -324,7 +324,7 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
     }
   });
 
-  for (const { native } of NATIVE_TYPE_CONFIGS) {
+  for (const native of NATIVE_TYPES) {
     if (!mappings.some((mapping) => mapping.native === native)) {
       findings.push({
         severity: "problem",

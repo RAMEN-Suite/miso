@@ -1,6 +1,6 @@
 import { Schema } from "@tiptap/pm/model";
 import { VALID_BLOCK_CLASSIFICATION_TARGETS } from "../config/editor";
-import { NATIVE_TYPE_NESTING } from "../config/constants";
+import { getNativeTypeConfig } from "../config/constants";
 import { ApiJson, TiptapNode, TiptapNodeAttrs, TiptapJson, DocAnnotation, StandoffParseIssue, TextRange } from "../models/types";
 import {
   Annotation,
@@ -138,7 +138,7 @@ export default class StandoffConverter {
    * @returns {readonly string[] | null} The list of allowed child native types or `null` if list is empty
    */
   private getContainsList(native: NativeType): readonly string[] | null {
-    const list: readonly string[] = NATIVE_TYPE_NESTING[native].contains;
+    const list: readonly string[] = getNativeTypeConfig(native).contains;
 
     return list.length > 0 ? list : null;
   }

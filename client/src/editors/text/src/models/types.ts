@@ -23,14 +23,19 @@ export type NativeTypeAttribute = Pick<Attribute, "name" | "typeId" | "bounds"> 
  * properties and settings (appearance, shortcut ...). Only the values here can't be changed by it.
  */
 export interface NativeTypeConfig {
-  /** The native type, i.e. the tiptap node type, e.g. `paragraph` */
-  native: NativeType;
   /** How annotations of the type extend in the text */
   extent: AnnotationExtent;
   /** The attributes the editor sets itself, in RAMEN terms */
   attributes: NativeTypeAttribute[];
   /** The icon of the type, e.g. `pilcrow` (Lucide shorthand); a mapped shape shows it instead of an icon of its own */
   icon: IconSpecInput;
+  /**
+   * Decides which of two annotations with the same range is the outer one when the document tree is built from
+   * standoff annotations. Higher is more outer.
+   */
+  priority: number;
+  /** The native types allowed as direct children. Empty means no restriction (or a leaf). */
+  contains: readonly NativeType[];
 }
 
 /** A native type of the editor and the project's annotation shape mapped to it */

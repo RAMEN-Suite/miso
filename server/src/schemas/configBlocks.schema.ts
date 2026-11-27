@@ -6,7 +6,7 @@ import { findAttribute } from "../utils/modelHelper.js";
 
 // Schemas of the settings in the config (`elements`, `editors.text.mappings`) and their checks against the model.
 // Mirrors `client/src/schemas/configBlocks.schema.ts`, `checkElements`/`checkMappings` in
-// `client/src/schemas/misoConfig.schema.ts` and the native attributes of `NATIVE_TYPE_CONFIGS`
+// `client/src/schemas/misoConfig.schema.ts` and the native attributes in `NATIVE_TYPE_CONFIGS`
 // (`client/src/editors/text/src/config/constants.ts`); keep them in sync. Not mirrored: the types, since the server only
 // reads a few keys.
 

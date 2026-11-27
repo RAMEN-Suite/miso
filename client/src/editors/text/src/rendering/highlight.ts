@@ -21,13 +21,13 @@ import type { AnnotationAppearance, AppearanceOverride, HighlightTextStyle } fro
  *   highlight: { kind: "properties", fontWeight: "bold" },
  *   variants: [
  *     {
- *       property: "subType",
+ *       property: "rend",
  *       values: { i: { highlight: { kind: "properties", fontStyle: "italic" } } },
  *     },
  *   ],
  * };
  *
- * getHighlightStyle(appearance, { subType: "i", ... });
+ * getHighlightStyle(appearance, { rend: "i", ... });
  *
  * // Returns
  *

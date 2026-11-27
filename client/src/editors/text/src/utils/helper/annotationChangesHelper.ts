@@ -6,7 +6,6 @@ import {
   BuiltinStructuralType,
   ElementNodeStatus,
   IAnnotation,
-  PRUNE_UNCONFIGURED_ANNOTATION_TYPES,
   cloneDeep,
   createTextPositionSelector,
   pruneUnconfiguredProperties,
@@ -45,7 +44,6 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
     getEditorOwnedProperties,
     getTextAnnotationProperties,
     isBuiltinStructuralType,
-    isConfiguredAnnotationType,
     isZeroPoint,
   } = useConfigStore();
 
@@ -327,17 +325,13 @@ export function createAnnotationChangeCollector(state: EditorState, initial: Ini
    * Removes all properties from the given annotation that are not in the config, in place.
    * Used for inline annotations and block classifications, whose data are sent as they are stored in the editor.
    *
-   * Annotations of an unconfigured type are left untouched unless {@link PRUNE_UNCONFIGURED_ANNOTATION_TYPES} is set.
+   * Annotations of an unconfigured type keep only their node and editor properties.
    *
    * @param {Annotation} annotation - The (cloned) annotation to prune.
    * @returns {void} This function does not return any value.
    */
   function pruneAnnotationData(annotation: Annotation): void {
     const type: string = annotation.node.properties.type;
-
-    if (!isConfiguredAnnotationType(type) && !PRUNE_UNCONFIGURED_ANNOTATION_TYPES) {
-      return;
-    }
 
     pruneUnconfiguredProperties(
       annotation.node.properties,

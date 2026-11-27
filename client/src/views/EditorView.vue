@@ -107,7 +107,8 @@ const activeResizer = ref<string>("");
 const PARSE_ISSUE_CONSEQUENCES: Record<StandoffParseIssue["reason"], string> = {
   clampedGap: "The repaired structure is stored with the next save.",
   textMismatch: "Annotations may be displayed at the wrong position, and saving can write these positions to the database.",
-  unconfiguredType: "Annotations of unconfigured types were found. Saving can change or remove their data.",
+  unconfiguredType:
+    "Annotations of types that are not in the model were found. Saving removes their data that the model doesn't define.",
 };
 
 /** The parse errors of the current document, displayed in the parse error dialog. */

@@ -307,7 +307,8 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
         {
           nodeName: "span",
           "data-annotation-type": type,
-          "data-annotation-uuid": uuid,          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
+          "data-annotation-uuid": uuid,
+          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
         },
         { inclusiveEnd: true, ...spec },
       );

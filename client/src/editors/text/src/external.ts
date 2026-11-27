@@ -7,7 +7,6 @@
 export { useConfigStore } from "../../../store/config";
 export { cloneDeep, pruneUnconfiguredProperties } from "../../../utils/helper/helper";
 export { applySaveResult, findNode } from "../../../utils/helper/editGraph";
-export { PRUNE_UNCONFIGURED_ANNOTATION_TYPES } from "../../../config/annotations";
 export { createTextPositionSelector } from "../../../utils/helper/selector";
 
 export type { IAnnotation } from "../../../models/IAnnotation";

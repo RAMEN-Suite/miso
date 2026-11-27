@@ -4,6 +4,7 @@ import { useFilterStore } from "../store/filter";
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import type { ModelAnnotationShape } from "../models/types";
+import { shapeRefOf } from "../utils/helper/modelHelper";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import Button from "primevue/button";
@@ -25,23 +26,13 @@ const filterableCategories: ComputedRef<Record<string, ModelAnnotationShape[]>> 
 });
 
 /**
- * Retrieves the type names of the given annotation shapes.
- *
- * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
- * @returns {string[]} The type names.
- */
-function getCategoryTypes(shapes: ModelAnnotationShape[]): string[] {
-  return shapes.map((shape) => shape.type);
-}
-
-/**
  * Counts how many of the given annotation shapes are currently selected.
  *
  * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
- * @returns {number} The number of selected types.
+ * @returns {number} The number of selected shapes.
  */
 function getSelectedCount(shapes: ModelAnnotationShape[]): number {
-  return shapes.filter((shape) => selectedOptions.value.includes(shape.type)).length;
+  return shapes.filter((shape) => selectedOptions.value.includes(shapeRefOf(shape))).length;
 }
 
 /**
@@ -127,7 +118,7 @@ function togglePopover(event: Event): void {
                   :input-id="`filter-category-${category}`"
                   binary
                   size="small"
-                  @update:model-value="toggleOptions(getCategoryTypes(shapes))"
+                  @update:model-value="toggleOptions(shapes.map(shapeRefOf))"
                 />
                 <span class="category-name truncate">
                   {{ capitalize(category) }}
@@ -149,11 +140,16 @@ function togglePopover(event: Event): void {
               <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
                 v-for="shape of shapes"
-                :key="shape.type"
-                :for="`filter-type-${shape.type}`"
+                :key="shapeRefOf(shape)"
+                :for="`filter-type-${shapeRefOf(shape)}`"
                 class="row option flex items-center gap-2"
               >
-                <Checkbox v-model="selectedOptions" :input-id="`filter-type-${shape.type}`" :value="shape.type" size="small" />
+                <Checkbox
+                  v-model="selectedOptions"
+                  :input-id="`filter-type-${shapeRefOf(shape)}`"
+                  :value="shapeRefOf(shape)"
+                  size="small"
+                />
                 <span class="annotation-type-icon-container shrink-0">
                   <AnnotationTypeIcon :shape="shape" :size="16" />
                 </span>

@@ -41,7 +41,7 @@ const referenceGraph = computed<EditGraph>(() => annotationToGraph(props.annotat
 
 const shape: ModelAnnotationShape | undefined = getAnnotationShape(props.annotation.node);
 
-const isZeroPointAnnotation: boolean = getAnnotationExtent(props.annotation.node.properties.type) === "zeroPoint";
+const isZeroPointAnnotation: boolean = shape !== undefined && getAnnotationExtent(shape) === "zeroPoint";
 const propertyFields: ModelAttribute[] = getAnnotationProperties(props.annotation.node);
 
 /** Whether the card body is hidden. Can be controlled by the parent via `v-model:collapsed`. */

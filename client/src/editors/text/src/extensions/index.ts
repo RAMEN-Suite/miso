@@ -21,8 +21,8 @@ import { ZeroPointAnnotation } from "./zeroPointAnnotation";
 
 /** What the host provides to configure the editor's extensions. */
 export interface ExtensionOptions {
-  /** Returns the configured appearance of an annotation type, used to render markers and highlights. */
-  getAppearance: (type: string) => AnnotationAppearance | undefined;
+  /** Returns the configured appearance of an annotation shape (by ref), used to render markers and highlights. */
+  getAppearance: (shapeRef: string) => AnnotationAppearance | undefined;
   /** Called with the uuid of a line break whose `¬` formatting mark was clicked, e.g. to edit its properties. */
   onHardBreakMarkerClick?: (uuid: string) => void;
   /**
@@ -30,10 +30,10 @@ export interface ExtensionOptions {
    * for required properties first (and insert with `insertAnnotatedHardBreak`). Without it, the shortcuts insert right away.
    */
   onHardBreakShortcut?: () => void;
-  /** Annotation type per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "Person" }`. */
+  /** Annotation shape ref per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "<modelId>:<shapeId>" }`. */
   annotationShortcuts?: Record<string, string>;
-  /** Called with the annotation type of a pressed annotation shortcut, so the host can annotate the selection. */
-  onAnnotationShortcut?: (type: string) => void;
+  /** Called with the shape ref of a pressed annotation shortcut, so the host can annotate the selection. */
+  onAnnotationShortcut?: (shapeRef: string) => void;
 }
 
 /**

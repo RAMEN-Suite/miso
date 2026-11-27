@@ -135,16 +135,24 @@ describe("unicode", () => {
   });
 });
 
-describe("unconfigured types", () => {
-  test("reports one error per unconfigured type with the number of annotations", () => {
+describe("annotations without a shape", () => {
+  test("reports one error per type with the number of annotations", () => {
     const { issues } = convert(fixtures.unconfigured);
 
     expect(issues).toEqual([
       {
         severity: "error",
         reason: "unconfiguredType",
-        message: '2 annotation(s) of type "unknownType" are not configured.',
+        message: '2 annotation(s) of type "unknownType" have no annotation shape in the model.',
       },
     ]);
+  });
+
+  test("an annotation of a modelled type without its shape ref counts as unconfigured", () => {
+    const doc: ApiJson = structuredClone(fixtures.twoParagraphs);
+
+    doc.annotations[1].node.shapeRef = null;
+
+    expect(convert(doc).issues.map((issue) => issue.reason)).toEqual(["unconfiguredType"]);
   });
 });

@@ -1,5 +1,6 @@
 import { Schema } from "@tiptap/pm/model";
-import { Annotation } from "../models/types";
+import { Annotation, ModelAnnotationShape } from "../models/types";
+import { shapeRefOf } from "../utils/helper/modelHelper";
 import { StandoffConverter, type TiptapJson } from "../editors/text/src";
 import { useConfigStore } from "../store/config";
 import { useTiptapStore } from "../store/tiptap";
@@ -15,7 +16,7 @@ export interface TextPreview {
 
 interface UseTextPreviewReturnType {
   createTextPreview: (text: string, annotations: Annotation[], maxLength: number) => TextPreview;
-  getTextPreviewAnnotationTypes: () => string[];
+  getTextPreviewShapeRefs: () => string[];
 }
 
 /**
@@ -25,23 +26,36 @@ interface UseTextPreviewReturnType {
  * @returns {UseTextPreviewReturnType} An object containing the functions to build previews.
  */
 export function useTextPreview(): UseTextPreviewReturnType {
-  const { getAnnotationRepresentation, getEditorRole, getStructuralTypes } = useConfigStore();
+  const { getAnnotationRepresentation, getAnnotationShape, getEditorRole, getStructuralShapes } = useConfigStore();
   const { getEditorSchema } = useTiptapStore();
 
   /**
-   * Returns the annotation types a text preview is built from (all structural ones), e.g. to fetch only those.
+   * Returns the refs of the annotation shapes a text preview is built from (all structural ones), e.g. to fetch only
+   * those.
    *
-   * @returns {string[]} The project annotation types
+   * @returns {string[]} The shape refs
    */
-  function getTextPreviewAnnotationTypes(): string[] {
-    return getStructuralTypes().map((structural) => structural.type);
+  function getTextPreviewShapeRefs(): string[] {
+    return getStructuralShapes().map(({ shape }) => shapeRefOf(shape));
+  }
+
+  /**
+   * Returns the editor role of an annotation's shape.
+   *
+   * @param {Annotation} annotation The annotation
+   * @returns {string | undefined} The role, `undefined` if the annotation has no shape mapped to one
+   */
+  function roleOf(annotation: Annotation): string | undefined {
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation.node);
+
+    return shape ? getEditorRole(shape) : undefined;
   }
 
   /**
    * Builds a read-only preview document from the beginning of a text.
    *
    * Only structural annotations (paragraphs, headings, lists, tables, line breaks) are used, all others are ignored, so
-   * passing only those (see {@linkcode getTextPreviewAnnotationTypes}) is enough.
+   * passing only those (see {@linkcode getTextPreviewShapeRefs}) is enough.
    * Long texts are cut after about `maxLength` characters, see {@linkcode findCutIndex}.
    *
    * @param {string} text The full text
@@ -51,9 +65,11 @@ export function useTextPreview(): UseTextPreviewReturnType {
    */
   function createTextPreview(text: string, annotations: Annotation[], maxLength: number): TextPreview {
     const schema: Schema = getEditorSchema();
-    const structural: Annotation[] = annotations.filter(
-      (a) => getAnnotationRepresentation(a.node.properties.type) === "structure",
-    );
+    const structural: Annotation[] = annotations.filter((a) => {
+      const shape: ModelAnnotationShape | undefined = getAnnotationShape(a.node);
+
+      return shape !== undefined && getAnnotationRepresentation(shape) === "structure";
+    });
 
     const cut: number = findCutIndex(text, structural, maxLength, schema);
     const isTruncated: boolean = cut < text.length;
@@ -86,7 +102,7 @@ export function useTextPreview(): UseTextPreviewReturnType {
     const lastIndex: number = maxLength - 1;
     const textBlock: Annotation | undefined = structural.find(
       (a) =>
-        schema.nodes[getEditorRole(a.node.properties.type)]?.isTextblock &&
+        schema.nodes[roleOf(a) ?? ""]?.isTextblock &&
         a.node.properties.selector.start <= lastIndex &&
         a.node.properties.selector.end >= lastIndex,
     );
@@ -120,6 +136,6 @@ export function useTextPreview(): UseTextPreviewReturnType {
 
   return {
     createTextPreview,
-    getTextPreviewAnnotationTypes,
+    getTextPreviewShapeRefs,
   };
 }

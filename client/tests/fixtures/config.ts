@@ -1,18 +1,10 @@
-import { ModelFactory, RAMEN_ELEMENT, RamenModel, AnnotationShapeInput } from "@ramen-suite/core";
-import type { AnnotationShapeConfig, BuiltinStructuralType } from "../../src/models/types";
-import { BUILTIN_STRUCTURAL_CONFIGS } from "../../src/editors/text/src/config/constants";
+import { RAMEN_ELEMENT, RamenModel, AnnotationShapeInput } from "@ramen-suite/core";
+import type { AnnotationShapeConfig } from "../../src/models/types";
 import { parseMisoConfig, ParsedMisoConfig } from "../../src/schemas/misoConfig.schema";
+import { addNativeShapes } from "./nativeMappings";
 
-/** Annotation types of the text family: the built-in structure types plus one or two per representation and extent */
-const TEXT_ANNOTATION_TYPES: { type: string; native?: BuiltinStructuralType; settings?: AnnotationShapeConfig }[] = [
-  { type: "p", native: "paragraph" },
-  { type: "head", native: "heading" },
-  { type: "lb", native: "hardBreak" },
-  { type: "list", native: "bulletList" },
-  { type: "item", native: "listItem" },
-  { type: "table", native: "table" },
-  { type: "row", native: "tableRow" },
-  { type: "cell", native: "tableCell" },
+/** Annotation types of the text family besides the native structure types: one or two per representation and extent */
+const TEXT_ANNOTATION_TYPES: { type: string; settings: AnnotationShapeConfig }[] = [
   { type: "opener", settings: { editing: { extent: "range", representation: "blockClassification" } } },
   { type: "closer", settings: { editing: { extent: "range", representation: "blockClassification" } } },
   { type: "add", settings: { editing: { extent: "range", representation: "inline" } } },
@@ -21,48 +13,34 @@ const TEXT_ANNOTATION_TYPES: { type: string; native?: BuiltinStructuralType; set
 ];
 
 /**
- * Builds a minimal Miso config for the tests: a `Text` content type, one text annotation family with the types above
- * (the structure types with the editor's built-in attributes, the others with their settings in
- * `elements.annotations`), and the native mappings of the structure types. The model is built with RAMEN core, so it stays valid when the
- * library changes, and the config is validated the same way the app does on load.
+ * Builds a minimal Miso config for the tests: a `Text` content type, one text annotation family with the native
+ * structure types (see `addNativeShapes`, mapped) and the types above (with their settings in `elements.annotations`).
+ * The model is built with RAMEN core, so it stays valid when the library changes, and the config is validated the same
+ * way the app does on load.
  *
- * @returns {ParsedMisoConfig} The validated config and its imported model.
+ * @returns {{ parsed: ParsedMisoConfig; shapeRefByType: Record<string, string> }} The validated config with its
+ *   imported model, and the ref of each annotation shape by its type.
  */
-function buildTestConfig(): ParsedMisoConfig {
+function buildTestConfig(): { parsed: ParsedMisoConfig; shapeRefByType: Record<string, string> } {
   const edition = RamenModel.create("Test edition");
   const text = edition.createNode({ name: "Text", refines: RAMEN_ELEMENT.CONTENT }).element;
   const family = edition.createNode({ name: "TextAnnotation", refines: RAMEN_ELEMENT.ANNOTATION }).element;
   const onText = edition.hasAnnotation(text, family).element;
   const modelId: string = edition.getModel().id;
-  const mappings: { native: BuiltinStructuralType; annotation: string; type: string }[] = [];
+  const relations: AnnotationShapeInput["relations"] = [
+    { relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } },
+  ];
+  const { mappings, shapeRefByType } = addNativeShapes(edition, family, relations);
   const annotations: Record<string, AnnotationShapeConfig & { name: string }> = {};
 
-  for (const { type, native, settings } of TEXT_ANNOTATION_TYPES) {
-    // Mapped shapes must declare the editor's built-in attributes unchanged, see `parseMisoConfig`
-    const builtinAttributes = BUILTIN_STRUCTURAL_CONFIGS.find((config) => config.type === native)?.attributes ?? [];
-    const input: AnnotationShapeInput = {
-      node: family,
-      type,
-      properties: builtinAttributes.map(({ constraints, ...attribute }) => ({
-        ...attribute,
-        ...(constraints
-          ? { constraints: constraints.map((constraint) => ({ ...constraint, id: ModelFactory.createIdentifier() })) }
-          : {}),
-      })),
-      relations: [{ relations: [onText], direction: "incoming", bounds: { lowerBound: 1, upperBound: 1 } }],
-    };
-    const shape = edition.createAnnotationShape(input).element;
+  for (const { type, settings } of TEXT_ANNOTATION_TYPES) {
+    const shape = edition.createAnnotationShape({ node: family, type, relations }).element;
 
-    if (native) {
-      mappings.push({ native, annotation: `${modelId}:${shape.id}`, type });
-    }
-
-    if (settings) {
-      annotations[`${modelId}:${shape.id}`] = { name: type, ...settings };
-    }
+    shapeRefByType[type] = `${modelId}:${shape.id}`;
+    annotations[shapeRefByType[type]] = { name: type, ...settings };
   }
 
-  return parseMisoConfig({
+  const parsed: ParsedMisoConfig = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "testConfig",
     model: edition.export(),
@@ -70,7 +48,14 @@ function buildTestConfig(): ParsedMisoConfig {
     elements: { classifiers: {}, annotations },
     editors: { text: { mappings } },
   });
+
+  return { parsed, shapeRefByType };
 }
 
+const built = buildTestConfig();
+
 /** The validated Miso config the unit tests initialize the config store with. */
-export const testConfig: ParsedMisoConfig = buildTestConfig();
+export const testConfig: ParsedMisoConfig = built.parsed;
+
+/** The ref of each annotation shape of {@linkcode testConfig} by its type, e.g. for fixture annotations. */
+export const testShapeRefByType: Readonly<Record<string, string>> = built.shapeRefByType;

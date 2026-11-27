@@ -3,6 +3,26 @@ import Neo4jDriver from "../database/neo4j.js";
 import { ElementResponse, ModelContext } from "../models/types.js";
 import ConfigService from "./config.service.js";
 import { StoredGraphRelation, StoredNodeRecord, toElementResponse } from "../utils/storedGraph.js";
+import { findShape } from "../utils/modelHelper.js";
+import ValidationError from "../errors/validation.error.js";
+
+/**
+ * The `type` the annotations of an annotation shape are stored with.
+ *
+ * @param {ModelContext} context - The model context.
+ * @param {string} shapeRef - The qualified ref of the shape.
+ * @returns {string} The type.
+ * @throws {ValidationError} If the model has no shape with this ref.
+ */
+function typeOfShape(context: ModelContext, shapeRef: string): string {
+  const type: string | undefined = findShape(context, shapeRef)?.type;
+
+  if (type === undefined) {
+    throw new ValidationError(`Unknown annotation shape: ${shapeRef}`);
+  }
+
+  return type;
+}
 
 export default class AnnotationService {
   /**
@@ -16,10 +36,15 @@ export default class AnnotationService {
    *
    * @param {string} nodeUuid - The UUID of the annotated node.
    * @param {object} [options] - Optional filters.
-   * @param {string[]} [options.types] - Only top-level annotations of these types. All types if omitted.
+   * @param {string[]} [options.shapes] - Only top-level annotations of these annotation shapes (refs), matched by their
+   *   stored `type`. All if omitted.
    * @return {Promise<ElementResponse>} The nodes, relations and diagnostics. Empty if the node has no annotations.
+   * @throws {ValidationError} If a shape ref is not in the model.
    */
-  public async getAnnotations(nodeUuid: string, options: { types?: string[] } = {}): Promise<ElementResponse> {
+  public async getAnnotations(nodeUuid: string, options: { shapes?: string[] } = {}): Promise<ElementResponse> {
+    const context: ModelContext = await ConfigService.getModelContext();
+    const types: string[] | null = options.shapes ? options.shapes.map((ref: string) => typeOfShape(context, ref)) : null;
+
     const query: string = `
     MATCH (n:Content|Collection {uuid: $nodeUuid})-[:HAS_ANNOTATION]->(a:Annotation)
     WHERE $types IS NULL OR a.type IN $types
@@ -50,10 +75,7 @@ export default class AnnotationService {
             + [rel IN references + nested | {type: type(rel), from: startNode(rel).uuid, to: endNode(rel).uuid}] AS relations
     `;
 
-    const [result, context]: [QueryResult, ModelContext] = await Promise.all([
-      Neo4jDriver.runQuery(query, { nodeUuid, types: options.types ?? null }),
-      ConfigService.getModelContext(),
-    ]);
+    const result: QueryResult = await Neo4jDriver.runQuery(query, { nodeUuid, types });
     const record = result.records[0];
 
     if (!record) {

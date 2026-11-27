@@ -37,8 +37,8 @@ interface ZeroPointAttributes {
 }
 
 interface ZeroPointOptions {
-  /** Returns the configured appearance of the given annotation type, used to render its marker. */
-  getAppearance: (type: string) => AnnotationAppearance | undefined;
+  /** Returns the configured appearance of the given annotation shape (by ref), used to render its marker. */
+  getAppearance: (shapeRef: string) => AnnotationAppearance | undefined;
 }
 
 export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
@@ -93,7 +93,7 @@ export const ZeroPointAnnotation = Node.create<ZeroPointOptions>({
 
       elm.setAttribute("data-annotation-type", annotationType);
 
-      renderMarker(elm, this.options.getAppearance(annotationType), annotation?.node.properties);
+      renderMarker(elm, this.options.getAppearance(annotation?.node.shapeRef ?? ""), annotation?.node.properties);
 
       return { dom: elm };
     };

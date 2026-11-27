@@ -5,7 +5,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { DocAnnotation, EditorSettings } from "../models/types";
 import { useConfigStore } from "../external";
 
-const { getAnnotationType } = useConfigStore();
+const { getShapeOfRole } = useConfigStore();
 
 interface BlockDecorationState {
   decoSet: DecorationSet;
@@ -134,35 +134,21 @@ function createTagKey(node: Node, tags: TagData[]): string {
 }
 
 /**
- * Get label for basic building block that should be displayed in a tag.
- *
- * Currently just returns built-in tiptap node names, but the configured name should be used.
+ * Get label for basic building block that should be displayed in a tag: the type of the annotation shape mapped to the
+ * node's editor role, with the level for headings.
  *
  * @param {Node} node - The current node
  * @returns {string} The label to be displayed
  */
 function getBaseLabel(node: Node): string {
-  // TODO: Use the configured names instead (projects might use list instead of bulletList e.g.)
   const role: string = node.type.name;
-
-  if (role === "paragraph") {
-    return "p";
-  }
+  const label: string = getShapeOfRole(role)?.type ?? role;
 
   if (role === "heading") {
-    return `h#-${node.attrs.level ?? 1}`;
+    return `${label}-${node.attrs.level ?? 1}`;
   }
 
-  if (role === "bulletList") {
-    return "list";
-  }
-
-  if (role === "table") {
-    return "table";
-  }
-
-  // Return the canonical configured type as fallback, derived from the live node's editor role.
-  return getAnnotationType(role);
+  return label;
 }
 
 /**

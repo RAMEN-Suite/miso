@@ -1,10 +1,10 @@
 import { Extension } from "@tiptap/core";
 
 interface AnnotationShortcutsOptions {
-  /** Annotation type per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "Person" }`. */
+  /** Annotation shape ref per shortcut in keymap notation, e.g. `{ "Mod-Shift-e": "<modelId>:<shapeId>" }`. */
   shortcuts: Record<string, string>;
-  /** Called with the annotation type of a pressed shortcut, so the host can annotate the selection. */
-  onShortcut?: (type: string) => void;
+  /** Called with the shape ref of a pressed shortcut, so the host can annotate the selection. */
+  onShortcut?: (shapeRef: string) => void;
 }
 
 /**
@@ -24,17 +24,17 @@ export const AnnotationShortcuts = Extension.create<AnnotationShortcutsOptions>(
   },
 
   addKeyboardShortcuts() {
-    const onShortcut: ((type: string) => void) | undefined = this.options.onShortcut;
+    const onShortcut: ((shapeRef: string) => void) | undefined = this.options.onShortcut;
 
     if (!onShortcut) {
       return {};
     }
 
     return Object.fromEntries(
-      Object.entries(this.options.shortcuts).map(([shortcut, type]) => [
+      Object.entries(this.options.shortcuts).map(([shortcut, shapeRef]) => [
         shortcut,
         () => {
-          onShortcut(type);
+          onShortcut(shapeRef);
 
           return true;
         },

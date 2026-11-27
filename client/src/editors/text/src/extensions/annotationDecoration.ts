@@ -43,7 +43,7 @@ declare module "@tiptap/core" {
        */
       initializeDecorations: (
         annotations: Map<string, Annotation>,
-        selectedTypes: string[],
+        selectedShapeRefs: string[],
         visibleFrom: number,
         visibleTo: number,
       ) => ReturnType;
@@ -56,7 +56,7 @@ declare module "@tiptap/core" {
        *   a decoration (e.g. zero-point annotations) are ignored.
        */
       applySavedAnnotations: (annotations: Map<string, Annotation>) => ReturnType;
-      applyFilterUpdates: (selectedTypes: string[]) => ReturnType;
+      applyFilterUpdates: (selectedShapeRefs: string[]) => ReturnType;
       applyViewportUpdates: (docRange: { from: number; to: number }) => ReturnType;
     };
   }
@@ -67,7 +67,7 @@ interface AnnotationDecorationState {
   filtered: DecorationSet;
   visibleFrom: number;
   visibleTo: number;
-  selectedTypes: string[];
+  selectedShapeRefs: string[];
   /** Counter that increases whenever an annotation is added, removed or its data replaced. Not affected by text edits. */
   revision: number;
 }
@@ -79,7 +79,7 @@ interface InitMeta {
   annotations: Map<string, Annotation>;
   visibleFrom: number;
   visibleTo: number;
-  selectedTypes: string[];
+  selectedShapeRefs: string[];
 }
 
 interface SavedMeta {
@@ -89,7 +89,7 @@ interface SavedMeta {
 
 interface FilterUpdateMeta {
   type: "filterUpdated";
-  selectedTypes: string[];
+  selectedShapeRefs: string[];
 }
 
 interface ViewportMeta {
@@ -99,7 +99,8 @@ interface ViewportMeta {
 }
 
 export interface AnnotationDecorationSpec {
-  _type: string;
+  /** Ref of the annotation's shape, empty for annotations without one */
+  _shapeRef: string;
   _uuid: string;
   /**
    * The annotation itself (data, status, nodes and relations). The decoration is its source of truth while it
@@ -110,12 +111,12 @@ export interface AnnotationDecorationSpec {
 
 interface AnnotationDecorationOptions {
   /**
-   * Returns the configured appearance of the given annotation type, used for the inline style of its decorations.
+   * Returns the configured appearance of the given annotation shape, used for the inline style of its decorations.
    *
-   * @param {string} type The annotation type
+   * @param {string} shapeRef The ref of the annotation shape
    * @returns {AnnotationAppearance | undefined} The configured appearance or undefined if not found
    */
-  getAppearance: (type: string) => AnnotationAppearance | undefined;
+  getAppearance: (shapeRef: string) => AnnotationAppearance | undefined;
 }
 
 function findDecorationsByUuid(decorationSet: DecorationSet, uuid: string): Decoration[] {
@@ -125,17 +126,17 @@ function findDecorationsByUuid(decorationSet: DecorationSet, uuid: string): Deco
 function createFilteredDecorations(
   decorationSet: DecorationSet,
   filters: {
-    selectedTypes: string[];
+    selectedShapeRefs: string[];
     visibleFrom: number;
     visibleTo: number;
   },
   tr: Transaction,
 ): DecorationSet {
   const { doc } = tr;
-  const { selectedTypes, visibleFrom, visibleTo } = filters;
+  const { selectedShapeRefs, visibleFrom, visibleTo } = filters;
 
   const filteredDecorations: Decoration[] = decorationSet.find(visibleFrom, visibleTo, (spec: AnnotationDecorationSpec) =>
-    selectedTypes.includes(spec._type),
+    selectedShapeRefs.includes(spec._shapeRef),
   );
 
   return DecorationSet.create(doc, filteredDecorations);
@@ -216,7 +217,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
         },
 
       initializeDecorations:
-        (annotations: Map<string, Annotation>, selectedTypes: string[], visibleFrom: number, visibleTo: number) =>
+        (annotations: Map<string, Annotation>, selectedShapeRefs: string[], visibleFrom: number, visibleTo: number) =>
         ({ tr, dispatch }) => {
           // TODO: Or should this be filtered outside the plugin?
           const filtered = new Map<string, Annotation>();
@@ -230,7 +231,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
           const meta: InitMeta = {
             type: "initialize",
             annotations: filtered,
-            selectedTypes,
+            selectedShapeRefs,
             visibleFrom,
             visibleTo,
           };
@@ -259,11 +260,11 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
         },
 
       applyFilterUpdates:
-        (selectedTypes: string[]) =>
+        (selectedShapeRefs: string[]) =>
         ({ tr, dispatch }) => {
           const meta: FilterUpdateMeta = {
             type: "filterUpdated",
-            selectedTypes,
+            selectedShapeRefs,
           };
 
           tr.setMeta(ANNOTATION_DECORATION_KEY, meta);
@@ -298,8 +299,9 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
 
     function createDecoration(from: number, to: number, annotation: Annotation): Decoration {
       const { type, uuid } = annotation.node.properties;
+      const shapeRef: string = annotation.node.shapeRef ?? "";
 
-      const spec: AnnotationDecorationSpec = { _type: type, _uuid: uuid, _annotation: annotation };
+      const spec: AnnotationDecorationSpec = { _shapeRef: shapeRef, _uuid: uuid, _annotation: annotation };
 
       return Decoration.inline(
         from,
@@ -308,7 +310,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
           nodeName: "span",
           "data-annotation-type": type,
           "data-annotation-uuid": uuid,
-          style: getHighlightStyle(getAppearance(type), annotation.node.properties),
+          style: getHighlightStyle(getAppearance(shapeRef), annotation.node.properties),
         },
         { inclusiveEnd: true, ...spec },
       );
@@ -342,7 +344,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
             return {
               all: DecorationSet.empty,
               filtered: DecorationSet.empty,
-              selectedTypes: [],
+              selectedShapeRefs: [],
               visibleFrom: 0,
               visibleTo: 0,
               revision: 0,
@@ -361,7 +363,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
               const newFiltered: DecorationSet = createFilteredDecorations(
                 newAll,
                 {
-                  selectedTypes: meta.selectedTypes,
+                  selectedShapeRefs: meta.selectedShapeRefs,
                   visibleFrom: meta.visibleFrom,
                   visibleTo: meta.visibleTo,
                 },
@@ -371,7 +373,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
               return {
                 all: newAll,
                 filtered: newFiltered,
-                selectedTypes: meta.selectedTypes,
+                selectedShapeRefs: meta.selectedShapeRefs,
                 visibleFrom: meta.visibleFrom,
                 visibleTo: meta.visibleTo,
                 revision: oldDecorations.revision + 1,
@@ -405,14 +407,14 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
                 newAll,
                 {
                   ...oldDecorations,
-                  selectedTypes: meta.selectedTypes,
+                  selectedShapeRefs: meta.selectedShapeRefs,
                 },
                 tr,
               );
 
               return {
                 ...oldDecorations,
-                selectedTypes: meta.selectedTypes,
+                selectedShapeRefs: meta.selectedShapeRefs,
                 all: newAll,
                 filtered: newFiltered,
               };
@@ -423,7 +425,7 @@ export const AnnotationDecoration = Extension.create<AnnotationDecorationOptions
               const newFiltered: DecorationSet = createFilteredDecorations(
                 newAll,
                 {
-                  selectedTypes: oldDecorations.selectedTypes,
+                  selectedShapeRefs: oldDecorations.selectedShapeRefs,
                   visibleFrom: meta.visibleFrom,
                   visibleTo: meta.visibleTo,
                 },

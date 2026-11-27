@@ -242,8 +242,8 @@ function checkElements(model: RamenFile, elements: ConfigElements): ConfigFindin
 }
 
 /**
- * Checks the entries of `editors.text.mappings` against the model: the annotation shape must exist (its `type` hint
- * only warns), the mapped attribute refs must be properties of that shape, and the shape must not override the
+ * Checks the entries of `editors.text.mappings` against the model: every native type must be mapped, the annotation
+ * shape must exist (its `type` hint only warns), the mapped attribute refs must be properties of that shape, and the shape must not override the
  * editor's built-in attributes: each one must be a property of the shape (the mapped one, otherwise the one with the
  * built-in name) with the built-in type, cardinality and constraints. Shapes may add properties of their own.
  *
@@ -328,6 +328,16 @@ function checkMappings(model: RamenFile, mappings: ConfigMapping[]): ConfigFindi
       }
     }
   });
+
+  for (const builtin of BUILTIN_STRUCTURAL_CONFIGS) {
+    if (!mappings.some((mapping) => mapping.native === builtin.type)) {
+      findings.push({
+        severity: "problem",
+        path: "editors.text.mappings",
+        message: `the native type "${builtin.type}" is not mapped to an annotation shape`,
+      });
+    }
+  }
 
   return findings;
 }

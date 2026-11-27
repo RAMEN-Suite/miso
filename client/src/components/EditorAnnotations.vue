@@ -4,6 +4,7 @@ import { useDebounceFn } from "@vueuse/core";
 import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import { Annotation, ModelAnnotationShape } from "../models/types";
+import { shapeRefOf } from "../utils/helper/modelHelper";
 import Panel from "primevue/panel";
 import Tree from "primevue/tree";
 import AnnotationTypeIcon from "./AnnotationTypeIcon.vue";
@@ -73,7 +74,7 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
         children: [] as TreeNode[],
       } satisfies TreeNode;
 
-      const annos: Annotation[] = displayedAnnotations.value.filter((a) => a.node.properties.type === shape.type);
+      const annos: Annotation[] = displayedAnnotations.value.filter((a) => a.node.shapeRef === shapeRefOf(shape));
 
       annos.forEach((anno: Annotation, k: number) => {
         const newAnnotation: TreeNode = {

@@ -4,6 +4,7 @@ import type { ElementDiagnostic, ElementGraph, ElementNode, ElementRelation } fr
 import { parseMisoConfig } from "../../../../src/schemas/misoConfig.schema";
 import { createModelContext } from "../../../../src/utils/helper/modelHelper";
 import { ELEMENT_DIAGNOSTIC_CODE, relationInstanceId, validateElements } from "../../../../src/utils/helper/instanceMapper";
+import { addNativeShapes } from "../../../fixtures/nativeMappings";
 
 /**
  * A model for validating elements: a Letter (Collection) with a required `status`, a Text (Content), a Person (Entity)
@@ -30,13 +31,14 @@ function buildMapperTestModel() {
     ],
   });
 
+  const { mappings } = addNativeShapes(edition);
   const { config, model } = parseMisoConfig({
     $schema: "https://ramen-schema.org/miso/1.0.0/config.schema.json",
     id: "mapperTest",
     model: edition.export(),
     general: { templates: [] },
     elements: { classifiers: {}, annotations: {} },
-    editors: { text: { mappings: [] } },
+    editors: { text: { mappings } },
   });
   const modelId: string = edition.getModel().id;
   const ref = (element: { id: string }): string => `${modelId}:${element.id}`;

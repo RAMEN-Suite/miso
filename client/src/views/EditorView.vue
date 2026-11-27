@@ -53,10 +53,10 @@ const {
   setNewInitialState,
 } = useTiptapStore();
 
-const { getAnnotationType, getModelContext } = useConfigStore();
+const { getShapeOfRole, getModelContext } = useConfigStore();
 const { openStructuralAnnotationEditor } = useEditStructuralAnnotation();
 const { insertLineBreak } = useInsertLineBreak();
-const { annotateByType } = useAnnotateSelection();
+const { annotateByShapeRef } = useAnnotateSelection();
 
 onUnmounted(() => destroyTiptap());
 
@@ -202,7 +202,7 @@ async function handleSaveChanges(): Promise<void> {
   }
 
   const nodesWithoutChildrenOrText = getEmptyNodes();
-  const joined: string = nodesWithoutChildrenOrText.map((n) => getAnnotationType(n.type.name)).join(",");
+  const joined: string = nodesWithoutChildrenOrText.map((n) => getShapeOfRole(n.type.name)?.type ?? n.type.name).join(",");
 
   if (nodesWithoutChildrenOrText.length > 0) {
     console.warn("Some nodes have no text: ", joined);
@@ -398,7 +398,7 @@ watch(
     const parseIssues: StandoffParseIssue[] = initializeTiptap(standoffObject, {
       onHardBreakMarkerClick: openStructuralAnnotationEditor,
       onHardBreakShortcut: insertLineBreak,
-      onAnnotationShortcut: annotateByType,
+      onAnnotationShortcut: annotateByShapeRef,
     });
 
     isLoading.value = false;

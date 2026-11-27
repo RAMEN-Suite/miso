@@ -42,7 +42,7 @@ function createStore() {
     const { api } = useAppStore();
     const { getAllCollectionAttributes, getHierarchyClassifierRefs, getModelContext } = useConfigStore();
     const { getSmartViewFilters } = useSmartViewsStore();
-    const { getTextPreviewAnnotationTypes } = useTextPreview();
+    const { getTextPreviewShapeRefs } = useTextPreview();
 
     const levels = ref<Level[]>([]);
     const focus = ref<FocusData | null>(null);
@@ -290,7 +290,7 @@ function createStore() {
         // TODO: Handle errors
         const [content, annotations] = await Promise.all([
           api.getContent(uuid),
-          api.getAnnotations(uuid, { types: getTextPreviewAnnotationTypes() }),
+          api.getAnnotations(uuid, { shapes: getTextPreviewShapeRefs() }),
         ]);
 
         return {

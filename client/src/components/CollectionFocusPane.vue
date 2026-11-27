@@ -125,7 +125,7 @@ const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
     .map((shape: ModelAnnotationShape) => ({
       label: shape.type,
       annotationShape: shape,
-      command: () => handleAnnotationButtonClick({ type: shape.type }),
+      command: () => handleAnnotationButtonClick(shape),
     }));
 });
 
@@ -516,25 +516,22 @@ function enrichCollectionData(): void {
   });
 }
 
-function handleAnnotationButtonClick(data: { type: string }): void {
-  const collection: CollectionNode = temporaryWorkData.value.collection;
-  const newAnnotation: AnnotationNode = createAnnotation({ ...data, collection });
-  const shape: ModelAnnotationShape | undefined = getAnnotationShape(newAnnotation);
-
-  if (!shape) {
-    console.error(
-      `No annotation shape found for type "${data.type}" on Collection with labels ${collection.nodeLabels.join(", ")}`,
-    );
-    return;
-  }
-
+/**
+ * Creates an annotation of the given shape on the Collection: through the modal if the shape has constraints,
+ * otherwise saved right away.
+ *
+ * @param {ModelAnnotationShape} shape - The annotation shape.
+ * @returns {void} This function does not return any value.
+ */
+function handleAnnotationButtonClick(shape: ModelAnnotationShape): void {
+  const newAnnotation: AnnotationNode = createAnnotation({ shape });
   const changed: EditGraph = cloneDeep(graph.value);
 
   createNode(changed, toGraphNode(getModelContext(), newAnnotation));
   addRelation(changed, carrierRelationOf(newAnnotation));
 
   if (annotationHasConstraints(shape)) {
-    openAnnotationModal(changed, newAnnotation.properties.uuid, `Add new ${data.type} annotation`);
+    openAnnotationModal(changed, newAnnotation.properties.uuid, `Add new ${shape.type} annotation`);
   } else {
     void saveGraph(changed);
   }

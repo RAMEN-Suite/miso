@@ -8,15 +8,7 @@ import type {
   ModelContext,
 } from "../../models/types";
 import type { ConfigFinding } from "../../schemas/misoConfig.schema";
-import {
-  findAttribute,
-  getContentCarrierRefs,
-  getOptions,
-  getShapeConfig,
-  getShapesForNode,
-  getTextShapesByType,
-  shapeRefOf,
-} from "./modelHelper";
+import { findAttribute, getOptions, getShapeConfig, getTextShapes, shapeRefOf } from "./modelHelper";
 
 /**
  * Checks of the settings that need the imported model, beyond the ref checks of `checkConfig`. All findings are
@@ -26,7 +18,6 @@ import {
  *   which are blocks), variant properties that aren't properties of the shape, variant values that aren't options of
  *   the property
  * - shortcuts used by several text annotation types
- * - a second text annotation shape with the same type (left out by name matching)
  * - text annotation shapes without a configured extent or representation (not mapped to a native type)
  * - mappings to shapes that Content nodes can't carry, native types mapped twice
  *
@@ -97,7 +88,7 @@ function checkAppearances(context: ModelContext): ConfigFinding[] {
 function checkShortcuts(context: ModelContext): ConfigFinding[] {
   const shapesByShortcut = new Map<string, ModelAnnotationShape[]>();
 
-  for (const shape of getTextShapesByType(context).values()) {
+  for (const shape of getTextShapes(context)) {
     const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
 
     if (shortcut) {
@@ -122,30 +113,14 @@ function checkShortcuts(context: ModelContext): ConfigFinding[] {
   );
 }
 
-/** Text shapes that name matching leaves out or that lack editing settings, and mappings that don't fit the text shapes */
+/** Text shapes that lack editing settings, and mappings that don't fit the text shapes */
 function checkTextShapes(context: ModelContext): ConfigFinding[] {
   const findings: ConfigFinding[] = [];
-  const textShapes: Map<string, ModelAnnotationShape> = getTextShapesByType(context);
-  const textShapeRefs = new Set<string>([...textShapes.values()].map(shapeRefOf));
-  const seenRefs = new Set<string>(textShapeRefs);
-
-  for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
-    const ref: string = shapeRefOf(shape);
-
-    if (!seenRefs.has(ref)) {
-      findings.push({
-        severity: "warning",
-        path: `model: annotation shape "${shape.type}" (${ref})`,
-        message: `a second annotation shape with type "${shape.type}" on Content nodes is left out`,
-        ref,
-      });
-      seenRefs.add(ref);
-    }
-  }
-
+  const textShapes: ModelAnnotationShape[] = getTextShapes(context);
+  const textShapeRefs = new Set<string>(textShapes.map(shapeRefOf));
   const mappedRefs = new Set<string>(context.config.editors.text.mappings.map((mapping) => mapping.annotation));
 
-  for (const shape of textShapes.values()) {
+  for (const shape of textShapes) {
     const ref: string = shapeRefOf(shape);
     const editing: AnnotationShapeConfig["editing"] = getShapeConfig(context, shape)?.editing;
     const missing: string[] = [

@@ -1,10 +1,9 @@
-import { computed, readonly, ref, shallowRef } from "vue";
+import { computed, readonly, shallowRef } from "vue";
 import { useFilterStore } from "./filter";
 import {
   AnnotationAppearance,
   AnnotationExtent,
   AnnotationNode,
-  AnnotationShapeConfig,
   BaseNodeProperties,
   BuiltinStructuralType,
   CollectionNode,
@@ -17,10 +16,9 @@ import {
   Node,
   NodeTypeOption,
 } from "../models/types";
-import type { AnnotationMapping } from "../editors/text/src";
-import type { NativeTypeConfig, StructuralType } from "../editors/text/src/models/types";
+import type { AnnotationMapping, StructuralShape } from "../editors/text/src";
+import type { NativeTypeConfig } from "../editors/text/src/models/types";
 import { BUILTIN_STRUCTURAL_CONFIGS, BUILTIN_STRUCTURAL_NESTING } from "../editors/text/src/config/constants";
-import { DEFAULT_ANNOTATION_MAPPING } from "../editors/text/src/config/editor";
 import { initializeNodeIcons } from "../config/icons";
 import { STRUCTURE_ANNOTATION_GROUP } from "../config/annotations";
 import { formatFinding, type ParsedMisoConfig } from "../schemas/misoConfig.schema";
@@ -38,7 +36,7 @@ import {
   getShapeConfig,
   getShapeProperties,
   getShapesForNode,
-  getTextShapesByType,
+  getTextShapes,
   isRequired,
   getMissingReferences,
   getReferenceTargetRefs,
@@ -47,7 +45,6 @@ import {
   refersToEntities,
   requiresReferences,
   resolveRelationRef,
-  resolveShapeRef,
   shapeRefOf,
 } from "../utils/helper/modelHelper";
 import { toEditorAppearance } from "../utils/helper/appearance";
@@ -65,51 +62,32 @@ const { initializeFilter } = useFilterStore();
  * doesn't change after the initialization, and the RAMEN core model is a class instance.
  */
 const modelContext = shallowRef<ModelContext>();
-/**
- * The annotation shapes Content nodes may carry, by type. Built once on initialization, since the editor looks them up
- * for every annotation it renders.
- */
-const textShapesByType = shallowRef<Map<string, ModelAnnotationShape>>(new Map());
+/** The annotation shapes Content nodes may carry, each once. Built on initialization. */
+const textShapes = shallowRef<ModelAnnotationShape[]>([]);
 const isInitialized = computed<boolean>(() => modelContext.value !== undefined);
 
 const groupedAndSortedAnnotationShapes = shallowRef<Record<string, ModelAnnotationShape[]>>();
 
 /**
- * The appearances of the text annotation types as the text editor reads them (property names instead of attribute
- * refs), by type. Built once on initialization, since the editor looks them up for every annotation it renders.
+ * The appearances of the text annotation shapes as the text editor reads them (property names instead of attribute
+ * refs), by shape ref. Built once on initialization, since the editor looks them up for every annotation it renders.
  */
-const editorAppearancesByType = shallowRef<Map<string, AnnotationAppearance>>(new Map());
+const editorAppearancesByRef = shallowRef<Map<string, AnnotationAppearance>>(new Map());
 
-/** The structural annotation types of the project and their editor node types. Rebuilt when the mapping changes. */
-const structuralTypes = ref<StructuralType[]>([]);
+/** Mapping between the editor's native structural types and the project's annotation shapes. Built on initialization. */
+const annotationMapping = shallowRef<AnnotationMapping>({ shapeByRole: {}, attrByRole: {} });
 
-/**
- * Mapping between default and project-specific structural annotations.
- *
- * Is {@linkcode DEFAULT_ANNOTATION_MAPPING} at first, and gets replaced with the project's mapping on initialization.
- */
-const annotationMapping = ref<AnnotationMapping>(DEFAULT_ANNOTATION_MAPPING);
+/** The native structural type of each mapped annotation shape, by shape ref. Inverse of `shapeByRole`. */
+const roleByShapeRef = computed<Map<string, BuiltinStructuralType>>(() => {
+  const byRef = new Map<string, BuiltinStructuralType>();
 
-/** Inverse of the `typeByRole` key in the config (project type name -> built-in role)
- *
- * @example
- * {
- *    "p": "paragraph",
- *    "lb": "hardBreak"
- * }
- */
-const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
-  const out: Record<string, BuiltinStructuralType> = {};
-
-  for (const role of Object.keys(annotationMapping.value.typeByRole) as BuiltinStructuralType[]) {
-    const projectType: string | undefined = annotationMapping.value.typeByRole[role];
-
-    if (projectType !== undefined) {
-      out[projectType] = role;
+  for (const [role, shape] of Object.entries(annotationMapping.value.shapeByRole)) {
+    if (shape) {
+      byRef.set(shapeRefOf(shape), role as BuiltinStructuralType);
     }
   }
 
-  return out;
+  return byRef;
 });
 
 /**
@@ -117,8 +95,8 @@ const roleByType = computed<Record<string, BuiltinStructuralType>>(() => {
  * initialized with the fetched Miso config. Model questions are answered by RAMEN core, the config of model elements
  * comes from `elements` and `editors.text.mappings`.
  *
- * Nodes are looked up by their classifier (`classifierRef`, see {@link getClassifierRef}), annotations
- * by their `shapeRef`. Text annotation types are matched by `type`, which is the editor's key.
+ * Nodes are looked up by their classifier (`classifierRef`, see {@link getClassifierRef}), annotations by their
+ * annotation shape (`shapeRef`, see {@link getAnnotationShape}). The `type` of an annotation is only its stored value.
  */
 export function useConfigStore() {
   /**
@@ -164,106 +142,64 @@ export function useConfigStore() {
 
   /**
    * Builds the mapping between the editor's native structural types/attributes and the project's annotation
-   * types/properties. Starts from the default mapping in {@linkcode DEFAULT_ANNOTATION_MAPPING} and overrides it with
-   * the `editors.text.mappings` of the config, whose attribute refs are resolved to the property names.
+   * shapes/properties from the `editors.text.mappings` of the config, whose attribute refs are resolved to the property
+   * names. A native type mapped twice keeps its first mapping (the config check warns about it).
    *
    * @param {ModelContext} context - The model context to read the mappings from.
    * @returns {AnnotationMapping} The annotation mapping.
    */
   function buildAnnotationMapping(context: ModelContext): AnnotationMapping {
-    const typeByRole: Partial<Record<BuiltinStructuralType, string>> = { ...DEFAULT_ANNOTATION_MAPPING.typeByRole };
-    const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {
-      ...DEFAULT_ANNOTATION_MAPPING.attrByRole,
-    };
+    const shapeByRole: Partial<Record<BuiltinStructuralType, ModelAnnotationShape>> = {};
+    const attrByRole: Partial<Record<BuiltinStructuralType, Record<string, string>>> = {};
 
     for (const mapping of context.config.editors.text.mappings) {
       const shape: ModelAnnotationShape | undefined = findShape(context, mapping.annotation);
 
-      if (!shape) {
-        console.warn(`Miso config: mapping of "${mapping.native}" points to an unknown annotation shape "${mapping.annotation}"`);
+      if (!shape || shapeByRole[mapping.native]) {
         continue;
       }
 
-      typeByRole[mapping.native] = shape.type;
-      attrByRole[mapping.native] = { ...attrByRole[mapping.native], ...getMappedAttributeNames(context, mapping) };
+      shapeByRole[mapping.native] = shape;
+      attrByRole[mapping.native] = getMappedAttributeNames(context, mapping);
     }
 
-    return { typeByRole, attrByRole };
+    return { shapeByRole, attrByRole };
   }
 
   /**
-   * Builds the structural annotation types: every built-in type under its project name (via the active mapping). Only
-   * mapped shapes may be represented as structure (enforced by `checkConfig`).
+   * Returns the extent of an annotation shape (`zeroPoint`/`range`). A shape mapped to a native type has the native
+   * type's extent; otherwise the configured `editing.extent` is used, `range` if there is none.
    *
-   * @returns {StructuralType[]} The structural types.
-   */
-  function buildStructuralTypes(): StructuralType[] {
-    return BUILTIN_STRUCTURAL_CONFIGS.map((config: NativeTypeConfig) => ({
-      type: getAnnotationType(config.type),
-      editorRole: config.type,
-    }));
-  }
-
-  /**
-   * Returns the extent of an annotation type (`zeroPoint`/`range`), computed on demand. A built-in mapping
-   * uses the built-in's canonical extent; otherwise the configured `editing.extent` is used.
-   * Unknown/collection types degrade to `range`.
-   *
-   * @param {string} type The project annotation type
+   * @param {ModelAnnotationShape} shape The annotation shape
    * @returns {AnnotationExtent} The resolved extent
    */
-  function getAnnotationExtent(type: string): AnnotationExtent {
-    if (isBuiltinStructuralType(type)) {
-      return getBuiltinExtent(type);
+  function getAnnotationExtent(shape: ModelAnnotationShape): AnnotationExtent {
+    const role: BuiltinStructuralType | undefined = getEditorRole(shape);
+
+    if (role) {
+      return BUILTIN_STRUCTURAL_CONFIGS.find((config: NativeTypeConfig) => config.type === role)?.extent ?? "range";
     }
 
-    const extent: AnnotationExtent | undefined = getTextAnnotationConfig(type)?.editing?.extent;
-
-    if (!extent) {
-      console.error('No extent found for annotation type "' + type + '"');
-    }
-
-    return extent ?? "range";
+    return getShapeConfig(getModelContext(), shape)?.editing?.extent ?? "range";
   }
 
   /**
-   * Returns how an annotation type is represented in the text editor (`structure`/`inline`/`blockClassification`),
-   * computed on demand from the config. A built-in mapping always wins (early return); otherwise the configured
-   * `editing.representation` is used. Unknown/collection types degrade to `inline`.
+   * Returns how an annotation shape is represented in the text editor (`structure`/`inline`/`blockClassification`). A
+   * shape mapped to a native type is always `structure`; otherwise the configured `editing.representation` is used,
+   * `inline` if there is none.
    *
    * NOTE: this is the annotation's *classification*, distinct from {@linkcode getEditorRole}, which returns
-   * the tiptap node name of a structural type.
+   * the tiptap node name of a structural shape.
    *
-   * @param {string} type The project annotation type
+   * @param {ModelAnnotationShape} shape The annotation shape
    * @returns {TextAnnotationRepresentation} The resolved representation
    */
-  function getAnnotationRepresentation(type: string): TextAnnotationRepresentation {
-    if (isBuiltinStructuralType(type)) {
+  function getAnnotationRepresentation(shape: ModelAnnotationShape): TextAnnotationRepresentation {
+    if (getEditorRole(shape)) {
       return "structure";
     }
 
-    const representation: TextAnnotationRepresentation | undefined = getTextAnnotationConfig(type)?.editing?.representation;
-
-    if (!representation) {
-      console.error('No representation found for annotation type "' + type + '"');
-    }
-
-    return representation ?? "inline";
-  }
-
-  /**
-   * Returns the project annotation type name for a given editor role, via the active annotation mapping.
-   *
-   * E.g. `getAnnotationType('paragraph')` returns "p" when the mapping binds `paragraph -> 'p'`.
-   * Falls back to the role itself if not mapped.
-   *
-   * Complementary function of {@linkcode getEditorRole}.
-   *
-   * @param {string} editorRole The editor role (e.g. `bulletList`)
-   * @returns {string} The project annotation type (e.g. `list`) if mapped, else the given role
-   */
-  function getAnnotationType(editorRole: string): string {
-    return annotationMapping.value.typeByRole[editorRole as BuiltinStructuralType] ?? editorRole;
+    return getShapeConfig(getModelContext(), shape)?.editing?.representation ?? "inline";
   }
 
   /**
@@ -350,26 +286,12 @@ export function useConfigStore() {
   }
 
   /**
-   * Canonical extent of the built-in editor role that `type` maps to (via the mapping). Used to force
-   * a type that maps to a built-in onto the built-in's extent (e.g. a `lb` mapped to `hardBreak` is
-   * always zero-point).
-   *
-   * @param {string} type The project annotation type
-   * @returns {AnnotationExtent} The built-in's canonical extent (defaults to `range`)
-   */
-  function getBuiltinExtent(type: string): AnnotationExtent {
-    const editorRole: string = getEditorRole(type);
-
-    return BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole)?.extent ?? "range";
-  }
-
-  /**
-   * Returns the editor-owned properties of a structural annotation type: each pairs the editor
+   * Returns the editor-owned properties of a native structural type: each pairs the editor
    * `attribute` (the tiptap-native attr the editor needs, e.g. `level`) with the `property` (the
    * project's name for it). The property equals the attribute unless the project mapped it — e.g.
    * applying TEI semantics, `rows` instead of the native `rowspan`. `required` is taken from the built-in config.
    *
-   * @param {string} annotationType The project (configured) structural annotation type
+   * @param {BuiltinStructuralType} role The native structural type
    * @returns {{ property: string; attribute: string; required: boolean }[]} The editor-owned properties
    * @example
    * getEditorOwnedProperties("heading")
@@ -382,12 +304,9 @@ export function useConfigStore() {
    *    required: true,
    * }]
    */
-  function getEditorOwnedProperties(annotationType: string): { property: string; attribute: string; required: boolean }[] {
-    const editorRole: string = getEditorRole(annotationType);
-    const propertyByAttribute: Record<string, string> =
-      annotationMapping.value.attrByRole[editorRole as BuiltinStructuralType] ?? {};
-
-    const config: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === editorRole);
+  function getEditorOwnedProperties(role: BuiltinStructuralType): { property: string; attribute: string; required: boolean }[] {
+    const propertyByAttribute: Readonly<Record<string, string>> = annotationMapping.value.attrByRole[role] ?? {};
+    const config: NativeTypeConfig | undefined = BUILTIN_STRUCTURAL_CONFIGS.find((c) => c.type === role);
 
     return (config?.attributes ?? []).map((attribute) => ({
       attribute: attribute.name,
@@ -397,19 +316,15 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the editor role (the built-in structural type / tiptap node type) for a given project
-   * annotation type, via the active annotation mapping.
+   * Returns the editor role (the native structural type / tiptap node type) an annotation shape is mapped to.
    *
-   * E.g. `getEditorRole('p')` returns "paragraph" when the mapping binds `paragraph -> 'p'`.
-   * Falls back to the type itself (built-in used by its own name, or a custom type).
+   * Complementary function of {@linkcode getShapeOfRole}.
    *
-   * Complementary function of {@linkcode getAnnotationType}.
-   *
-   * @param {string} annotationType The project annotation type (e.g. `p`, `list`)
-   * @returns {string} The editor role (e.g. `paragraph`, `bulletList`) if mapped, else the type
+   * @param {ModelAnnotationShape} shape The annotation shape
+   * @returns {BuiltinStructuralType | undefined} The editor role (e.g. `paragraph`), `undefined` if the shape isn't mapped
    */
-  function getEditorRole(annotationType: string): string {
-    return roleByType.value[annotationType] ?? annotationType;
+  function getEditorRole(shape: ModelAnnotationShape): BuiltinStructuralType | undefined {
+    return roleByShapeRef.value.get(shapeRefOf(shape));
   }
 
   /**
@@ -462,38 +377,15 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the properties of the text annotations with the given type (without the shared ones like `uuid`).
-   *
-   * @param {string} type - The type of the annotation.
-   * @returns {ModelAttribute[]} The properties, empty if no Content node carries that type.
-   */
-  function getTextAnnotationProperties(type: string): ModelAttribute[] {
-    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
-
-    return shape ? getShapeProperties(shape) : [];
-  }
-
-  /**
-   * Returns the annotation shape of an annotation, from its `shapeRef` (resolved by the server, or set on creation).
-   * The text editor keys annotations by `type` and doesn't carry the ref (structural annotations are rebuilt, and their
-   * type can change), so without a matching ref the text annotation type decides, see {@linkcode getTextAnnotationShape}.
+   * Returns the annotation shape of an annotation, from its `shapeRef`: resolved by the server for stored annotations,
+   * set on creation, and by the text editor from the node's role for its structural annotations.
    *
    * @param {AnnotationNode} annotation - The annotation.
-   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for stored annotations that couldn't be resolved
-   *   (`shapeRef: null`) or unknown types.
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for annotations without one (`shapeRef: null`
+   *   for stored annotations the server couldn't resolve) or with a ref the model doesn't have.
    */
   function getAnnotationShape(annotation: AnnotationNode): ModelAnnotationShape | undefined {
-    const byRef: ModelAnnotationShape | undefined = annotation.shapeRef
-      ? findShape(getModelContext(), annotation.shapeRef)
-      : undefined;
-
-    if (byRef?.type === annotation.properties.type) {
-      return byRef;
-    } else if (annotation.shapeRef === null) {
-      return undefined;
-    } else {
-      return getTextAnnotationShape(annotation.properties.type);
-    }
+    return annotation.shapeRef ? findShape(getModelContext(), annotation.shapeRef) : undefined;
   }
 
   /**
@@ -527,54 +419,31 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the annotation shape of the text annotations with the given type, i.e. one a Content node may carry. The
-   * type is the text editor's key for annotation types; with an annotation at hand, use {@linkcode getAnnotationShape}.
+   * Returns the appearance of a text annotation shape as the text editor reads it, see {@linkcode toEditorAppearance}.
+   * Passed to the text editor, which renders highlights and markers from it.
    *
-   * @param {string} type - The type of the annotation.
-   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if no Content node carries that type.
-   */
-  function getTextAnnotationShape(type: string): ModelAnnotationShape | undefined {
-    return textShapesByType.value.get(type);
-  }
-
-  /**
-   * Returns the config of the text annotations with the given type.
-   *
-   * @param {string} type - The type of the annotation.
-   * @returns {AnnotationShapeConfig | undefined} The `elements.annotations` entry of the shape, if there is one.
-   */
-  function getTextAnnotationConfig(type: string): AnnotationShapeConfig | undefined {
-    const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(type);
-
-    return shape ? getShapeConfig(getModelContext(), shape) : undefined;
-  }
-
-  /**
-   * Returns the appearance of the text annotations with the given type as the text editor reads it, see
-   * {@linkcode toEditorAppearance}. Passed to the text editor, which renders highlights and markers from it.
-   *
-   * @param {string} type - The type of the annotation.
+   * @param {string} shapeRef - The ref of the annotation shape.
    * @returns {AnnotationAppearance | undefined} The appearance, if one is configured.
    */
-  function getTextAnnotationAppearance(type: string): AnnotationAppearance | undefined {
-    return editorAppearancesByType.value.get(type);
+  function getTextAnnotationAppearance(shapeRef: string): AnnotationAppearance | undefined {
+    return editorAppearancesByRef.value.get(shapeRef);
   }
 
   /**
-   * Returns the configured shortcuts of the text annotation types. Passed to the text editor, which binds them.
+   * Returns the configured shortcuts of the text annotation shapes. Passed to the text editor, which binds them.
    *
-   * @returns {Record<string, string>} The annotation type per shortcut in keymap notation, e.g. `Mod-Shift-e`. If a
-   *   shortcut is configured for several types, the last one wins (the config check warns about it).
+   * @returns {Record<string, string>} The shape ref per shortcut in keymap notation, e.g. `Mod-Shift-e`. If a
+   *   shortcut is configured for several shapes, the last one wins (the config check warns about it).
    */
   function getAnnotationShortcuts(): Record<string, string> {
     const context: ModelContext = getModelContext();
     const shortcuts: Record<string, string> = {};
 
-    for (const [type, shape] of textShapesByType.value) {
+    for (const shape of textShapes.value) {
       const shortcut: string | undefined = getShapeConfig(context, shape)?.controls?.shortcut;
 
       if (shortcut) {
-        shortcuts[shortcut] = type;
+        shortcuts[shortcut] = shapeRefOf(shape);
       }
     }
 
@@ -582,24 +451,24 @@ export function useConfigStore() {
   }
 
   /**
-   * Builds the editor appearances of the text annotation types, see {@linkcode toEditorAppearance}.
+   * Builds the editor appearances of the text annotation shapes, see {@linkcode toEditorAppearance}.
    *
    * @param {ModelContext} context - The model context.
-   * @returns {Map<string, AnnotationAppearance>} The appearances by type; types without a configured appearance are
-   *   left out.
+   * @returns {Map<string, AnnotationAppearance>} The appearances by shape ref; shapes without a configured appearance
+   *   are left out.
    */
   function collectEditorAppearances(context: ModelContext): Map<string, AnnotationAppearance> {
-    const byType = new Map<string, AnnotationAppearance>();
+    const byRef = new Map<string, AnnotationAppearance>();
 
-    for (const [type, shape] of textShapesByType.value) {
+    for (const shape of textShapes.value) {
       const appearance: AnnotationAppearance | undefined = getShapeConfig(context, shape)?.appearance;
 
       if (appearance) {
-        byType.set(type, toEditorAppearance(shape, appearance));
+        byRef.set(shapeRefOf(shape), toEditorAppearance(shape, appearance));
       }
     }
 
-    return byType;
+    return byRef;
   }
 
   /**
@@ -623,57 +492,54 @@ export function useConfigStore() {
   }
 
   /**
-   * Returns the annotation shape of a new annotation with the given type on a Collection, resolved from the
-   * Collection's classifier and the type. Existing annotations have theirs in `shapeRef`, see
-   * {@linkcode getAnnotationShape}.
+   * Returns the nesting priority of a structural annotation shape, from the rules of its native type.
    *
-   * @param {CollectionNode} collection - The Collection.
-   * @param {string} type - The type of the annotation.
-   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` if the Collection can't carry that type.
+   * @param {ModelAnnotationShape} shape The annotation shape
+   * @returns {number} The priority (higher is more outer), `0` for shapes not mapped to a native type
    */
-  function findCollectionAnnotationShape(collection: CollectionNode, type: string): ModelAnnotationShape | undefined {
-    const context: ModelContext = getModelContext();
-    const shapeRef: string | null = resolveShapeRef(
-      context,
-      getClassifierRef(context, collection) ?? BASE_NODE_REF.Collection,
-      type,
-    ).ref;
+  function getPriority(shape: ModelAnnotationShape): number {
+    const role: BuiltinStructuralType | undefined = getEditorRole(shape);
 
-    return shapeRef ? findShape(context, shapeRef) : undefined;
+    return role ? BUILTIN_STRUCTURAL_NESTING[role].priority : 0;
   }
 
   /**
-   * Returns the nesting priority of a structural annotation type, from the rules of its built-in type.
+   * Returns the annotation shape mapped to a native structural type.
    *
-   * @param {string} type The project annotation type
-   * @returns {number} The priority (higher is more outer), `0` for types without a built-in type
+   * Complementary function of {@linkcode getEditorRole}.
+   *
+   * @param {string} role The editor role (e.g. `paragraph`)
+   * @returns {ModelAnnotationShape | undefined} The shape, `undefined` for nodes that aren't native structural types
    */
-  function getPriorityForType(type: string): number {
-    return BUILTIN_STRUCTURAL_NESTING[getEditorRole(type) as BuiltinStructuralType]?.priority ?? 0;
+  function getShapeOfRole(role: string): ModelAnnotationShape | undefined {
+    return annotationMapping.value.shapeByRole[role as BuiltinStructuralType];
   }
 
   /**
-   * Checks if an annotation type is structural: a built-in type (under its project name) or a project type
-   * represented as structure.
+   * Returns the native structural types with the annotation shapes mapped to them. Every native type is mapped (enforced
+   * by `checkConfig`).
    *
-   * @param {string} type The project annotation type
-   * @returns {boolean} `true` if the type is structural
+   * @returns {StructuralShape[]} The structural shapes.
    */
-  function isStructuralType(type: string): boolean {
-    return structuralTypes.value.some((structural) => structural.type === type);
+  function getStructuralShapes(): StructuralShape[] {
+    return BUILTIN_STRUCTURAL_CONFIGS.flatMap((config: NativeTypeConfig): StructuralShape[] => {
+      const shape: ModelAnnotationShape | undefined = getShapeOfRole(config.type);
+
+      return shape ? [{ role: config.type, shape }] : [];
+    });
   }
 
   /**
-   * Groups the text annotation shapes by their configured `group`. Shapes whose type is mapped to a built-in structural
-   * type are always in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
+   * Groups the text annotation shapes by their configured `group`. Shapes mapped to a native structural type are always
+   * in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
    *
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
    */
   function groupAnnotationShapes(): Record<string, ModelAnnotationShape[]> {
     const grouped: Record<string, ModelAnnotationShape[]> = {};
 
-    for (const shape of textShapesByType.value.values()) {
-      const category: string = isBuiltinStructuralType(shape.type)
+    for (const shape of textShapes.value) {
+      const category: string = getEditorRole(shape)
         ? STRUCTURE_ANNOTATION_GROUP
         : getShapeConfig(getModelContext(), shape)?.group ?? DEFAULT_ANNOTATION_GROUP;
 
@@ -695,56 +561,30 @@ export function useConfigStore() {
     parsed.warnings.forEach((warning) => console.warn(`Miso config: ${warning}`));
     collectConfigWarnings(context).forEach((finding) => console.warn(`Miso config: ${formatFinding(finding)}`));
     modelContext.value = context;
-    textShapesByType.value = getTextShapesByType(context);
-    editorAppearancesByType.value = collectEditorAppearances(context);
+    textShapes.value = getTextShapes(context);
+    editorAppearancesByRef.value = collectEditorAppearances(context);
 
     initializeNodeIcons(context);
 
-    // Must be set before the structural types are built, since they are keyed by the project's type names
+    // Must be set before the shapes are grouped, since mapped shapes are always structural
     annotationMapping.value = buildAnnotationMapping(context);
-    structuralTypes.value = buildStructuralTypes();
     groupedAndSortedAnnotationShapes.value = sortAnnotationShapesInGroup(groupAnnotationShapes());
 
-    initializeFilter([...textShapesByType.value.keys()]);
+    initializeFilter(textShapes.value.map(shapeRefOf));
   }
 
   /**
-   * Checks if the given annotation type maps to one of the built-in structural types when set in the configuration.
-   *
-   * E.g. if the project has renamed 'paragraph' to 'p' in the configuration, this function returns true for 'paragraph'.
-   *
-   * @param {string} annotationType The annotation type
-   * @returns {boolean} True if the annotation type maps to one of the built-in structural types, `false` if otherwise
-   */
-  function isBuiltinStructuralType(annotationType: string): boolean {
-    const editorRole: string = getEditorRole(annotationType);
-
-    return BUILTIN_STRUCTURAL_CONFIGS.some((c) => c.type === editorRole);
-  }
-
-  /**
-   * Checks if the given annotation type is known to the editor: either it maps to one of the built-in structural
-   * types or a Content node may carry it according to the model.
-   *
-   * Used to check the annotation validity during document parsing on load.
-   *
-   * @param {string} annotationType The annotation type
-   * @returns {boolean} `true` if the annotation type is built-in or modelled, `false` otherwise
-   */
-  function isConfiguredAnnotationType(annotationType: string): boolean {
-    return isBuiltinStructuralType(annotationType) || textShapesByType.value.has(annotationType);
-  }
-
-  /**
-   * Returns whether an annotation is a zero-point annotation, based on its type's configured extent.
+   * Returns whether an annotation is a zero-point annotation, based on its shape's extent.
    * Configuration always beats instance data here; if it is configured as zero point, it will be treated
    * as zero point and it's `isZeroPoint` property will be updated to `true` on the next save.
    *
    * @param annotation - The annotation to check.
-   * @returns {boolean} `true` if the annotation is a zero-point annotation, `false` otherwise.
+   * @returns {boolean} `true` if the annotation is a zero-point annotation, `false` otherwise (also without a shape).
    */
   function isZeroPoint(annotation: AnnotationNode): boolean {
-    return getAnnotationExtent(annotation.properties.type) === "zeroPoint";
+    const shape: ModelAnnotationShape | undefined = getAnnotationShape(annotation);
+
+    return shape !== undefined && getAnnotationExtent(shape) === "zeroPoint";
   }
 
   /**
@@ -765,8 +605,6 @@ export function useConfigStore() {
     getAnnotationExtent,
     getAnnotationRepresentation,
     getAnnotationShortcuts,
-    getAnnotationType,
-    findCollectionAnnotationShape,
     getAnnotationNodeProperties,
     getAnnotationProperties,
     getAnnotationShape,
@@ -780,18 +618,13 @@ export function useConfigStore() {
     getNodeTypeOptions,
     getReferenceTypeOptions,
     getMissingAnnotationReferences,
-    getPriorityForType,
-    getStructuralTypes: (): StructuralType[] => structuralTypes.value,
+    getPriority,
+    getShapeOfRole,
+    getStructuralShapes,
     getTextAnnotationAppearance,
-    getTextAnnotationConfig,
-    getTextAnnotationProperties,
-    getTextAnnotationShape,
     groupedAndSortedAnnotationShapes,
     initializeConfig,
-    isBuiltinStructuralType,
-    isConfiguredAnnotationType,
     isInitialized: readonly(isInitialized),
-    isStructuralType,
     isZeroPoint,
   };
 }

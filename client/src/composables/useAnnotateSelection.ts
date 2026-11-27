@@ -8,6 +8,7 @@ import { useFilterStore } from "../store/filter";
 import { useCreateAnnotation } from "./useCreateAnnotation";
 import { AnnotationRangeError, validateSelection } from "../editors/text/src";
 import ShortcutError from "../utils/errors/shortcut.error";
+import { findShape, shapeRefOf } from "../utils/helper/modelHelper";
 import { ANNOTATION_MODAL_PROPS } from "../config/modals";
 import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
 
@@ -15,11 +16,11 @@ import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
  * Annotates the editor selection (annotation buttons and configured shortcuts). Needs to be called in a component's
  * setup, since it opens a dialog.
  *
- * @returns The functions to annotate the selection with an inline or block classification type, or by type alone.
+ * @returns The functions to annotate the selection with an inline or block classification shape, or by shape ref alone.
  */
 export function useAnnotateSelection() {
   const { tiptap } = useTiptapStore();
-  const { annotationHasConstraints, getTextAnnotationShape, getAnnotationRepresentation, isZeroPoint } = useConfigStore();
+  const { annotationHasConstraints, getAnnotationRepresentation, getModelContext, isZeroPoint } = useConfigStore();
   const { addToastMessage, createModalInstance, destroyModalInstance } = useAppStore();
   const { selectedOptions } = useFilterStore();
   const { createTextAnnotation: createAnnotation } = useCreateAnnotation("Content");
@@ -27,15 +28,16 @@ export function useAnnotateSelection() {
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
   /**
-   * Checks if the annotation type is enabled by verifying if it is included in the selected options. If not, an `ShortcutError` is thrown.
+   * Checks if the annotation shape is enabled by verifying if it is included in the selected options. If not, an `ShortcutError` is thrown.
    *
-   * @throws {ShortcutError} If the annotation type is not enabled in the current filter settings.
-   * @returns {boolean} True if the annotation type is enabled.
+   * @param {ModelAnnotationShape} shape - The annotation shape.
+   * @throws {ShortcutError} If the annotation shape is not enabled in the current filter settings.
+   * @returns {boolean} True if the annotation shape is enabled.
    */
-  function isAnnotationTypeEnabled(type: string): boolean {
-    if (!selectedOptions.value.includes(type)) {
+  function isShapeEnabled(shape: ModelAnnotationShape): boolean {
+    if (!selectedOptions.value.includes(shapeRefOf(shape))) {
       throw new ShortcutError(
-        `Annotations of type "${type}" are not enabled currently. Use the Filter component to enable the type.`,
+        `Annotations of type "${shape.type}" are not enabled currently. Use the Filter component to enable the type.`,
       );
     }
 
@@ -70,38 +72,29 @@ export function useAnnotateSelection() {
 
   /**
    * Annotates the selection with an inline (range or zero point) annotation. Opens the
-   * {@linkcode AnnotationDetailsModal} first if the type has constraints.
+   * {@linkcode AnnotationDetailsModal} first if the shape has constraints.
    *
-   * @param {{ type: string }} data - The annotation type.
+   * @param {{ shape: ModelAnnotationShape }} data - The annotation shape.
    * @returns {void} This function does not return any value.
    */
-  function annotateInline(data: { type: string }): void {
+  function annotateInline(data: { shape: ModelAnnotationShape }): void {
     const selection: Selection | undefined = tiptap.value?.state.selection;
+    const { shape } = data;
 
     if (!selection) {
       return;
     }
 
     try {
-      const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
-
-      if (!shape) {
-        console.error(`No annotation shape found for type "${data.type}"`);
-        return;
-      }
-
-      isAnnotationTypeEnabled(data.type);
-      validateSelection(selection, data.type);
+      isShapeEnabled(shape);
+      validateSelection(selection, shape);
 
       // Needs to be captured since modal opening collapses editor selection
       const capturedSelection = { from: selection.from, to: selection.to };
 
       const textInSelection: string = tiptap.value?.state.doc.textBetween(selection.from, selection.to) ?? "";
 
-      const newAnnotationTemplate: Annotation = createAnnotation({
-        ...data,
-        selectedText: textInSelection,
-      });
+      const newAnnotationTemplate: Annotation = createAnnotation({ shape, selectedText: textInSelection });
 
       if (annotationHasConstraints(shape)) {
         createModalInstance(
@@ -159,38 +152,29 @@ export function useAnnotateSelection() {
 
   /**
    * Classifies the blocks in the selection with a block classification type. Opens the
-   * {@linkcode AnnotationDetailsModal} first if the type has constraints.
+   * {@linkcode AnnotationDetailsModal} first if the shape has constraints.
    *
-   * @param {{ type: string }} data - The annotation type.
+   * @param {{ shape: ModelAnnotationShape }} data - The annotation shape.
    * @returns {void} This function does not return any value.
    */
-  function annotateBlock(data: { type: string }): void {
+  function annotateBlock(data: { shape: ModelAnnotationShape }): void {
     const selection: Selection | undefined = tiptap.value?.state.selection;
+    const { shape } = data;
 
     if (!selection) {
       return;
     }
 
     try {
-      const shape: ModelAnnotationShape | undefined = getTextAnnotationShape(data.type);
-
-      if (!shape) {
-        console.error(`No annotation shape found for type "${data.type}"`);
-        return;
-      }
-
-      isAnnotationTypeEnabled(data.type);
-      validateSelection(selection, data.type);
+      isShapeEnabled(shape);
+      validateSelection(selection, shape);
 
       // Needs to be captured since modal opening collapses editor selection
       const capturedSelection = { from: selection.from, to: selection.to };
 
       const textInSelection: string = tiptap.value?.state.doc.textBetween(capturedSelection.from, capturedSelection.to) ?? "";
 
-      const newAnnotationTemplate: Annotation = createAnnotation({
-        ...data,
-        selectedText: textInSelection,
-      });
+      const newAnnotationTemplate: Annotation = createAnnotation({ shape, selectedText: textInSelection });
 
       // Like inline annotations: with required properties or references, the modal only lets a complete one through
       if (annotationHasConstraints(shape)) {
@@ -222,19 +206,23 @@ export function useAnnotateSelection() {
   }
 
   /**
-   * Annotates the selection with the given type, as block classification or inline annotation depending on its
+   * Annotates the selection with the given shape, as block classification or inline annotation depending on its
    * representation. Used for the configured annotation shortcuts.
    *
-   * @param {string} type - The annotation type.
+   * @param {string} shapeRef - The ref of the annotation shape.
    * @returns {void} This function does not return any value.
    */
-  function annotateByType(type: string): void {
-    if (getAnnotationRepresentation(type) === "blockClassification") {
-      annotateBlock({ type });
+  function annotateByShapeRef(shapeRef: string): void {
+    const shape: ModelAnnotationShape | undefined = findShape(getModelContext(), shapeRef);
+
+    if (!shape) {
+      console.error(`No annotation shape found for ref "${shapeRef}"`);
+    } else if (getAnnotationRepresentation(shape) === "blockClassification") {
+      annotateBlock({ shape });
     } else {
-      annotateInline({ type });
+      annotateInline({ shape });
     }
   }
 
-  return { annotateBlock, annotateByType, annotateInline };
+  return { annotateBlock, annotateByShapeRef, annotateInline };
 }

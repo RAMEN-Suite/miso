@@ -645,22 +645,19 @@ function getContentCarrierRefs(context: ModelContext): string[] {
 }
 
 /**
- * The annotation shapes Content nodes may carry, by type. Of several shapes with the same type, the first one wins,
- * since name matching couldn't tell them apart ({@linkcode collectConfigWarnings} reports them).
+ * The annotation shapes Content nodes may carry, each once.
  *
  * @param {ModelContext} context - The model context.
- * @returns {Map<string, ModelAnnotationShape>} The shapes by type.
+ * @returns {ModelAnnotationShape[]} The shapes, in the order of the Content carriers.
  */
-export function getTextShapesByType(context: ModelContext): Map<string, ModelAnnotationShape> {
-  const byType = new Map<string, ModelAnnotationShape>();
+export function getTextShapes(context: ModelContext): ModelAnnotationShape[] {
+  const byRef = new Map<string, ModelAnnotationShape>();
 
   for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
-    if (!byType.has(shape.type)) {
-      byType.set(shape.type, shape);
-    }
+    byRef.set(shapeRefOf(shape), shape);
   }
 
-  return byType;
+  return [...byRef.values()];
 }
 
 /**
@@ -676,29 +673,20 @@ export function getCollectionAttributes(context: ModelContext, nodeLabels: strin
 }
 
 /**
- * Checks the config for problems the name lookups can't handle. They aren't fatal: the affected entries are left out.
+ * Checks the config for problems that aren't fatal: the affected entries are left out.
  *
  * @param {ModelContext} context - The model context.
  * @returns {string[]} The problems found.
  */
 export function collectConfigWarnings(context: ModelContext): string[] {
   const warnings: string[] = [];
-  const textShapes: Map<string, ModelAnnotationShape> = getTextShapesByType(context);
-  const textShapeRefs = new Set<string>([...textShapes.values()].map(shapeRefOf));
+  const textShapeRefs = new Set<string>(getTextShapes(context).map(shapeRefOf));
 
-  // Shapes with the type of another text shape
-  for (const shape of getContentCarrierRefs(context).flatMap((ref) => getShapesForNode(context, ref))) {
-    if (!textShapeRefs.has(shapeRefOf(shape))) {
-      warnings.push(`A second annotation shape with type "${shape.type}" is left out (${shapeRefOf(shape)})`);
-      textShapeRefs.add(shapeRefOf(shape));
-    }
-  }
-
-  // Mappings that don't point to a text annotation type, or map a native type twice
+  // Mappings that don't point to a text annotation shape, or map a native type twice
   const mappedNativeTypes = new Set<string>();
 
   for (const mapping of context.config.editors.text.mappings) {
-    if (![...textShapes.values()].some((shape) => shapeRefOf(shape) === mapping.annotation)) {
+    if (!textShapeRefs.has(mapping.annotation)) {
       warnings.push(`editors.text.mappings: "${mapping.annotation}" (${mapping.native}) is no annotation shape on Content nodes`);
     } else if (mappedNativeTypes.has(mapping.native)) {
       warnings.push(`editors.text.mappings: native type "${mapping.native}" is mapped twice`);

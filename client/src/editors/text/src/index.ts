@@ -44,6 +44,7 @@ export type {
   SpecialCharacterGroup,
   SpecialCharacterGroupConfig,
   StandoffParseIssue,
+  StructuralShape,
   ToCItem,
   TiptapJson,
   TiptapNode,

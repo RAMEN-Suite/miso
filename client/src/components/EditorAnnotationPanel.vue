@@ -44,9 +44,9 @@ const annotationsInSelection = computed<Annotation[]>(() => {
   return [...collectInlineAnnotations(tiptap.value.state, { from, to }).values()];
 });
 
-/** Annotations in the selection that pass the type filter. */
+/** Annotations in the selection that pass the filter. */
 const filteredAnnotations = computed<Annotation[]>(() =>
-  annotationsInSelection.value.filter((annotation) => isTypeSelected(annotation.node.properties.type)),
+  annotationsInSelection.value.filter((annotation) => isShapeSelected(annotation.node.shapeRef)),
 );
 
 /** The filtered annotations that are rendered as cards, capped at {@linkcode cardLimit}. */
@@ -80,8 +80,8 @@ function resetCollapseOverrides(): void {
   collapseOverrides.value.clear();
 }
 
-function isTypeSelected(type: string): boolean {
-  return selectedOptions.value.includes(type);
+function isShapeSelected(shapeRef: string | null | undefined): boolean {
+  return shapeRef ? selectedOptions.value.includes(shapeRef) : false;
 }
 
 function isCardCollapsed(uuid: string): boolean {

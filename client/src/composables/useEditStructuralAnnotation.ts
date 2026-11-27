@@ -1,6 +1,7 @@
 import { useDialog } from "primevue";
 import { Node as PmNode } from "@tiptap/pm/model";
-import { Annotation, ElementNodeStatus, ModelAttribute } from "../models/types";
+import { Annotation, BuiltinStructuralType, ElementNodeStatus, ModelAnnotationShape, ModelAttribute } from "../models/types";
+import { getShapeProperties } from "../utils/helper/modelHelper";
 import { type DocAnnotation, findNodePosByUuid, toAnnotation } from "../editors/text/src";
 import { useTiptapStore } from "../store/tiptap";
 import { useConfigStore } from "../store/config";
@@ -16,7 +17,7 @@ import AnnotationDetailsModal from "../components/AnnotationDetailsModal.vue";
  */
 export function useEditStructuralAnnotation() {
   const { tiptap, initialStructuralAnnotations } = useTiptapStore();
-  const { getAnnotationType, getTextAnnotationProperties, getEditorOwnedProperties, isStructuralType } = useConfigStore();
+  const { getShapeOfRole, getEditorOwnedProperties } = useConfigStore();
   const { createModalInstance, destroyModalInstance } = useAppStore();
   const dialog: ReturnType<typeof useDialog> = useDialog();
 
@@ -49,14 +50,14 @@ export function useEditStructuralAnnotation() {
       return;
     }
 
-    const type: string = getAnnotationType(node.type.name);
+    const shape: ModelAnnotationShape | undefined = getShapeOfRole(node.type.name);
 
-    if (!isStructuralType(type)) {
-      console.error(`"${type}" is no structural annotation type.`);
+    if (!shape) {
+      console.error(`"${node.type.name}" has no structural annotation shape.`);
       return;
     }
 
-    const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
+    const editorOwned: string[] = getEditorOwnedProperties(node.type.name as BuiltinStructuralType).map((p) => p.property);
     const isEditableInForm = (field: ModelAttribute): boolean => !editorOwned.includes(field.attribute.name);
 
     const status: ElementNodeStatus = initialStructuralAnnotations.value?.has(uuid) ? "unchanged" : "created";
@@ -66,11 +67,11 @@ export function useEditStructuralAnnotation() {
       dialog.open(AnnotationDetailsModal, {
         props: {
           ...ANNOTATION_MODAL_PROPS,
-          header: `Edit ${type} annotation`,
+          header: `Edit ${shape.type} annotation`,
         },
         data: {
           annotation,
-          propertyFields: getTextAnnotationProperties(type).filter(isEditableInForm),
+          propertyFields: getShapeProperties(shape).filter(isEditableInForm),
           mode: "edit",
         },
         emits: {

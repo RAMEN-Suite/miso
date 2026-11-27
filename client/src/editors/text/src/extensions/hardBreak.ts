@@ -2,7 +2,7 @@ import HardBreak, { type HardBreakOptions } from "@tiptap/extension-hard-break";
 import { Node as PmNode } from "@tiptap/pm/model";
 import { EditorState, Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, EditorView } from "@tiptap/pm/view";
-import { Annotation, useConfigStore } from "../external";
+import { Annotation, BuiltinStructuralType, ModelAnnotationShape, getShapeProperties, useConfigStore } from "../external";
 import { DocAnnotation } from "../models/types";
 import { toDocAnnotation } from "../utils/helper/annotationHelper";
 
@@ -52,7 +52,7 @@ const UUID_ATTRIBUTE = "data-hard-break-uuid" as const;
 
 const HARD_BREAK_MARKERS_KEY = new PluginKey<DecorationSet>("hardBreakMarkers");
 
-const { getAnnotationType, getTextAnnotationProperties, getEditorOwnedProperties } = useConfigStore();
+const { getShapeOfRole, getEditorOwnedProperties } = useConfigStore();
 
 interface AnnotatedHardBreakOptions extends HardBreakOptions {
   /** Called with the hard break's uuid when its `¬` is clicked, e.g. to edit its properties. */
@@ -66,17 +66,17 @@ interface AnnotatedHardBreakOptions extends HardBreakOptions {
 }
 
 /**
- * Returns the names of the line break properties that can be edited in a form: those of the line break annotation
- * type without the editor-owned ones.
+ * Returns the names of the line break properties that can be edited in a form: those of the annotation shape mapped to
+ * line breaks without the editor-owned ones.
  *
  * @param {string} nodeName - The name of the hard break node type.
  * @returns {string[]} The property names, empty if the project gives line breaks no properties.
  */
 function getEditableProperties(nodeName: string): string[] {
-  const type: string = getAnnotationType(nodeName);
-  const editorOwned: string[] = getEditorOwnedProperties(type).map((p) => p.property);
+  const shape: ModelAnnotationShape | undefined = getShapeOfRole(nodeName);
+  const editorOwned: string[] = getEditorOwnedProperties(nodeName as BuiltinStructuralType).map((p) => p.property);
 
-  return getTextAnnotationProperties(type)
+  return (shape ? getShapeProperties(shape) : [])
     .map((field) => field.attribute.name)
     .filter((name) => !editorOwned.includes(name));
 }

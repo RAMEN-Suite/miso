@@ -8,17 +8,17 @@ const router: Router = express.Router();
 const annotationService: AnnotationService = new AnnotationService();
 
 /**
- * Annotations of the node `parent` (a Content or Collection), in the element format. `types` (comma-separated) limits
- * them to these top-level types.
+ * Annotations of the node `parent` (a Content or Collection), in the element format. `shapes` (comma-separated shape
+ * refs) limits them to the top-level annotations of these annotation shapes.
  */
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   const parentUuid: string = parseUuidFrom(req.query, ["parent"]);
-  const rawTypes: unknown = req.query.types;
-  const types: string[] | undefined =
-    typeof rawTypes === "string" ? rawTypes.split(",").filter((type: string) => type.trim() !== "") : undefined;
+  const rawShapes: unknown = req.query.shapes;
+  const shapes: string[] | undefined =
+    typeof rawShapes === "string" ? rawShapes.split(",").filter((ref: string) => ref.trim() !== "") : undefined;
 
   try {
-    const annotations: ElementResponse = await annotationService.getAnnotations(parentUuid, { types });
+    const annotations: ElementResponse = await annotationService.getAnnotations(parentUuid, { shapes });
 
     res.status(200).json(annotations);
   } catch (error: unknown) {

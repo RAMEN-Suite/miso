@@ -4,6 +4,7 @@ import { useConfigStore } from "../store/config";
 import { capitalize } from "../utils/helper/helper";
 import AnnotationButton from "./AnnotationButton.vue";
 import { ModelAnnotationShape } from "../models/types";
+import { shapeRefOf } from "../utils/helper/modelHelper";
 import { useAnnotateSelection } from "../composables/useAnnotateSelection";
 import { useInsertLineBreak } from "../composables/useInsertLineBreak";
 import { useFilterStore } from "../store/filter";
@@ -56,7 +57,7 @@ const selectedCategory = ref<string>("");
 
 const blockClassificationShapes = computed<ModelAnnotationShape[]>(() =>
   (groupedAndSortedAnnotationShapes.value?.[STRUCTURE_ANNOTATION_GROUP] ?? []).filter(
-    (shape) => getAnnotationRepresentation(shape.type) === "blockClassification",
+    (shape) => getAnnotationRepresentation(shape) === "blockClassification",
   ),
 );
 
@@ -293,11 +294,10 @@ function openTableMenu(event: Event): void {
             <Divider layout="vertical" class="mx-3! self-stretch" />
             <AnnotationButton
               v-for="shape in blockClassificationShapes"
-              :key="shape.type"
+              :key="shapeRefOf(shape)"
               v-tooltip.hover.top="{ value: shape.type, showDelay: 50 }"
               severity="secondary"
-              :type="shape.type"
-              :disabled="!selectedOptions.includes(shape.type)"
+              :disabled="!selectedOptions.includes(shapeRefOf(shape))"
               :class="{ 'is-active': true }"
               :shape="shape"
               @clicked="annotateBlock($event)"
@@ -319,9 +319,8 @@ function openTableMenu(event: Event): void {
               <div class="buttons">
                 <AnnotationButton
                   v-for="shape in shapes"
-                  :key="shape.type"
-                  :type="shape.type"
-                  :disabled="!selectedOptions.includes(shape.type)"
+                  :key="shapeRefOf(shape)"
+                  :disabled="!selectedOptions.includes(shapeRefOf(shape))"
                   :shape="shape"
                   @clicked="annotateInline($event)"
                 />

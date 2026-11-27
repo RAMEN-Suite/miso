@@ -72,7 +72,7 @@ const modelContext = shallowRef<ModelContext>();
 const textShapesByType = shallowRef<Map<string, ModelAnnotationShape>>(new Map());
 const isInitialized = computed<boolean>(() => modelContext.value !== undefined);
 
-const groupedAndSortedAnnotationTypes = shallowRef<Record<string, ModelAnnotationShape[]>>();
+const groupedAndSortedAnnotationShapes = shallowRef<Record<string, ModelAnnotationShape[]>>();
 
 /**
  * The appearances of the text annotation types as the text editor reads them (property names instead of attribute
@@ -664,12 +664,12 @@ export function useConfigStore() {
   }
 
   /**
-   * Groups the text annotation types by their configured `group`. Types mapped to a built-in structural type
-   * are always in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
+   * Groups the text annotation shapes by their configured `group`. Shapes whose type is mapped to a built-in structural
+   * type are always in {@linkcode STRUCTURE_ANNOTATION_GROUP}, like their representation is always `structure`.
    *
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group.
    */
-  function groupAnnotationTypes(): Record<string, ModelAnnotationShape[]> {
+  function groupAnnotationShapes(): Record<string, ModelAnnotationShape[]> {
     const grouped: Record<string, ModelAnnotationShape[]> = {};
 
     for (const shape of textShapesByType.value.values()) {
@@ -703,7 +703,7 @@ export function useConfigStore() {
     // Must be set before the structural types are built, since they are keyed by the project's type names
     annotationMapping.value = buildAnnotationMapping(context);
     structuralTypes.value = buildStructuralTypes();
-    groupedAndSortedAnnotationTypes.value = sortAnnotationTypesInGroup(groupAnnotationTypes());
+    groupedAndSortedAnnotationShapes.value = sortAnnotationShapesInGroup(groupAnnotationShapes());
 
     initializeFilter([...textShapesByType.value.keys()]);
   }
@@ -748,12 +748,12 @@ export function useConfigStore() {
   }
 
   /**
-   * Sorts each group of annotation types alphabetically by their type within their respective category.
+   * Sorts the annotation shapes of each group alphabetically by their type.
    *
    * @param {Record<string, ModelAnnotationShape[]>} grouped - The annotation shapes by group.
    * @return {Record<string, ModelAnnotationShape[]>} The annotation shapes by group, sorted by type.
    */
-  function sortAnnotationTypesInGroup(grouped: Record<string, ModelAnnotationShape[]>): Record<string, ModelAnnotationShape[]> {
+  function sortAnnotationShapesInGroup(grouped: Record<string, ModelAnnotationShape[]>): Record<string, ModelAnnotationShape[]> {
     return Object.fromEntries(
       Object.entries(grouped).map(([category, shapes]) => [category, shapes.toSorted((a, b) => a.type.localeCompare(b.type))]),
     );
@@ -786,7 +786,7 @@ export function useConfigStore() {
     getTextAnnotationConfig,
     getTextAnnotationProperties,
     getTextAnnotationShape,
-    groupedAndSortedAnnotationTypes,
+    groupedAndSortedAnnotationShapes,
     initializeConfig,
     isBuiltinStructuralType,
     isConfiguredAnnotationType,

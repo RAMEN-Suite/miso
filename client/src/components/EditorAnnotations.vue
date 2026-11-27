@@ -21,7 +21,7 @@ export interface TreeNode {
   type: "category" | "type" | "annotation";
 }
 
-const { groupedAndSortedAnnotationTypes, isZeroPoint } = useConfigStore();
+const { groupedAndSortedAnnotationShapes, isZeroPoint } = useConfigStore();
 const { tiptap } = useTiptapStore();
 
 /** Delay in ms before the list is rebuilt after a change in the editor. */
@@ -55,7 +55,7 @@ updateDisplayedAnnotations();
 const nodes: ComputedRef<TreeNode[]> = computed(() => {
   const nodes: TreeNode[] = [];
 
-  Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).forEach(([category, annotationType], i: number) => {
+  Object.entries(groupedAndSortedAnnotationShapes.value ?? {}).forEach(([category, shapes], i: number) => {
     const newCategory = {
       key: i.toString(),
       label: category,
@@ -64,16 +64,16 @@ const nodes: ComputedRef<TreeNode[]> = computed(() => {
       annotationCount: 0,
     } satisfies TreeNode;
 
-    annotationType.forEach((annoType: ModelAnnotationShape, j: number) => {
+    shapes.forEach((shape: ModelAnnotationShape, j: number) => {
       const newAnnotationType = {
         key: i.toString() + "-" + j.toString(),
-        label: annoType.type,
+        label: shape.type,
         type: "type",
-        shape: annoType,
+        shape,
         children: [] as TreeNode[],
       } satisfies TreeNode;
 
-      const annos: Annotation[] = displayedAnnotations.value.filter((a) => a.node.properties.type === annoType.type);
+      const annos: Annotation[] = displayedAnnotations.value.filter((a) => a.node.properties.type === shape.type);
 
       annos.forEach((anno: Annotation, k: number) => {
         const newAnnotation: TreeNode = {

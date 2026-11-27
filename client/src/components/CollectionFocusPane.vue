@@ -113,19 +113,19 @@ const displayLabel = computed<string>(
   () => filterBaseNodeLabels(temporaryWorkData.value.collection.nodeLabels).join(", ") || "entry",
 );
 
-const availabeAnnotationTypes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
+const availableAnnotationShapes: ComputedRef<ModelAnnotationShape[]> = computed(() =>
   getCollectionAnnotationShapes(temporaryWorkData.value.collection),
 );
 
 const annotationMenu = useTemplateRef<InstanceType<typeof TieredMenu>>("annotation-menu");
 
 const annotationMenuItems: ComputedRef<MenuItem[]> = computed(() => {
-  return availabeAnnotationTypes.value
+  return availableAnnotationShapes.value
     .toSorted((a, b) => a.type.localeCompare(b.type))
-    .map((type: ModelAnnotationShape) => ({
-      label: type.type,
-      annotationShape: type,
-      command: () => handleAnnotationButtonClick({ type: type.type }),
+    .map((shape: ModelAnnotationShape) => ({
+      label: shape.type,
+      annotationShape: shape,
+      command: () => handleAnnotationButtonClick({ type: shape.type }),
     }));
 });
 
@@ -708,7 +708,7 @@ function transferDataToListItem(uuid: string, index: number, data: CollectionNod
             @edit="handleEditAnnotation(annotation.properties.uuid)"
             @remove="handleRemoveAnnotation(annotation.properties.uuid, $event)"
           />
-          <div v-if="availabeAnnotationTypes.length > 0" class="annotation-button-pane">
+          <div v-if="availableAnnotationShapes.length > 0" class="annotation-button-pane">
             <Button
               class="add-annotation-button"
               icon="icon-plus"

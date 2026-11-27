@@ -11,7 +11,7 @@ import Checkbox from "primevue/checkbox";
 import Popover from "primevue/popover";
 
 const { areAllOptionsSelected, selectedOptions, selectAllOptions, toggleOptions } = useFilterStore();
-const { groupedAndSortedAnnotationTypes } = useConfigStore();
+const { groupedAndSortedAnnotationShapes } = useConfigStore();
 
 const popover = useTemplateRef<InstanceType<typeof Popover>>("popover");
 
@@ -20,50 +20,50 @@ const collapsedCategories = ref<Set<string>>(new Set());
 
 const filterableCategories: ComputedRef<Record<string, ModelAnnotationShape[]>> = computed(() => {
   return Object.fromEntries(
-    Object.entries(groupedAndSortedAnnotationTypes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
+    Object.entries(groupedAndSortedAnnotationShapes.value ?? {}).filter(([category]) => category !== STRUCTURE_ANNOTATION_GROUP),
   );
 });
 
 /**
- * Retrieves the type names of the given annotation types.
+ * Retrieves the type names of the given annotation shapes.
  *
- * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
+ * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
  * @returns {string[]} The type names.
  */
-function getCategoryTypes(types: ModelAnnotationShape[]): string[] {
-  return types.map((t) => t.type);
+function getCategoryTypes(shapes: ModelAnnotationShape[]): string[] {
+  return shapes.map((shape) => shape.type);
 }
 
 /**
- * Counts how many of the given annotation types are currently selected.
+ * Counts how many of the given annotation shapes are currently selected.
  *
- * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
+ * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
  * @returns {number} The number of selected types.
  */
-function getSelectedCount(types: ModelAnnotationShape[]): number {
-  return types.filter((t) => selectedOptions.value.includes(t.type)).length;
+function getSelectedCount(shapes: ModelAnnotationShape[]): number {
+  return shapes.filter((shape) => selectedOptions.value.includes(shape.type)).length;
 }
 
 /**
- * Checks if all annotation types of a category are selected.
+ * Checks if all annotation shapes of a category are selected.
  *
- * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
+ * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
  * @returns {boolean} True if every type is selected.
  */
-function isCategoryFullySelected(types: ModelAnnotationShape[]): boolean {
-  return types.length > 0 && getSelectedCount(types) === types.length;
+function isCategoryFullySelected(shapes: ModelAnnotationShape[]): boolean {
+  return shapes.length > 0 && getSelectedCount(shapes) === shapes.length;
 }
 
 /**
- * Checks if only some (but not all or none) annotation types of a category are selected.
+ * Checks if only some (but not all or none) annotation shapes of a category are selected.
  *
- * @param {ModelAnnotationShape[]} types - The annotation shapes of a category.
+ * @param {ModelAnnotationShape[]} shapes - The annotation shapes of a category.
  * @returns {boolean} True if the selection is partial.
  */
-function isCategoryPartiallySelected(types: ModelAnnotationShape[]): boolean {
-  const count: number = getSelectedCount(types);
+function isCategoryPartiallySelected(shapes: ModelAnnotationShape[]): boolean {
+  const count: number = getSelectedCount(shapes);
 
-  return count > 0 && count < types.length;
+  return count > 0 && count < shapes.length;
 }
 
 /**
@@ -113,7 +113,7 @@ function togglePopover(event: Event): void {
     <Popover ref="popover">
       <div class="filter-panel flex flex-col gap-2">
         <div class="categories flex flex-col">
-          <section v-for="(annotationTypes, category) in filterableCategories" :key="category" class="category">
+          <section v-for="(shapes, category) in filterableCategories" :key="category" class="category">
             <div class="category-header flex items-center gap-1">
               <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
@@ -122,12 +122,12 @@ function togglePopover(event: Event): void {
                 class="row category-toggle flex flex-1 items-center gap-2 min-w-0"
               >
                 <Checkbox
-                  :model-value="isCategoryFullySelected(annotationTypes)"
-                  :indeterminate="isCategoryPartiallySelected(annotationTypes)"
+                  :model-value="isCategoryFullySelected(shapes)"
+                  :indeterminate="isCategoryPartiallySelected(shapes)"
                   :input-id="`filter-category-${category}`"
                   binary
                   size="small"
-                  @update:model-value="toggleOptions(getCategoryTypes(annotationTypes))"
+                  @update:model-value="toggleOptions(getCategoryTypes(shapes))"
                 />
                 <span class="category-name truncate">
                   {{ capitalize(category) }}
@@ -148,21 +148,16 @@ function togglePopover(event: Event): void {
             <div v-show="!collapsedCategories.has(category)" class="options flex flex-col">
               <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- No id as component prop currently -->
               <label
-                v-for="annotationType of annotationTypes"
-                :key="annotationType.type"
-                :for="`filter-type-${annotationType.type}`"
+                v-for="shape of shapes"
+                :key="shape.type"
+                :for="`filter-type-${shape.type}`"
                 class="row option flex items-center gap-2"
               >
-                <Checkbox
-                  v-model="selectedOptions"
-                  :input-id="`filter-type-${annotationType.type}`"
-                  :value="annotationType.type"
-                  size="small"
-                />
+                <Checkbox v-model="selectedOptions" :input-id="`filter-type-${shape.type}`" :value="shape.type" size="small" />
                 <span class="annotation-type-icon-container shrink-0">
-                  <AnnotationTypeIcon :shape="annotationType" :size="16" />
+                  <AnnotationTypeIcon :shape="shape" :size="16" />
                 </span>
-                <span class="option-name">{{ annotationType.type }}</span>
+                <span class="option-name">{{ shape.type }}</span>
               </label>
             </div>
           </section>
